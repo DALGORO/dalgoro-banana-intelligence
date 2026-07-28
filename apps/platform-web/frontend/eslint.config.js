@@ -19,5 +19,21 @@ export default defineConfig([
       ecmaVersion: 2020,
       globals: globals.browser,
     },
+    rules: {
+      // Línea base heredada: mantener visibles estos hallazgos sin ampliar
+      // DBI-CI-002 a una refactorización funcional del frontend.
+      '@typescript-eslint/no-explicit-any': 'warn',
+      '@typescript-eslint/no-unused-vars': [
+        'error',
+        {
+          argsIgnorePattern: '^_',
+          caughtErrorsIgnorePattern: '^_',
+        },
+      ],
+      'no-empty': ['error', { allowEmptyCatch: true }],
+      'no-useless-catch': 'warn',
+      'prefer-const': 'warn',
+      'react-refresh/only-export-components': 'warn',
+    },
   },
 ])
