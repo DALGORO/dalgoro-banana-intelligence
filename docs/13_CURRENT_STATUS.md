@@ -1,7 +1,7 @@
 # 13 — Estado actual
 
 ## Versión
-0.1.1-sec-audit (rama de trabajo)
+0.1.1-sec-audit
 
 ## Terminado
 - Estructura inicial del monorepositorio.
@@ -9,18 +9,21 @@
 - Exclusión inicial de secretos y archivos generados.
 - Documentos maestros iniciales.
 - CI básica.
+- `DBI-SEC-001`: auditoría de secretos, dependencias y estructura importada.
 
-## Ticket en curso
+## Último ticket completado
 `DBI-SEC-001` — Auditoría de secretos, dependencias y estructura importada.
 
-### Cambios preparados
-- Corrección de la dependencia concatenada del motor de densidad.
-- Retiro de identificadores internos como valores predeterminados del bot.
-- Reducción de logs del webhook a metadatos técnicos sin payload, teléfono ni
+### Resultado
+- Corregida la dependencia concatenada del motor de densidad.
+- Retirados los identificadores internos como valores predeterminados del bot.
+- Reducidos los logs del webhook a metadatos técnicos sin payload, teléfono ni
   mensaje.
-- Ampliación conservadora de `.gitignore`.
-- Registro de la política de aislamiento PostgreSQL/PostGIS.
-- Inventario de copias, respaldos, volcados de revisión y binarios.
+- Ampliado `.gitignore` de forma conservadora.
+- Registrada la política de aislamiento PostgreSQL/PostGIS.
+- Inventariadas las copias, respaldos, volcados de revisión y binarios.
+- Confirmada la existencia en Render de `GOOGLE_SHEET_ID` y
+  `NUMERO_PERSONAL_DALGORO`, sin registrar ni modificar sus valores.
 
 ### Estado de validación
 - Compilación de los archivos Python modificados: aprobada.
@@ -32,11 +35,10 @@
   la ejecución `30403611971`.
 - La instalación completa del motor queda pendiente del entorno indicado en
   `docs/14_SECURITY_AUDIT_DBI-SEC-001.md`.
-- El ticket permanecerá en Draft PR hasta revisión del propietario.
 - No se declara instalación reproducible completa de Python hasta ejecutar el
   CI ampliado previsto en `DBI-CI-002`.
 
-## Próximo ticket después de la aprobación
+## Próximo ticket
 `DBI-CI-002` — Integración continua real e independiente por módulo.
 
 ## No realizado todavía
@@ -46,6 +48,6 @@
 - No se han ejecutado migraciones.
 - No existe todavía el dashboard agrícola.
 - No existe todavía el mapa cronológico.
-- No se han cambiado Green API, Google Sheets ni Render.
+- No se han cambiado Green API, Google Sheets ni la configuración de Render.
 - No se ha cambiado la lógica conversacional del bot.
 - No se han actualizado modelos de IA.
