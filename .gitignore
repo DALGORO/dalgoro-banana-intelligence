@@ -1,16 +1,23 @@
-﻿# ============================================================
+# ============================================================
 # SECRETOS Y CREDENCIALES
 # ============================================================
 .env
 .env.*
 !.env.example
 **/credentials/
+**/*credentials*.json
 **/*service-account*.json
+**/*service_account*.json
+**/*secret*.json
 **/dalgoro-api-*.json
 *.pem
 *.key
 *.p12
 *.pfx
+*.crt
+*.cer
+*.jks
+*.keystore
 
 # ============================================================
 # PYTHON
@@ -21,9 +28,12 @@
 *.py[cod]
 *.pyo
 .pytest_cache/
+.hypothesis/
 .mypy_cache/
 .ruff_cache/
 .coverage
+.coverage.*
+coverage.xml
 htmlcov/
 
 # ============================================================
@@ -47,6 +57,10 @@ yarn-error.log*
 **/runs/
 **/cache/
 *.log
+*.pid
+*.sqlite
+*.sqlite3
+*.db
 
 # ============================================================
 # DATOS GEOESPACIALES, MODELOS Y DATASETS PESADOS
@@ -68,13 +82,19 @@ yarn-error.log*
 *.parquet
 
 # ============================================================
-# ARCHIVOS COMPRIMIDOS Y RESPALDOS
+# ARCHIVOS COMPRIMIDOS, RESPALDOS Y VOLCADOS DE REVISIÓN
+# Los archivos ya versionados se clasificarán en DBI-REPO-001.
 # ============================================================
 *.zip
 *.7z
 *.rar
 *.bak
 *.backup
+**/* copy.py
+**/*_respaldo_*
+**/*_antes_*
+**/codigos.txt
+**/sistema_completo_para_revision.txt
 
 # ============================================================
 # SISTEMA OPERATIVO E IDE
