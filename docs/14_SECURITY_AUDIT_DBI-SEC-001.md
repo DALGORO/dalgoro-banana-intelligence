@@ -162,11 +162,15 @@ Se detectaron cinco dependencias compartidas entre módulos: `openpyxl`,
 error; se conserva hasta definir entornos y contratos independientes en
 `DBI-CI-002`.
 
-## Criterios de salida
+## Cierre del ticket
 
-- No desplegar esta rama en Render.
-- No ejecutar migraciones con esta rama.
-- Confirmar en Render que `GOOGLE_SHEET_ID` y
-  `NUMERO_PERSONAL_DALGORO` existen antes de fusionar.
-- Aprobar el diff y GitHub Actions antes de fusionar.
-- Ejecutar `DBI-CI-002` como siguiente ticket.
+- El propietario confirmó el 2026-07-28 que `GOOGLE_SHEET_ID` y
+  `NUMERO_PERSONAL_DALGORO` existen en Render. No se registraron sus valores ni
+  se modificó la configuración.
+- El diff se mantuvo limitado a los nueve archivos declarados.
+- GitHub Actions aprobó la compilación Python, `npm ci` y el build del frontend.
+- No se desplegó la rama ni se ejecutaron migraciones.
+- La instalación geoespacial completa, lint, healthcheck y CI independiente
+  permanecen identificados para `DBI-CI-002`.
+- `DBI-SEC-001` queda completado y autorizado para integración mediante el
+  PR #3.
