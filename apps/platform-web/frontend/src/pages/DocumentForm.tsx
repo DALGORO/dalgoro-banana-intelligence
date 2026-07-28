@@ -1043,10 +1043,10 @@ export default function DocumentForm() {
 
                   {f.extra?.groupBy && f.extra?.scoreKey && Array.isArray(form[f.name]) && (
                     <div className="mt-2 rounded-2xl border border-slate-200 bg-slate-50 px-3 py-2 text-sm text-slate-700 dark:border-white/10 dark:bg-white/[0.03] dark:text-slate-300">
-                      {Object.entries(
+                      {(Object.entries(
                         (form[f.name] as any[]).reduce((acc, r) => {
-                          const g = String(r[f.extra!.groupBy] ?? "").trim() || "—";
-                          const s = Number(r[f.extra!.scoreKey] ?? 0);
+                          const g = String(r[f.extra!.groupBy!] ?? "").trim() || "—";
+                          const s = Number(r[f.extra!.scoreKey!] ?? 0);
                           if (!acc[g]) acc[g] = { n: 0, sum: 0 };
                           if (Number.isFinite(s)) {
                             acc[g].n += 1;
@@ -1054,7 +1054,7 @@ export default function DocumentForm() {
                           }
                           return acc;
                         }, {} as Record<string, { n: number; sum: number }>)
-                      ).map(([g, { n, sum }]) => (
+                      ) as Array<[string, { n: number; sum: number }]>).map(([g, { n, sum }]) => (
                         <div key={g} className="flex items-center justify-between py-1 gap-3 flex-wrap">
                           <span className="font-medium text-slate-900 dark:text-slate-100">{g}</span>
                           <span>{n ? `Suma: ${sum} · Promedio: ${(sum / n).toFixed(2)} (n=${n})` : "—"}</span>

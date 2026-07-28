@@ -1,3 +1,4 @@
+import type { ReactElement } from 'react';
 import { createBrowserRouter, Navigate } from 'react-router-dom';
 import AppShell from '../components/AppShell';
 import Login from '../pages/Login';
@@ -18,7 +19,7 @@ import AdminPage from '../pages/AdminPage';
 
 const enableDocs = import.meta.env.VITE_ENABLE_DOCS === "1";
 
-function Protected({ element }: { element: JSX.Element }) {
+function Protected({ element }: { element: ReactElement }) {
   return localStorage.getItem('token') ? element : <Navigate to="/login" replace />;
 }
 

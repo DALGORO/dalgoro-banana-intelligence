@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { Link, useParams, useNavigate } from "react-router-dom";
 import { api, generateIncidentProcedurePdf, getCompanyDocuments, getCompanyRequirements } from "../app/api";
 
