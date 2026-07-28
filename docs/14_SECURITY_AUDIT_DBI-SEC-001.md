@@ -146,7 +146,8 @@ compatibilidad.
 | Importaciones declaradas del bot | Aprobadas |
 | Resolución `dry-run --no-deps` del motor geoespacial | Aprobada |
 | Instalación completa y `pip check` del motor geoespacial | Pendiente por tamaño y dependencias nativas |
-| Frontend `npm ci` y build | Pendiente de GitHub Actions |
+| Frontend `npm ci` y build | Aprobados en GitHub Actions, ejecución `30403611971` |
+| Compilación de los tres módulos Python en GitHub Actions | Aprobada en la ejecución `30403611971` |
 | Frontend lint | Pendiente de `DBI-CI-002`; el CI actual no lo ejecuta |
 | Healthcheck integrado del backend | Pendiente de entorno aislado con configuración de prueba |
 | Migraciones Alembic | No ejecutadas por control de alcance |
