@@ -1,7 +1,7 @@
 # 13 — Estado actual
 
 ## Versión
-0.1.2-ci-modular-rc2
+0.1.2-ci-modular
 
 ## Terminado
 - Estructura inicial del monorepositorio.
@@ -10,11 +10,12 @@
 - Documentos maestros iniciales.
 - CI básica.
 - `DBI-SEC-001`: auditoría de secretos, dependencias y estructura importada.
+- `DBI-CI-002`: integración continua modular y verificable.
 
-## Ticket en revisión
+## Último ticket completado
 `DBI-CI-002` — Integración continua real e independiente por módulo.
 
-### Alcance activo
+### Resultado implementado
 - Cinco trabajos independientes: frontend, backend, bot, densidad y secretos.
 - Instalación y verificación de dependencias por módulo.
 - Smoke tests sin servicios externos ni bases productivas.
@@ -35,6 +36,8 @@
   resolución.
 - Sintaxis de los tres smoke tests y parseo del workflow: aprobados.
 - GitHub Actions `30407127911`: los cinco trabajos aprobaron.
+- GitHub Actions final `30407408901`: los cinco trabajos aprobaron sobre el
+  SHA definitivo del PR.
 - Motor geoespacial: instalación completa, `pip check`, `compileall`,
   importaciones y CLI aprobados en un entorno limpio.
 - Gitleaks: historial completo analizado sin secretos detectados.
@@ -42,12 +45,8 @@
   81 hallazgos en 19 paquetes; bot 2 en 1 paquete; densidad 3 en 2 paquetes.
   Ningún hallazgo se declara corregido en este ticket.
 
-## Último ticket completado
-`DBI-SEC-001` — Auditoría de secretos, dependencias y estructura importada.
-
 ## Próximo ticket
-`DBI-REPO-001` — Limpieza controlada de copias, respaldos y artefactos,
-condicionado a la revisión y fusión del PR de `DBI-CI-002`.
+`DBI-REPO-001` — Limpieza controlada de copias, respaldos y artefactos.
 
 ## No realizado todavía
 - No se ha fusionado código entre módulos.
