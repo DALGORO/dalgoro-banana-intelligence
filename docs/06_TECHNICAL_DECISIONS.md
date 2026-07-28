@@ -52,3 +52,27 @@ logs de infraestructura.
 datos personales. Los logs operativos deben limitarse a metadatos técnicos
 mínimos; el almacenamiento funcional autorizado en Google Sheets se mantiene
 sin cambios en este ticket.
+
+## DEC-007
+**Decisión:** validar cada módulo en un trabajo de CI independiente y sin acceso
+a servicios operativos.
+
+**Motivo:** una compilación global no permite identificar qué módulo rompió la
+instalación ni demuestra que sus dependencias, importaciones y endpoints mínimos
+funcionen.
+
+**Controles obligatorios:**
+
+- Instalar cada `requirements.txt` en su propio runner.
+- Ejecutar `pip check` y `compileall` por módulo.
+- Probar el backend con SQLite en memoria y sin ejecutar migraciones.
+- Sustituir Google Sheets antes de importar el bot en el smoke test.
+- No invocar Green API, Render, PostgreSQL ni descargar modelos de IA.
+- Instalar e importar el motor geoespacial sin procesar ortofotos.
+- Ejecutar lint y build del frontend con Node 24.
+- Mantener visibles los 115 avisos heredados de lint y rechazar cualquier
+  incremento mediante una línea base cuantificada.
+- Bloquear secretos detectados y registrar auditorías de dependencias aunque
+  existan hallazgos heredados que requieran un ticket separado.
+- Fijar las acciones externas a SHA completos para reducir riesgo de cadena de
+  suministro.
