@@ -1,6 +1,5 @@
 from flask import Flask, request, jsonify, send_from_directory
 from datetime import datetime, timedelta
-import json
 import logging
 
 from config import Config
@@ -109,7 +108,7 @@ def enviar_y_loguear(telefono, mensaje):
         return False
 
     if not rate_limiter.can_send_response():
-        print("⚠️ Límite de respuestas por hora alcanzado.")
+        logger.warning("Límite de respuestas por hora alcanzado.")
         return False
 
     enviado = enviar_mensaje_whatsapp(telefono, mensaje)
@@ -119,11 +118,10 @@ def enviar_y_loguear(telefono, mensaje):
     return enviado
 
 
-
 def enviar_pdf_y_loguear(telefono, caption):
     """Envía el PDF institucional de servicios y registra el evento en Google Sheets."""
     if not rate_limiter.can_send_response():
-        print("⚠️ Límite de respuestas por hora alcanzado antes de enviar PDF.")
+        logger.warning("Límite de respuestas por hora alcanzado antes de enviar PDF.")
         return False
 
     enviado = enviar_pdf_servicios(telefono, caption or "")
@@ -136,7 +134,7 @@ def procesar_mensaje_agrupado(telefono, mensaje):
     """
     Se ejecuta después de agrupar mensajes consecutivos del cliente.
     """
-    print(f"🧩 Mensaje agrupado de {telefono}: {mensaje}")
+    logger.info("Procesando mensaje agrupado.")
 
     estado_actual = obtener_estado(telefono)
     resultado = manejar_conversacion(telefono, mensaje, estado_actual)
@@ -190,8 +188,6 @@ def home():
     return "DALGORO bot activo", 200
 
 
-
-
 @app.route("/documentos/<path:filename>", methods=["GET"])
 def servir_documento(filename):
     """
@@ -206,10 +202,13 @@ def recibir():
         return jsonify({"error": "Formato inválido"}), 400
 
     data = request.json
-    print("📥 JSON recibido:\n", json.dumps(data, indent=2, ensure_ascii=False))
-
     tipo_webhook = data.get("typeWebhook", "")
     message_id = data.get("idMessage")
+    logger.info(
+        "Webhook recibido: tipo=%s, id_presente=%s",
+        tipo_webhook,
+        bool(message_id),
+    )
 
     if rate_limiter.is_duplicate(message_id):
         return jsonify({"status": "duplicado_ignorado"}), 200
@@ -229,11 +228,11 @@ def recibir():
     telefono, mensaje, tipo_contenido = extraer_texto_telefono_tipo(data)
 
     if not telefono:
-        print("❌ Teléfono incompleto")
+        logger.error("Teléfono incompleto en el evento entrante.")
         return jsonify({"error": "Teléfono incompleto"}), 400
 
     if not rate_limiter.can_process_message(telefono):
-        print(f"⚠️ Límite de mensajes por minuto alcanzado para {telefono}")
+        logger.warning("Límite de mensajes por minuto alcanzado.")
         return jsonify({"status": "limite_mensajes"}), 200
 
     if tipo_contenido in ["audioMessage", "imageMessage", "videoMessage", "documentMessage"]:
@@ -244,7 +243,7 @@ def recibir():
         return jsonify({"status": "contenido_no_texto_procesado"}), 200
 
     if not mensaje:
-        print("❌ Mensaje vacío:", tipo_contenido)
+        logger.error("Mensaje vacío: tipo=%s", tipo_contenido)
         return jsonify({"error": "Mensaje vacío"}), 400
 
     sheets_manager.update_contact(telefono)
