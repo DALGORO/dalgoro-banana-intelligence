@@ -28,8 +28,9 @@
 - Instalación aislada y `pip check` del backend: aprobados.
 - Instalación aislada y `pip check` del bot: aprobados.
 - Resolución de distribuciones del motor geoespacial: aprobada en `dry-run`.
-- La instalación completa del motor y las comprobaciones del frontend quedan
-  pendientes de los entornos indicados en
+- GitHub Actions: compilación Python, `npm ci` y build del frontend aprobados en
+  la ejecución `30403611971`.
+- La instalación completa del motor queda pendiente del entorno indicado en
   `docs/14_SECURITY_AUDIT_DBI-SEC-001.md`.
 - El ticket permanecerá en Draft PR hasta revisión del propietario.
 - No se declara instalación reproducible completa de Python hasta ejecutar el
