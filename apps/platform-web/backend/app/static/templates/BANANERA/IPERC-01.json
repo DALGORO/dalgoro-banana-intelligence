@@ -1,0 +1,344 @@
+{
+  "code": "IPERC-01",
+  "activity": "BANANERA",
+  "title": "Matriz IPERC por proceso y puesto (BANANERA)",
+  "version": 2,
+  "fields": [
+    {
+      "name": "fecha_iperc",
+      "label": "Fecha de elaboracion",
+      "type": "date",
+      "required": true
+    },
+    {
+      "name": "razon_social",
+      "label": "Razon social",
+      "type": "text"
+    },
+    {
+      "name": "ruc",
+      "label": "RUC",
+      "type": "text"
+    },
+    {
+      "name": "direccion",
+      "label": "Direccion",
+      "type": "text"
+    },
+    {
+      "name": "provincia",
+      "label": "Provincia",
+      "type": "text"
+    },
+    {
+      "name": "canton",
+      "label": "Canton",
+      "type": "text"
+    },
+    {
+      "name": "parroquia",
+      "label": "Parroquia",
+      "type": "text"
+    },
+    {
+      "name": "telefono",
+      "label": "Telefono (empresa)",
+      "type": "text"
+    },
+    {
+      "name": "correo",
+      "label": "Correo (empresa)",
+      "type": "text"
+    },
+    {
+      "name": "actividad",
+      "label": "Actividad",
+      "type": "text"
+    },
+    {
+      "name": "trabajadores",
+      "label": "No. de trabajadores",
+      "type": "number"
+    },
+    {
+      "name": "riesgo",
+      "label": "Nivel de riesgo",
+      "type": "text"
+    },
+    {
+      "name": "tamano_mipyme",
+      "label": "Tamano de la empresa",
+      "type": "text"
+    },
+    {
+      "name": "observaciones_generales",
+      "label": "Observaciones generales",
+      "type": "textarea"
+    },
+    {
+      "name": "responsable_sst",
+      "label": "Responsable/Servicio de SST",
+      "type": "text"
+    },
+    {
+      "name": "responsable_sst_cedula",
+      "label": "Cedula responsable/servicio SST",
+      "type": "text"
+    },
+    {
+      "name": "rows_count",
+      "label": "Filas de la Matriz (desde IPERC Sidebar)",
+      "type": "number",
+      "readOnly": true
+    },
+    {
+      "name": "rows",
+      "label": "Filas de la Matriz (opcional)",
+      "type": "table",
+      "columns": [        
+        {
+          "name": "job",
+          "label": "PUESTO",
+          "type": "text",
+          "required": true
+        },
+        {
+          "name": "process",
+          "label": "PROCESO",
+          "type": "text",
+          "required": true
+        },
+        {
+          "name": "task",
+          "label": "ACTIVIDADES",
+          "type": "text",
+          "required": true
+        },
+        {
+          "name": "hazard_group",
+          "label": "TIPO DE RIESGO",
+          "type": "text"
+        },
+        {
+          "name": "hazard",
+          "label": "FACTOR DE RIESGO",
+          "type": "text"
+        },
+        {
+          "name": "event",
+          "label": "EVENTO",
+          "type": "text"
+        },
+        {
+          "name": "consequence",
+          "label": "EFECTOS POSIBLES",
+          "type": "text"
+        },
+        {
+          "name": "nd",
+          "label": "NIVEL DE DEFICIENCIA (ND)",
+          "type": "select",
+          "optionsRef": "ND",
+          "required": true
+        },
+        {
+          "name": "ne",
+          "label": "NIVEL DE EXPOSICIÓN (NE)",
+          "type": "select",
+          "optionsRef": "NE",
+          "required": true
+        },
+        {
+          "name": "np_val",
+          "label": "NIVEL DE PROBABILIDAD (NP)",
+          "type": "number",
+          "computed": "nd*ne",
+          "readOnly": true
+        },        
+        {
+          "name": "nc",
+          "label": "NIVEL DE CONSECUENCIA",
+          "type": "select",
+          "optionsRef": "NC",
+          "required": true
+        },
+        {
+          "name": "nr_val",
+          "label": "NIVEL DE RIESGO (NR)",
+          "type": "number",
+          "computed": "np_val*nc",
+          "readOnly": true
+        },        
+        {
+          "name": "controls_existing_engineering",
+          "label": "CONTROL DE INGENIERÍA",
+          "type": "tags"
+        },
+        {
+          "name": "controls_existing_admin",
+          "label": "CONTROLES ADMINISTRATIVOS",
+          "type": "tags"
+        },
+        {
+          "name": "controls_existing_epp",
+          "label": "EQUIPOS DE PROTECCIÓN PERSONAL",
+          "type": "tags"
+        },
+        {
+          "name": "controls_proposed",
+          "label": "CONTROLES PROPUESTOS",
+          "type": "tags"
+        },
+        {
+          "name": "requires_work_permit",
+          "label": "¿NECESITA PERMISO?",
+          "type": "boolean"
+        },
+        {
+          "name": "needs_health_surveillance",
+          "label": "¿NECESITA VIGILANCIA MÉDICA?",
+          "type": "boolean"
+        },
+        {
+          "name": "needs_env_monitoring",
+          "label": "¿NECESITA MONITOREO AMBIENTAL?",
+          "type": "boolean"
+        },
+        {
+          "name": "critical_epp",
+          "label": "EPP CRÍTICO",
+          "type": "tags"
+        },
+        {
+          "name": "status",
+          "label": "ESTADO",
+          "type": "text"
+        }
+      ]
+    }
+  ],
+  "enums": {
+    "ND": [
+      {
+        "value": 10,
+        "label": "Muy Alto (MA)"
+      },
+      {
+        "value": 6,
+        "label": "Alto (A)"
+      },
+      {
+        "value": 2,
+        "label": "Medio (M)"
+      }
+    ],
+    "NE": [
+      {
+        "value": 4,
+        "label": "Continua (EC)"
+      },
+      {
+        "value": 3,
+        "label": "Frecuente (EF)"
+      },
+      {
+        "value": 2,
+        "label": "Ocasional (EO)"
+      },
+      {
+        "value": 1,
+        "label": "Esporadica (EE)"
+      }
+    ],
+    "NC": [
+      {
+        "value": 100,
+        "label": "Mortal/Catastr."
+      },
+      {
+        "value": 60,
+        "label": "Muy grave"
+      },
+      {
+        "value": 25,
+        "label": "Grave"
+      },
+      {
+        "value": 10,
+        "label": "Leve"
+      }
+    ]
+  },
+  "autofill": {
+    "company": [
+      "razon_social",
+      "ruc",
+      "direccion",
+      "provincia",
+      "canton",
+      "parroquia",
+      "telefono",
+      "correo",
+      "actividad",
+      "trabajadores",
+      "riesgo",
+      "tamano_mipyme"
+    ],
+    "iperc_rows_from": "sidebar_saved"
+  },
+  "summary": {
+    "totals": [
+      "rows.count"
+    ],
+    "by_nr_level": [
+      "count(nr_level='I')",
+      "count(nr_level='II')",
+      "count(nr_level='III')",
+      "count(nr_level='IV')"
+    ],
+    "by_np_level": [
+      "count(np_level='MA')",
+      "count(np_level='A')",
+      "count(np_level='M')",
+      "count(np_level='B')"
+    ],
+    "top_risks": {
+      "by": "nr_val",
+      "limit": 5
+    },
+    "special_counts": [
+      "count(requires_work_permit=true)",
+      "count(needs_health_surveillance=true)",
+      "count(needs_env_monitoring=true)"
+    ],
+    "top_epp_critico": {
+      "field": "critical_epp",
+      "limit": 5
+    }
+  },
+  "render": {
+    "engine": "xlsx",
+    "rows_key": "rows",
+    "xlsx": {
+      "sheet": "MATRIZ",
+      "row_marker_row": 14,
+      "color_cell_by": {
+        "column": "nr_level",
+        "map": { "I": "#e74c3c", "II": "#e67e22", "III": "#f1c40f", "IV": "#2ecc71" }
+      },
+      "formula_by_column": {
+        "K": "IF(J{row}<=4,\"BAJO\",IF(J{row}<=8,\"MEDIO\",IF(J{row}<=20,\"ALTO\",\"MUY ALTO\")))",
+        "N": "IF(M{row}<=20,\"IV\",IF(M{row}<=120,\"III\",IF(M{row}<=500,\"II\",IF(M{row}<=4000,\"I\",\"\"))))"
+      }
+    }
+  },
+
+  "ui": {
+    "requires_sidebar_rows": true,
+    "empty_rows_toast": {
+      "message": "Se necesitan datos de la Matriz IPERC (menu izquierdo: IPERC). Guarde la matriz y vuelva a generar.",
+      "duration_ms": 10000,
+      "block_generate": true
+    }
+  }
+}

@@ -1,0 +1,54 @@
+{
+  "code": "RHS-01",
+  "activity": "BANANERA",
+  "title": "Reglamento Interno de Seguridad y Salud",
+  "version": 1,
+  "fields": [
+    { "name": "fecha_emision", "label": "Fecha de emisión del Reglamento", "type": "date", "required": true },
+
+    { "name": "razon_social", "label": "Razón social", "type": "text", "required": true },
+    { "name": "ruc", "label": "RUC", "type": "text", "required": true },
+    { "name": "direccion", "label": "Dirección", "type": "text", "required": true },
+    { "name": "provincia", "label": "Provincia", "type": "text" },
+    { "name": "canton", "label": "Cantón", "type": "text" },
+    { "name": "parroquia", "label": "Parroquia (opcional)", "type": "text" },
+    
+    { "name": "codigo_ciiu", "label": "CIIU (opcional)", "type": "text" },
+
+    { "name": "descripcion_ciiu", "label": "Actividad CIIU (opcional)", "type": "text" },
+
+    { "name": "actividad", "label": "Actividad (autollenado)", "type": "text", "required": true },
+    { "name": "trabajadores", "label": "Número de trabajadores (autollenado)", "type": "number", "required": true },
+    { "name": "riesgo", "label": "Nivel de riesgo (autollenado)", "type": "text", "required": true },
+    { "name": "tamano_mipyme", "label": "Tamaño de la empresa (micro/pequeña/mediana/grande)", "type": "text" },
+
+    { "name": "representante_legal", "label": "Representante legal", "type": "text", "required": true },
+    { "name": "representante_legal_cedula", "label": "Cédula del representante legal", "type": "text" },
+
+    { "name": "responsable_sst", "label": "Responsable SST (Técnico/Proveedor)", "type": "text", "required": true },
+    { "name": "responsable_sst_cedula", "label": "Cédula del responsable SST", "type": "text" },
+
+    { "name": "figura_sst", "label": "Figura de participación", "type": "select", "required": true,
+      "options": ["DELEGADO DE SST (≤49)", "COMITÉ PARITARIO (≥50)"] },
+
+    { "name": "acta_aprobacion_num", "label": "Nº de Acta de aprobación (Delegado/Comité)", "type": "text" },
+    { "name": "acta_aprobacion_fecha", "label": "Fecha de Acta de aprobación", "type": "date" },
+
+    { "name": "registro_sut", "label": "Nº de trámite SUT (se completará al registrar)", "type": "text", "required": false },
+
+    { "name": "periodo_inicio", "label": "Vigencia desde", "type": "date" },
+
+    { "name": "periodo_fin", "label": "Vigencia hasta", "type": "date" },
+
+    { "name": "responsables_area", "label": "Responsables por área/proceso (lista corta)", "type": "textarea" },
+    { "name": "observaciones", "label": "Observaciones", "type": "textarea" },
+    
+    { "name": "num_centros_trabajo", "label": "Número de centros de trabajo", "type": "number" },
+    { "name": "direccion_matriz", "label": "Dirección centro matriz", "type": "text" },
+    { "name": "trabajadores_matriz", "label": "Trabajadores centro matriz", "type": "number" },
+    { "name": "direccion_sucursal_1", "label": "Dirección sucursal 1 (si aplica)", "type": "text" },
+    { "name": "trabajadores_sucursal_1", "label": "Trabajadores sucursal 1", "type": "number" },
+    { "name": "direccion_sucursal_2", "label": "Dirección sucursal 2 (si aplica)", "type": "text" },
+    { "name": "trabajadores_sucursal_2", "label": "Trabajadores sucursal 2", "type": "number" }
+  ]
+}

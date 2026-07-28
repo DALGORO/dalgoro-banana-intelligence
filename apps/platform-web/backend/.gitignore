@@ -1,0 +1,2 @@
+# --- GCP service account keys ---
+/backend/credentials/*.json

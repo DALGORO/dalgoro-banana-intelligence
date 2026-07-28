@@ -1,0 +1,43 @@
+{
+  "code": "EPP-01",
+  "activity": "BANANERA",
+  "title": "Matriz de EPP y registros de entrega",
+  "version": 1,
+
+  "fields": [
+    { "name": "fecha_emision",       "label": "Fecha de emisión",                                   "type": "date",     "required": true },
+    { "name": "razon_social",        "label": "Razón social",                                       "type": "text" },
+    { "name": "ruc",                 "label": "RUC",                                                "type": "text" },
+    { "name": "direccion",           "label": "Dirección",                                          "type": "text" },
+    { "name": "provincia",           "label": "Provincia",                                          "type": "text" },
+    { "name": "canton",              "label": "Cantón",                                             "type": "text" },
+    { "name": "parroquia",           "label": "Parroquia",                                          "type": "text" },
+    { "name": "telefono",            "label": "Teléfono (empresa)",                                 "type": "text" },
+    { "name": "correo",              "label": "Correo (empresa)",                                   "type": "text" },
+    { "name": "actividad",           "label": "Actividad/CIIU",                                     "type": "text" },
+    { "name": "trabajadores",        "label": "Nº trabajadores",                                    "type": "number" },
+    { "name": "riesgo",              "label": "Nivel de riesgo (Anexo 2 MDT-2024-196)",             "type": "text" },
+
+    { "name": "representante_legal", "label": "Representante legal/Alta dirección",                 "type": "text" },
+    { "name": "responsable_sst",     "label": "Delegado/Responsable SST",                           "type": "text",     "required": true },
+    { "name": "medico_ocupacional",  "label": "Médico ocupacional/Servicio de salud (si aplica)",   "type": "text" },
+    { "name": "responsables_area",   "label": "Jefaturas/Supervisores responsables (coma)",         "type": "textarea" }
+  ],
+
+  "render": {
+    "placeholders": {
+      "base_legal_txt": "bullets(base_legal)"
+    }
+  },
+
+  "defaults": {
+    "base_legal": [
+      "Decreto Ejecutivo 255 – Reglamento de Seguridad y Salud en el Trabajo.",
+      "Acuerdo Ministerial MDT-2024-196 – Normas Generales en SST.",
+      "Norma Técnica de EPP – selección, uso y mantenimiento.",
+      "Código del Trabajo – provisión gratuita de EPP adecuado al riesgo."
+    ],
+    "politica_epp": "La empresa garantiza la provisión y reposición de EPP conforme a la evaluación de riesgos (IPERC) y normativa vigente. La entrega se registra con firma del trabajador, y se verifica su uso eficaz mediante inspecciones, investigaciones y observación de tareas.",
+    "observaciones": ""
+  }
+}

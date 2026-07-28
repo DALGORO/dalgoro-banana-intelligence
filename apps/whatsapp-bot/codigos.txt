@@ -1,0 +1,13 @@
+Para borrar historial de mi número personal, solo el estado
+python reiniciar_conversacion_numero.py 593984770663 --solo-estado --confirmar
+
+Para borrar todo el historial de mi número personal
+python reiniciar_conversacion_numero.py 593984770663 --confirmar
+
+
+Para guardar en GITHUB
+git add .
+git commit -m "XXXX"
+git push
+
+Continúa desde este contexto. Estamos trabajando el bot de WhatsApp de DALGORO S.A.S. Ya llegamos hasta la V15 de rectificación. Necesito que sigas con el mismo método de trabajo.

@@ -1,0 +1,8 @@
+.env
+*.json
+__pycache__/
+*.pyc
+.venv/
+venv/
+prueba_*.py
+pruebas_simulacion.py

@@ -1,0 +1,86 @@
+﻿# ============================================================
+# SECRETOS Y CREDENCIALES
+# ============================================================
+.env
+.env.*
+!.env.example
+**/credentials/
+**/*service-account*.json
+**/dalgoro-api-*.json
+*.pem
+*.key
+*.p12
+*.pfx
+
+# ============================================================
+# PYTHON
+# ============================================================
+**/.venv/
+**/venv/
+**/__pycache__/
+*.py[cod]
+*.pyo
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.coverage
+htmlcov/
+
+# ============================================================
+# NODE / REACT
+# ============================================================
+**/node_modules/
+**/dist/
+**/.vite/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# ============================================================
+# ARCHIVOS GENERADOS Y DE EJECUCIÓN
+# ============================================================
+**/logs/
+**/temp/
+**/tmp/
+**/storage/
+**/outputs/
+**/runs/
+**/cache/
+*.log
+
+# ============================================================
+# DATOS GEOESPACIALES, MODELOS Y DATASETS PESADOS
+# Se almacenarán fuera de Git o mediante Git LFS cuando se apruebe.
+# ============================================================
+*.tif
+*.tiff
+*.gpkg
+*.mbtiles
+*.vrt
+*.las
+*.laz
+*.pt
+*.onnx
+*.engine
+*.ckpt
+*.npy
+*.npz
+*.parquet
+
+# ============================================================
+# ARCHIVOS COMPRIMIDOS Y RESPALDOS
+# ============================================================
+*.zip
+*.7z
+*.rar
+*.bak
+*.backup
+
+# ============================================================
+# SISTEMA OPERATIVO E IDE
+# ============================================================
+.DS_Store
+Thumbs.db
+desktop.ini
+.vscode/
+.idea/

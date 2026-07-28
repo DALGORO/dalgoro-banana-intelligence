@@ -1,0 +1,173 @@
+{
+  "code": "ACTA-APR-RHS-01",
+  "activity": "BANANERA",
+  "title": "Acta de Aprobación del Reglamento de SST",
+  "version": 1,
+  "fields": [
+    {
+      "name": "numero_acta",
+      "label": "Nº de acta",
+      "type": "text",
+      "required": true
+    },
+    {
+      "name": "fecha_acta",
+      "label": "Fecha del acta",
+      "type": "date",
+      "required": true
+    },
+    {
+      "name": "hora_acta",
+      "label": "Hora de instalación",
+      "type": "text"
+    },
+    {
+      "name": "hora_cierre",
+      "label": "Hora de cierre",
+      "type": "text"
+    },
+    {
+      "name": "asistentes",
+      "label": "Asistentes (nombres separados por coma)",
+      "type": "textarea"
+    },
+    {
+      "name": "razon_social",
+      "label": "Razón social",
+      "type": "text"
+    },
+    {
+      "name": "ruc",
+      "label": "RUC",
+      "type": "text"
+    },
+    {
+      "name": "direccion",
+      "label": "Dirección",
+      "type": "text"
+    },
+    {
+      "name": "provincia",
+      "label": "Provincia",
+      "type": "text"
+    },
+    {
+      "name": "canton",
+      "label": "Cantón",
+      "type": "text"
+    },
+    {
+      "name": "parroquia",
+      "label": "Parroquia",
+      "type": "text"
+    },
+    {
+      "name": "telefono",
+      "label": "Teléfono (empresa)",
+      "type": "text"
+    },
+    {
+      "name": "correo",
+      "label": "Correo (empresa)",
+      "type": "text"
+    },
+    {
+      "name": "actividad",
+      "label": "Actividad",
+      "type": "text"
+    },
+    {
+      "name": "trabajadores",
+      "label": "Nº de trabajadores",
+      "type": "number"
+    },
+    {
+      "name": "riesgo",
+      "label": "Nivel de riesgo",
+      "type": "text"
+    },
+    {
+      "name": "tamano_mipyme",
+      "label": "Tamaño de la empresa",
+      "type": "text"
+    },
+    {
+      "name": "fecha_emision",
+      "label": "Fecha de emisión del RHS",
+      "type": "date"
+    },
+    {
+      "name": "periodo_inicio",
+      "label": "Vigencia desde (RHS)",
+      "type": "date"
+    },
+    {
+      "name": "periodo_fin",
+      "label": "Vigencia hasta (RHS)",
+      "type": "date"
+    },
+    {
+      "name": "figura_sst",
+      "label": "Figura de participación",
+      "type": "select",
+      "options": [
+        "DELEGADO DE SST (≤49)",
+        "COMITÉ PARITARIO (≥50)"
+      ]
+    },
+    {
+      "name": "responsable_sst",
+      "label": "Responsable/Servicio de SST",
+      "type": "text"
+    },
+    {
+      "name": "responsable_sst_cedula",
+      "label": "Cédula responsable/servicio SST",
+      "type": "text"
+    },
+    {
+      "name": "representante_legal",
+      "label": "Representante legal",
+      "type": "text"
+    },
+    {
+      "name": "representante_legal_cedula",
+      "label": "Cédula representante legal",
+      "type": "text"
+    }
+  ],
+  "autofill": {
+    "company": [
+      "razon_social",
+      "ruc",
+      "direccion",
+      "provincia",
+      "canton",
+      "parroquia",
+      "telefono",
+      "correo",
+      "actividad",
+      "trabajadores",
+      "riesgo",
+      "tamano_mipyme"
+    ],
+    "org_del_01": [
+      "responsable_sst",
+      "responsable_sst_cedula",
+      "representante_legal",
+      "representante_legal_cedula"
+    ],
+    "rhs_01": [
+      "fecha_emision",
+      "periodo_inicio",
+      "periodo_fin",
+      "figura_sst"
+    ]
+  },
+  "produces": {
+    "rhs_01": [
+      "acta_aprobacion_num",
+      "acta_aprobacion_fecha"
+    ]
+  }
+}

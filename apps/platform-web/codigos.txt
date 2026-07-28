@@ -1,0 +1,30 @@
+PS D:\Onedrive\DALGORO.SAS\sst-compliance\backend> .\.venv\Scripts\Activate.ps1 -----> ACTIVAR .venv
+
+
+D:\Onedrive\DALGORO.SAS\sst-compliance\backend> 
+uvicorn app.main:app --reload
+
+D:\Onedrive\DALGORO.SAS\sst-compliance\frontend>
+npm run dev
+
+
+admin@dalgoro.ec
+Admin!SST2025
+
+tester4167@dal.goro
+demo1234
+
+
+Cuando se agreguen nuevas plantillas, siempre se deberá ejecutar este script desde una terminal D:\Onedrive\DALGORO.SAS\sst-compliance\backend
+
+En la terminar hacer esto
+python -m scripts.sync_templates
+
+Se agregarán las plantillas nuevas.
+
+
+Cuando se quede cargando al ingresar datos de usuario y clave pero no ingrese al sistema:
+taskkill /F /IM python.exe
+Luego dar "enter" y se liberaran puertos. Volver a intentar e ingresará sin problemas
+
+

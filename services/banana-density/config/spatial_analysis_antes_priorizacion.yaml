@@ -1,0 +1,86 @@
+version: 4
+kde:
+  factor: 2.5
+  min_radius_m: 5.0
+  max_radius_m: 8.0
+  pixel_size_m: 0.5
+  kernel: quartic
+hexagons:
+  area_m2: 100.0
+  min_coverage_ratio: 0.5
+  reference_coverage_ratio: 0.9
+  reference_exclude_zero: true
+  deficit_severe_ratio: 0.7
+  deficit_moderate_ratio: 0.9
+  expected_upper_ratio: 1.1
+  elevated_upper_ratio: 1.25
+proximity:
+  factor: 0.7
+  strong_ratio: 0.6
+  high_ratio: 0.75
+  open_ratio: 1.5
+orientation:
+  angle_tolerance_deg: 20.0
+  smoothing_half_window_deg: 5
+  refinement_tolerance_deg: 15.0
+  nearest_neighbors_to_query: 12
+edge_filter:
+  nearest_median_multiplier: 2.0
+  min_margin_m: 3.0
+  max_margin_m: 8.0
+  minimum_interior_fraction: 0.25
+  minimum_interior_points: 20
+voronoi:
+  high_competition_ratio: 0.6
+  possible_open_area_ratio: 1.75
+  severe_open_area_ratio: 2.5
+
+# Análisis para plantaciones adultas sin patrón lineal.
+# La densidad objetivo se indica en cada ejecución.
+planting_opportunities:
+  # Resolución de la cuadrícula usada para buscar espacios libres.
+  grid_cell_size_m: 0.35
+
+  # Un sitio empieza a considerarse libre cuando está al menos a esta
+  # fracción de la separación equivalente respecto de una planta existente.
+  minimum_clearance_factor: 0.75
+
+  # Separación mínima entre candidatos propuestos.
+  candidate_spacing_factor: 0.85
+
+  # Radio para medir déficit de densidad alrededor de cada candidato.
+  local_density_radius_factor: 2.50
+
+  # Elimina fragmentos de espacio abierto demasiado pequeños.
+  minimum_polygon_area_factor: 0.20
+
+  # Solo marca riesgo de borde; no elimina automáticamente el candidato.
+  boundary_risk_distance_factor: 0.50
+
+  max_candidates: 10000
+  high_spatial_score: 0.80
+  medium_spatial_score: 0.60
+
+  # Clasificación del área Voronoi respecto del área objetivo por planta.
+  voronoi_high_concentration_ratio: 0.65
+  voronoi_expected_upper_ratio: 1.35
+  voronoi_open_ratio: 1.75
+  voronoi_severe_open_ratio: 2.50
+
+# Se conserva la sección anterior únicamente para compatibilidad histórica.
+# No se usa en el nuevo análisis de oportunidades de siembra.
+gaps:
+  factor: 1.6
+  minimum_candidates_per_row: 2
+  row_cluster_tolerance_factor: 0.35
+  row_cluster_min_m: 0.6
+  row_cluster_max_m: 1.5
+  row_link_max_factor: 6.5
+  min_plants_per_row: 4
+  max_missing_per_gap: 5
+  integer_ratio_tolerance: 0.35
+  candidate_min_nn_factor: 0.55
+  boundary_margin_factor: 0.5
+  row_fit_max_residual_factor: 0.35
+  high_confidence_threshold: 0.8
+  medium_confidence_threshold: 0.6

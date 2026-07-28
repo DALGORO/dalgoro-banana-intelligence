@@ -1,0 +1,141 @@
+{
+  "code": "ORG-COM-01",
+  "activity": "BANANERA",
+  "title": "Comité Paritario de SST (Conformación)",
+  "version": 1,
+  "fields": [
+    {
+      "name": "razon_social",
+      "label": "Razón social",
+      "type": "text"
+    },
+    {
+      "name": "ruc",
+      "label": "RUC",
+      "type": "text"
+    },
+    {
+      "name": "direccion",
+      "label": "Dirección",
+      "type": "text"
+    },
+    {
+      "name": "parroquia",
+      "label": "Parroquia (opcional)",
+      "type": "text"
+    },
+    {
+      "name": "canton",
+      "label": "Cantón",
+      "type": "text"
+    },
+    {
+      "name": "provincia",
+      "label": "Provincia",
+      "type": "text"
+    },
+    {
+      "name": "telefono",
+      "label": "Teléfono (empresa)",
+      "type": "text"
+    },
+    {
+      "name": "correo",
+      "label": "Correo (empresa)",
+      "type": "text"
+    },
+    {
+      "name": "actividad",
+      "label": "Actividad",
+      "type": "text"
+    },
+    {
+      "name": "trabajadores",
+      "label": "Número de trabajadores",
+      "type": "number"
+    },
+    {
+      "name": "riesgo",
+      "label": "Nivel de riesgo",
+      "type": "text"
+    },
+    {
+      "name": "tamano_mipyme",
+      "label": "Tamaño MiPyME (autollenado)",
+      "type": "text"
+    },
+    {
+      "name": "periodo_inicio",
+      "label": "Inicio del periodo del Comité",
+      "type": "date",
+      "required": true
+    },
+    {
+      "name": "periodo_fin",
+      "label": "Fin del periodo del Comité",
+      "type": "date",
+      "required": true
+    },
+    {
+      "name": "frecuencia_reuniones",
+      "label": "Frecuencia de reuniones",
+      "type": "text"
+    },
+    {
+      "name": "acta_constitucion_num",
+      "label": "N° de Acta de constitución",
+      "type": "text"
+    },
+    {
+      "name": "acta_constitucion_fecha",
+      "label": "Fecha de Acta de constitución",
+      "type": "date"
+    },
+    {
+      "name": "quorum_reglamentario",
+      "label": "Quórum reglamentario",
+      "type": "text"
+    },
+    {
+      "name": "presidente_nombre",
+      "label": "Presidente/a (nombre)",
+      "type": "text"
+    },
+    {
+      "name": "presidente_representacion",
+      "label": "Presidente/a (representación)",
+      "type": "text"
+    },
+    {
+      "name": "secretario_nombre",
+      "label": "Secretario/a (nombre)",
+      "type": "text"
+    },
+    {
+      "name": "secretario_representacion",
+      "label": "Secretario/a (representación)",
+      "type": "text"
+    },
+    {
+      "name": "miembros_texto",
+      "label": "Miembros (texto: uno por línea, con rol/representación/sede)",
+      "type": "textarea"
+    },
+    {
+      "name": "representante_legal",
+      "label": "Representante legal",
+      "type": "text"
+    },
+    {
+      "name": "representante_legal_cedula",
+      "label": "Identificación del representante legal",
+      "type": "text"
+    },
+    {
+      "name": "fecha",
+      "label": "Fecha del acto",
+      "type": "date",
+      "required": true
+    }
+  ]
+}

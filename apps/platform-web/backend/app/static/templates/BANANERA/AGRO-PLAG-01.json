@@ -1,0 +1,164 @@
+{
+  "code": "AGRO-PLAG-01",
+  "activity": "BANANERA",
+  "title": "Manejo de plaguicidas / HDS",
+  "version": 1,
+  "fields": [
+    {
+      "name": "fecha_emision",
+      "label": "Fecha de emisión",
+      "type": "date",
+      "required": true
+    },
+    {
+      "name": "ruc",
+      "label": "RUC",
+      "type": "text",
+      "required": false
+    },
+    {
+      "name": "representante_legal",
+      "label": "Representante legal",
+      "type": "text",
+      "required": false
+    },
+    {
+      "name": "responsable_sst",
+      "label": "Responsable SST",
+      "type": "text",
+      "required": false
+    },
+    {
+      "name": "agronomo_responsable",
+      "label": "Ing. agrónomo/a responsable",
+      "type": "text",
+      "required": false
+    },
+    {
+      "name": "inventario_plaguicidas",
+      "label": "Inventario de plaguicidas",
+      "type": "table",
+      "required": false,
+      "columns": [
+        { "key": "producto",          "title": "Producto",            "placeholder": "Ej: Nombre comercial", "required": true },
+        { "key": "ingrediente_activo","title": "Ingrediente activo",  "placeholder": "Ej: i.a.",              "required": true },
+        { "key": "formulacion",       "title": "Formulación",         "placeholder": "EC/SL/SC",              "required": true },
+        { "key": "registro",          "title": "Registro",            "placeholder": "N°",                    "required": true },
+        { "key": "categoria_tox",     "title": "Categoría tox.",      "placeholder": "GHS",                   "required": true },
+        { "key": "hds",               "title": "HDS",                 "placeholder": "URL/Ubicación",         "required": true },
+        { "key": "proveedor",         "title": "Proveedor",           "placeholder": "Proveedor" },
+        { "key": "vencimiento",       "title": "Venc.",               "placeholder": "AAAA-MM" }
+      ],
+      "minRows": 1,
+      "addRowText": "Añadir producto",
+      "exampleRow": {
+        "producto": "Ej: Nombre comercial",
+        "ingrediente_activo": "Ej: i.a.",
+        "formulacion": "EC/SL/SC",
+        "registro": "N°",
+        "categoria_tox": "GHS",
+        "hds": "URL/Ubicación",
+        "proveedor": "Proveedor",
+        "vencimiento": "AAAA-MM"
+      }
+    },
+    {
+      "name": "programacion_tratamientos",
+      "label": "Programación de tratamientos",
+      "type": "table",
+      "required": false,
+      "columns": [
+        { "key": "cultivo_area", "title": "Cultivo/Área", "placeholder": "Lote A (ha)" , "required": true },
+        { "key": "objetivo",     "title": "Objetivo",     "placeholder": "Plaga/enfermedad", "required": true },
+        { "key": "producto",     "title": "Producto",     "placeholder": "Nombre comercial", "required": true },
+        { "key": "dosis",        "title": "Dosis",        "placeholder": "1 L/ha" },
+        { "key": "fecha",        "title": "Fecha",        "placeholder": "AAAA-MM" , "required": true },
+        { "key": "responsable",  "title": "Responsable",  "placeholder": "Aplicador/Jefe" , "required": true }
+      ],
+      "addRowText": "Añadir tratamiento",
+      "exampleRow": {
+        "cultivo_area": "Lote A (ha)",
+        "objetivo": "Plaga/enfermedad",
+        "producto": "Nombre comercial",
+        "dosis": "1 L/ha",
+        "fecha": "AAAA-MM",
+        "responsable": "Aplicador/Jefe"
+      }
+    }
+
+  ],
+  "defaults": {
+    "base_legal": [
+      "Decreto Ejecutivo 255 – Reglamento de SST.",
+      "Acuerdo MDT-2024-196 – Normas Generales en SST.",
+      "Sistema Globalmente Armonizado (GHS).",
+      "Hojas de Datos de Seguridad (HDS) vigentes por producto."
+    ],
+    "almacenamiento_lineamientos": [
+      "Bodega exclusiva, ventilada, piso impermeable y dique de contención.",
+      "Señalización GHS visible, acceso controlado y registro de entrega.",
+      "Kit de derrames y extintor disponible; lavaojos/ducha de emergencia cercanos."
+    ],
+    "procedimientos_escritos": [
+      "Recepción/verificación de etiquetas y registros.",
+      "Mezcla en área ventilada con bandeja de contención.",
+      "Aplicación con condiciones meteorológicas adecuadas y equipos calibrados.",
+      "Limpieza y descontaminación del equipo; triple lavado de envases.",
+      "Derrames y primeros auxilios según HDS."
+    ],
+    "epp_obligatorio": [
+      "Respirador con filtros adecuados al producto (según HDS).",
+      "Guantes resistentes a químicos, gafas/pantalla facial.",
+      "Overol resistente/impermeable y botas de goma."
+    ],
+    "hds_links": [
+      "Carpeta física en bodega y área de mezcla.",
+      "Carpeta digital compartida interna."
+    ],
+    "capacitacion_temas": [
+      "Interpretación de etiquetas GHS y HDS.",
+      "Mezcla segura y cálculo de dosis.",
+      "Uso y mantenimiento de EPP.",
+      "Gestión de derrames y residuos."
+    ],
+    "vigilancia_items": [
+      "Evaluaciones médicas periódicas enfocadas en exposición.",
+      "Biomarcadores específicos según producto (p.ej., colinesterasa)."
+    ],
+    "indicadores": [
+      "Cobertura de capacitación ≥ 90%.",
+      "100% HDS accesibles.",
+      "0 incidentes por exposición."
+    ],
+    "inventario_plaguicidas": [
+      {
+        "producto": "Ej: Nombre comercial",
+        "ingrediente_activo": "Ej: i.a.",
+        "formulacion": "EC",
+        "registro": "12345",
+        "categoria_tox": "GHS",
+        "hds": "https://... o Bodega/Carpeta",
+        "proveedor": "Proveedor A",
+        "vencimiento": "2026-08"
+      }
+    ],
+    "programacion_tratamientos": [
+      {
+        "cultivo_area": "Lote A (4 ha)",
+        "objetivo": "Sigatoka",
+        "producto": "Fungicida X",
+        "dosis": "Según etiqueta/HDS",
+        "fecha": "2025-07",
+        "responsable": "Ing. Agrónomo"
+      }
+    ],
+    "control_cambios": [
+      {
+        "version": "1.0",
+        "fecha": "",
+        "descripcion": "Emisión inicial",
+        "aprobo": ""
+      }
+    ]
+  }
+}

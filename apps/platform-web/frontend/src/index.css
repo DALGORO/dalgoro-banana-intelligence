@@ -1,0 +1,618 @@
+@import url('https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600&display=swap');
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  color-scheme: light;
+  --font-ui: 'Poppins', ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, 'Helvetica Neue', Arial;
+  --font-head: 'Poppins', ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, 'Helvetica Neue', Arial;
+  --font-brand: 'Poppins', ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, 'Helvetica Neue', Arial;
+
+  /* Marca / base */
+  --dal-navy-900: #142328;
+  --dal-navy-800: #192B2F;
+  --dal-navy-700: #21393F;
+  --dal-surface-dark: #1B2E34;
+  --dal-surface-dark-2: #233A40;
+  --dal-copper: #B57548;
+  --dal-copper-strong: #9F643C;
+
+  /* Modo claro */
+  --dal-bg-light: #F6F5F1;
+  --dal-surface-light: #FFFFFF;
+  --dal-surface-light-2: #FAFAF7;
+  --dal-border-light: #E7ECEE;
+  --dal-ink-light: #1F2D33;
+  --dal-muted-light: #5F6E75;
+
+  /* Modo oscuro */
+  --dal-ink-dark: #F4F1EA;
+  --dal-muted-dark: #B7C2C7;
+
+  /* Estados */
+  --dal-success: #4E8F72;
+  --dal-warning: #D2A24C;
+  --dal-danger: #B85C5C;
+  --dal-info: #5F8EA3;
+}
+
+html {
+  color-scheme: light;
+}
+
+html.dark {
+  color-scheme: dark;
+}
+
+html:not(.dark) {
+  color-scheme: light;
+}
+
+@layer base {
+  html, body, #root {
+    height: 100%;
+  }
+
+  body {
+    @apply bg-stone-50 text-slate-900 dark:bg-dal-petrol dark:text-slate-100;
+    font-family: var(--font-ui);
+    line-height: 1.5;
+  }
+
+  h1, h2, h3 {
+    font-family: var(--font-head);
+    letter-spacing: 0.01em;
+  }
+
+  .brand {
+    font-family: var(--font-brand);
+    letter-spacing: 0.08em;
+  }
+
+  h1 { @apply text-2xl font-semibold; }
+  h2 { @apply text-xl font-semibold; }
+}
+
+@layer components {
+  /* Superficies principales */
+  .card {
+    @apply rounded-2xl border p-4 md:p-6 backdrop-blur;
+    background: rgba(255, 255, 255, 0.96);
+    border-color: var(--dal-border-light);
+    box-shadow: 0 10px 24px rgba(15, 23, 42, 0.06);
+  }
+
+  .dark .card {
+    background: rgba(27, 46, 52, 0.88);
+    border-color: rgba(255, 255, 255, 0.08);
+    box-shadow: 0 12px 28px rgba(0, 0, 0, 0.28);
+  }
+
+  .surface {
+    @apply rounded-2xl border p-4 md:p-5;
+    background: var(--dal-surface-light);
+    border-color: var(--dal-border-light);
+  }
+
+  .dark .surface {
+    background: rgba(35, 58, 64, 0.78);
+    border-color: rgba(255, 255, 255, 0.08);
+  }
+
+  .divider {
+    @apply border-t border-slate-200 dark:border-white/10;
+  }
+
+  /* Topbar más sobria en claro */
+  .topbar {
+    @apply rounded-2xl border px-4 py-4 md:px-5;
+    background: rgba(255, 255, 255, 0.9);
+    border-color: rgba(25, 43, 47, 0.08);
+    box-shadow: 0 8px 20px rgba(15, 23, 42, 0.06);
+  }
+
+  .dark .topbar {
+    background: rgba(27, 46, 52, 0.78);
+    border-color: rgba(255, 255, 255, 0.08);
+    box-shadow: 0 10px 24px rgba(0, 0, 0, 0.22);
+  }
+
+  /* Tablas dentro de tarjetas */
+  .card table th,
+  .card table td {
+    @apply px-4 py-3 md:px-5 md:py-3.5;
+  }
+
+  .card table thead th {
+    @apply font-medium;
+    color: #5F6E75;
+  }
+
+  /* Texto auxiliar */
+  .muted {
+    @apply text-sm;
+    color: var(--dal-muted-light);
+  }
+
+  .dark .muted {
+    color: var(--dal-muted-dark);
+  }
+
+  .eyebrow {
+    @apply text-[11px] uppercase tracking-wider;
+    color: #7A8B90;
+  }
+
+  .dark .eyebrow {
+    color: #9FB0B5;
+  }
+
+  /* Botones */
+  .btn {
+    @apply inline-flex items-center justify-center gap-2 rounded-2xl px-4 py-2 font-medium transition select-none;
+  }
+
+  /* Primario: claro en petróleo elegante; dark en cobre */
+  .btn-primary {
+    @apply btn text-white border focus:outline-none active:translate-y-[1px];
+    background: linear-gradient(180deg, var(--dal-navy-700) 0%, var(--dal-navy-800) 100%);
+    border-color: #17343B;
+    box-shadow: 0 10px 20px rgba(25, 43, 47, 0.18);
+  }
+
+  .btn-primary:hover {
+    filter: brightness(1.03);
+  }
+
+  .dark .btn-primary {
+    background: linear-gradient(180deg, var(--dal-copper) 0%, var(--dal-copper-strong) 100%);
+    border-color: #8C5233;
+    box-shadow: 0 10px 20px rgba(181, 117, 72, 0.22);
+  }
+
+  .btn-secondary {
+    @apply btn border focus:outline-none active:translate-y-[1px];
+    color: var(--dal-ink-light);
+    background: linear-gradient(180deg, #FFFFFF 0%, #F4F6F7 100%);
+    border-color: #D9E1E4;
+    box-shadow: 0 8px 18px rgba(15, 23, 42, 0.06);
+  }
+
+  .btn-secondary:hover {
+    background: linear-gradient(180deg, #FFFFFF 0%, #EEF3F4 100%);
+  }
+
+  .dark .btn-secondary {
+    color: var(--dal-ink-dark);
+    background: linear-gradient(180deg, rgba(255, 255, 255, 0.14) 0%, rgba(255, 255, 255, 0.06) 100%);
+    border-color: rgba(255, 255, 255, 0.12);
+    box-shadow: 0 8px 20px rgba(0, 0, 0, 0.18);
+  }
+
+  .btn-ghost {
+    @apply btn border;
+    color: var(--dal-navy-800);
+    background: #EEF3F4;
+    border-color: #D9E1E4;
+  }
+
+  .btn-ghost:hover {
+    background: #E5ECEE;
+  }
+
+  .dark .btn-ghost {
+    color: var(--dal-ink-dark);
+    background: rgba(255, 255, 255, 0.06);
+    border-color: rgba(255, 255, 255, 0.10);
+  }
+
+  .btn-logout {
+    @apply btn border;
+    color: var(--dal-navy-800);
+    background: linear-gradient(180deg, #FFFFFF 0%, #F4F6F7 100%);
+    border-color: #D9E1E4;
+    box-shadow: 0 8px 18px rgba(15, 23, 42, 0.06);
+  }
+
+  .btn-logout:hover {
+    background: linear-gradient(180deg, #FFFFFF 0%, #EEF3F4 100%);
+  }
+
+  .btn-logout:active {
+    transform: translateY(1px);
+  }
+
+  .dark .btn-logout {
+    color: #F8D8BF;
+    background: rgba(181, 117, 72, 0.1);
+    border-color: rgba(181, 117, 72, 0.35);
+    box-shadow: 0 8px 20px rgba(181, 117, 72, 0.1);
+  }
+
+  /* Controles de formulario compartidos */
+  input:not([type="checkbox"]):not([type="radio"]):not([type="range"]),
+  select,
+  textarea {
+    @apply rounded-2xl border px-3 py-2 text-sm transition outline-none;
+    background: #FFFFFF;
+    border-color: #D9E1E4;
+    color: var(--dal-ink-light);
+    box-shadow: 0 1px 2px rgba(15, 23, 42, 0.03);
+  }
+
+  input:not([type="checkbox"]):not([type="radio"]):not([type="range"]):focus,
+  select:focus,
+  textarea:focus {
+    border-color: rgba(181, 117, 72, 0.55);
+    box-shadow: 0 0 0 3px rgba(181, 117, 72, 0.12);
+  }
+
+  input::placeholder,
+  textarea::placeholder {
+    color: #7A8B90;
+  }
+
+  .dark input:not([type="checkbox"]):not([type="radio"]):not([type="range"]),
+  .dark select,
+  .dark textarea {
+    background: rgba(255, 255, 255, 0.06);
+    border-color: rgba(255, 255, 255, 0.10);
+    color: var(--dal-ink-dark);
+    box-shadow: none;
+  }
+
+  .dark input::placeholder,
+  .dark textarea::placeholder {
+    color: #9FB0B5;
+  }
+
+  .dark input:not([type="checkbox"]):not([type="radio"]):not([type="range"]):focus,
+  .dark select:focus,
+  .dark textarea:focus {
+    border-color: rgba(181, 117, 72, 0.45);
+    box-shadow: 0 0 0 3px rgba(181, 117, 72, 0.12);
+  }
+
+  /* Chips */
+  .chip {
+    @apply inline-flex items-center gap-2 rounded-xl border px-2.5 py-1 text-xs font-medium;
+    background: #F7F8F9;
+    color: #43545B;
+    border-color: #DDE5E8;
+  }
+
+  .dark .chip {
+    background: rgba(255, 255, 255, 0.08);
+    color: var(--dal-ink-dark);
+    border-color: rgba(255, 255, 255, 0.10);
+  }
+
+  /* Sidebar */
+    /* Sidebar */
+  .app-sidebar {
+    background: linear-gradient(180deg, #EEF3F4 0%, #E6EEEF 100%);
+    border-color: #D9E1E4;
+    color: #1F2D33;
+  }
+
+  .dark .app-sidebar {
+    background: linear-gradient(180deg, var(--dal-navy-800) 0%, var(--dal-surface-dark) 100%);
+    border-color: rgba(255, 255, 255, 0.08);
+    color: var(--dal-ink-dark);
+  }
+
+  .sidebar-panel {
+    @apply rounded-2xl border p-4;
+    background: rgba(255, 255, 255, 0.72);
+    border-color: #D9E1E4;
+    box-shadow: 0 8px 20px rgba(15, 23, 42, 0.05);
+  }
+
+  .dark .sidebar-panel {
+    background: rgba(255, 255, 255, 0.05);
+    border-color: rgba(255, 255, 255, 0.08);
+    box-shadow: none;
+  }
+
+  .nav-item {
+    @apply block rounded-2xl px-3 py-2 text-sm transition;
+    color: #31444B;
+  }
+
+  .nav-item:hover {
+    color: #132127;
+    background: rgba(25, 43, 47, 0.08);
+  }
+
+  .nav-item-active {
+    @apply block rounded-2xl px-3 py-2 text-sm;
+    color: #132127;
+    background: rgba(25, 43, 47, 0.12);
+    border: 1px solid rgba(25, 43, 47, 0.10);
+    box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.55);
+  }
+
+  .dark .nav-item {
+    color: rgba(244, 241, 234, 0.82);
+  }
+
+  .dark .nav-item:hover {
+    color: #FFFFFF;
+    background: rgba(255, 255, 255, 0.08);
+  }
+
+  .dark .nav-item-active {
+    color: #FFFFFF;
+    background: rgba(181, 117, 72, 0.18);
+    border: 1px solid rgba(181, 117, 72, 0.34);
+    box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.08);
+  }
+
+  .page-title-block {
+    @apply flex flex-col gap-1;
+  }
+
+  .page-kicker {
+    @apply text-[11px] uppercase tracking-[0.18em] font-medium;
+    color: #7A8B90;
+  }
+
+  .dark .page-kicker {
+    color: #9FB0B5;
+  }
+
+  .page-subtitle {
+    @apply text-sm;
+    color: var(--dal-muted-light);
+  }
+
+  .dark .page-subtitle {
+    color: var(--dal-muted-dark);
+  }
+
+  /* Banners */
+  .status-banner {
+    @apply rounded-2xl border px-4 py-3;
+  }
+
+  .status-banner-warning {
+    background: rgba(210, 162, 76, 0.14);
+    border-color: rgba(210, 162, 76, 0.24);
+    color: #7A5310;
+  }
+
+  .dark .status-banner-warning {
+    background: rgba(210, 162, 76, 0.12);
+    border-color: rgba(210, 162, 76, 0.26);
+    color: #F2D7A0;
+  }
+
+  .status-banner-info {
+    background: rgba(95, 142, 163, 0.12);
+    border-color: rgba(95, 142, 163, 0.24);
+    color: #234D62;
+  }
+
+  .dark .status-banner-info {
+    background: rgba(95, 142, 163, 0.12);
+    border-color: rgba(95, 142, 163, 0.26);
+    color: #C7DDE7;
+  }
+
+  .status-banner-success {
+    background: rgba(78, 143, 114, 0.12);
+    border-color: rgba(78, 143, 114, 0.22);
+    color: #23553E;
+  }
+
+  .dark .status-banner-success {
+    background: rgba(78, 143, 114, 0.12);
+    border-color: rgba(78, 143, 114, 0.22);
+    color: #BFE1D1;
+  }
+
+  .status-banner-danger {
+    background: rgba(184, 92, 92, 0.12);
+    border-color: rgba(184, 92, 92, 0.22);
+    color: #6E2F2F;
+  }
+
+  .dark .status-banner-danger {
+    background: rgba(184, 92, 92, 0.12);
+    border-color: rgba(184, 92, 92, 0.22);
+    color: #E8C3C3;
+  }
+
+  /* Tarjetas métricas y vacíos */
+  .metric-card {
+    @apply rounded-2xl border p-4;
+    background: linear-gradient(180deg, rgba(255, 255, 255, 0.98) 0%, rgba(250, 250, 247, 1) 100%);
+    border-color: var(--dal-border-light);
+    box-shadow: 0 10px 24px rgba(15, 23, 42, 0.05);
+  }
+
+  .dark .metric-card {
+    background: linear-gradient(180deg, rgba(27, 46, 52, 0.92) 0%, rgba(35, 58, 64, 0.86) 100%);
+    border-color: rgba(255, 255, 255, 0.08);
+    box-shadow: 0 12px 28px rgba(0, 0, 0, 0.22);
+  }
+
+  .empty-state {
+    @apply rounded-2xl border border-dashed p-6 text-center;
+    background: rgba(255, 255, 255, 0.72);
+    border-color: #D9E1E4;
+  }
+
+  .dark .empty-state {
+    background: rgba(255, 255, 255, 0.04);
+    border-color: rgba(255, 255, 255, 0.12);
+  }
+
+  .section-head {
+    @apply flex items-start justify-between gap-3;
+  }
+}
+
+/* ========================================================================== */
+/* LIGHT MODE LEGACY GUARDS – SOLO PARA BLOQUES ANTIGUOS AÚN NO MIGRADOS      */
+/* Aplica solo en main y evita tocar sidebar, topbar y componentes ya nuevos. */
+/* ========================================================================== */
+
+:root:not(.dark) main :is(
+  [class*="bg-dal-"],
+  [class*="bg-slate-8"],
+  [class*="bg-slate-9"],
+  [class*="bg-neutral-8"],
+  [class*="bg-neutral-9"],
+  [class*="bg-\\["]
+):not(.app-sidebar):not(.sidebar-panel):not(.topbar):not(.card):not(.surface):not(.metric-card):not(.empty-state):not(.status-banner) {
+  background-color: #FFFFFF !important;
+  border-color: #E7ECEE !important;
+  color: #1F2D33 !important;
+  box-shadow: 0 8px 20px rgba(2, 6, 23, 0.06) !important;
+}
+
+:root:not(.dark) main :is(
+  [class*="bg-dal-"],
+  [class*="bg-slate-8"],
+  [class*="bg-slate-9"],
+  [class*="bg-neutral-8"],
+  [class*="bg-neutral-9"],
+  [class*="bg-\\["]
+):not(.app-sidebar):not(.sidebar-panel):not(.topbar):not(.card):not(.surface):not(.metric-card):not(.empty-state):not(.status-banner)[class*="rounded"] {
+  border-radius: 1rem;
+}
+
+:root:not(.dark) main :is(
+  [class*="bg-dal-"],
+  [class*="bg-slate-8"],
+  [class*="bg-slate-9"],
+  [class*="bg-neutral-8"],
+  [class*="bg-neutral-9"],
+  [class*="bg-\\["]
+):not(.app-sidebar):not(.sidebar-panel):not(.topbar):not(.card):not(.surface):not(.metric-card):not(.empty-state):not(.status-banner) table {
+  background-color: #FFFFFF !important;
+}
+
+:root:not(.dark) main :is(
+  [class*="bg-dal-"],
+  [class*="bg-slate-8"],
+  [class*="bg-slate-9"],
+  [class*="bg-neutral-8"],
+  [class*="bg-neutral-9"],
+  [class*="bg-\\["]
+):not(.app-sidebar):not(.sidebar-panel):not(.topbar):not(.card):not(.surface):not(.metric-card):not(.empty-state):not(.status-banner) thead {
+  background-color: #F1F3F4 !important;
+}
+
+:root:not(.dark) main :is(
+  [class*="bg-dal-"],
+  [class*="bg-slate-8"],
+  [class*="bg-slate-9"],
+  [class*="bg-neutral-8"],
+  [class*="bg-neutral-9"],
+  [class*="bg-\\["]
+):not(.app-sidebar):not(.sidebar-panel):not(.topbar):not(.card):not(.surface):not(.metric-card):not(.empty-state):not(.status-banner) thead th {
+  color: #153242 !important;
+  font-weight: 600;
+}
+
+:root:not(.dark) main :is(
+  [class*="bg-dal-"],
+  [class*="bg-slate-8"],
+  [class*="bg-slate-9"],
+  [class*="bg-neutral-8"],
+  [class*="bg-neutral-9"],
+  [class*="bg-\\["]
+):not(.app-sidebar):not(.sidebar-panel):not(.topbar):not(.card):not(.surface):not(.metric-card):not(.empty-state):not(.status-banner) th,
+:root:not(.dark) main :is(
+  [class*="bg-dal-"],
+  [class*="bg-slate-8"],
+  [class*="bg-slate-9"],
+  [class*="bg-neutral-8"],
+  [class*="bg-neutral-9"],
+  [class*="bg-\\["]
+):not(.app-sidebar):not(.sidebar-panel):not(.topbar):not(.card):not(.surface):not(.metric-card):not(.empty-state):not(.status-banner) td {
+  color: #1F2D33 !important;
+}
+
+:root:not(.dark) main :is(
+  [class*="bg-dal-"],
+  [class*="bg-slate-8"],
+  [class*="bg-slate-9"],
+  [class*="bg-neutral-8"],
+  [class*="bg-neutral-9"],
+  [class*="bg-\\["]
+):not(.app-sidebar):not(.sidebar-panel):not(.topbar):not(.card):not(.surface):not(.metric-card):not(.empty-state):not(.status-banner) tbody tr {
+  background-color: #FFFFFF !important;
+}
+
+:root:not(.dark) main :is(
+  [class*="bg-dal-"],
+  [class*="bg-slate-8"],
+  [class*="bg-slate-9"],
+  [class*="bg-neutral-8"],
+  [class*="bg-neutral-9"],
+  [class*="bg-\\["]
+):not(.app-sidebar):not(.sidebar-panel):not(.topbar):not(.card):not(.surface):not(.metric-card):not(.empty-state):not(.status-banner) tbody tr:hover {
+  background-color: #F7F9FA !important;
+}
+
+:root:not(.dark) main :is(button, a)[class*="rounded-full"][class*="bg-\\["],
+:root:not(.dark) main :is(button, a)[class*="rounded-full"][class*="bg-slate-"],
+:root:not(.dark) main :is(button, a)[class*="rounded-full"][class*="bg-neutral-"] {
+  background-color: var(--dal-navy-800) !important;
+  border: 1px solid #132127 !important;
+  color: #FFFFFF !important;
+}
+
+/* Solo chips de estado, no botones de acción */
+:root:not(.dark) main .chip[class*="bg-emerald"],
+:root:not(.dark) main .chip[class*="bg-amber"],
+:root:not(.dark) main .chip[class*="bg-yellow"],
+:root:not(.dark) main .chip[class*="bg-orange"],
+:root:not(.dark) main .chip[class*="bg-rose"],
+:root:not(.dark) main .chip[class*="bg-red"] {
+  border-color: transparent !important;
+}
+
+/* === IPERC: Mejora de legibilidad en tablas anchas ======================= */
+/* Aplica sólo a tablas con la clase extra .iperc-grid (no rompe otras)     */
+
+.table.iperc-grid th,
+.table.iperc-grid td {
+  border-right: 1px solid rgba(255, 255, 255, 0.07); /* separadores sutiles */
+}
+
+/* quitar el último borde para que no se vea “doble” a la derecha */
+.table.iperc-grid th:last-child,
+.table.iperc-grid td:last-child {
+  border-right: none;
+}
+
+/* “zebra stripes” muy suaves para filas */
+.table.iperc-grid tbody tr:nth-child(odd) {
+  background: rgba(255, 255, 255, 0.02);
+}
+
+/* resalte leve al pasar el mouse por la fila */
+.table.iperc-grid tbody tr:hover {
+  background: rgba(255, 255, 255, 0.04);
+}
+
+/* cursor de ayuda en los th que tienen title=... (nuestros tooltips nativos) */
+.table.iperc-grid thead th[title] {
+  cursor: help;
+}
+
+/* Opcional: encabezado “sticky” en tablas IPERC */
+.table.iperc-grid thead th {
+  position: sticky;
+  top: 0;
+  z-index: 1;
+  /* fondo discreto para que no se transparente al hacer scroll */
+  background: rgba(0,0,0,0.15);
+  backdrop-filter: blur(2px);
+}

@@ -1,0 +1,118 @@
+version: 2
+report:
+  title: Informe técnico de inventario y análisis espacial de plantación de banano
+  page_size: A4
+  margins_cm:
+    left: 1.8
+    right: 1.8
+    top: 3.15
+    bottom: 2.05
+  branding:
+    primary_color: '#21393F'
+    secondary_color: '#192B2F'
+    accent_color: '#B57548'
+    text_color: '#192B2F'
+    muted_text_color: '#5F6B6E'
+    letterhead_path: resources/branding/dalgoro_letterhead_portrait.jpg
+    logo_path: resources/branding/dalgoro_logo_horizontal.jpg
+    fonts:
+      regular_candidates:
+      - Montserrat-Regular.ttf
+      - MontserratRegular.ttf
+      semibold_candidates:
+      - Montserrat-SemiBold.ttf
+      - MontserratSemibold.ttf
+      bold_candidates:
+      - Montserrat-Bold.ttf
+      - MontserratBold.ttf
+      italic_candidates:
+      - Montserrat-Italic.ttf
+      - MontserratItalic.ttf
+  table_alternate_color: '#F3F5F4'
+  table_grid_color: '#C4CECF'
+  minimum_map_count: 6
+  target_density_tolerance_percent: 1.0
+  introduction: El inventario espacial de las plantas de banano constituye una herramienta fundamental
+    para comprender la distribución real del cultivo, contrastar la densidad observada con los objetivos
+    productivos y orientar las inspecciones de campo. En plantaciones consolidadas, la disposición de
+    las plantas suele ser irregular debido a los ciclos sucesivos de producción, selección de hijos, resiembras
+    y pérdidas históricas. Por ello, el análisis debe integrar conteo automatizado, densidad local, superficie
+    libre, vías, canales, drenajes e infraestructura, evitando interpretar automáticamente todo espacio
+    abierto como una planta faltante.
+  introduction_second_paragraph: La combinación de ortofotografía de alta resolución, detección mediante
+    inteligencia artificial y análisis geoespacial permite transformar la imagen aérea en información
+    verificable. El resultado facilita priorizar recorridos, identificar zonas con déficit o concentración
+    espacial, documentar la condición de la finca y mantener una trazabilidad reproducible para futuras
+    evaluaciones.
+  cover_notice: Resultados generados mediante procesamiento geoespacial y detección automatizada. Las
+    decisiones de resiembra y manejo requieren verificación técnica en campo.
+  legal_notice: Elaborado por el Ing. Darwin A. González Romero. Todos los derechos pertenecen al autor.
+    No se autoriza la reproducción, modificación o distribución sin autorización expresa.
+  map_explanations:
+    inventory: Presenta la ortofoto, el límite oficial del área analizada y la ubicación de cada planta
+      detectada y validada. Permite comprobar la cobertura del inventario, reconocer sectores sin detecciones
+      y verificar visualmente posibles errores residuales. Debe revisarse con especial atención en bordes,
+      zonas con sombra, copas superpuestas y áreas con baja calidad de imagen.
+    hex_density: Divide la finca en unidades hexagonales de 100 m² y calcula la densidad local respecto
+      del objetivo establecido por el productor. Las categorías de déficit o concentración permiten priorizar
+      sectores, pero una celda deficitaria puede corresponder a vías, canales, infraestructura o áreas
+      no cultivables. Los fragmentos de borde se mantienen como no evaluables cuando su cobertura es insuficiente.
+    kde_density: Representa una superficie continua de densidad mediante estimación de kernel. Suaviza
+      la distribución puntual para mostrar tendencias espaciales y aplica corrección del efecto de borde.
+      Es útil para reconocer corredores o manchas de déficit y concentración, aunque no sustituye la evaluación
+      por hexágonos ni confirma por sí sola la necesidad de resiembra.
+    planting_opportunities: Delimita espacios geométricos con separación suficiente respecto de las plantas
+      existentes y muestra candidatos para inspección. No presupone filas de siembra ni una distribución
+      lineal. Cada candidato debe clasificarse en campo para determinar si corresponde a área productiva,
+      vía, canal, drenaje, infraestructura, borde o planta no detectada.
+    operational_priority: Combina el puntaje espacial del candidato, el déficit del hexágono, el tamaño
+      de la zona libre y el riesgo de borde. Las prioridades alta y media organizan el recorrido técnico;
+      no constituyen una autorización automática de siembra. Las exclusiones cartografiadas deben utilizarse
+      para descartar candidatos incompatibles con el uso real del suelo.
+    high_density_risk: Identifica sectores donde la concentración espacial supera el objetivo o donde
+      la tendencia KDE es elevada. El resultado puede reflejar plantas reales muy próximas, cambios históricos
+      de distribución o detecciones duplicadas residuales. No debe describirse como traslape foliar confirmado
+      sin una evaluación específica de copas y condiciones agronómicas.
+  additional_recommendations:
+  - Incorporar en futuras ejecuciones una capa actualizada de vías, canales, drenajes, estaciones de bombeo,
+    bodegas y demás infraestructura para reducir candidatos no cultivables.
+  - Mantener la misma densidad objetivo en todos los productos del escenario y generar un nuevo paquete
+    cuando el productor cambie ese parámetro.
+  - Repetir el levantamiento después de intervenciones importantes para medir cambios en inventario, densidad
+    y distribución espacial.
+  glossary:
+  - term: Ortofoto
+    definition: Imagen aérea corregida geométricamente y vinculada a coordenadas reales.
+  - term: YOLO
+    definition: Modelo de detección de objetos utilizado para localizar plantas en la ortofoto.
+  - term: Detección
+    definition: Objeto identificado por el modelo antes de su validación espacial y deduplicación.
+  - term: Deduplicación
+    definition: Proceso que elimina detecciones repetidas producidas por el solape entre mosaicos.
+  - term: CRS
+    definition: Sistema de referencia de coordenadas utilizado para ubicar los resultados.
+  - term: EPSG
+    definition: Código normalizado que identifica un sistema de referencia de coordenadas.
+  - term: GeoPackage
+    definition: Formato geográfico que almacena capas vectoriales y sus atributos.
+  - term: Densidad objetivo
+    definition: Número de plantas por hectárea establecido por el productor para el análisis.
+  - term: Hexágono evaluable
+    definition: Celda con cobertura suficiente dentro del límite para interpretar su densidad local.
+  - term: KDE
+    definition: Estimación de densidad de kernel que genera una superficie continua a partir de puntos.
+  - term: Efecto de borde
+    definition: Subestimación que aparece cuando parte del radio de análisis queda fuera de la finca.
+  - term: Voronoi
+    definition: División del espacio en territorios asociados a la planta más cercana.
+  - term: Oportunidad geométrica
+    definition: Espacio con condiciones geométricas para inspección, no resiembra confirmada.
+  - term: Candidato de siembra
+    definition: Posición propuesta para evaluación técnica dentro de una oportunidad geométrica.
+  - term: Prioridad operativa
+    definition: Clasificación que organiza el orden recomendado de inspección de los candidatos.
+  - term: Exclusión
+    definition: Vía, canal, drenaje, infraestructura u otra superficie donde no corresponde sembrar.
+  - term: Concentración espacial
+    definition: Sector con mayor cantidad de plantas por unidad de superficie respecto del objetivo.
+build_id: DALGORO_BRANDING_V2_20260716_R2

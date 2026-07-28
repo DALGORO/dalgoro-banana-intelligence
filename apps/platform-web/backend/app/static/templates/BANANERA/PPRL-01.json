@@ -1,0 +1,347 @@
+{
+  "code": "PPRL-01",
+  "activity": "BANANERA",
+  "title": "Programa de Prevención de Riesgos Laborales",
+  "version": 1,
+  "legal_base": [
+    {
+      "norm": "Decreto Ejecutivo 255",
+      "articles": ""
+    },
+    {
+      "norm": "Norma Técnica en Seguridad e Higiene del Trabajo (Anexo 3)",
+      "articles": ""
+    },
+    {
+      "norm": "Código del Trabajo",
+      "articles": ""
+    },
+    {
+      "norm": "ISO 45001",
+      "articles": ""
+    }
+  ],
+  "autofill": [
+    {
+      "field": "razon_social",
+      "from_code": "ORG-DEL-01",
+      "from_field": "razon_social"
+    },
+    {
+      "field": "ruc",
+      "from_code": "ORG-DEL-01",
+      "from_field": "ruc"
+    },
+    {
+      "field": "direccion",
+      "from_code": "ORG-DEL-01",
+      "from_field": "direccion"
+    },
+    {
+      "field": "provincia",
+      "from_code": "ORG-DEL-01",
+      "from_field": "provincia"
+    },
+    {
+      "field": "canton",
+      "from_code": "ORG-DEL-01",
+      "from_field": "canton"
+    },
+    {
+      "field": "parroquia",
+      "from_code": "ORG-DEL-01",
+      "from_field": "parroquia"
+    },
+    {
+      "field": "telefono",
+      "from_code": "ORG-DEL-01",
+      "from_field": "telefono"
+    },
+    {
+      "field": "correo",
+      "from_code": "ORG-DEL-01",
+      "from_field": "correo"
+    },
+    {
+      "field": "actividad",
+      "from_code": "RHS-01",
+      "from_field": "actividad"
+    },
+    {
+      "field": "trabajadores",
+      "from_code": "RHS-01",
+      "from_field": "trabajadores"
+    },
+    {
+      "field": "riesgo",
+      "from_code": "RHS-01",
+      "from_field": "riesgo"
+    },
+    {
+      "field": "tamano_mipyme",
+      "from_code": "RHS-01",
+      "from_field": "tamano_mipyme"
+    },
+    {
+      "field": "responsable_sst",
+      "from_code": "ORG-DEL-01",
+      "from_field": "responsable_sst"
+    },
+    {
+      "field": "responsable_sst_cedula",
+      "from_code": "ORG-DEL-01",
+      "from_field": "responsable_sst_cedula"
+    },
+    {
+      "field": "figura_sst",
+      "from_code": "ACTA-APR-RHS-01",
+      "from_field": "figura_sst"
+    },
+    {
+      "field": "fecha_iperc",
+      "from_code": "IPERC-01",
+      "from_field": "fecha_iperc"
+    },
+    {
+      "field": "peligros_fisicos",
+      "from_code": "IPERC-01",
+      "from_field": "peligros_fisicos"
+    },
+    {
+      "field": "controles_existentes_fisicos",
+      "from_code": "IPERC-01",
+      "from_field": "controles_existentes_fisicos"
+    },
+    {
+      "field": "rows",
+      "from_code": "IPERC-01",
+      "from_field": "rows"
+    },
+    {
+      "field": "controles_propuestos_fisicos",
+      "from_code": "IPERC-01",
+      "from_field": "controles_propuestos_fisicos"
+    },
+
+    {
+      "field": "peligros_quimicos",
+      "from_code": "IPERC-01",
+      "from_field": "peligros_quimicos"
+    },
+    {
+      "field": "controles_existentes_quimicos",
+      "from_code": "IPERC-01",
+      "from_field": "controles_existentes_quimicos"
+    },
+    {
+      "field": "controles_propuestos_quimicos",
+      "from_code": "IPERC-01",
+      "from_field": "controles_propuestos_quimicos"
+    },
+
+    {
+      "field": "peligros_biologicos",
+      "from_code": "IPERC-01",
+      "from_field": "peligros_biologicos"
+    },
+    {
+      "field": "controles_existentes_biologicos",
+      "from_code": "IPERC-01",
+      "from_field": "controles_existentes_biologicos"
+    },
+    {
+      "field": "controles_propuestos_biologicos",
+      "from_code": "IPERC-01",
+      "from_field": "controles_propuestos_biologicos"
+    },
+
+    {
+      "field": "peligros_seguridad",
+      "from_code": "IPERC-01",
+      "from_field": "peligros_seguridad"
+    },
+    {
+      "field": "controles_existentes_seguridad",
+      "from_code": "IPERC-01",
+      "from_field": "controles_existentes_seguridad"
+    },
+    {
+      "field": "controles_propuestos_seguridad",
+      "from_code": "IPERC-01",
+      "from_field": "controles_propuestos_seguridad"
+    },
+
+    {
+      "field": "peligros_ergonomicos",
+      "from_code": "IPERC-01",
+      "from_field": "peligros_ergonomicos"
+    },
+    {
+      "field": "controles_existentes_ergonomicos",
+      "from_code": "IPERC-01",
+      "from_field": "controles_existentes_ergonomicos"
+    },
+    {
+      "field": "controles_propuestos_ergonomicos",
+      "from_code": "IPERC-01",
+      "from_field": "controles_propuestos_ergonomicos"
+    },
+
+    {
+      "field": "peligros_psicosociales",
+      "from_code": "IPERC-01",
+      "from_field": "peligros_psicosociales"
+    },
+    {
+      "field": "controles_existentes_psicosociales",
+      "from_code": "IPERC-01",
+      "from_field": "controles_existentes_psicosociales"
+    },
+    {
+      "field": "controles_propuestos_psicosociales",
+      "from_code": "IPERC-01",
+      "from_field": "controles_propuestos_psicosociales"
+    }
+  ],
+  "fields": [
+    {
+      "name": "fecha_emision",
+      "label": "Fecha de emisión del Programa",
+      "type": "date",
+      "required": true
+    },
+    {
+      "name": "periodo_vigencia",
+      "label": "Vigencia (ej. 01/01/2025 - 31/12/2025)",
+      "type": "text",
+      "required": true
+    },
+    {
+      "name": "razon_social",
+      "label": "Razón social",
+      "type": "text"
+    },
+    {
+      "name": "ruc",
+      "label": "RUC",
+      "type": "text"
+    },
+    {
+      "name": "direccion",
+      "label": "Dirección",
+      "type": "text"
+    },
+    {
+      "name": "provincia",
+      "label": "Provincia",
+      "type": "text"
+    },
+    {
+      "name": "canton",
+      "label": "Cantón",
+      "type": "text"
+    },
+    {
+      "name": "parroquia",
+      "label": "Parroquia",
+      "type": "text"
+    },
+    {
+      "name": "telefono",
+      "label": "Teléfono (empresa)",
+      "type": "text"
+    },
+    {
+      "name": "correo",
+      "label": "Correo (empresa)",
+      "type": "text"
+    },
+    {
+      "name": "actividad",
+      "label": "Actividad/CIIU",
+      "type": "text"
+    },
+    {
+      "name": "trabajadores",
+      "label": "Nº trabajadores",
+      "type": "number"
+    },
+    {
+      "name": "riesgo",
+      "label": "Nivel de riesgo (Anexo 2 MDT-2024-196)",
+      "type": "text"
+    },
+    {
+      "name": "tamano_mipyme",
+      "label": "Tamaño de empresa",
+      "type": "text"
+    },
+    {
+      "name": "representante_legal",
+      "label": "Nombre representante legal/alta dirección",
+      "type": "text",
+      "required": true
+    },
+    {
+      "name": "responsable_sst",
+      "label": "Delegado/a de SST",
+      "type": "text"
+    },
+    {
+      "name": "responsable_sst_cedula",
+      "label": "Identificación Delegado/a SST",
+      "type": "text"
+    },
+    {
+      "name": "figura_sst",
+      "label": "Figura SST (Delegado/Comité)",
+      "type": "text"
+    },
+    {
+      "name": "medico_ocupacional",
+      "label": "Médico ocupacional/Servicio de salud",
+      "type": "text"
+    },
+    {
+      "name": "responsables_area",
+      "label": "Jefaturas/Supervisores responsables (separados por coma)",
+      "type": "textarea"
+    },
+    {
+      "name": "monitores_sst",
+      "label": "Monitores de SST (si aplica)",
+      "type": "textarea"
+    },
+    {
+      "name": "rows",
+      "label": "Matriz IPERC (auto)",
+      "type": "table",
+      "columns": [
+        { "name": "process", "label": "PROCESO", "type": "text" },
+        { "name": "job", "label": "PUESTO", "type": "text" },
+        { "name": "task", "label": "ACTIVIDAD", "type": "text" },
+        { "name": "hazard_group", "label": "TIPO", "type": "text" },
+        { "name": "hazard", "label": "PELIGRO", "type": "text" },
+        { "name": "controls_existing_engineering", "label": "Ing.", "type": "tags" },
+        { "name": "controls_existing_admin", "label": "Adm.", "type": "tags" },
+        { "name": "controls_existing_epp", "label": "EPP", "type": "tags" },
+        { "name": "controls_proposed", "label": "Propuestos", "type": "tags" }
+      ]
+    },
+    {
+      "name": "acciones",
+      "label": "Acciones del plan (lista libre si no usa tabla)",
+      "type": "textarea"
+    },
+    {
+      "name": "indicadores",
+      "label": "Indicadores (si difieren de los sugeridos)",
+      "type": "textarea"
+    },
+    {
+      "name": "recursos",
+      "label": "Recursos requeridos (EPP, ingeniería, contratación, etc.)",
+      "type": "textarea"
+    }
+  ]
+}

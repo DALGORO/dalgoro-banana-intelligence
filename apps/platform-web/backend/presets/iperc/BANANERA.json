@@ -1,0 +1,1390 @@
+{
+  "activity": "BANANERA",
+  "scoring": {
+    "method": "NDxNE_x_NC",
+    "ND": {
+      "10": "Muy Alto (MA)",
+      "6": "Alto (A)",
+      "2": "Medio (M)"
+    },
+    "NE": {
+      "4": "Continua (EC)",
+      "3": "Frecuente (EF)",
+      "2": "Ocasional (EO)",
+      "1": "Esporadica (EE)"
+    },
+    "NC": {
+      "100": "Mortal/Catastr.",
+      "60": "Muy grave",
+      "25": "Grave",
+      "10": "Leve"
+    },
+    "np_bands": {
+      "MA": [
+        24,
+        40
+      ],
+      "A": [
+        10,
+        20
+      ],
+      "M": [
+        6,
+        8
+      ],
+      "B": [
+        2,
+        4
+      ]
+    },
+    "nr_bands": {
+      "I": [
+        600,
+        4000
+      ],
+      "II": [
+        150,
+        500
+      ],
+      "III": [
+        40,
+        120
+      ],
+      "IV": [
+        20,
+        20
+      ]
+    },
+    "colors": {
+      "I": "#e74c3c",
+      "II": "#e67e22",
+      "III": "#f1c40f",
+      "IV": "#2ecc71"
+    }
+  },
+  "rows": [
+    {
+      "process": "ADMINISTRACIÓN",
+      "job": "Gerente Administrativo",
+      "task": "Gestión administrativa",
+      "hazard_group": "PSICOSOCIALES",
+      "hazard": "Sobrecarga mental",
+      "event": "Presión por metas",
+      "consequence": "Estrés laboral",
+      "nd": null,
+      "ne": null,
+      "nc": null,
+      "requires_work_permit": false,
+      "needs_health_surveillance": false,
+      "needs_env_monitoring": false,
+      "controls_existing_engineering": [
+        "Iluminación/ acústica adecuada del puesto",
+        "Ergonomía de mobiliario (silla/monitor)"
+      ],
+      "controls_existing_admin": [
+        "Pausas activas",
+        "Gestión de carga de trabajo y pausas",
+        "Canales de apoyo psicosocial y comunicación",
+        "Programa de prevención psicosocial"
+      ],
+      "controls_existing_epp": [
+        "No aplica EPP específico"
+      ],
+      "controls_planned_engineering": [
+        "Acondicionamiento del espacio (privacidad/ ruido)"
+      ],
+      "controls_planned_admin": [
+        "Programas de bienestar",
+        "Seguimiento con encuestas y planes de acción",
+        "Capacitación en gestión del estrés"
+      ],
+      "controls_planned_epp": [
+        "No aplica EPP específico"
+      ],
+      "critical_epp": [
+        "No aplica EPP específico"
+      ]
+    },
+    {
+      "process": "ADMINISTRACIÓN",
+      "job": "Asistente Administrativo",
+      "task": "Archivo y trámites",
+      "hazard_group": "ERGONÓMICOS",
+      "hazard": "Posturas mantenidas",
+      "event": "Sedestación prolongada",
+      "consequence": "Dolor lumbar/ cervical",
+      "nd": null,
+      "ne": null,
+      "nc": null,
+      "requires_work_permit": false,
+      "needs_health_surveillance": false,
+      "needs_env_monitoring": false,
+      "controls_existing_engineering": [
+        "Silla ergonómica",
+        "Ayudas mecánicas para manipulación de cargas",
+        "Mesas/estaciones ajustables",
+        "Alfombras antifatiga (en puesto de pie)"
+      ],
+      "controls_existing_admin": [
+        "Pausas",
+        "Pausas activas programadas",
+        "Rotación de tareas",
+        "Capacitación en técnicas de levantamiento y postura"
+      ],
+      "controls_existing_epp": [
+        "Guantes de agarre",
+        "Faja lumbar (según evaluación)"
+      ],
+      "controls_planned_engineering": [
+        "Rediseño del puesto para reducir alcances y torsiones",
+        "Carros/rodillos para traslado de cargas"
+      ],
+      "controls_planned_admin": [
+        "Evaluación ergonómica específica por puesto",
+        "Programa de acondicionamiento físico"
+      ],
+      "controls_planned_epp": [
+        "Muñequeras/ coderas según tarea"
+      ],
+      "critical_epp": [
+        "Guantes de agarre"
+      ]
+    },
+    {
+      "process": "FINANZAS",
+      "job": "Analista Contable",
+      "task": "Registros contables",
+      "hazard_group": "PSICOSOCIALES",
+      "hazard": "Sobrecarga mental",
+      "event": "Cierre contable",
+      "consequence": "Estrés/ fatiga",
+      "nd": null,
+      "ne": null,
+      "nc": null,
+      "requires_work_permit": false,
+      "needs_health_surveillance": false,
+      "needs_env_monitoring": false,
+      "controls_existing_engineering": [
+        "Iluminación/ acústica adecuada del puesto",
+        "Ergonomía de mobiliario (silla/monitor)"
+      ],
+      "controls_existing_admin": [
+        "Gestión de carga de trabajo y pausas",
+        "Canales de apoyo psicosocial y comunicación",
+        "Programa de prevención psicosocial"
+      ],
+      "controls_existing_epp": [
+        "No aplica EPP específico"
+      ],
+      "controls_planned_engineering": [
+        "Acondicionamiento del espacio (privacidad/ ruido)"
+      ],
+      "controls_planned_admin": [
+        "Rotación de tareas",
+        "Seguimiento con encuestas y planes de acción",
+        "Capacitación en gestión del estrés"
+      ],
+      "controls_planned_epp": [
+        "No aplica EPP específico"
+      ],
+      "critical_epp": [
+        "No aplica EPP específico"
+      ]
+    },
+    {
+      "process": "SIEMBRA",
+      "job": "Sembrador",
+      "task": "Apertura de hoyos y siembra",
+      "hazard_group": "ERGONÓMICOS",
+      "hazard": "Sobreesfuerzo",
+      "event": "Jornadas con pala/azadón",
+      "consequence": "TME",
+      "nd": null,
+      "ne": null,
+      "nc": null,
+      "requires_work_permit": false,
+      "needs_health_surveillance": true,
+      "needs_env_monitoring": false,
+      "controls_existing_engineering": [
+        "Ayudas mecánicas para manipulación de cargas",
+        "Mesas/estaciones ajustables",
+        "Alfombras antifatiga (en puesto de pie)"
+      ],
+      "controls_existing_admin": [
+        "Pausas activas programadas",
+        "Rotación de tareas",
+        "Capacitación en técnicas de levantamiento y postura"
+      ],
+      "controls_existing_epp": [
+        "Guantes",
+        "Botas",
+        "Guantes de agarre",
+        "Faja lumbar (según evaluación)"
+      ],
+      "controls_planned_engineering": [
+        "Herramienta ergonómica",
+        "Rediseño del puesto para reducir alcances y torsiones",
+        "Carros/rodillos para traslado de cargas"
+      ],
+      "controls_planned_admin": [
+        "Evaluación ergonómica específica por puesto",
+        "Programa de acondicionamiento físico"
+      ],
+      "controls_planned_epp": [
+        "Muñequeras/ coderas según tarea"
+      ],
+      "critical_epp": [
+        "Guantes"
+      ]
+    },
+    {
+      "process": "FERTIRRIEGO",
+      "job": "Operario de Riego",
+      "task": "Apertura/cierre de válvulas",
+      "hazard_group": "ERGONÓMICOS",
+      "hazard": "Posturas y calor",
+      "event": "Exposición solar",
+      "consequence": "Golpe de calor / TME",
+      "nd": null,
+      "ne": null,
+      "nc": null,
+      "requires_work_permit": false,
+      "needs_health_surveillance": true,
+      "needs_env_monitoring": true,
+      "controls_existing_engineering": [
+        "Ayudas mecánicas para manipulación de cargas",
+        "Mesas/estaciones ajustables",
+        "Alfombras antifatiga (en puesto de pie)"
+      ],
+      "controls_existing_admin": [
+        "Pausas activas programadas",
+        "Rotación de tareas",
+        "Capacitación en técnicas de levantamiento y postura"
+      ],
+      "controls_existing_epp": [
+        "Sombrero",
+        "Bloqueador",
+        "Guantes de agarre",
+        "Faja lumbar (según evaluación)"
+      ],
+      "controls_planned_engineering": [
+        "Rediseño del puesto para reducir alcances y torsiones",
+        "Carros/rodillos para traslado de cargas"
+      ],
+      "controls_planned_admin": [
+        "Hidratación programada",
+        "Evaluación ergonómica específica por puesto",
+        "Programa de acondicionamiento físico"
+      ],
+      "controls_planned_epp": [
+        "Muñequeras/ coderas según tarea"
+      ],
+      "critical_epp": [
+        "Sombrero"
+      ]
+    },
+    {
+      "process": "FERTILIZACIÓN",
+      "job": "Fertirriego",
+      "task": "Aplicación de fertilizantes",
+      "hazard_group": "QUÍMICOS",
+      "hazard": "Exposición química",
+      "event": "Contacto con fertilizante",
+      "consequence": "Irritación/ intoxicación",
+      "nd": null,
+      "ne": null,
+      "nc": null,
+      "requires_work_permit": false,
+      "needs_health_surveillance": true,
+      "needs_env_monitoring": true,
+      "controls_existing_engineering": [
+        "Ventilación/ extracción local",
+        "Ducha y lavaojos operativos",
+        "Contención de derrames (bandejas/kit)"
+      ],
+      "controls_existing_admin": [
+        "Hojas de seguridad (MSDS) disponibles y accesibles",
+        "Etiquetado y señalización de sustancias peligrosas",
+        "Capacitación en manipulación segura y primeros auxilios químicos"
+      ],
+      "controls_existing_epp": [
+        "Guantes nitrilo",
+        "Mascarilla",
+        "Guantes de nitrilo",
+        "Gafas de seguridad",
+        "Respirador con filtro adecuado"
+      ],
+      "controls_planned_engineering": [
+        "Mejoras de ventilación/extracción localizada",
+        "Mejora de almacenamiento segregado y retención secundaria"
+      ],
+      "controls_planned_admin": [
+        "Capacitación MSDS",
+        "Plan y simulacro de control de derrames",
+        "Monitoreo de exposición ocupacional"
+      ],
+      "controls_planned_epp": [
+        "Delantal químico",
+        "Botas impermeables químico-resistentes"
+      ],
+      "critical_epp": [
+        "Guantes nitrilo"
+      ]
+    },
+    {
+      "process": "DESHIERBE",
+      "job": "Deshierbador",
+      "task": "Control manual/mecánico",
+      "hazard_group": "ERGONÓMICOS",
+      "hazard": "Movimientos repetitivos",
+      "event": "Uso de machete",
+      "consequence": "Cortes/ TME",
+      "nd": null,
+      "ne": null,
+      "nc": null,
+      "requires_work_permit": false,
+      "needs_health_surveillance": true,
+      "needs_env_monitoring": false,
+      "controls_existing_engineering": [
+        "Ayudas mecánicas para manipulación de cargas",
+        "Mesas/estaciones ajustables",
+        "Alfombras antifatiga (en puesto de pie)"
+      ],
+      "controls_existing_admin": [
+        "Pausas activas programadas",
+        "Rotación de tareas",
+        "Capacitación en técnicas de levantamiento y postura"
+      ],
+      "controls_existing_epp": [
+        "Guantes anticorte",
+        "Guantes de agarre",
+        "Faja lumbar (según evaluación)"
+      ],
+      "controls_planned_engineering": [
+        "Rediseño del puesto para reducir alcances y torsiones",
+        "Carros/rodillos para traslado de cargas"
+      ],
+      "controls_planned_admin": [
+        "Rotación tareas",
+        "Evaluación ergonómica específica por puesto",
+        "Programa de acondicionamiento físico"
+      ],
+      "controls_planned_epp": [
+        "Muñequeras/ coderas según tarea"
+      ],
+      "critical_epp": [
+        "Guantes anticorte"
+      ]
+    },
+    {
+      "process": "DESHOJE",
+      "job": "Deshojador",
+      "task": "Retiro de hojas",
+      "hazard_group": "ERGONÓMICOS",
+      "hazard": "Posturas forzadas",
+      "event": "Trabajo por encima de hombros",
+      "consequence": "TME",
+      "nd": null,
+      "ne": null,
+      "nc": null,
+      "requires_work_permit": false,
+      "needs_health_surveillance": true,
+      "needs_env_monitoring": false,
+      "controls_existing_engineering": [
+        "Ayudas mecánicas para manipulación de cargas",
+        "Mesas/estaciones ajustables",
+        "Alfombras antifatiga (en puesto de pie)"
+      ],
+      "controls_existing_admin": [
+        "Pausas activas programadas",
+        "Rotación de tareas",
+        "Capacitación en técnicas de levantamiento y postura"
+      ],
+      "controls_existing_epp": [
+        "Faja lumbar",
+        "Guantes de agarre",
+        "Faja lumbar (según evaluación)"
+      ],
+      "controls_planned_engineering": [
+        "Rediseño del puesto para reducir alcances y torsiones",
+        "Carros/rodillos para traslado de cargas"
+      ],
+      "controls_planned_admin": [
+        "Pausas activas",
+        "Evaluación ergonómica específica por puesto",
+        "Programa de acondicionamiento físico"
+      ],
+      "controls_planned_epp": [
+        "Muñequeras/ coderas según tarea"
+      ],
+      "critical_epp": [
+        "Faja lumbar"
+      ]
+    },
+    {
+      "process": "FUMIGACIÓN TERRESTRE",
+      "job": "Fumigador",
+      "task": "Aplicación de plaguicidas",
+      "hazard_group": "QUÍMICOS",
+      "hazard": "Exposición a plaguicidas",
+      "event": "Mezcla y aplicación",
+      "consequence": "Intoxicación/ DA",
+      "nd": null,
+      "ne": null,
+      "nc": null,
+      "requires_work_permit": false,
+      "needs_health_surveillance": true,
+      "needs_env_monitoring": true,
+      "controls_existing_engineering": [
+        "Ventilación/ extracción local",
+        "Ducha y lavaojos operativos",
+        "Contención de derrames (bandejas/kit)"
+      ],
+      "controls_existing_admin": [
+        "Hojas de seguridad (MSDS) disponibles y accesibles",
+        "Etiquetado y señalización de sustancias peligrosas",
+        "Capacitación en manipulación segura y primeros auxilios químicos"
+      ],
+      "controls_existing_epp": [
+        "Respirador",
+        "Guantes nitrilo",
+        "Gafas",
+        "Guantes de nitrilo",
+        "Gafas de seguridad",
+        "Respirador con filtro adecuado"
+      ],
+      "controls_planned_engineering": [
+        "Mejoras de ventilación/extracción localizada",
+        "Mejora de almacenamiento segregado y retención secundaria"
+      ],
+      "controls_planned_admin": [
+        "Vigilancia de salud",
+        "Plan y simulacro de control de derrames",
+        "Monitoreo de exposición ocupacional"
+      ],
+      "controls_planned_epp": [
+        "Delantal químico",
+        "Botas impermeables químico-resistentes"
+      ],
+      "critical_epp": [
+        "Respirador"
+      ]
+    },
+    {
+      "process": "FUMIGACIÓN AÉREA",
+      "job": "Observador de pista",
+      "task": "Señalización/ apoyo",
+      "hazard_group": "MECÁNICOS",
+      "hazard": "Impacto por aeronave/equipo",
+      "event": "Operaciones de pista",
+      "consequence": "Trauma",
+      "nd": null,
+      "ne": null,
+      "nc": null,
+      "requires_work_permit": false,
+      "needs_health_surveillance": false,
+      "needs_env_monitoring": true,
+      "controls_existing_engineering": [
+        "Resguardos físicos en puntos de atrapamiento",
+        "Mantenimiento preventivo y bloqueo de energías (LOTO)",
+        "Rutas/áreas segregadas para tránsito de equipos"
+      ],
+      "controls_existing_admin": [
+        "Señalización",
+        "Procedimientos seguros (SOP)",
+        "Permisos de trabajo para tareas críticas",
+        "Señalización de áreas de riesgo"
+      ],
+      "controls_existing_epp": [
+        "Casco de seguridad",
+        "Guantes de trabajo",
+        "Calzado de seguridad"
+      ],
+      "controls_planned_engineering": [
+        "Barreras y bolardos adicionales en zonas de paso",
+        "Mejoras de iluminación en áreas de operación"
+      ],
+      "controls_planned_admin": [
+        "Procedimientos de pista",
+        "Refuerzo de inspecciones pre-uso y checklists",
+        "Capacitación en manejo seguro de herramientas"
+      ],
+      "controls_planned_epp": [
+        "Protección auditiva (si procede)"
+      ],
+      "critical_epp": [
+        "Casco de seguridad"
+      ]
+    },
+    {
+      "process": "TRAMPAJE",
+      "job": "Técnico de Monitoreo",
+      "task": "Instalación de trampas",
+      "hazard_group": "BIOLÓGICOS",
+      "hazard": "Picaduras/ mordeduras",
+      "event": "Contacto con fauna",
+      "consequence": "Reacciones alérgicas",
+      "nd": null,
+      "ne": null,
+      "nc": null,
+      "requires_work_permit": false,
+      "needs_health_surveillance": true,
+      "needs_env_monitoring": false,
+      "controls_existing_engineering": [
+        "Trampas/ barreras físicas contra vectores",
+        "Gestión de residuos y limpieza de áreas"
+      ],
+      "controls_existing_admin": [
+        "Vacunación y control médico según riesgo",
+        "Capacitación en manejo de fauna y primeros auxilios"
+      ],
+      "controls_existing_epp": [
+        "Guantes",
+        "Repelente",
+        "Botas de caña"
+      ],
+      "controls_planned_engineering": [
+        "Mosquiteros/ sellado de accesos",
+        "Mejoras de drenaje para evitar criaderos"
+      ],
+      "controls_planned_admin": [
+        "Capacitación fauna",
+        "Protocolos ante mordeduras/ picaduras",
+        "Registro de incidentes biológicos"
+      ],
+      "controls_planned_epp": [
+        "Polainas/ perneras contra mordeduras"
+      ],
+      "critical_epp": [
+        "Guantes"
+      ]
+    },
+    {
+      "process": "COSECHA",
+      "job": "Cortador",
+      "task": "Corte de racimos",
+      "hazard_group": "MECÁNICOS",
+      "hazard": "Cortes/golpes",
+      "event": "Machete y caída de racimo",
+      "consequence": "Heridas/ contusiones",
+      "nd": null,
+      "ne": null,
+      "nc": null,
+      "requires_work_permit": false,
+      "needs_health_surveillance": true,
+      "needs_env_monitoring": false,
+      "controls_existing_engineering": [
+        "Resguardos físicos en puntos de atrapamiento",
+        "Mantenimiento preventivo y bloqueo de energías (LOTO)",
+        "Rutas/áreas segregadas para tránsito de equipos"
+      ],
+      "controls_existing_admin": [
+        "Procedimientos seguros (SOP)",
+        "Permisos de trabajo para tareas críticas",
+        "Señalización de áreas de riesgo"
+      ],
+      "controls_existing_epp": [
+        "Guantes anticorte",
+        "Casco",
+        "Casco de seguridad",
+        "Guantes de trabajo",
+        "Calzado de seguridad"
+      ],
+      "controls_planned_engineering": [
+        "Barreras y bolardos adicionales en zonas de paso",
+        "Mejoras de iluminación en áreas de operación"
+      ],
+      "controls_planned_admin": [
+        "Señalización de área",
+        "Refuerzo de inspecciones pre-uso y checklists",
+        "Capacitación en manejo seguro de herramientas"
+      ],
+      "controls_planned_epp": [
+        "Protección auditiva (si procede)"
+      ],
+      "critical_epp": [
+        "Guantes anticorte"
+      ]
+    },
+    {
+      "process": "COSECHA",
+      "job": "Gancho",
+      "task": "Enganche de racimos",
+      "hazard_group": "MECÁNICOS",
+      "hazard": "Golpes y atrapamientos",
+      "event": "Manipulación de cablevía",
+      "consequence": "Contusiones",
+      "nd": null,
+      "ne": null,
+      "nc": null,
+      "requires_work_permit": false,
+      "needs_health_surveillance": true,
+      "needs_env_monitoring": false,
+      "controls_existing_engineering": [
+        "Resguardos físicos en puntos de atrapamiento",
+        "Mantenimiento preventivo y bloqueo de energías (LOTO)",
+        "Rutas/áreas segregadas para tránsito de equipos"
+      ],
+      "controls_existing_admin": [
+        "Procedimientos seguros (SOP)",
+        "Permisos de trabajo para tareas críticas",
+        "Señalización de áreas de riesgo"
+      ],
+      "controls_existing_epp": [
+        "Casco",
+        "Guantes",
+        "Casco de seguridad",
+        "Guantes de trabajo",
+        "Calzado de seguridad"
+      ],
+      "controls_planned_engineering": [
+        "Barreras y bolardos adicionales en zonas de paso",
+        "Mejoras de iluminación en áreas de operación"
+      ],
+      "controls_planned_admin": [
+        "Bloqueo de línea al paso",
+        "Refuerzo de inspecciones pre-uso y checklists",
+        "Capacitación en manejo seguro de herramientas"
+      ],
+      "controls_planned_epp": [
+        "Protección auditiva (si procede)"
+      ],
+      "critical_epp": [
+        "Casco"
+      ]
+    },
+    {
+      "process": "COSECHA",
+      "job": "Cargador",
+      "task": "Transporte a cablevía",
+      "hazard_group": "ERGONÓMICOS",
+      "hazard": "Sobrecarga",
+      "event": "Manipulación de racimos",
+      "consequence": "Lumbalgias",
+      "nd": null,
+      "ne": null,
+      "nc": null,
+      "requires_work_permit": false,
+      "needs_health_surveillance": true,
+      "needs_env_monitoring": false,
+      "controls_existing_engineering": [
+        "Ayudas mecánicas para manipulación de cargas",
+        "Mesas/estaciones ajustables",
+        "Alfombras antifatiga (en puesto de pie)"
+      ],
+      "controls_existing_admin": [
+        "Pausas activas programadas",
+        "Rotación de tareas",
+        "Capacitación en técnicas de levantamiento y postura"
+      ],
+      "controls_existing_epp": [
+        "Faja",
+        "Guantes",
+        "Guantes de agarre",
+        "Faja lumbar (según evaluación)"
+      ],
+      "controls_planned_engineering": [
+        "Rediseño del puesto para reducir alcances y torsiones",
+        "Carros/rodillos para traslado de cargas"
+      ],
+      "controls_planned_admin": [
+        "Ayudas mecánicas",
+        "Evaluación ergonómica específica por puesto",
+        "Programa de acondicionamiento físico"
+      ],
+      "controls_planned_epp": [
+        "Muñequeras/ coderas según tarea"
+      ],
+      "critical_epp": [
+        "Faja"
+      ]
+    },
+    {
+      "process": "EMPACADO",
+      "job": "Operario de Empaque",
+      "task": "Clasificación y embalaje",
+      "hazard_group": "ERGONÓMICOS",
+      "hazard": "Mov. repetitivos",
+      "event": "Línea de empaque",
+      "consequence": "TME",
+      "nd": null,
+      "ne": null,
+      "nc": null,
+      "requires_work_permit": false,
+      "needs_health_surveillance": true,
+      "needs_env_monitoring": false,
+      "controls_existing_engineering": [
+        "Ayudas mecánicas para manipulación de cargas",
+        "Mesas/estaciones ajustables",
+        "Alfombras antifatiga (en puesto de pie)"
+      ],
+      "controls_existing_admin": [
+        "Pausas activas programadas",
+        "Rotación de tareas",
+        "Capacitación en técnicas de levantamiento y postura"
+      ],
+      "controls_existing_epp": [
+        "Guantes",
+        "Guantes de agarre",
+        "Faja lumbar (según evaluación)"
+      ],
+      "controls_planned_engineering": [
+        "Rediseño del puesto para reducir alcances y torsiones",
+        "Carros/rodillos para traslado de cargas"
+      ],
+      "controls_planned_admin": [
+        "Rotación de puestos",
+        "Evaluación ergonómica específica por puesto",
+        "Programa de acondicionamiento físico"
+      ],
+      "controls_planned_epp": [
+        "Muñequeras/ coderas según tarea"
+      ],
+      "critical_epp": [
+        "Guantes"
+      ]
+    },
+    {
+      "process": "LAVADO/ DESINFECCIÓN",
+      "job": "Operario de Lavado",
+      "task": "Lavado de fruta",
+      "hazard_group": "QUÍMICOS",
+      "hazard": "Desinfectantes",
+      "event": "Salpicaduras en cubas",
+      "consequence": "Irritación ocular/piel",
+      "nd": null,
+      "ne": null,
+      "nc": null,
+      "requires_work_permit": false,
+      "needs_health_surveillance": true,
+      "needs_env_monitoring": true,
+      "controls_existing_engineering": [
+        "Ventilación/ extracción local",
+        "Ducha y lavaojos operativos",
+        "Contención de derrames (bandejas/kit)"
+      ],
+      "controls_existing_admin": [
+        "Hojas de seguridad (MSDS) disponibles y accesibles",
+        "Etiquetado y señalización de sustancias peligrosas",
+        "Capacitación en manipulación segura y primeros auxilios químicos"
+      ],
+      "controls_existing_epp": [
+        "Gafas",
+        "Guantes",
+        "Guantes de nitrilo",
+        "Gafas de seguridad",
+        "Respirador con filtro adecuado"
+      ],
+      "controls_planned_engineering": [
+        "Mejoras de ventilación/extracción localizada",
+        "Mejora de almacenamiento segregado y retención secundaria"
+      ],
+      "controls_planned_admin": [
+        "Fichas de seguridad",
+        "Plan y simulacro de control de derrames",
+        "Monitoreo de exposición ocupacional"
+      ],
+      "controls_planned_epp": [
+        "Delantal químico",
+        "Botas impermeables químico-resistentes"
+      ],
+      "critical_epp": [
+        "Gafas"
+      ]
+    },
+    {
+      "process": "SELLADO/ ETIQUETADO",
+      "job": "Sellador",
+      "task": "Sellado de cajas",
+      "hazard_group": "ERGONÓMICOS",
+      "hazard": "Posturas/ repetición",
+      "event": "Sellado manual",
+      "consequence": "TME",
+      "nd": null,
+      "ne": null,
+      "nc": null,
+      "requires_work_permit": false,
+      "needs_health_surveillance": false,
+      "needs_env_monitoring": false,
+      "controls_existing_engineering": [
+        "Ayudas mecánicas para manipulación de cargas",
+        "Mesas/estaciones ajustables",
+        "Alfombras antifatiga (en puesto de pie)"
+      ],
+      "controls_existing_admin": [
+        "Pausas activas programadas",
+        "Rotación de tareas",
+        "Capacitación en técnicas de levantamiento y postura"
+      ],
+      "controls_existing_epp": [
+        "Guantes de agarre",
+        "Faja lumbar (según evaluación)"
+      ],
+      "controls_planned_engineering": [
+        "Rediseño del puesto para reducir alcances y torsiones",
+        "Carros/rodillos para traslado de cargas"
+      ],
+      "controls_planned_admin": [
+        "Pausas activas",
+        "Evaluación ergonómica específica por puesto",
+        "Programa de acondicionamiento físico"
+      ],
+      "controls_planned_epp": [
+        "Muñequeras/ coderas según tarea"
+      ],
+      "critical_epp": [
+        "Guantes de agarre"
+      ]
+    },
+    {
+      "process": "CONTROL DE CALIDAD",
+      "job": "Inspector de Calidad",
+      "task": "Verificación de estándares",
+      "hazard_group": "ERGONÓMICOS",
+      "hazard": "Bipedestación",
+      "event": "Inspección continua",
+      "consequence": "Fatiga",
+      "nd": null,
+      "ne": null,
+      "nc": null,
+      "requires_work_permit": false,
+      "needs_health_surveillance": false,
+      "needs_env_monitoring": false,
+      "controls_existing_engineering": [
+        "Ayudas mecánicas para manipulación de cargas",
+        "Mesas/estaciones ajustables",
+        "Alfombras antifatiga (en puesto de pie)"
+      ],
+      "controls_existing_admin": [
+        "Pausas activas programadas",
+        "Rotación de tareas",
+        "Capacitación en técnicas de levantamiento y postura"
+      ],
+      "controls_existing_epp": [
+        "Guantes de agarre",
+        "Faja lumbar (según evaluación)"
+      ],
+      "controls_planned_engineering": [
+        "Rediseño del puesto para reducir alcances y torsiones",
+        "Carros/rodillos para traslado de cargas"
+      ],
+      "controls_planned_admin": [
+        "Alfombras antifatiga",
+        "Evaluación ergonómica específica por puesto",
+        "Programa de acondicionamiento físico"
+      ],
+      "controls_planned_epp": [
+        "Muñequeras/ coderas según tarea"
+      ],
+      "critical_epp": [
+        "Guantes de agarre"
+      ]
+    },
+    {
+      "process": "LOGÍSTICA",
+      "job": "Montacarguista",
+      "task": "Mov. de pallets",
+      "hazard_group": "MECÁNICOS",
+      "hazard": "Atropello/ vuelco",
+      "event": "Conducción de montacargas",
+      "consequence": "Trauma grave",
+      "nd": null,
+      "ne": null,
+      "nc": null,
+      "requires_work_permit": true,
+      "needs_health_surveillance": true,
+      "needs_env_monitoring": false,
+      "controls_existing_engineering": [
+        "Resguardos físicos en puntos de atrapamiento",
+        "Mantenimiento preventivo y bloqueo de energías (LOTO)",
+        "Rutas/áreas segregadas para tránsito de equipos"
+      ],
+      "controls_existing_admin": [
+        "Licencia interna",
+        "Procedimientos seguros (SOP)",
+        "Permisos de trabajo para tareas críticas",
+        "Señalización de áreas de riesgo"
+      ],
+      "controls_existing_epp": [
+        "Casco",
+        "Zapato seguridad",
+        "Casco de seguridad",
+        "Guantes de trabajo",
+        "Calzado de seguridad"
+      ],
+      "controls_planned_engineering": [
+        "Barreras y bolardos adicionales en zonas de paso",
+        "Mejoras de iluminación en áreas de operación"
+      ],
+      "controls_planned_admin": [
+        "Rutas segregadas",
+        "Refuerzo de inspecciones pre-uso y checklists",
+        "Capacitación en manejo seguro de herramientas"
+      ],
+      "controls_planned_epp": [
+        "Protección auditiva (si procede)"
+      ],
+      "critical_epp": [
+        "Casco"
+      ]
+    },
+    {
+      "process": "LOGÍSTICA",
+      "job": "Despachador",
+      "task": "Embarque/ despacho",
+      "hazard_group": "MECÁNICOS",
+      "hazard": "Golpes/ atrapamientos",
+      "event": "Manipulación de pallets",
+      "consequence": "Contusiones",
+      "nd": null,
+      "ne": null,
+      "nc": null,
+      "requires_work_permit": false,
+      "needs_health_surveillance": false,
+      "needs_env_monitoring": false,
+      "controls_existing_engineering": [
+        "Resguardos físicos en puntos de atrapamiento",
+        "Mantenimiento preventivo y bloqueo de energías (LOTO)",
+        "Rutas/áreas segregadas para tránsito de equipos"
+      ],
+      "controls_existing_admin": [
+        "Procedimientos seguros (SOP)",
+        "Permisos de trabajo para tareas críticas",
+        "Señalización de áreas de riesgo"
+      ],
+      "controls_existing_epp": [
+        "Guantes",
+        "Casco de seguridad",
+        "Guantes de trabajo",
+        "Calzado de seguridad"
+      ],
+      "controls_planned_engineering": [
+        "Barreras y bolardos adicionales en zonas de paso",
+        "Mejoras de iluminación en áreas de operación"
+      ],
+      "controls_planned_admin": [
+        "Procedimientos de carga",
+        "Refuerzo de inspecciones pre-uso y checklists",
+        "Capacitación en manejo seguro de herramientas"
+      ],
+      "controls_planned_epp": [
+        "Protección auditiva (si procede)"
+      ],
+      "critical_epp": [
+        "Guantes"
+      ]
+    },
+    {
+      "process": "TRANSPORTE",
+      "job": "Conductor",
+      "task": "Transporte a puerto",
+      "hazard_group": "SEGURIDAD VIAL",
+      "hazard": "Accidente de tránsito",
+      "event": "Conducción en ruta",
+      "consequence": "Trauma",
+      "nd": null,
+      "ne": null,
+      "nc": null,
+      "requires_work_permit": false,
+      "needs_health_surveillance": false,
+      "needs_env_monitoring": false,
+      "controls_existing_engineering": [
+        "Cinturones de seguridad y sistemas de retención",
+        "Limitador/ registrador de velocidad (si aplica)",
+        "Mantenimiento preventivo del vehículo"
+      ],
+      "controls_existing_admin": [
+        "Inspección pre-uso",
+        "Gestión de fatiga y rutas",
+        "Plan de respuesta ante emergencias viales"
+      ],
+      "controls_existing_epp": [
+        "Chaleco reflectivo",
+        "Casco (moto/ bici)",
+        "Calzado de seguridad"
+      ],
+      "controls_planned_engineering": [
+        "Cámaras/ sensores de proximidad",
+        "Mejora de iluminación de patio/ vías internas"
+      ],
+      "controls_planned_admin": [
+        "Gestión de fatiga",
+        "Capacitación en conducción defensiva",
+        "Sistema de scoring y retroalimentación"
+      ],
+      "controls_planned_epp": [
+        "Lentes de seguridad para carga/descarga"
+      ],
+      "critical_epp": [
+        "Chaleco reflectivo"
+      ]
+    },
+    {
+      "process": "TRANSPORTE",
+      "job": "Estibador",
+      "task": "Carga/ descarga",
+      "hazard_group": "ERGONÓMICOS",
+      "hazard": "Sobreesfuerzo",
+      "event": "Manipulación de cargas",
+      "consequence": "TME",
+      "nd": null,
+      "ne": null,
+      "nc": null,
+      "requires_work_permit": false,
+      "needs_health_surveillance": false,
+      "needs_env_monitoring": false,
+      "controls_existing_engineering": [
+        "Ayudas mecánicas para manipulación de cargas",
+        "Mesas/estaciones ajustables",
+        "Alfombras antifatiga (en puesto de pie)"
+      ],
+      "controls_existing_admin": [
+        "Pausas activas programadas",
+        "Rotación de tareas",
+        "Capacitación en técnicas de levantamiento y postura"
+      ],
+      "controls_existing_epp": [
+        "Guantes",
+        "Faja",
+        "Guantes de agarre",
+        "Faja lumbar (según evaluación)"
+      ],
+      "controls_planned_engineering": [
+        "Rediseño del puesto para reducir alcances y torsiones",
+        "Carros/rodillos para traslado de cargas"
+      ],
+      "controls_planned_admin": [
+        "Técnicas de levantamiento",
+        "Evaluación ergonómica específica por puesto",
+        "Programa de acondicionamiento físico"
+      ],
+      "controls_planned_epp": [
+        "Muñequeras/ coderas según tarea"
+      ],
+      "critical_epp": [
+        "Guantes"
+      ]
+    },
+    {
+      "process": "MANTENIMIENTO",
+      "job": "Técnico Mecánico",
+      "task": "Mantenimiento de equipos",
+      "hazard_group": "MECÁNICOS",
+      "hazard": "Atrapamiento/ corte",
+      "event": "Intervención en equipos",
+      "consequence": "Trauma",
+      "nd": null,
+      "ne": null,
+      "nc": null,
+      "requires_work_permit": true,
+      "needs_health_surveillance": false,
+      "needs_env_monitoring": false,
+      "controls_existing_engineering": [
+        "Resguardos físicos en puntos de atrapamiento",
+        "Mantenimiento preventivo y bloqueo de energías (LOTO)",
+        "Rutas/áreas segregadas para tránsito de equipos"
+      ],
+      "controls_existing_admin": [
+        "LOTO",
+        "Procedimientos seguros (SOP)",
+        "Permisos de trabajo para tareas críticas",
+        "Señalización de áreas de riesgo"
+      ],
+      "controls_existing_epp": [
+        "Guantes",
+        "Casco de seguridad",
+        "Guantes de trabajo",
+        "Calzado de seguridad"
+      ],
+      "controls_planned_engineering": [
+        "Barreras y bolardos adicionales en zonas de paso",
+        "Mejoras de iluminación en áreas de operación"
+      ],
+      "controls_planned_admin": [
+        "Checklist bloqueo",
+        "Refuerzo de inspecciones pre-uso y checklists",
+        "Capacitación en manejo seguro de herramientas"
+      ],
+      "controls_planned_epp": [
+        "Protección auditiva (si procede)"
+      ],
+      "critical_epp": [
+        "Guantes"
+      ]
+    },
+    {
+      "process": "MANTENIMIENTO",
+      "job": "Electricista",
+      "task": "Intervenciones eléctricas",
+      "hazard_group": "ELÉCTRICOS",
+      "hazard": "Descarga eléctrica",
+      "event": "Trabajos energizados",
+      "consequence": "Electrocución",
+      "nd": null,
+      "ne": null,
+      "nc": null,
+      "requires_work_permit": true,
+      "needs_health_surveillance": false,
+      "needs_env_monitoring": false,
+      "controls_existing_engineering": [
+        "Tableros cerrados y señalizados",
+        "Protecciones diferenciales/ térmicas adecuadas",
+        "Puesta a tierra verificada"
+      ],
+      "controls_existing_admin": [
+        "Permiso de trabajo",
+        "Permisos de trabajo y LOTO",
+        "Procedimiento de trabajos eléctricos",
+        "Etiquetado/ señalización de riesgo eléctrico"
+      ],
+      "controls_existing_epp": [
+        "Guantes dieléctricos",
+        "Casco",
+        "Herramientas aisladas",
+        "Pantalla/visor facial dieléctrico"
+      ],
+      "controls_planned_engineering": [
+        "Análisis de energía incidente (ARC Flash) y etiquetas",
+        "Tableros con cerradura y bloqueo físico"
+      ],
+      "controls_planned_admin": [
+        "Señalización",
+        "Capacitación específica de trabajos eléctricos",
+        "Ensayos periódicos de EPP dieléctrico"
+      ],
+      "controls_planned_epp": [
+        "Ropa ARC-Rated"
+      ],
+      "critical_epp": [
+        "Guantes dieléctricos"
+      ]
+    },
+    {
+      "process": "TALLER",
+      "job": "Soldador",
+      "task": "Soldadura",
+      "hazard_group": "FÍSICOS",
+      "hazard": "Radiaciones/ humos",
+      "event": "Soldadura al arco",
+      "consequence": "Lesión ocular/ inhalación",
+      "nd": null,
+      "ne": null,
+      "nc": null,
+      "requires_work_permit": true,
+      "needs_health_surveillance": true,
+      "needs_env_monitoring": true,
+      "controls_existing_engineering": [
+        "Extracción localizada de humos/ ventilación",
+        "Pantallas y cortinas para radiación no ionizante"
+      ],
+      "controls_existing_admin": [
+        "Permiso de trabajo caliente",
+        "Capacitación en soldadura segura y primeros auxilios"
+      ],
+      "controls_existing_epp": [
+        "Careta",
+        "Respirador",
+        "Careta de soldar con filtro adecuado",
+        "Guantes de soldador",
+        "Respirador según humo generado"
+      ],
+      "controls_planned_engineering": [
+        "Cabina de soldadura/ mejora de extracción",
+        "Almacenamiento seguro de gases"
+      ],
+      "controls_planned_admin": [
+        "Extracción localizada",
+        "Inspecciones periódicas de equipos de soldadura",
+        "Vigilancia de salud específica"
+      ],
+      "controls_planned_epp": [
+        "Mangas/ mandil resistente al calor"
+      ],
+      "critical_epp": [
+        "Careta"
+      ]
+    },
+    {
+      "process": "ALMACÉN QUÍMICOS",
+      "job": "Bodeguero Químicos",
+      "task": "Recepción/ almacenamiento",
+      "hazard_group": "QUÍMICOS",
+      "hazard": "Derrames/ exposición",
+      "event": "Manejo de químicos",
+      "consequence": "Irritación/ intoxicación",
+      "nd": null,
+      "ne": null,
+      "nc": null,
+      "requires_work_permit": false,
+      "needs_health_surveillance": true,
+      "needs_env_monitoring": true,
+      "controls_existing_engineering": [
+        "Ventilación/ extracción local",
+        "Ducha y lavaojos operativos",
+        "Contención de derrames (bandejas/kit)"
+      ],
+      "controls_existing_admin": [
+        "MSDS disponibles",
+        "Hojas de seguridad (MSDS) disponibles y accesibles",
+        "Etiquetado y señalización de sustancias peligrosas",
+        "Capacitación en manipulación segura y primeros auxilios químicos"
+      ],
+      "controls_existing_epp": [
+        "Guantes",
+        "Gafas",
+        "Guantes de nitrilo",
+        "Gafas de seguridad",
+        "Respirador con filtro adecuado"
+      ],
+      "controls_planned_engineering": [
+        "Mejoras de ventilación/extracción localizada",
+        "Mejora de almacenamiento segregado y retención secundaria"
+      ],
+      "controls_planned_admin": [
+        "Plan de derrames",
+        "Plan y simulacro de control de derrames",
+        "Monitoreo de exposición ocupacional"
+      ],
+      "controls_planned_epp": [
+        "Delantal químico",
+        "Botas impermeables químico-resistentes"
+      ],
+      "critical_epp": [
+        "Guantes"
+      ]
+    },
+    {
+      "process": "AGUA POTABLE",
+      "job": "Operario de Planta",
+      "task": "Cloración",
+      "hazard_group": "QUÍMICOS",
+      "hazard": "Cloro/ hipoclorito",
+      "event": "Dosificación",
+      "consequence": "Irritación",
+      "nd": null,
+      "ne": null,
+      "nc": null,
+      "requires_work_permit": false,
+      "needs_health_surveillance": true,
+      "needs_env_monitoring": true,
+      "controls_existing_engineering": [
+        "Ventilación/ extracción local",
+        "Ducha y lavaojos operativos",
+        "Contención de derrames (bandejas/kit)"
+      ],
+      "controls_existing_admin": [
+        "Hojas de seguridad (MSDS) disponibles y accesibles",
+        "Etiquetado y señalización de sustancias peligrosas",
+        "Capacitación en manipulación segura y primeros auxilios químicos"
+      ],
+      "controls_existing_epp": [
+        "Gafas",
+        "Guantes",
+        "Guantes de nitrilo",
+        "Gafas de seguridad",
+        "Respirador con filtro adecuado"
+      ],
+      "controls_planned_engineering": [
+        "Mejoras de ventilación/extracción localizada",
+        "Mejora de almacenamiento segregado y retención secundaria"
+      ],
+      "controls_planned_admin": [
+        "Ventilación",
+        "Plan y simulacro de control de derrames",
+        "Monitoreo de exposición ocupacional"
+      ],
+      "controls_planned_epp": [
+        "Delantal químico",
+        "Botas impermeables químico-resistentes"
+      ],
+      "critical_epp": [
+        "Gafas"
+      ]
+    },
+    {
+      "process": "SEGURIDAD",
+      "job": "Guardia",
+      "task": "Control de accesos",
+      "hazard_group": "SEGURIDAD",
+      "hazard": "Agresiones",
+      "event": "Conflictos con terceros",
+      "consequence": "Lesiones",
+      "nd": null,
+      "ne": null,
+      "nc": null,
+      "requires_work_permit": false,
+      "needs_health_surveillance": false,
+      "needs_env_monitoring": false,
+      "controls_existing_engineering": [
+        "CCTV y control de accesos",
+        "Iluminación perimetral"
+      ],
+      "controls_existing_admin": [
+        "Protocolos de intervención y escalamiento",
+        "Capacitación en trato seguro y manejo de conflictos"
+      ],
+      "controls_existing_epp": [
+        "Chaleco reflectivo",
+        "Radio de comunicación"
+      ],
+      "controls_planned_engineering": [
+        "Botón de pánico/ enlace a central"
+      ],
+      "controls_planned_admin": [
+        "Capacitación trato seguro",
+        "Simulacros de incidentes de seguridad"
+      ],
+      "controls_planned_epp": [
+        "Protección corporal blanda (según riesgo)"
+      ],
+      "critical_epp": [
+        "Chaleco reflectivo"
+      ]
+    },
+    {
+      "process": "SERVICIOS GENERALES",
+      "job": "Jardinero",
+      "task": "Mantenimiento de áreas",
+      "hazard_group": "ERGONÓMICOS",
+      "hazard": "Sobreesfuerzo/ corte",
+      "event": "Uso de herramientas",
+      "consequence": "Heridas/ TME",
+      "nd": null,
+      "ne": null,
+      "nc": null,
+      "requires_work_permit": false,
+      "needs_health_surveillance": false,
+      "needs_env_monitoring": false,
+      "controls_existing_engineering": [
+        "Ayudas mecánicas para manipulación de cargas",
+        "Mesas/estaciones ajustables",
+        "Alfombras antifatiga (en puesto de pie)"
+      ],
+      "controls_existing_admin": [
+        "Pausas activas programadas",
+        "Rotación de tareas",
+        "Capacitación en técnicas de levantamiento y postura"
+      ],
+      "controls_existing_epp": [
+        "Guantes",
+        "Guantes de agarre",
+        "Faja lumbar (según evaluación)"
+      ],
+      "controls_planned_engineering": [
+        "Rediseño del puesto para reducir alcances y torsiones",
+        "Carros/rodillos para traslado de cargas"
+      ],
+      "controls_planned_admin": [
+        "Mantenimiento de herramientas",
+        "Evaluación ergonómica específica por puesto",
+        "Programa de acondicionamiento físico"
+      ],
+      "controls_planned_epp": [
+        "Muñequeras/ coderas según tarea"
+      ],
+      "critical_epp": [
+        "Guantes"
+      ]
+    }
+  ]
+}

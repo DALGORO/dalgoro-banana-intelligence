@@ -1,0 +1,46 @@
+version: 2
+cartography:
+  dpi: 220
+  figure_size_inches:
+  - 11.69
+  - 8.27
+  branding:
+    primary_color: '#21393F'
+    secondary_color: '#192B2F'
+    accent_color: '#B57548'
+    logo_path: resources/branding/dalgoro_logo_horizontal.jpg
+    font_family: Montserrat
+  max_preview_pixels: 2600
+  raster_low_percentile: 2.0
+  raster_high_percentile: 98.0
+  map_margin_ratio: 0.035
+  boundary_color: '#192B2F'
+  boundary_linewidth: 1.2
+  inventory_point_color: '#B57548'
+  inventory_point_size: 6.0
+  candidate_point_size: 20.0
+  polygon_alpha: 0.52
+  priority_zone_alpha: 0.42
+  high_density_alpha: 0.52
+  kde_alpha: 0.58
+  opportunity_outline_color: '#B57548'
+  density_class_colors:
+    deficit_severo: '#9E2A2B'
+    deficit_moderado: '#D9834E'
+    densidad_esperada: '#5F8F6D'
+    densidad_elevada: '#376E78'
+    densidad_muy_elevada: '#6B4E71'
+    borde_no_evaluable: '#B8BFC0'
+  priority_class_colors:
+    prioridad_alta: '#9E2A2B'
+    prioridad_media: '#D9834E'
+    prioridad_baja: '#D6B85A'
+    revision_borde_no_evaluable: '#8C9698'
+    descartado_por_exclusion: '#192B2F'
+  operational_zone_colors:
+    prioridad_alta: '#9E2A2B'
+    prioridad_media: '#D9834E'
+    prioridad_baja: '#D6B85A'
+    borde_no_evaluable: '#B8BFC0'
+    sin_candidatos: '#DCE6DF'
+build_id: DALGORO_BRANDING_V2_20260716_R2

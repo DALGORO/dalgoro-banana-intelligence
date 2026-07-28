@@ -1,0 +1,65 @@
+{
+  "code": "EMG-01",
+  "activity": "BANANERA",
+  "title": "Plan de Emergencias y Simulacros",
+  "version": 1,
+
+  "fields": [
+    { "name": "fecha_emision", "label": "Fecha de emisión del Plan", "type": "date", "required": true },
+    { "name": "periodo_inicio", "label": "Vigencia desde", "type": "date", "required": true },
+    { "name": "periodo_fin", "label": "Vigencia hasta", "type": "date", "required": true },
+
+    { "name": "razon_social", "label": "Razón social", "type": "text" },
+    { "name": "ruc", "label": "RUC", "type": "text" },
+    { "name": "direccion", "label": "Dirección", "type": "text" },
+    { "name": "provincia", "label": "Provincia", "type": "text" },
+    { "name": "canton", "label": "Cantón", "type": "text" },
+    { "name": "parroquia", "label": "Parroquia", "type": "text" },
+    { "name": "telefono", "label": "Teléfono (empresa)", "type": "text" },
+    { "name": "correo", "label": "Correo (empresa)", "type": "text" },
+
+    { "name": "actividad", "label": "Actividad/CIIU", "type": "text" },
+    { "name": "trabajadores", "label": "Nº trabajadores", "type": "number" },
+    { "name": "riesgo", "label": "Nivel de riesgo (Anexo 2 MDT-2024-196)", "type": "text" },
+    { "name": "tamano_mipyme", "label": "Tamaño de la empresa", "type": "text" },
+
+    { "name": "representante_legal", "label": "Representante legal/Alta dirección", "type": "text" },
+    { "name": "responsable_sst", "label": "Delegado/Responsable SST", "type": "text" },
+    { "name": "coordinador_emergencias", "label": "Coordinador/a de emergencias", "type": "text" },
+
+    { "name": "numero_emergencia_interno", "label": "Número interno de emergencias", "type": "text", "required": true },
+    { "name": "medios_alarma", "label": "Medios de alarma y comunicación", "type": "textarea" },
+    { "name": "puntos_encuentro", "label": "Puntos de encuentro", "type": "textarea" },
+
+    { "name": "contacto_bomberos", "label": "Contacto Cuerpo de Bomberos", "type": "text", "required": true },
+    { "name": "contacto_salud", "label": "Contacto servicio de salud", "type": "text" },
+    { "name": "contacto_policia", "label": "Contacto Policía", "type": "text" },
+    { "name": "contacto_municipio", "label": "Contacto Municipio u otros", "type": "text" }
+  ],
+
+  "autofill": {
+    "company": [
+      "razon_social", "ruc", "direccion", "provincia", "canton", "parroquia",
+      "telefono", "correo", "actividad", "trabajadores", "riesgo", "tamano_mipyme"
+    ],
+    "org_del_01": [
+      "responsable_sst", "representante_legal"
+    ],
+    "rhs_01": [
+      "fecha_emision", "periodo_inicio", "periodo_fin"
+    ],
+    "iperc_01": [
+      "rows"
+    ],
+    "pprl_01": [
+      "rows"
+    ]
+  },
+
+  "render": {
+    "engine": "docx",
+    "docx": {
+      "text_expanders": {}
+    }
+  }
+}

@@ -1,0 +1,48 @@
+version: 1
+
+cartography:
+  dpi: 220
+  figure_size_inches:
+    - 11.69
+    - 8.27
+
+  max_preview_pixels: 2600
+  raster_low_percentile: 2.0
+  raster_high_percentile: 98.0
+  map_margin_ratio: 0.035
+
+  boundary_color: "#111111"
+  boundary_linewidth: 1.2
+
+  inventory_point_color: "#00A651"
+  inventory_point_size: 6.0
+  candidate_point_size: 20.0
+
+  polygon_alpha: 0.52
+  priority_zone_alpha: 0.42
+  high_density_alpha: 0.52
+  kde_alpha: 0.58
+
+  opportunity_outline_color: "#F46D43"
+
+  density_class_colors:
+    deficit_severo: "#B2182B"
+    deficit_moderado: "#EF8A62"
+    densidad_esperada: "#66BD63"
+    densidad_elevada: "#3288BD"
+    densidad_muy_elevada: "#762A83"
+    borde_no_evaluable: "#BDBDBD"
+
+  priority_class_colors:
+    prioridad_alta: "#D73027"
+    prioridad_media: "#FDAE61"
+    prioridad_baja: "#FEE08B"
+    revision_borde_no_evaluable: "#969696"
+    descartado_por_exclusion: "#000000"
+
+  operational_zone_colors:
+    prioridad_alta: "#D73027"
+    prioridad_media: "#FDAE61"
+    prioridad_baja: "#FEE08B"
+    borde_no_evaluable: "#BDBDBD"
+    sin_candidatos: "#D9EF8B"

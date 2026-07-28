@@ -1,0 +1,124 @@
+{
+  "code": "ORG-DEL-01",
+  "activity": "BANANERA",
+  "title": "Delegado/a de SST (Designación)",
+  "version": 1,
+  "fields": [
+    {
+      "name": "razon_social",
+      "label": "Razón social",
+      "type": "text"
+    },
+    {
+      "name": "ruc",
+      "label": "RUC",
+      "type": "text"
+    },
+    {
+      "name": "direccion",
+      "label": "Dirección",
+      "type": "text"
+    },    
+    {
+      "name": "parroquia",
+      "label": "Parroquia (opcional)",
+      "type": "text"
+    },
+    {
+      "name": "canton",
+      "label": "Cantón",
+      "type": "text"
+    },
+    {
+      "name": "provincia",
+      "label": "Provincia",
+      "type": "text"
+    },
+    {
+      "name": "telefono",
+      "label": "Teléfono (empresa)",
+      "type": "text"
+    },
+    {
+      "name": "correo",
+      "label": "Correo (empresa)",
+      "type": "text"
+    },
+    {
+      "name": "actividad",
+      "label": "Actividad",
+      "type": "text"
+    },
+    {
+      "name": "trabajadores",
+      "label": "Número de trabajadores",
+      "type": "number"
+    },
+    {
+      "name": "riesgo",
+      "label": "Nivel de riesgo",
+      "type": "text"
+    },
+    {
+      "name": "tamano_mipyme",
+      "label": "Tamaño MiPyME (autollenado)",
+      "type": "text"
+    },
+    {
+      "name": "representante_legal",
+      "label": "Representante legal",
+      "type": "text"
+    },
+    {
+      "name": "representante_legal_cedula",
+      "label": "Identificación del representante legal",
+      "type": "text"
+    },
+    {
+      "name": "responsable_sst",
+      "label": "Delegado/Responsable SST (nombres y apellidos)",
+      "type": "text",
+      "required": true
+    },
+    {
+      "name": "responsable_sst_cedula",
+      "label": "Identificación del Delegado/Responsable SST",
+      "type": "text",
+      "required": true
+    },
+    {
+      "name": "responsable_sst_cargo",
+      "label": "Cargo del designado",
+      "type": "text",
+      "required": true
+    },
+    {
+      "name": "responsable_sst_correo",
+      "label": "Correo del designado",
+      "type": "text"
+    },
+    {
+      "name": "responsable_sst_telefono",
+      "label": "Teléfono del designado",
+      "type": "text"
+    },
+    {
+      "name": "fecha",
+      "label": "Fecha de la designación (acto)",
+      "type": "date",
+      "required": true
+    },
+    {
+      "name": "inicio_vigencia",
+      "label": "Inicio de vigencia (designación)",
+      "type": "date",
+      "required": true
+    },
+    {
+      "name": "fin_vigencia",
+      "label": "Fin de vigencia (designación)",
+      "type": "date",
+      "required": true
+    }
+  ]
+}

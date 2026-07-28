@@ -1,0 +1,182 @@
+{
+  "code": "PSICO-01",
+  "activity": "*",
+  "title": "Programa de riesgos psicosociales",
+  "version": 2,
+  "fields": [
+    { "name": "fecha", "label": "Fecha", "type": "date", "required": true },
+    { "name": "provincia", "label": "Provincia", "type": "text", "required": true },
+    { "name": "ciudad", "label": "Ciudad", "type": "text", "required": true },
+
+    {
+      "name": "area_trabajo",
+      "label": "Área de trabajo",
+      "type": "select",
+      "required": true,
+      "options": ["Administrativa", "Operativa"]
+    },
+
+    {
+      "name": "nivel_instruccion",
+      "label": "Nivel más alto de instrucción (Marque una sola opción)",
+      "type": "select",
+      "required": true,
+      "options": [
+        "Ninguno",
+        "Educación básica",
+        "Educación media",
+        "Bachillerato",
+        "Técnico / Tecnológico",
+        "Tercer nivel",
+        "Cuarto nivel",
+        "Otro"
+      ]
+    },
+
+    {
+      "name": "antiguedad",
+      "label": "Antigüedad (años de experiencia en la empresa/institución)",
+      "type": "select",
+      "required": true,
+      "options": ["0-2 años", "3-10 años", "11-20 años", "Igual o superior a 21 años"]
+    },
+
+    {
+      "name": "edad",
+      "label": "Edad del trabajador/servidor",
+      "type": "select",
+      "required": true,
+      "options": ["16-24 años", "25-34 años", "35-43 años", "44-52 años", "Igual o superior a 53 años"]
+    },
+
+    {
+      "name": "etnia",
+      "label": "Auto-identificación étnica",
+      "type": "select",
+      "required": true,
+      "options": ["Indígena", "Afro-ecuatoriano/a", "Mestizo/a", "Blanco/a", "Montubio/a", "Otro"]
+    },
+
+    {
+      "name": "sexo",
+      "label": "Sexo del trabajador/servidor",
+      "type": "select",
+      "required": true,
+      "options": ["Mujer", "Hombre"]
+    },
+
+    {
+      "name": "psico_respuestas",
+      "label": "Cuestionario de factores de riesgo psicosocial",
+      "type": "table",
+      "required": true,
+      "minRows": 58,
+      "addRowText": "Añadir ítem",
+      "extra": { "groupBy": "dimension", "scoreKey": "puntuacion" },
+      "columns": [
+        { "key": "nr", "title": "NR", "type": "number", "readonly": true, "width": 60 },
+        { "key": "dimension", "title": "Dimensión", "type": "text", "readonly": true, "width": 260 },
+        { "key": "item", "title": "Ítem", "type": "text", "readonly": true, "width": 640 },
+        { "key": "tipo", "title": "Tipo", "type": "text", "readonly": true, "width": 90 },
+        {
+          "key": "puntuacion",
+          "title": "Puntuación",
+          "type": "select",
+          "required": true,
+          "options": [
+            { "label": "Completamente de Acuerdo (4)", "value": 4 },
+            { "label": "Parcialmente de Acuerdo (3)", "value": 3 },
+            { "label": "Poco de acuerdo (2)", "value": 2 },
+            { "label": "En desacuerdo (1)", "value": 1 }
+          ]
+        }
+      ]
+    },
+
+    {
+      "name": "psico_observaciones",
+      "label": "OBSERVACIONES Y COMENTARIOS (59)",
+      "type": "textarea"
+    }
+  ],
+  "defaults": {
+    "psico_thresholds": { "class": "promedio", "low_lt": 1.5, "med_lt": 2.5 },
+    "psico_acciones": {
+      "CARGA Y RITMO DE TRABAJO": [
+        "Balancear cargas y plazos; implementar pausas activas",
+        "Control mensual de horas extra y re-distribución"
+      ],
+      "LIDERAZGO": [
+        "Capacitación en liderazgo y comunicación",
+        "Rondas de feedback y acompañamiento"
+      ]
+    },
+    "psico_respuestas": [
+      { "nr": 1,  "dimension": "CARGA Y RITMO DE TRABAJO", "item": "Considero que son aceptables las solicitudes y requerimientos que me piden otras personas (compañeros de trabajo, usuarios, clientes)", "tipo": "directa" },
+      { "nr": 2,  "dimension": "CARGA Y RITMO DE TRABAJO", "item": "Decido el ritmo de trabajo en mis actividades", "tipo": "directa" },
+      { "nr": 3,  "dimension": "CARGA Y RITMO DE TRABAJO", "item": "Las actividades y/o responsabilidades que me fueron asignadas no me causan estrés", "tipo": "directa" },
+      { "nr": 4,  "dimension": "CARGA Y RITMO DE TRABAJO", "item": "Tengo suficiente tiempo para realizar todas las actividades que me han sido encomendadas dentro de mi jornada laboral", "tipo": "directa" },
+
+      { "nr": 5,  "dimension": "DESARROLLO DE COMPETENCIAS", "item": "Considero que tengo los suficientes conocimientos, habilidades y destrezas para desarrollar el trabajo para el cual fui contratado", "tipo": "directa" },
+      { "nr": 6,  "dimension": "DESARROLLO DE COMPETENCIAS", "item": "En mi trabajo aprendo y adquiero nuevos conocimientos, habilidades y destrezas de mis compañeros de trabajo", "tipo": "directa" },
+      { "nr": 7,  "dimension": "DESARROLLO DE COMPETENCIAS", "item": "En mi trabajo se cuenta con un plan de carrera, capacitación y/o entrenamiento para el desarrollo de mis conocimientos, habilidades y destrezas", "tipo": "directa" },
+      { "nr": 8,  "dimension": "DESARROLLO DE COMPETENCIAS", "item": "En mi trabajo se evalúa objetiva y periódicamente las actividades que realizo", "tipo": "directa" },
+
+      { "nr": 9,  "dimension": "LIDERAZGO", "item": "En mi trabajo se reconoce y se da crédito a la persona que realiza un buen trabajo o logra sus objetivos", "tipo": "directa" },
+      { "nr": 10, "dimension": "LIDERAZGO", "item": "Mi jefe inmediato está dispuesto a escuchar propuestas de cambio e iniciativas de trabajo", "tipo": "directa" },
+      { "nr": 11, "dimension": "LIDERAZGO", "item": "Mi jefe inmediato establece metas, plazos claros y factibles para el cumplimiento de mis funciones o actividades", "tipo": "directa" },
+      { "nr": 12, "dimension": "LIDERAZGO", "item": "Mi jefe inmediato interviene, brinda apoyo, soporte y se preocupa cuando tengo demasiado trabajo que realizar", "tipo": "directa" },
+      { "nr": 13, "dimension": "LIDERAZGO", "item": "Mi jefe inmediato me brinda suficientes lineamientos y retroalimentación para el desempeño de mi trabajo", "tipo": "directa" },
+      { "nr": 14, "dimension": "LIDERAZGO", "item": "Mi jefe inmediato pone en consideración del equipo de trabajo, las decisiones que pueden afectar a todos", "tipo": "directa" },
+
+      { "nr": 15, "dimension": "MARGEN DE ACCIÓN Y CONTROL", "item": "En mi trabajo existen espacios de discusión para debatir abiertamente los problemas comunes y diferencias de opinión", "tipo": "directa" },
+      { "nr": 16, "dimension": "MARGEN DE ACCIÓN Y CONTROL", "item": "Me es permitido realizar el trabajo con colaboración de mis compañeros de trabajo y/u otras áreas", "tipo": "directa" },
+      { "nr": 17, "dimension": "MARGEN DE ACCIÓN Y CONTROL", "item": "Mi opinión es tomada en cuenta con respecto a fechas límites en el cumplimiento de mis actividades o cuando exista cambio en mis funciones", "tipo": "directa" },
+      { "nr": 18, "dimension": "MARGEN DE ACCIÓN Y CONTROL", "item": "Se me permite aportar con ideas para mejorar las actividades y la organización del trabajo", "tipo": "directa" },
+
+      { "nr": 19, "dimension": "ORGANIZACIÓN DEL TRABAJO", "item": "Considero que las formas de comunicación en mi trabajo son adecuadas, accesibles y de fácil comprensión", "tipo": "directa" },
+      { "nr": 20, "dimension": "ORGANIZACIÓN DEL TRABAJO", "item": "En mi trabajo se informa regularmente de la gestión y logros de la empresa o institución a todos los trabajadores y servidores", "tipo": "directa" },
+      { "nr": 21, "dimension": "ORGANIZACIÓN DEL TRABAJO", "item": "En mi trabajo se respeta y se toma en consideración las limitaciones de las personas con discapacidad para  la asignación de roles y tareas", "tipo": "directa" },
+      { "nr": 22, "dimension": "ORGANIZACIÓN DEL TRABAJO", "item": "En mi trabajo tenemos reuniones suficientes y significantes para el cumplimiento de los objetivos", "tipo": "directa" },
+      { "nr": 23, "dimension": "ORGANIZACIÓN DEL TRABAJO", "item": "Las metas y objetivos en mi trabajo son claros y alcanzables", "tipo": "directa" },
+      { "nr": 24, "dimension": "ORGANIZACIÓN DEL TRABAJO", "item": "Siempre dispongo de tareas y actividades a realizar en mi jornada y lugar de trabajo", "tipo": "directa" },
+
+      { "nr": 25, "dimension": "RECUPERACIÓN", "item": "Después del trabajo tengo la suficiente energía como para realizar otras actividades", "tipo": "directa" },
+      { "nr": 26, "dimension": "RECUPERACIÓN", "item": "En mi trabajo se me permite realizar pausas de periodo corto para renovar y recuperar la energía", "tipo": "directa" },
+      { "nr": 27, "dimension": "RECUPERACIÓN", "item": "En mi trabajo tengo tiempo para dedicarme a reflexionar sobre mi desempeño en el trabajo", "tipo": "directa" },
+      { "nr": 28, "dimension": "RECUPERACIÓN", "item": "Tengo un horario y jornada de trabajo que se ajusta a mis expectativas y exigencias laborales", "tipo": "directa" },
+      { "nr": 29, "dimension": "RECUPERACIÓN", "item": "Todos los días siento que he descansado lo suficiente y que tengo la energía para iniciar mi trabajo", "tipo": "directa" },
+
+      { "nr": 30, "dimension": "SOPORTE Y APOYO", "item": "El trabajo está organizado de tal manera que  fomenta la colaboración de equipo y el diálogo con otras personas", "tipo": "directa" },
+      { "nr": 31, "dimension": "SOPORTE Y APOYO", "item": "En mi trabajo percibo un sentimiento de compañerismo y bienestar con mis colegas", "tipo": "directa" },
+      { "nr": 32, "dimension": "SOPORTE Y APOYO", "item": "En mi trabajo se brinda el apoyo necesario a los trabajadores sustitutos o trabajadores con algún grado de discapacidad y enfermedad", "tipo": "directa" },
+      { "nr": 33, "dimension": "SOPORTE Y APOYO", "item": "En mi trabajo se me brinda ayuda técnica y administrativa cuando lo requiero", "tipo": "directa" },
+      { "nr": 34, "dimension": "SOPORTE Y APOYO", "item": "En mi trabajo tengo acceso a la atención de un médico, psicólogo, trabajadora social, consejero, etc. en situaciones de crisis y/o rehabilitación", "tipo": "directa" },
+
+      { "nr": 35, "dimension": "OTROS PUNTOS IMPORTANTES", "item": "En mi trabajo tratan por igual a todos, indistintamente la edad que tengan", "tipo": "directa" },
+      { "nr": 36, "dimension": "OTROS PUNTOS IMPORTANTES", "item": "Las directrices y metas que me autoimpongo, las cumplo dentro de mi jornada y horario de trabajo", "tipo": "directa" },
+      { "nr": 37, "dimension": "OTROS PUNTOS IMPORTANTES", "item": "En mi trabajo existe un buen ambiente laboral", "tipo": "directa" },
+      { "nr": 38, "dimension": "OTROS PUNTOS IMPORTANTES", "item": "Tengo un trabajo donde los hombres y mujeres tienen las mismas oportunidades", "tipo": "directa" },
+      { "nr": 39, "dimension": "OTROS PUNTOS IMPORTANTES", "item": "En mi trabajo me siento aceptado y valorado", "tipo": "directa" },
+      { "nr": 40, "dimension": "OTROS PUNTOS IMPORTANTES", "item": "Los espacios y ambientes físicos en mi trabajo brindan las facilidades para el acceso de las personas con discapacidad", "tipo": "directa" },
+      { "nr": 41, "dimension": "OTROS PUNTOS IMPORTANTES", "item": "Considero que mi trabajo esta libre de amenazas, humillaciones, ridiculizaciones, burlas, calumnias o difamaciones reiteradas con el fin de causarme daño.", "tipo": "directa" },
+      { "nr": 42, "dimension": "OTROS PUNTOS IMPORTANTES", "item": "Me siento estable a pesar de cambios que se presentan en mi trabajo.", "tipo": "directa" },
+      { "nr": 43, "dimension": "OTROS PUNTOS IMPORTANTES", "item": "En mi trabajo estoy libre de conductas sexuales que afecten mi integridad física, psicológica y moral", "tipo": "directa" },
+      { "nr": 44, "dimension": "OTROS PUNTOS IMPORTANTES", "item": "Considero que el trabajo que realizo no me causa efectos negativos a mi salud física y mental", "tipo": "directa" },
+      { "nr": 45, "dimension": "OTROS PUNTOS IMPORTANTES", "item": "Me resulta fácil relajarme cuando no estoy trabajando", "tipo": "directa" },
+      { "nr": 46, "dimension": "OTROS PUNTOS IMPORTANTES", "item": "Siento que mis problemas familiares o personales no influyen en el desempeño de las actividades en el trabajo", "tipo": "directa" },
+      { "nr": 47, "dimension": "OTROS PUNTOS IMPORTANTES", "item": "Las instalaciones, ambientes, equipos, maquinaria y herramientas que utilizo para realizar el trabajo son las adecuadas para no sufrir accidentes de trabajo y enfermedades profesionales", "tipo": "directa" },
+      { "nr": 48, "dimension": "OTROS PUNTOS IMPORTANTES", "item": "Mi trabajo esta libre de acoso sexual", "tipo": "directa" },
+      { "nr": 49, "dimension": "OTROS PUNTOS IMPORTANTES", "item": "En mi trabajo se me permite solucionar mis problemas familiares y personales", "tipo": "directa" },
+      { "nr": 50, "dimension": "OTROS PUNTOS IMPORTANTES", "item": "Tengo un trabajo libre de conflictos estresantes, rumores maliciosos o calumniosos sobre mi persona.", "tipo": "directa" },
+      { "nr": 51, "dimension": "OTROS PUNTOS IMPORTANTES", "item": "Tengo un equilibrio y separo bien el trabajo de mi vida personal.", "tipo": "directa" },
+      { "nr": 52, "dimension": "OTROS PUNTOS IMPORTANTES", "item": "Estoy orgulloso de trabajar en mi empresa o institución", "tipo": "directa" },
+      { "nr": 53, "dimension": "OTROS PUNTOS IMPORTANTES", "item": "En mi trabajo se respeta mi ideología, opinión política, religiosa, nacionalidad y orientación sexual", "tipo": "directa" },
+      { "nr": 54, "dimension": "OTROS PUNTOS IMPORTANTES", "item": "Mi trabajo y los aportes que realizo son valorados y me generan motivación", "tipo": "directa" },
+      { "nr": 55, "dimension": "OTROS PUNTOS IMPORTANTES", "item": "Me siento libre de culpa cuando no estoy trabajando en algo", "tipo": "directa" },
+      { "nr": 56, "dimension": "OTROS PUNTOS IMPORTANTES", "item": "En mi trabajo no existen espacios de uso exclusivo de un grupo determinado de personas ligados a un privilegio, por ejemplo, cafetería exclusiva, baños exclusivos, etc., mismo que causa malestar y perjudica mi ambiente laboral", "tipo": "directa" },
+      { "nr": 57, "dimension": "OTROS PUNTOS IMPORTANTES", "item": "Puedo dejar de pensar en el trabajo durante mi tiempo libre (pasatiempos, actividades de recreación, otros)", "tipo": "directa" },
+      { "nr": 58, "dimension": "OTROS PUNTOS IMPORTANTES", "item": "Considero que me encuentro física y mentalmente saludable", "tipo": "directa" }
+    ]
+  }
+}

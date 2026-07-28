@@ -1,0 +1,39 @@
+version: 1
+
+kde:
+  factor: 2.50
+  min_radius_m: 5.00
+  max_radius_m: 8.00
+  pixel_size_m: 0.50
+  kernel: quartic
+
+hexagons:
+  area_m2: 100.00
+
+gaps:
+  factor: 1.60
+  minimum_candidates_per_row: 2
+
+proximity:
+  factor: 0.70
+  strong_ratio: 0.60
+  high_ratio: 0.75
+  open_ratio: 1.50
+
+orientation:
+  angle_tolerance_deg: 20.00
+  smoothing_half_window_deg: 5
+  refinement_tolerance_deg: 15.00
+  nearest_neighbors_to_query: 12
+
+edge_filter:
+  nearest_median_multiplier: 2.00
+  min_margin_m: 3.00
+  max_margin_m: 8.00
+  minimum_interior_fraction: 0.25
+  minimum_interior_points: 20
+
+voronoi:
+  high_competition_ratio: 0.60
+  possible_open_area_ratio: 1.75
+  severe_open_area_ratio: 2.50

@@ -1,0 +1,699 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8" />
+  <title>Paquete de Plantillas SST – Decreto 255 (Ecuador) & ISO 45001:2018</title>
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <style>
+    /* ===== Print layout ===== */
+    @page { size: A4; margin: 18mm 16mm 18mm 16mm; }
+    :root { --c1:#0b5; --c2:#0a3; --ink:#1b1b1b; --muted:#666; --line:#d9d9d9; }
+    html, body { font-family: system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, "Noto Sans", "Liberation Sans", sans-serif; color: var(--ink); }
+    body { margin: 0; }
+    .sheet { padding: 0; }
+
+    /* Typography */
+    h1, h2, h3 { color:#0a3; margin: 0 0 .35rem 0; }
+    h1 { font-size: 26px; line-height: 1.15; }
+    h2 { font-size: 20px; margin-top: 18px; }
+    h3 { font-size: 16px; margin-top: 14px; }
+    p, li { font-size: 12.2px; line-height: 1.5; }
+    small, .note { color: var(--muted); font-size: 11px; }
+
+    /* Header & cover */
+    .cover { page-break-after: always; border: 2px solid var(--c1); border-radius: 10px; padding: 18mm 14mm; margin-top: 6mm; }
+    .brand { display: flex; align-items: center; gap: 16px; margin-bottom: 18px; }
+    .brand .mark { width: 64px; height:64px; border:2px solid var(--c1); border-radius: 12px; display: grid; place-items: center; font-weight: 700; color: var(--c1); }
+    .meta { margin-top: 18px; display:grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+    .meta div { padding: 8px 10px; border: 1px dashed var(--line); border-radius: 8px; font-size: 12px; }
+
+    /* Utilities */
+    .box { border: 1px solid var(--line); border-radius: 8px; padding: 10px 12px; background: #fafafa; }
+    .grid-2 { display:grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+    .grid-3 { display:grid; grid-template-columns: 1fr 1fr 1fr; gap: 10px; }
+    .mb8 { margin-bottom: 8px; } .mb12 { margin-bottom: 12px; } .mb16 { margin-bottom: 16px; } .mb20 { margin-bottom: 20px; }
+    .mt8 { margin-top: 8px; } .mt12 { margin-top: 12px; } .mt16 { margin-top: 16px; }
+    .tag { display:inline-block; background:#e9fff3; color:#056a3c; border:1px solid #bdf0d7; border-radius: 999px; padding: 2px 8px; font-size: 11px; }
+
+    /* Table */
+    table { width: 100%; border-collapse: collapse; margin: 8px 0 14px 0; }
+    th, td { border: 1px solid var(--line); padding: 7px 8px; vertical-align: top; font-size: 11.8px; }
+    th { background: #f2fff8; color:#084; text-align: left; }
+    tr:nth-child(even) td { background: #fcfcfc; }
+
+    /* Code blocks for templates */
+    pre { background: #0a3; color: #fff; padding: 10px 12px; border-radius: 8px; font-size: 11.2px; white-space: pre-wrap; word-break: break-word; }
+
+    /* Page breaks */
+    .pb { page-break-before: always; }
+    .pa { page-break-after: always; }
+    .avoid-break { break-inside: avoid; }
+
+    /* Checklist */
+    .check li { list-style: none; }
+    .check li::before { content: "☐ "; color:#0b5; font-weight: 600; }
+
+    /* Footer */
+    footer { margin-top: 8px; border-top: 1px solid var(--line); padding-top: 6px; display: flex; justify-content: space-between; align-items: center; }
+    footer .left { font-size: 11px; color: var(--muted); }
+    footer .right { font-size: 11px; color: var(--muted); }
+
+    /* TOC */
+    .toc { border:1px solid var(--line); border-radius: 8px; padding: 10px 12px; background:#fff; }
+    .toc a { color:#055; text-decoration:none; }
+
+    a { color:#0a3; text-decoration: none; }
+  </style>
+</head>
+<body>
+  <!-- ===== Cover ===== -->
+  <section class="sheet cover">
+    <div class="brand">
+      <div class="mark">SST</div>
+      <div>
+        <h1>Paquete de Plantillas SST</h1>
+        <p><strong>Decreto Ejecutivo 255 (Ecuador)</strong> &nbsp;|&nbsp; <strong>ISO 45001:2018</strong></p>
+        <p class="note">Formato listo para imprimir y convertir a PDF. Incluye segmentación por número de trabajadores y riesgo dominante, checklists, calendarios SUT y plantillas editables.</p>
+      </div>
+    </div>
+    <div class="meta">
+      <div><strong>Empresa:</strong> {{Razón Social}} &nbsp; | &nbsp; <strong>RUC:</strong> {{RUC}}</div>
+      <div><strong>Elaboró:</strong> Ing. Darwin A. González Romero &nbsp; | &nbsp; <strong>Versión:</strong> 1.0</div>
+      <div><strong>Fecha:</strong> {{dd/mm/aaaa}}</div>
+      <div><strong>Contacto:</strong> {{correo / tel.}}</div>
+    </div>
+    <p class="note mt12">Nota: tras aprobación en SUT de PPRL/RHS, descargar respaldo oficial ≤ 15 días y archivar en Drive con control de versiones.</p>
+  </section>
+
+  <!-- ===== TOC ===== -->
+  <section class="sheet">
+    <h2>Contenido</h2>
+    <div class="toc">
+      <ol>
+        <li><a href="#instrucciones">Instrucciones de uso</a></li>
+        <li><a href="#criterio">Criterio de riesgo dominante</a></li>
+        $1
+        <li><a href="#segmentacion-actividad">Segmentación por actividad (Bananera, Camaronera, Minería, Restaurante, Industria, Otros)</a></li>
+        <li><a href="#bundles-actividad">Bundles por Clasificación × Actividad</a></li>
+        $1
+        <li><a href="#repositorio">Repositorio de plantillas &amp; Generador automático</a></li>
+        <li><a href="#calendario">Calendario SUT por clasificación</a></li>
+        <li><a href="#checklist">Checklist de auditoría MDT/SUT & ISO 45001</a></li>
+        <li><a href="#glosario">Glosario</a></li>
+      </ol>
+    </div>
+    <footer>
+      <div class="left">Paquete de Plantillas SST – Decreto 255 & ISO 45001</div>
+      <div class="right">Página 2</div>
+    </footer>
+  </section>
+
+  <!-- ===== 0 Instrucciones ===== -->
+  <section class="sheet pb" id="instrucciones">
+    <h2>0) Instrucciones de uso</h2>
+    <ul>
+      <li>Identifica la <strong>clasificación</strong> (Micro 1–9; Pequeña 10–49; Mediana 50–99; Grande ≥100) y el <strong>riesgo dominante</strong> con el criterio del IPER.</li>
+      <li>Completa los campos entre <code>{{llaves}}</code> y suprime lo no aplicable.</li>
+      <li>Controla la <strong>descarga ≤ 15 días</strong> del PPRL/RHS aprobado en SUT.</li>
+      <li>Aplica el <strong>control documental</strong> (código, versión, vigencia, retención, disposición final).</li>
+    </ul>
+  </section>
+
+  <!-- ===== 1 Criterio ===== -->
+  <section class="sheet pb" id="criterio">
+    <h2>1) Criterio para definir el <em>riesgo dominante</em></h2>
+    <div class="box mb12">
+      <p><strong>Definición:</strong> nivel (Bajo/Medio/Alto) derivado del IPER considerando severidad, probabilidad, población/tiempo de exposición, límites de exposición y presencia de <em>trabajos especiales</em> o riesgos de seguridad industriales mayores.</p>
+      <ul>
+        <li><strong>ALTO (automático):</strong> existen trabajos especiales, riesgos con potencial de accidente mayor o exposiciones por sobre límites permitidos.</li>
+        <li><strong>MEDIO:</strong> exposiciones próximas a límites o requieren controles de ingeniería relevantes.</li>
+        <li><strong>BAJO:</strong> exposiciones ampliamente por debajo de límites, gestionables con controles administrativos y EPP estándar.</li>
+      </ul>
+      <p><strong>Áreas mixtas:</strong> prevalece el nivel más alto que afecte ≥ 30% de horas-hombre o involucre peligros críticos; si no se cumple, adoptar el nivel modal y justificar en el IPER.</p>
+    </div>
+  </section>
+
+  <!-- ===== 2 Segmentación ===== -->
+  <section class="sheet pb" id="segmentacion">
+    <h2>2) Matriz de segmentación por clasificación</h2>
+
+    <h3>2.1 Micro (1–9 trabajadores)</h3>
+    <table class="avoid-break">
+      <thead><tr>
+        <th>Riesgo Dominante</th><th>Responsable SST</th><th>Documento base</th><th>Organismo paritario</th><th>Salud en el trabajo</th><th>Registros SUT</th><th>Vigencia</th>
+      </tr></thead>
+      <tbody>
+        <tr><td>Bajo / Medio</td><td>Monitor (por centro)</td><td>PPRL</td><td>No aplica</td><td>Médico 4º nivel (visitas)</td><td>Designación; PPRL; Vigilancia</td><td>12 meses</td></tr>
+        <tr><td>Alto</td><td>Técnico de SHT</td><td>PPRL</td><td>No aplica</td><td>Médico 4º nivel (visitas)</td><td>Designación; PPRL; Vigilancia</td><td>12 meses</td></tr>
+      </tbody>
+    </table>
+
+    <h3>2.2 Pequeña (10–49)</h3>
+    <table class="avoid-break">
+      <thead><tr>
+        <th>Riesgo Dominante</th><th>Responsable SST</th><th>Documento base</th><th>Organismo paritario</th><th>Salud en el trabajo</th><th>Registros SUT</th><th>Vigencias</th>
+      </tr></thead>
+      <tbody>
+        <tr><td>Bajo / Medio</td><td>Monitor</td><td>RHS</td><td>Delegado SST</td><td>Médico 4º nivel (visitas)</td><td>Designación; RHS; Delegado; Capacitaciones; Psicosocial; Alcohol/Tabaco; Vigilancia</td><td>Resp./Programas/Vigil.: 12 m · RHS/Delegado: 24 m</td></tr>
+        <tr><td>Alto</td><td>Técnico</td><td>RHS</td><td>Delegado SST</td><td>Médico 4º nivel (visitas)</td><td>Idem anterior</td><td>12 m / 24 m</td></tr>
+      </tbody>
+    </table>
+
+    <h3>2.3 Mediana (50–99)</h3>
+    <table class="avoid-break">
+      <thead><tr>
+        <th>Riesgo Dominante</th><th>Responsable SST</th><th>Documento base</th><th>Organismo paritario</th><th>Salud en el trabajo</th><th>Registros SUT</th><th>Vigencias</th>
+      </tr></thead>
+      <tbody>
+        <tr><td>Cualquiera</td><td>Técnico (recomendado M/A)</td><td>RHS</td><td>Comité SST (3+3)</td><td>Médico 4º nivel (visitas)</td><td>Designación; RHS; Comité; Programas; Vigilancia</td><td>Resp./Programas/Vigil.: 12 m · RHS/Comité: 24 m</td></tr>
+      </tbody>
+    </table>
+
+    <h3>2.4 Grande (≥100)</h3>
+    <table class="avoid-break">
+      <thead><tr>
+        <th>Riesgo Dominante</th><th>Responsable SST</th><th>Documento base</th><th>Organismo paritario</th><th>Salud en el trabajo</th><th>Registros SUT</th><th>Vigencias</th>
+      </tr></thead>
+      <tbody>
+        <tr><td>Cualquiera</td><td>Técnico (equipo según complejidad)</td><td>RHS</td><td>Comité SST</td><td>Servicio de salud en el trabajo (local de enfermería y, según tipología, servicio médico permanente con permiso sanitario)</td><td>Idem Mediana + evidencias sanitarias</td><td>12 m / 24 m</td></tr>
+      </tbody>
+    </table>
+
+    <p class="note">Recordatorio: descargar PPRL/RHS aprobados en SUT ≤ 15 días posteriores a la aprobación.</p>
+  </section>
+
+  <!-- ===== 3 Paquetes y plantillas ===== -->
+  <section class="sheet pb" id="segmentacion-actividad">
+    <h2>2-bis) Segmentación por actividad</h2>
+    <p>Esta sección aterriza los <strong>riesgos típicos</strong>, <strong>permisos críticos</strong>, <strong>programas/procedimientos adicionales</strong>, <strong>capacitaciones mínimas</strong> y <strong>evidencias clave</strong> por actividad. Úsala para complementar el IPER y para definir qué plantillas adicionales se generan.</p>
+    <table class="avoid-break">
+      <thead><tr>
+        <th>Actividad</th><th>Riesgos típicos (IPER)</th><th>Permisos críticos</th><th>Programas / Procedimientos extra</th><th>Capacitaciones mínimas</th><th>Vigilancia de la salud (lineamientos)</th><th>Evidencias clave</th>
+      </tr></thead>
+      <tbody>
+        <tr>
+          <td><strong>Bananeras</strong></td>
+          <td>Plaguicidas; corte con herramientas; ergonomía de cosecha; calor/UV; tránsito interno; bodegas químicas.</td>
+          <td>Trabajos con sustancias peligrosas; trasvase/derrames; trabajo en caliente (si aplica mantenimiento).</td>
+          <td>Procedimiento de manejo seguro de plaguicidas; almacenamiento y señalización; plan de derrames; triple lavado/gestión de envases; control de transporte interno; registro EPP químico.</td>
+          <td>Manejo seguro de plaguicidas; uso/limpieza de EPP; primeros auxilios por exposición; emergencias por derrames.</td>
+          <td>Protocolos según exposición a plaguicidas; seguimiento dermatológico/respiratorio según IPER.</td>
+          <td>Inventario y HDS; actas de capacitación; inspecciones de bodegas; fichas EPP; simulacros de derrames.</td>
+        </tr>
+        <tr>
+          <td><strong>Camaroneras</strong></td>
+          <td>Ahogamiento; operación de muelles/embarcaciones; eléctricos (bombas/compuertas); químicos de tratamiento; biológico; rescate acuático.</td>
+          <td>Trabajos eléctricos; proximidad a cuerpos de agua; izaje; trabajo en caliente (mantenimiento).</td>
+          <td>Procedimiento de operaciones acuáticas (chalecos, líneas de vida); LOTO eléctrico en estaciones; plan de uso de cloro/cal; control de muelles; plan de navegación.</td>
+          <td>Seguridad en muelles y embarcaciones; rescate acuático; LOTO; químicos básicos; primeros auxilios.</td>
+          <td>Lineamientos de vigilancia según químicos/biológicos y trabajo en exteriores.</td>
+          <td>Listas de chequeo de muelles/embarcaciones; LOTO; bitácora de productos químicos; simulacros de rescate acuático.</td>
+        </tr>
+        <tr>
+          <td><strong>Minería</strong></td>
+          <td>Equipos móviles; caídas de roca; voladuras (si aplica); polvo (sílice); ruido; espacios confinados; alturas; energía almacenada.</td>
+          <td>Alturas; espacios confinados; eléctrico; izaje; caliente; (si aplica) voladuras/explosivos conforme a normativa específica.</td>
+          <td>Plan de control de polvo y ventilación; gestión de tránsito minero; LOTO; procedimientos de izaje; gestión de explosivos (si aplica).</td>
+          <td>LOTO; trabajo en alturas; espacios confinados; izaje; control de polvo; respuesta a emergencias mineras.</td>
+          <td>Protocolos según exposición a sílice/ruido y otros agentes identificados en IPER.</td>
+          <td>Registro de mantenimiento de equipos; monitoreos de polvo/ruido; permisos de trabajo; simulacros.</td>
+        </tr>
+        <tr>
+          <td><strong>Restaurante</strong></td>
+          <td>Calor; llamas/gas GLP; cortes; resbalones; electricidad; limpieza y manejo de aceites/grasas; plagas.</td>
+          <td>Trabajo en caliente (cocinas, soldadura de mantenimiento); eléctrico.</td>
+          <td>Procedimiento GLP (pruebas de estanqueidad); manejo de aceites/grasas; POES/BPM; limpieza de campanas y ductos; prevención de quemaduras.</td>
+          <td>Manipulación higiénica de alimentos; control de gas; uso de extintores clase K; primeros auxilios por quemaduras/cortes.</td>
+          <td>Lineamientos de vigilancia según riesgos ergonómicos, térmicos y cortes (definidos por IPER).</td>
+          <td>Checklists diarios de cocina; mantenimiento de GLP; capacitación BPM; registros de limpieza de campanas.</td>
+        </tr>
+        <tr>
+          <td><strong>Industria</strong></td>
+          <td>Maquinaria y partes móviles; LOTO; izaje; sustancias peligrosas; ruido; tránsito interno; ergonomía.</td>
+          <td>LOTO; izaje; alturas; eléctrico; caliente.</td>
+          <td>Procedimientos de bloqueo-etiquetado; izaje y estrobado; guardas; bodega de sustancias peligrosas; trabajos en caliente/eléctrico; carretillas elevadoras.</td>
+          <td>LOTO; izaje; manejo de sustancias; montacargas; trabajo en alturas/eléctrico (según aplique).</td>
+          <td>Lineamientos según exposición a ruido/químicos; ergonomía por tareas repetitivas.</td>
+          <td>Registros LOTO; permisos de trabajo; inspecciones de guardas y equipos de izaje; bitácora de sustancias.</td>
+        </tr>
+        <tr>
+          <td><strong>Otros</strong></td>
+          <td>Definido por IPER del centro; tomar la actividad dominante.</td>
+          <td>Según peligros identificados.</td>
+          <td>Procedimientos y programas configurables.</td>
+          <td>Capacitaciones según IPER.</td>
+          <td>Vigilancia según exposición.</td>
+          <td>Evidencias acorde a riesgos.</td>
+        </tr>
+      </tbody>
+    </table>
+  </section>
+
+  <section class="sheet pb" id="bundles-actividad">
+    <h2>2-ter) Bundles de plantillas por Clasificación × Actividad</h2>
+    <p>Los paquetes base por <em>Clasificación</em> se enriquecen con <em>adiciones por Actividad</em>. Esto controla qué documentos genera el script automáticamente.</p>
+
+    <h3>Micro (1–9)</h3>
+    <table class="avoid-break"><thead><tr><th>Actividad</th><th>Adiciones al paquete base</th><th>Notas</th></tr></thead><tbody>
+      <tr><td>Bananeras</td><td>Manejo de Plaguicidas; Plan de Derrames; Inventario/HDS; Registro EPP químico.</td><td>Si Riesgo Alto → añadir Permisos críticos.</td></tr>
+      <tr><td>Camaroneras</td><td>Operación en cuerpos de agua; LOTO estaciones; Plan de navegación; Uso de químicos (cloro/cal).</td><td>Chalecos, líneas de vida, rescate acuático.</td></tr>
+      <tr><td>Minería</td><td>Control de polvo/ventilación; Tránsito minero; LOTO; (si aplica) Explosivos.</td><td>Riesgo Alto por defecto en varios procesos.</td></tr>
+      <tr><td>Restaurante</td><td>GLP y estanqueidad; Limpieza de campanas; Manejo de aceites/grasas; Extintores K.</td><td>Trabajo en caliente y eléctrico en mantenimiento.</td></tr>
+      <tr><td>Industria</td><td>LOTO; Izaje; Guardas; Sustancias peligrosas; Trabajos en caliente/eléctrico.</td><td>Montacargas, rutas internas.</td></tr>
+      <tr><td>Otros</td><td>Configurable según IPER.</td><td></td></tr>
+    </tbody></table>
+
+    <h3>Pequeña (10–49)</h3>
+    <table class="avoid-break"><thead><tr><th>Actividad</th><th>Adiciones al paquete base</th><th>Notas</th></tr></thead><tbody>
+      <tr><td>Bananeras</td><td>Todo Micro + Delegado + Programas (Psicosocial, ATD).</td><td></td></tr>
+      <tr><td>Camaroneras</td><td>Todo Micro + Delegado + procedimientos acuáticos ampliados.</td><td></td></tr>
+      <tr><td>Minería</td><td>RHS reforzado; Delegado; permisos críticos; control de polvo.</td><td></td></tr>
+      <tr><td>Restaurante</td><td>RHS + Delegado + BPM/POES detallados.</td><td></td></tr>
+      <tr><td>Industria</td><td>RHS + Delegado + LOTO/Izaje/Caliente/Eléctrico.</td><td></td></tr>
+      <tr><td>Otros</td><td>Configurable.</td><td></td></tr>
+    </tbody></table>
+
+    <h3>Mediana (50–99)</h3>
+    <table class="avoid-break"><thead><tr><th>Actividad</th><th>Adiciones al paquete base</th><th>Notas</th></tr></thead><tbody>
+      <tr><td>Todos</td><td>Comité SST + adiciones de actividad como en Pequeña.</td><td></td></tr>
+    </tbody></table>
+
+    <h3>Grande (≥100)</h3>
+    <table class="avoid-break"><thead><tr><th>Actividad</th><th>Adiciones al paquete base</th><th>Notas</th></tr></thead><tbody>
+      <tr><td>Todos</td><td>Servicio de Salud en el Trabajo + adiciones de actividad; evidencias de permiso sanitario (si aplica).</td><td></td></tr>
+    </tbody></table>
+  </section>
+
+$1
+    <h2>3) Paquetes documentales y plantillas</h2>
+
+    <h3>3.1 Micro (1–9) – Paquete PPRL</h3>
+    <ul class="check">
+      <li>Política SST firmada y difundida</li>
+      <li>IPER por puesto/área + jerarquía de controles</li>
+      <li>Matriz de requisitos legales + evaluación de cumplimiento</li>
+      <li>PPRL (índice modelo) y plan anual</li>
+      <li>Designación Monitor/Técnico y evidencia de competencia</li>
+      <li>Plan de emergencias + brigadas + simulacros</li>
+      <li>Plan anual de capacitaciones + evidencias</li>
+      <li>Entrega y control de EPP</li>
+      <li>Vigilancia de la salud (informe consolidado no nominativo)</li>
+      <li>Auditoría interna + Revisión por la Dirección</li>
+      <li>Carga SUT: Designación; PPRL; Vigilancia</li>
+    </ul>
+
+    <h4>Plantilla – Nombramiento de Responsable SST</h4>
+    <pre>EMPRESA: {{Razón Social}}   RUC: {{RUC}}
+CENTRO DE TRABAJO: {{Centro}}
+
+RESOLUCIÓN DE DESIGNACIÓN
+Se designa a {{Nombres y Apellidos}} como {{Monitor/Técnico}} de Seguridad y Salud en el Trabajo, con vigencia desde {{dd/mm/aaaa}} hasta {{dd/mm/aaaa}}.
+Funciones: implementar PPRL, seguimiento IPER, capacitación, inspecciones, reporte de incidentes, coordinación de vigilancia, actualización documental y reporte en SUT.
+Firmas: {{Representante Legal}} / {{Responsable SST}}</pre>
+
+    <h4>Plantilla – Índice Modelo del PPRL</h4>
+    <pre>1. Política SST y alcance
+2. Contexto del centro y partes interesadas
+3. Identificación de peligros e IPER (método y resultados)
+4. Plan de control (jerarquía) y programa anual
+5. Cumplimiento legal y evaluación de cumplimiento
+6. Competencia y capacitación
+7. Comunicación, participación y consulta
+8. Contratistas y visitantes
+9. Emergencias (plan y simulacros)
+10. Gestión de EPP
+11. Monitoreo y medición (indicadores)
+12. Investigación de incidentes/accidentes
+13. Auditoría interna y revisión por la dirección
+14. Control de la información documentada
+Anexos: IPER, matrices, registros, listas, evidencias</pre>
+
+    <h4>Plantilla – IPER (formato 5×5, mapeado a Bajo/Medio/Alto)</h4>
+    <pre>Puesto/Área: {{}}
+Peligro: {{}}
+Severidad S (1–5): {{}}
+Probabilidad P (1–5): {{}}
+Nivel de riesgo (S×P): {{}}
+Clasificación: {{Bajo/Medio/Alto}} (según criterio declarado)
+Controles existentes: {{}}
+Acciones/Controles (jerarquía): {{}}
+Responsable / Plazo: {{}} / {{dd/mm/aaaa}}</pre>
+
+    <h4>Plantillas – Plan anual, Emergencias, EPP, Auditoría y Dirección</h4>
+    <pre>Plan Anual de Capacitaciones → Año {{}} | Tema – Mes – Horas – Facilitador – Evidencia
+Plan de Emergencias y Simulacros → Amenazas; Brigadas; Calendario; Lecciones
+Control de EPP → Trabajador – Puesto – EPP – Norma – Fecha – Firma – Reposición
+Auditoría Interna → Alcance; Criterios; Hallazgos; Acciones (Resp.–Plazo–Verificación)
+Revisión por la Dirección → Entradas; Decisiones; Recursos</pre>
+
+    <h4>Bitácora SUT</h4>
+    <pre>Trámite: {{PPRL/Designación/Vigilancia}} | Aprobación: {{}} | Descarga (≤15 d): {{}}
+Ubicación en Drive: {{Ruta}} | Observaciones: {{}}</pre>
+
+    <div class="pb"></div>
+
+    <h3>3.2 Pequeña (10–49) – Paquete RHS + Delegado</h3>
+    <ul class="check">
+      <li>RHS (índice modelo) y plan anual</li>
+      <li>Designación de Monitor/Técnico según riesgo dominante</li>
+      <li>Delegado de SST (convocatoria, elección, posesión)</li>
+      <li>Programas anuales: Capacitaciones; Psicosocial; Alcohol/Tabaco/Drogas</li>
+      <li>Vigilancia de la salud</li>
+      <li>Emergencias, EPP y contratistas</li>
+      <li>Auditoría interna + Revisión por la Dirección</li>
+      <li>Cargas SUT: Designación; RHS; Delegado; Programas; Vigilancia</li>
+    </ul>
+
+    <h4>Índice Modelo del RHS</h4>
+    <pre>1. Disposiciones generales y alcance
+2. Organización SST (roles y responsabilidades)
+3. IPER y criterios de riesgo dominante
+4. Programas y controles (ingeniería, administrativos, EPP)
+5. Gestión de cambios y permisos de trabajo (alturas, eléctrico, confinados, caliente, izaje)
+6. Contratistas y visitantes
+7. Comunicación, capacitación y competencia
+8. Emergencias
+9. Vigilancia de la salud y registros
+10. Medición y seguimiento (indicadores)
+11. Investigación de incidentes/accidentes
+12. Auditorías internas y revisión por la dirección
+13. Control de la información documentada
+Anexos: actas, matrices, formatos, evidencias</pre>
+
+    <h4>Delegado de SST – Elección y Posesión</h4>
+    <pre>Convocatoria N° {{}} – Fecha: {{}}
+Padrón de trabajadores: {{adjunto}}
+Acta de elección: participación, votos, resultados
+Acta de posesión: {{Nombre Delegado}} – Periodo {{dd/mm/aaaa}} a {{dd/mm/aaaa}}
+Registro en SUT: fecha y comprobante</pre>
+
+    <h4>Programas Anuales (Psicosocial / Alcohol-Tabaco-Drogas / Capacitaciones / Vigilancia)</h4>
+    <pre>Psicosocial → Método: {{}} | Riesgos: {{}} | Plan: Acción–Responsable–Plazo–Evidencia
+ATD → Política; Controles; Registros (no nominativos)
+Vigilancia → Protocolos; Cobertura %; Informe consolidado
+Capacitaciones → Plan anual y evidencias</pre>
+
+    <div class="pb"></div>
+
+    <h3>3.3 Mediana (50–99) – Paquete RHS + Comité SST</h3>
+    <ul class="check">
+      <li>Todo lo de Pequeña, más <strong>Comité SST (3+3 titulares)</strong></li>
+      <li>Informe anual del Comité</li>
+      <li>Coordinación con servicios externos si aplica</li>
+    </ul>
+
+    <h4>Comité SST – Elección, Posesión y Funcionamiento</h4>
+    <pre>Convocatoria y reglamento interno del Comité
+Acta de elección (representantes trabajadores y empleador)
+Acta de posesión – Periodo 24 meses
+Plan anual del Comité e Informe anual
+Registro en SUT: fecha y comprobante</pre>
+
+    <h4>Programa de Auditoría Interna (mes 10–11)</h4>
+    <pre>Centros/Procesos: {{}} | Criterios: Decreto 255, ISO 45001, RHS, SUT
+Cronograma: {{}} | Equipo auditor: {{}} | Gestión de NC: {{}}</pre>
+
+    <div class="pb"></div>
+
+    <h3>3.4 Grande (≥100) – RHS + Comité + Servicio de Salud en el Trabajo</h3>
+    <ul class="check">
+      <li>Todo lo de Mediana + servicio de salud en el trabajo</li>
+      <li>Permiso sanitario vigente y evidencias</li>
+      <li>Integración de registros sanitarios y de SST</li>
+    </ul>
+
+    <h4>Evidencia de Servicio de Salud en el Trabajo</h4>
+    <pre>Infraestructura: local de enfermería | Equipamiento: {{}}
+Personal: médico/enfermería | Turnos: {{}}
+Permiso sanitario: N° {{}} – Vigente hasta {{}}
+Protocolos asistenciales: {{}}
+Integración con vigilancia de la salud: {{}}</pre>
+  </section>
+
+  <!-- ===== 4 Calendario SUT ===== -->
+  <section class="sheet pb" id="repositorio">
+    <h2>4-bis) Repositorio de plantillas &amp; Generador automático</h2>
+    <p>Agrega aquí los <strong>enlaces a tus plantillas en Google Drive</strong> (Docs/Sheets) y utiliza el <strong>script de Apps Script</strong> para generar automáticamente documentos y PDFs con los datos de cada centro.</p>
+
+    <h3>4-bis.1 Plantillas (añadir enlaces de tu Drive)</h3>
+    <table class="avoid-break">
+      <thead><tr>
+        <th>Documento / Plantilla</th><th>Clasificación</th><th>Formato</th><th>Enlace (Drive)</th>
+      </tr></thead>
+      <tbody>
+        <tr><td>Nombramiento Responsable SST (Monitor/Técnico)</td><td>Todas</td><td>Google Docs</td><td><a href="#">Añadir enlace</a></td></tr>
+        <tr><td>PPRL – Modelo</td><td>Micro</td><td>Google Docs</td><td><a href="#">Añadir enlace</a></td></tr>
+        <tr><td>RHS – Modelo</td><td>≥10</td><td>Google Docs</td><td><a href="#">Añadir enlace</a></td></tr>
+        <tr><td>Acta Convocatoria &amp; Elección Delegado</td><td>10–49</td><td>Google Docs</td><td><a href="#">Añadir enlace</a></td></tr>
+        <tr><td>Acta Posesión Delegado</td><td>10–49</td><td>Google Docs</td><td><a href="#">Añadir enlace</a></td></tr>
+        <tr><td>Reglamento Interno Comité SST</td><td>≥50</td><td>Google Docs</td><td><a href="#">Añadir enlace</a></td></tr>
+        <tr><td>Acta Elección &amp; Posesión Comité SST</td><td>≥50</td><td>Google Docs</td><td><a href="#">Añadir enlace</a></td></tr>
+        <tr><td>IPER 5×5 (con mapeo a Bajo/Medio/Alto)</td><td>Todas</td><td>Google Sheets</td><td><a href="#">Añadir enlace</a></td></tr>
+        <tr><td>Matriz de Requisitos Legales + Evaluación</td><td>Todas</td><td>Google Sheets</td><td><a href="#">Añadir enlace</a></td></tr>
+        <tr><td>Plan Anual de Capacitaciones</td><td>Todas</td><td>Google Sheets</td><td><a href="#">Añadir enlace</a></td></tr>
+        <tr><td>Programa Psicosocial (formato)</td><td>≥10</td><td>Docs/Sheets</td><td><a href="#">Añadir enlace</a></td></tr>
+        <tr><td>Programa Alcohol/Tabaco/Drogas (formato)</td><td>≥10</td><td>Docs</td><td><a href="#">Añadir enlace</a></td></tr>
+        <tr><td>Plan de Emergencias &amp; Simulacros</td><td>Todas</td><td>Docs</td><td><a href="#">Añadir enlace</a></td></tr>
+        <tr><td>Permisos de Trabajo (Alturas/Eléctrico/Confinado/Caliente/Izaje)</td><td>Según riesgo</td><td>Docs</td><td><a href="#">Añadir enlace</a></td></tr>
+        <tr><td>Control de Entrega de EPP</td><td>Todas</td><td>Sheets</td><td><a href="#">Añadir enlace</a></td></tr>
+        <tr><td>Programa de Auditoría Interna</td><td>Todas</td><td>Docs</td><td><a href="#">Añadir enlace</a></td></tr>
+        <tr><td>Minuta de Revisión por la Dirección</td><td>Todas</td><td>Docs</td><td><a href="#">Añadir enlace</a></td></tr>
+        <tr><td>Bitácora SUT</td><td>Todas</td><td>Sheets</td><td><a href="#">Añadir enlace</a></td></tr>
+        <tr><td>Informe consolidado de Vigilancia de la Salud</td><td>Todas</td><td>Docs</td><td><a href="#">Añadir enlace</a></td></tr>
+        <tr><td>Servicio de Salud en el Trabajo – Evidencias</td><td>≥100</td><td>Docs</td><td><a href="#">Añadir enlace</a></td></tr>
+      </tbody>
+    </table>
+
+    <h3>4-bis.2 Generador automático (Google Apps Script – mínimo viable)</h3>
+    <div class="box">
+      <p><strong>Preparación:</strong> crea en Drive una carpeta <em>SST_OUTPUT</em> y una hoja <em>SST_MAESTRO</em> con pestañas: <em>Centros</em> (RazonSocial, RUC, Centro, Clasificacion, Riesgo, FA_PPRL, FA_RHS, FA_ORG, Responsable, etc.), <em>Plantillas</em> (Nombre, Tipo, DocID/SheetID), <em>Documentos</em> (salida). Usa los mismos <code>{{campos}}</code> que aparecen en las plantillas.</p>
+      <pre>/** Google Apps Script – Generador de documentos SST (Docs→PDF) */
+function generateDocs() {
+  const ss = SpreadsheetApp.getActive();
+  const centros = ss.getSheetByName('Centros').getDataRange().getValues();
+  const plantillas = ss.getSheetByName('Plantillas').getDataRange().getValues();
+  const out = ss.getSheetByName('Documentos');
+  const folder = DriveApp.getFoldersByName('SST_OUTPUT').hasNext() ?
+                 DriveApp.getFoldersByName('SST_OUTPUT').next() : DriveApp.createFolder('SST_OUTPUT');
+  const headerC = centros.shift();
+  const mapPlant = Object.fromEntries(plantillas.slice(1).map(r => [r[0], r[2]])); // Nombre → DocID
+
+  out.clear();
+  out.appendRow(['Centro','Plantilla','Doc ID','Doc URL','PDF URL','Fecha']);
+
+  centros.slice(1).forEach(row => {
+    if (!row.length || !row[0]) return;
+    const data = Object.fromEntries(headerC.map((k,i)=>[k, row[i]]));
+
+    // Ejemplos de combinaciones a generar por clasificación
+    const bundle = buildBundleByClass(data.Clasificacion);
+
+    bundle.forEach(nombreTpl => {
+      const tplId = mapPlant[nombreTpl];
+      if (!tplId) return;
+      const copy = DriveApp.getFileById(tplId).makeCopy(`${data.Centro} - ${nombreTpl} (${new Date().toISOString().slice(0,10)})`, folder);
+      const doc = DocumentApp.openById(copy.getId());
+      const body = doc.getBody();
+      replacePlaceholders(body, data);
+      doc.saveAndClose();
+      const pdf = DriveApp.getFileById(copy.getId()).getAs('application/pdf');
+      const pdfFile = folder.createFile(pdf).setName(copy.getName()+'.pdf');
+      out.appendRow([data.Centro, nombreTpl, copy.getId(), copy.getUrl(), pdfFile.getUrl(), new Date()]);
+    });
+  });
+}
+
+function replacePlaceholders(body, data){
+  Object.keys(data).forEach(k => { body.replaceText(`{{${k}}}`, String(data[k]||'')); });
+}
+
+function buildBundleByClass(cl){
+  // Ajusta nombres según fila "Plantillas"
+  if (cl === 'Micro') return ['Nombramiento Responsable','PPRL – Modelo','Plan Anual Capacitaciones','Plan de Emergencias','Bitácora SUT'];
+  if (cl === 'Pequeña') return ['Nombramiento Responsable','RHS – Modelo','Acta Elección Delegado','Acta Posesión Delegado','Plan Anual Capacitaciones','Programa Psicosocial','Programa ATD','Bitácora SUT'];
+  if (cl === 'Mediana') return ['Nombramiento Responsable','RHS – Modelo','Acta Elección Comité','Reglamento Interno Comité','Plan Anual Capacitaciones','Programa Psicosocial','Programa ATD','Bitácora SUT'];
+  if (cl === 'Grande') return ['Nombramiento Responsable','RHS – Modelo','Acta Elección Comité','Reglamento Interno Comité','Servicio de Salud – Evidencias','Plan Anual Capacitaciones','Programa Psicosocial','Programa ATD','Bitácora SUT'];
+  return ['Nombramiento Responsable'];
+}</pre>
+      <p class="note">Personaliza la lista <code>buildBundleByClass</code> y los <strong>nombres exactos</strong> de la pestaña <em>Plantillas</em>. Para reemplazos avanzados (tablas, listas), podemos ampliar <code>replacePlaceholders</code> y añadir mapeos por Riesgo Dominante.</p>
+    </div>
+
+    <h3>4-bis.3 Generador v2 con segmentación por Actividad (Apps Script)</h3>
+    <div class="box">
+      <p><strong>Entrada adicional:</strong> agrega la columna <code>Actividad</code> en la hoja <em>Centros</em> con valores validados: {Bananeras, Camaroneras, Minería, Restaurante, Industria, Otros}. El generador creará documentos según <em>Clasificación × Riesgo × Actividad</em> y los ubicará en carpetas segmentadas.</p>
+      <pre>/** === Utilidades de clasificación y decisiones === */
+function classifyByWorkers(n) {
+  n = Number(n||0);
+  if (n <= 9) return 'Micro';
+  if (n <= 49) return 'Pequeña';
+  if (n <= 99) return 'Mediana';
+  return 'Grande';
+}
+function decideResponsible(clasif, riesgo) {
+  const r = String(riesgo||'').toLowerCase();
+  return (r === 'alto') ? 'Técnico' : 'Monitor';
+}
+function decideOrg(clasif) {
+  if (clasif === 'Pequeña') return 'Delegado';
+  if (clasif === 'Mediana' || clasif === 'Grande') return 'Comité';
+  return '';
+}
+
+/** === Bundles por Clasificación × Riesgo × Actividad === */
+function activityAddons(act) {
+  const a = String(act||'Otros').toLowerCase();
+  if (a === 'bananeras') return ['Manejo de Plaguicidas','Plan de Derrames','Inventario/HDS','Registro EPP químico'];
+  if (a === 'camaroneras') return ['Operación en cuerpos de agua','LOTO Estaciones (Bombas)','Plan de Navegación','Uso de Químicos (Cloro/Cal)'];
+  if (a === 'minería' || a === 'mineria') return ['Control de Polvo/Ventilación','Tránsito Minero','LOTO','Explosivos (si aplica)'];
+  if (a === 'restaurante') return ['GLP y Estanqueidad','Limpieza de Campanas','Manejo de Aceites/Grasas','Extintores K'];
+  if (a === 'industria') return ['LOTO','Izaje','Guardas de Máquinas','Sustancias Peligrosas','Trabajos en Caliente/Eléctrico'];
+  return [];
+}
+function buildBundleByClassRiskActivity(cl, riesgo, act) {
+  const permisosCriticos = ['Permisos de Trabajo – Alturas','Permisos de Trabajo – Eléctrico','Permisos de Trabajo – Espacio Confinado','Permisos de Trabajo – Caliente','Permisos de Trabajo – Izaje'];
+  const baseMicro = ['Nombramiento Responsable','PPRL – Modelo','Plan Anual Capacitaciones','Plan de Emergencias','Bitácora SUT'];
+  let pack = [];
+  if (cl === 'Micro') pack = baseMicro;
+  if (cl === 'Pequeña') pack = ['Nombramiento Responsable','RHS – Modelo','Acta Elección Delegado','Acta Posesión Delegado','Plan Anual Capacitaciones','Programa Psicosocial','Programa ATD','Bitácora SUT'];
+  if (cl === 'Mediana') pack = ['Nombramiento Responsable','RHS – Modelo','Acta Elección Comité','Reglamento Interno Comité','Plan Anual Capacitaciones','Programa Psicosocial','Programa ATD','Bitácora SUT'];
+  if (cl === 'Grande') pack = ['Nombramiento Responsable','RHS – Modelo','Acta Elección Comité','Reglamento Interno Comité','Servicio de Salud – Evidencias','Plan Anual Capacitaciones','Programa Psicosocial','Programa ATD','Bitácora SUT'];
+
+  // Riesgo Alto añade permisos críticos
+  if (String(riesgo).toLowerCase() === 'alto') pack = pack.concat(permisosCriticos);
+
+  // Adiciones por actividad
+  return pack.concat(activityAddons(act));
+}
+
+/** === Carpetas de salida: Clasificación/Actividad/Riesgo/Centro === */
+function ensureFolders(rootName, clasif, actividad, riesgo, centro) {
+  const root = DriveApp.getFoldersByName(rootName).hasNext()
+    ? DriveApp.getFoldersByName(rootName).next()
+    : DriveApp.createFolder(rootName);
+  const f1 = getOrCreate(root, clasif);
+  const f2 = getOrCreate(f1, actividad);
+  const f3 = getOrCreate(f2, riesgo);
+  return getOrCreate(f3, centro);
+}
+function getOrCreate(parent, name){
+  const it = parent.getFoldersByName(name);
+  return it.hasNext() ? it.next() : parent.createFolder(name);
+}
+
+/** === Generación principal === */
+function generateDocsV2() {
+  const ss = SpreadsheetApp.getActive();
+  const centrosSh = ss.getSheetByName('Centros');
+  const plantsSh  = ss.getSheetByName('Plantillas');
+  const out       = ss.getSheetByName('Documentos');
+  const centros = centrosSh.getDataRange().getValues();
+  const plants  = plantsSh.getDataRange().getValues();
+  const headC = centros.shift();
+  const headP = plants.shift();
+  const idx = Object.fromEntries(headC.map((k,i)=>[k,i]));
+  const mapPlant = Object.fromEntries(plants.map(r => [r[0], r[2]])); // Nombre → DocID
+
+  out.clear();
+  out.appendRow(['Centro','Clasificación','Actividad','Riesgo','Plantilla','Doc ID','Doc URL','PDF URL','Observación','Fecha']);
+
+  centros.forEach(row => {
+    if (!row || !row.length || !row[idx['Centro']]) return;
+    const data = Object.fromEntries(headC.map((k,i)=>[k, row[i]]));
+
+    // Clasificación automática por Nº trabajadores
+    const nTrab = Number(data['NTrabajadores']||0);
+    const clasifCalc = classifyByWorkers(nTrab);
+    const clasifManual = data['Clasificacion'];
+    let clasif = clasifManual || clasifCalc;
+    let obs = '';
+    if (clasifManual && clasifManual !== clasifCalc) {
+      obs = `Clasificación ajustada de ${clasifManual} a ${clasifCalc} por Nº trabajadores`;
+      clasif = clasifCalc;
+    }
+
+    const riesgo = String(data['Riesgo']||'Bajo');
+    const actividad = String(data['Actividad']||'Otros');
+    data['Clasificacion'] = clasif;
+    data['ResponsableSST'] = decideResponsible(clasif, riesgo);
+    data['OrganismoParitario'] = decideOrg(clasif);
+
+    const folder = ensureFolders('SST_OUTPUT', clasif, actividad, riesgo, data['Centro']);
+    const bundle = buildBundleByClassRiskActivity(clasif, riesgo, actividad);
+    const dateTag = new Date().toISOString().slice(0,10);
+
+    bundle.forEach(nombreTpl => {
+      const tplId = mapPlant[nombreTpl];
+      if (!tplId) {
+        out.appendRow([data['Centro'], clasif, actividad, riesgo, nombreTpl, '', '', '', 'Plantilla no encontrada en Plantillas', new Date()]);
+        return;
+      }
+      const baseName = `${data['Centro']} - ${clasif} - ${actividad} - ${riesgo} - ${nombreTpl} - ${dateTag}`;
+      const copy = DriveApp.getFileById(tplId).makeCopy(baseName, folder);
+      const doc  = DocumentApp.openById(copy.getId());
+      const body = doc.getBody();
+
+      Object.keys(data).forEach(k => { body.replaceText(`{{${k}}}`, String(data[k]||'')); });
+      doc.saveAndClose();
+
+      const pdfBlob = DriveApp.getFileById(copy.getId()).getAs('application/pdf');
+      const pdfFile = folder.createFile(pdfBlob).setName(baseName + '.pdf');
+
+      out.appendRow([data['Centro'], clasif, actividad, riesgo, nombreTpl, copy.getId(), copy.getUrl(), pdfFile.getUrl(), obs, new Date()]);
+    });
+  });
+}
+</pre>
+      <p class="note">Usa <code>generateDocsV2()</code> para segmentación completa. Asegúrate que la pestaña <em>Plantillas</em> contenga los <strong>nombres exactos</strong> listados en los bundles y que la pestaña <em>Centros</em> tenga la columna <code>Actividad</code> con una de las seis opciones.</p>
+    </div>
+  </section>
+
+<section class="sheet pb" id="calendario">
+    <h2>4) Calendario SUT por clasificación</h2>
+
+    <h3>4.1 Micro (1–9)</h3>
+    <pre>FA_PPRL: {{dd/mm/aaaa}}  → Vence: {{+12 meses}}
+Designación Resp. SST: {{dd/mm/aaaa}} → Renovación: {{+12 meses}}
+Vigilancia de la Salud (anual): {{mes/año – evidencia}}
+Descarga PPRL aprobado (≤15 días): {{fecha}}</pre>
+
+    <h3>4.2 Pequeña (10–49)</h3>
+    <pre>FA_RHS: {{dd/mm/aaaa}} → Vence: {{+24 meses}}
+FA_Delegado: {{dd/mm/aaaa}} → Vence: {{+24 meses}}
+Programas (Capacitaciones/Psicosocial/ATD/Vigilancia): {{año}} → Renovación: {{+12 meses}}
+Descarga RHS aprobado (≤15 días): {{fecha}}</pre>
+
+    <h3>4.3 Mediana (50–99)</h3>
+    <pre>FA_RHS: {{dd/mm/aaaa}} → Vence: {{+24 meses}}
+FA_Comité: {{dd/mm/aaaa}} → Vence: {{+24 meses}}
+Programas anuales y Vigilancia: {{año}} → {{+12 meses}}
+Descarga RHS aprobado (≤15 días): {{fecha}}</pre>
+
+    <h3>4.4 Grande (≥100)</h3>
+    <pre>FA_RHS: {{dd/mm/aaaa}} → Vence: {{+24 meses}}
+FA_Comité: {{dd/mm/aaaa}} → Vence: {{+24 meses}}
+Servicio de Salud en el Trabajo: Permiso sanitario N° {{}} – Vigente hasta {{}}
+Programas y Vigilancia (anual): {{año}} → {{+12 meses}}
+Descarga RHS aprobado (≤15 días): {{fecha}}</pre>
+  </section>
+
+  <!-- ===== 5 Checklist auditoría ===== -->
+  <section class="sheet pb" id="checklist">
+    <h2>5) Checklist de auditoría (MDT/SUT & ISO 45001)</h2>
+    <ul class="check">
+      <li><strong>SUT:</strong> Designaciones vigentes; PPRL/RHS aprobado y descargado; Delegado/Comité vigente; Programas y Vigilancia anual cargados.</li>
+      <li><strong>ISO 45001:</strong> Evidencias de IPER; jerarquía de controles; contratistas; indicadores; auditoría interna; revisión por la dirección; control documental; acciones correctivas.</li>
+      <li><strong>Coherencia SUT–Realidad:</strong> muestreo en campo de controles, EPP, permisos de trabajo, simulacros, mantenimiento, competencias.</li>
+    </ul>
+  </section>
+
+  <!-- ===== 6 Glosario ===== -->
+  <section class="sheet" id="glosario">
+    <h2>6) Glosario</h2>
+    <p><strong>PPRL:</strong> Plan de Prevención de Riesgos Laborales. &nbsp; <strong>RHS:</strong> Reglamento de Higiene y Seguridad. &nbsp; <strong>FA:</strong> Fecha ancla de aprobación/posesión. &nbsp; <strong>ATD:</strong> Alcohol/Tabaco/Drogas. &nbsp; <strong>IPER:</strong> Identificación de Peligros y Evaluación de Riesgos. &nbsp; <strong>SUT:</strong> Sistema Único de Trabajo.</p>
+    <footer>
+      <div class="left">© Ing. Darwin A. González Romero. Todos los derechos reservados.</div>
+      <div class="right">Hecho para auditorías y SUT – Ecuador</div>
+    </footer>
+  </section>
+</body>
+</html>

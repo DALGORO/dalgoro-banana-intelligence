@@ -1,0 +1,3041 @@
+================================================================================
+GUÍA COMPLETA PARA CONSTRUIR, INSTALAR, CONFIGURAR Y OPERAR EL SISTEMA
+AUTOMATIZADO DE INVENTARIO Y ANÁLISIS ESPACIAL DE PLANTACIONES DE BANANO
+DALGORO
+================================================================================
+
+Autor técnico del sistema:
+Ing. Darwin A. González Romero
+
+Documento:
+Manual interno de construcción, instalación, arquitectura, operación,
+mantenimiento, recuperación y auditoría.
+
+Versión documental:
+1.0
+
+Fecha:
+20/07/2026
+
+Codificación:
+UTF-8
+
+================================================================================
+0. PROPÓSITO DE ESTA GUÍA
+================================================================================
+
+Esta guía explica, desde cero y paso a paso, cómo construir un sistema que:
+
+1. Recibe una ortofoto georreferenciada de una finca bananera.
+2. Recibe el límite de análisis mediante coordenadas almacenadas en Excel.
+3. Valida que la imagen y el límite sean técnicamente utilizables.
+4. Recorta la ortofoto sin modificar el archivo original.
+5. Divide el recorte en imágenes pequeñas o tiles con solape.
+6. Ejecuta un modelo YOLO para detectar plantas de banano.
+7. Convierte las detecciones desde píxeles a coordenadas reales.
+8. Elimina detecciones duplicadas causadas por el solape de los tiles.
+9. Genera un inventario espacial en CSV y GeoPackage.
+10. Calcula superficie, cantidad de plantas y densidad observada.
+11. Analiza espaciamientos, vecinos próximos y patrón espacial.
+12. Genera densidad por hexágonos.
+13. Identifica oportunidades geométricas de inspección o posible siembra.
+14. Excluye vías, canales, infraestructura y zonas no cultivables.
+15. Prioriza candidatos para la inspección técnica.
+16. Genera superficies continuas de densidad KDE.
+17. Produce seis mapas corporativos.
+18. Produce un informe técnico PDF con identidad gráfica DALGORO.
+19. Guarda estados, logs y manifiestos para poder reanudar una ejecución.
+20. Permite operar todo mediante una interfaz gráfica amigable.
+21. Permite auditar posteriormente que una ejecución esté completa.
+
+Esta guía no convierte automáticamente un espacio abierto en una planta faltante.
+Los productos “oportunidad geométrica” y “candidato de siembra” son elementos
+para verificación técnica en campo. Una vía, canal, drenaje, sombra, edificio,
+borde o planta no detectada puede producir un espacio aparente.
+
+================================================================================
+1. PRINCIPIOS DE DISEÑO
+================================================================================
+
+1.1. NO MODIFICAR LOS DATOS ORIGINALES
+
+La ortofoto, el Excel, el modelo y las capas originales se leen sin alterarlos.
+Cada ejecución crea su propia carpeta y sus propios resultados.
+
+1.2. UNA CARPETA POR EJECUCIÓN
+
+Cada análisis se almacena con nombre y fecha:
+
+    NOMBRE_FINCA_AAAAMMDD_HHMMSS
+
+Ejemplo:
+
+    FINCA_BUENAVISTA_20260718_202736
+
+1.3. PROCESAMIENTO POR ETAPAS
+
+Cada etapa recibe productos de la etapa anterior y genera productos verificables.
+Si una etapa falla, las etapas terminadas se conservan.
+
+1.4. CONFIGURACIÓN SEPARADA DEL CÓDIGO
+
+Los parámetros técnicos deben estar en YAML. El código Python no debe contener
+rutas de una finca específica.
+
+1.5. TRAZABILIDAD
+
+Cada etapa debe guardar como mínimo:
+
+- Fecha de inicio.
+- Fecha de finalización.
+- Parámetros utilizados.
+- Rutas de entrada.
+- Rutas de salida.
+- Estado success/false o COMPLETADO/ERROR.
+- Advertencias.
+- Errores.
+- Tiempo de ejecución.
+
+1.6. ESCRITURAS ATÓMICAS
+
+Los JSON, YAML, CSV, GeoPackage y raster finales deben escribirse primero con un
+nombre temporal y luego reemplazarse. Esto reduce archivos incompletos cuando
+hay un corte de energía o una interrupción.
+
+1.7. RESULTADOS GIS INDEPENDIENTES DE QGIS
+
+QGIS puede utilizarse para revisar los productos, pero no es obligatorio para
+ejecutar el sistema. El procesamiento se realiza con Python, Rasterio,
+GeoPandas, Shapely, Pyogrio, NumPy, SciPy, OpenCV, Ultralytics y ReportLab.
+
+================================================================================
+2. ARQUITECTURA GENERAL
+================================================================================
+
+2.1. DIAGRAMA LÓGICO
+
+USUARIO / INTERFAZ
+        |
+        v
+pipeline_config_FINCA.yaml
+        |
+        v
+main.py
+        |
+        v
+pipeline_orchestrator.py
+        |
+        +--------------------------------------------------------------+
+        |                                                              |
+        v                                                              v
+VALIDACIÓN Y PREPARACIÓN                                      REGISTRO Y CONTROL
+system_check.py                                               estado_pipeline.json
+validation.py                                                 logs/*.log
+excel_boundary.py                                             manifiesto_pipeline.json
+workspace.py
+raster_clipping.py
+        |
+        v
+PREPROCESAMIENTO
+tiling.py
+        |
+        v
+DETECCIÓN
+yolo_inference.py
+        |
+        v
+GEORREFERENCIACIÓN Y LIMPIEZA
+georeferencing.py
+vector_outputs.py
+deduplication.py
+statistics.py
+        |
+        v
+ANÁLISIS ESPACIAL
+spatial_pattern_analysis.py
+hex_density.py
+planting_opportunities.py
+operational_priority.py
+kde_density_map.py
+        |
+        v
+SALIDAS
+cartographic_package.py
+technical_report.py
+        |
+        v
+06_mapas + 07_reporte
+        |
+        v
+auditar_ejecucion.py
+
+2.2. CAPAS DEL SISTEMA
+
+CAPA 1. Datos:
+- Ortofoto GeoTIFF.
+- Excel del límite.
+- Modelo YOLO.
+- GeoPackage opcional de exclusiones.
+
+CAPA 2. Procesamiento raster:
+- Validación.
+- Recorte.
+- Tiles.
+
+CAPA 3. Inteligencia artificial:
+- Inferencia YOLO.
+- Detecciones en píxeles.
+
+CAPA 4. Geoprocesamiento:
+- Coordenadas reales.
+- GeoPackage.
+- Deduplicación.
+- Estadísticas.
+- Análisis espacial.
+
+CAPA 5. Interpretación:
+- Hexágonos.
+- Voronoi.
+- Espacios abiertos.
+- Prioridad.
+- KDE.
+
+CAPA 6. Presentación:
+- Mapas.
+- Informe PDF.
+- Interfaz gráfica.
+
+CAPA 7. Control:
+- Orquestador.
+- Estado.
+- Logs.
+- Manifiestos.
+- Auditoría.
+
+================================================================================
+3. ESTRUCTURA COMPLETA DE CARPETAS
+================================================================================
+
+La estructura recomendada es:
+
+F:\PROY_CONTEO_BANANO_1\
+|
++-- data.yaml
++-- organizar_dataset.py
++-- auto_etiquetar.py
++-- entrenar_v3.py
++-- conteo_coordenadas.py
++-- yolov8s.pt
+|
++-- runs\
+|   +-- detect\
+|       +-- banano_v3\
+|           +-- weights\
+|               +-- best.pt
+|               +-- last.pt
+|
++-- automatizacion_banano\
+    |
+    +-- .venv\
+    |
+    +-- main.py
+    +-- interfaz_banano.py
+    +-- INICIAR_ANALIZADOR_BANANO.bat
+    +-- crear_config_finca.py
+    +-- reparar_ejecucion_exclusiones.py
+    +-- auditar_ejecucion.py
+    |
+    +-- config\
+    |   +-- spatial_analysis.yaml
+    |   +-- cartography.yaml
+    |   +-- report.yaml
+    |   +-- pipeline_config_PLANTILLA.yaml
+    |   +-- pipeline_config_FINCA.yaml
+    |   +-- auditoria_final.yaml
+    |   +-- interfaz_ultimo_uso.json
+    |
+    +-- resources\
+    |   +-- branding\
+    |   |   +-- dalgoro_letterhead_portrait.jpg
+    |   |   +-- dalgoro_logo_horizontal.jpg
+    |   |   +-- dalgoro_logo_vertical.jpg
+    |   |
+    |   +-- exclusiones_generadas\
+    |       +-- FINCA_exclusiones_<huella>.gpkg
+    |
+    +-- src\
+    |   +-- banana_analyzer\
+    |       +-- __init__.py
+    |       +-- system_check.py
+    |       +-- validation.py
+    |       +-- excel_boundary.py
+    |       +-- workspace.py
+    |       +-- raster_clipping.py
+    |       +-- tiling.py
+    |       +-- yolo_inference.py
+    |       +-- georeferencing.py
+    |       +-- vector_outputs.py
+    |       +-- deduplication.py
+    |       +-- statistics.py
+    |       +-- spatial_pattern_analysis.py
+    |       +-- hex_density.py
+    |       +-- planting_opportunities.py
+    |       +-- operational_priority.py
+    |       +-- kde_density_map.py
+    |       +-- cartographic_package.py
+    |       +-- technical_report.py
+    |       +-- pipeline_orchestrator.py
+    |
+    +-- runs\
+    +-- logs\
+    +-- temp\
+
+IMPORTANTE:
+
+Los archivos de entrenamiento y los módulos productivos deben mantenerse
+separados. El modelo best.pt puede reemplazarse por una versión mejor, pero
+nunca se debe sobrescribir sin conservar una copia y registrar su procedencia.
+
+================================================================================
+4. REQUISITOS DE HARDWARE
+================================================================================
+
+4.1. CONFIGURACIÓN MÍNIMA
+
+- Windows 10 u 11 de 64 bits.
+- Procesador de cuatro núcleos o superior.
+- 16 GB de memoria RAM.
+- 20 GB libres para instalación y pruebas pequeñas.
+- Más espacio libre según el tamaño de ortofotos y cantidad de fincas.
+- Pantalla con resolución mínima 1366 x 768.
+
+4.2. CONFIGURACIÓN RECOMENDADA
+
+- Procesador de ocho núcleos o superior.
+- 32 GB de memoria RAM.
+- Unidad SSD.
+- Al menos 100 GB libres para proyectos, tiles y resultados.
+- GPU NVIDIA compatible con PyTorch, opcional.
+
+4.3. CPU O GPU
+
+El sistema puede funcionar en CPU. La inferencia será más lenta.
+
+Cuando exista GPU NVIDIA:
+- Instalar controlador NVIDIA.
+- Instalar una versión de PyTorch compatible con el controlador y CUDA.
+- Validar con torch.cuda.is_available().
+- No instalar paquetes CUDA al azar.
+
+================================================================================
+5. PROGRAMAS QUE SE DEBEN INSTALAR
+================================================================================
+
+5.1. OBLIGATORIOS
+
+1. Python 3.11 de 64 bits.
+2. Visual Studio Code.
+3. Extensión Python para Visual Studio Code.
+4. Extensión Pylance para Visual Studio Code.
+
+Durante la instalación de Python activar:
+
+    Add Python to PATH
+
+También verificar que se instale Tcl/Tk, necesario para Tkinter.
+
+5.2. RECOMENDADOS
+
+1. QGIS 3.x:
+   - Para inspección visual.
+   - Para revisar capas GeoPackage.
+   - Para revisar CRS y exclusiones.
+   - No es obligatorio para ejecutar el análisis.
+
+2. Git:
+   - Para control de versiones.
+   - Para conservar cambios del código.
+   - No es obligatorio para el funcionamiento básico.
+
+3. 7-Zip:
+   - Para copias y traslado de paquetes grandes.
+
+================================================================================
+6. CREACIÓN DEL PROYECTO DESDE CERO
+================================================================================
+
+6.1. CREAR LA CARPETA
+
+En PowerShell:
+
+    New-Item `
+    -ItemType Directory `
+    -Path "F:\PROY_CONTEO_BANANO_1\automatizacion_banano" `
+    -Force
+
+Entrar:
+
+    Set-Location `
+    "F:\PROY_CONTEO_BANANO_1\automatizacion_banano"
+
+6.2. CREAR EL ENTORNO VIRTUAL
+
+    py -3.11 -m venv .venv
+
+Activar:
+
+    .\.venv\Scripts\Activate.ps1
+
+Debe aparecer:
+
+    (.venv)
+
+Si PowerShell bloquea la activación:
+
+    Set-ExecutionPolicy `
+    -Scope CurrentUser `
+    -ExecutionPolicy RemoteSigned
+
+Cerrar y abrir nuevamente PowerShell.
+
+6.3. ACTUALIZAR HERRAMIENTAS DE INSTALACIÓN
+
+    python -m pip install --upgrade pip setuptools wheel
+
+6.4. INSTALAR DEPENDENCIAS
+
+Instalación por grupos:
+
+GRUPO NUMÉRICO Y DATOS:
+
+    pip install numpy pandas scipy scikit-learn pyyaml openpyxl xlrd
+
+GRUPO GEOESPACIAL:
+
+    pip install rasterio geopandas shapely pyogrio pyproj
+
+GRUPO IMAGEN Y MAPAS:
+
+    pip install opencv-python pillow matplotlib
+
+GRUPO INFORMES:
+
+    pip install reportlab
+
+GRUPO INTELIGENCIA ARTIFICIAL:
+
+    pip install torch torchvision torchaudio
+    pip install ultralytics==8.4.26
+
+GRUPO DE DIAGNÓSTICO:
+
+    pip install psutil
+
+Tkinter normalmente forma parte de Python para Windows y no se instala con pip.
+
+6.5. VERSIONES DE REFERENCIA PROBADAS
+
+La base probada del proyecto utilizó:
+
+- Python 3.11
+- Ultralytics 8.4.26
+- Rasterio 1.4.4
+- GeoPandas 1.1.4
+- Shapely 2.1.2
+- Pyogrio 0.13
+- OpenCV 4.13
+- PyYAML 6.0.3
+- PyTorch con ejecución CPU
+
+No es obligatorio que todas las versiones coincidan exactamente, pero antes de
+actualizar se debe crear una copia del entorno funcional.
+
+6.6. ARCHIVO requirements.txt RECOMENDADO
+
+Crear en la raíz:
+
+    requirements.txt
+
+Contenido recomendado:
+
+    ultralytics==8.4.26
+    torch
+    torchvision
+    torchaudio
+    numpy
+    pandas
+    scipy
+    scikit-learn
+    PyYAML==6.0.3
+    openpyxl
+    xlrd
+    rasterio==1.4.4
+    geopandas==1.1.4
+    shapely==2.1.2
+    pyogrio==0.13.0
+    pyproj
+    opencv-python
+    Pillow
+    matplotlib
+    reportlab
+    psutil
+
+Instalarlo:
+
+    pip install -r requirements.txt
+
+6.7. CONGELAR EL ENTORNO FUNCIONAL
+
+Cuando el sistema esté estable:
+
+    pip freeze > requirements-lock.txt
+
+Conservar requirements-lock.txt con la copia de seguridad del proyecto.
+
+================================================================================
+7. VERIFICACIÓN DE LA INSTALACIÓN
+================================================================================
+
+Ejecutar:
+
+    python -c "import sys; print(sys.version)"
+    python -c "import torch; print(torch.__version__); print(torch.cuda.is_available())"
+    python -c "import ultralytics; print(ultralytics.__version__)"
+    python -c "import rasterio; print(rasterio.__version__)"
+    python -c "import geopandas; print(geopandas.__version__)"
+    python -c "import shapely; print(shapely.__version__)"
+    python -c "import cv2; print(cv2.__version__)"
+    python -c "import yaml; print(yaml.__version__)"
+    python -c "import reportlab; print(reportlab.Version)"
+    python -c "import tkinter; print('Tkinter OK')"
+
+Compilar:
+
+    python -m compileall main.py src
+
+Resultado esperado:
+- No deben aparecer SyntaxError.
+- La última línea debe indicar compilación sin errores.
+
+================================================================================
+8. DATOS DE ENTRADA
+================================================================================
+
+8.1. ORTOFOTO
+
+Formato:
+- .tif o .tiff
+- GeoTIFF.
+- CRS definido.
+- Transformación geográfica válida.
+- Preferentemente sistema proyectado en metros.
+- Bandas RGB.
+- Resolución suficiente para distinguir plantas.
+
+No convertir una imagen JPG común en “ortofoto” solamente cambiando la
+extensión. La georreferenciación debe ser real.
+
+8.2. EXCEL DEL LÍMITE
+
+Formato:
+- .xls o .xlsx.
+
+Columnas recomendadas:
+
+    ORDEN    X          Y           EPSG
+    1        612345.10  9634567.20  32717
+    2        612400.30  9634570.80  32717
+    3        612410.20  9634490.10  32717
+    4        612340.50  9634480.50  32717
+    5        612345.10  9634567.20  32717
+
+Reglas:
+- X y Y deben ser números.
+- EPSG debe corresponder a la ortofoto.
+- ORDEN define la secuencia del polígono.
+- El primer y último punto pueden ser iguales.
+- Si no son iguales, el sistema debe cerrar el polígono.
+- No debe existir autointersección.
+- El límite debe intersectar la ortofoto.
+
+8.3. MODELO YOLO
+
+Formato:
+- best.pt
+
+Ubicación recomendada:
+
+    F:\PROY_CONTEO_BANANO_1\
+    runs\detect\banano_v3\weights\best.pt
+
+8.4. EXCLUSIONES OPCIONALES
+
+Formato:
+- GeoPackage .gpkg.
+- Geometrías poligonales.
+- CRS compatible o transformable al CRS del inventario.
+
+Ejemplos:
+- Vías.
+- Canales.
+- Drenajes.
+- Bodegas.
+- Viviendas.
+- Estaciones de bombeo.
+- Áreas sin cultivo.
+- Infraestructura.
+
+La versión de la interfaz debe detectar las capas espaciales. Cuando haya varias,
+debe combinarlas en una capa persistente llamada:
+
+    exclusiones
+
+No debe enviarse al geoprocesamiento el texto:
+
+    COMBINAR TODAS LAS CAPAS
+
+Ese texto es solamente un marcador de interfaz.
+
+================================================================================
+9. ENTRENAMIENTO DEL MODELO YOLO
+================================================================================
+
+Esta sección corresponde a la construcción del modelo, no a la operación diaria.
+
+9.1. ESTRUCTURA DEL DATASET
+
+dataset_banano\
+|
++-- images\
+|   +-- train\
+|   +-- val\
+|   +-- test\          opcional
+|
++-- labels\
+    +-- train\
+    +-- val\
+    +-- test\          opcional
+
+Cada imagen debe tener un TXT con el mismo nombre:
+
+    imagen_001.jpg
+    imagen_001.txt
+
+Formato YOLO por objeto:
+
+    clase x_centro y_centro ancho alto
+
+Los valores de coordenadas y dimensiones están normalizados entre 0 y 1.
+
+9.2. data.yaml
+
+Propósito:
+Definir el dataset para Ultralytics.
+
+Contenido recomendado:
+
+    path: F:/PROY_CONTEO_BANANO_1/dataset_banano
+    train: images/train
+    val: images/val
+    test: images/test
+
+    nc: 1
+
+    names:
+      0: banano
+
+Verificar:
+- Las rutas deben existir.
+- La clase usada en todos los TXT debe ser 0.
+- No debe haber imagen sin etiqueta, salvo negativos intencionales.
+- No debe haber TXT sin imagen.
+
+9.3. organizar_dataset.py
+
+Propósito:
+- Recibir imágenes y etiquetas.
+- Comprobar correspondencia de nombres.
+- Separar train y val.
+- Copiar, no destruir, los archivos originales.
+- Utilizar semilla fija para reproducibilidad.
+
+Contenido funcional mínimo:
+
+- Constantes de carpetas.
+- Función que localiza imágenes.
+- Función que verifica el TXT asociado.
+- Función de división train/val.
+- Función de copia segura.
+- Resumen final con cantidades.
+- Bloque if __name__ == "__main__".
+
+No debe mezclar imágenes de validación dentro de entrenamiento después de haber
+reportado las métricas finales.
+
+9.4. auto_etiquetar.py
+
+Propósito:
+Generar etiquetas iniciales usando un modelo previo.
+
+Contenido funcional mínimo:
+
+- Carga de YOLO.
+- Recorrido de imágenes.
+- Predicción con umbral de confianza.
+- Conversión a formato YOLO.
+- Escritura de TXT.
+- Opción para no sobrescribir etiquetas revisadas.
+- Registro de imágenes sin detecciones.
+
+Las etiquetas automáticas deben revisarse manualmente. No deben considerarse
+verdad de campo sin control visual.
+
+9.5. entrenar_v3.py
+
+Propósito:
+Entrenar el detector final.
+
+Estructura recomendada:
+
+    from ultralytics import YOLO
+    from pathlib import Path
+
+    DATA_YAML = Path("data.yaml")
+    BASE_MODEL = Path("yolov8s.pt")
+
+    def main():
+        model = YOLO(str(BASE_MODEL))
+        model.train(
+            data=str(DATA_YAML),
+            epochs=...,
+            imgsz=640,
+            batch=...,
+            project="runs/detect",
+            name="banano_v3",
+            patience=...,
+            workers=...,
+            device="cpu" o "0",
+        )
+
+    if __name__ == "__main__":
+        main()
+
+Productos:
+
+    runs\detect\banano_v3\
+    +-- args.yaml
+    +-- results.csv
+    +-- results.png
+    +-- confusion_matrix.png
+    +-- BoxP_curve.png
+    +-- BoxR_curve.png
+    +-- BoxPR_curve.png
+    +-- weights\
+        +-- best.pt
+        +-- last.pt
+
+Usar best.pt para producción.
+
+9.6. conteo_coordenadas.py
+
+Es un componente legado que puede:
+- Ejecutar conteo directo.
+- Convertir detecciones a coordenadas.
+- Servir como referencia histórica.
+
+No debe modificarse para integrar el sistema nuevo. El sistema automatizado
+utiliza módulos independientes y un orquestador.
+
+================================================================================
+10. CONTENIDO DE LOS ARCHIVOS DE LA APLICACIÓN
+================================================================================
+
+En esta sección se describe qué debe contener cada archivo, qué recibe, qué
+produce y cuál es su función pública principal.
+
+------------------------------------------------------------------------------
+10.1. src/banana_analyzer/__init__.py
+------------------------------------------------------------------------------
+
+Propósito:
+Indicar que banana_analyzer es un paquete Python.
+
+Contenido mínimo:
+
+    "Paquete de análisis automatizado de plantaciones de banano."
+
+No debe ejecutar procesos al importarse.
+
+------------------------------------------------------------------------------
+10.2. system_check.py
+------------------------------------------------------------------------------
+
+Propósito:
+Diagnosticar el equipo antes de procesar.
+
+Debe importar:
+- sys
+- shutil
+- subprocess
+- json
+- pathlib
+- datetime
+- torch, cuando esté disponible
+
+Debe contener:
+- Dataclass opcional para el resultado.
+- Función para obtener espacio libre.
+- Función para comprobar CUDA.
+- Función para localizar nvidia-smi.
+- Función para buscar best.pt y last.pt.
+- Función para guardar logs/system_check.json.
+- Función pública:
+
+    run_system_check() -> int
+
+Debe informar:
+- Versión de Python.
+- Ejecutable activo.
+- Unidad del proyecto.
+- Espacio libre.
+- CUDA disponible.
+- Ruta de nvidia-smi.
+- Modelos encontrados.
+- Errores de importación.
+
+Salida:
+
+    automatizacion_banano\logs\system_check.json
+
+------------------------------------------------------------------------------
+10.3. validation.py
+------------------------------------------------------------------------------
+
+Propósito:
+Validar la ortofoto en modo lectura.
+
+Función pública:
+
+    run_raster_validation(raster_path) -> int
+
+Debe comprobar:
+- Existencia.
+- Extensión.
+- Driver.
+- Ancho y alto.
+- Cantidad de bandas.
+- Tipos de datos.
+- CRS.
+- EPSG.
+- Transformación.
+- Resolución X/Y.
+- Bounds.
+- Georreferenciación.
+- Tamaño en disco.
+- Tamaño estimado sin compresión.
+- NoData.
+
+Debe usar:
+
+    with rasterio.open(path) as dataset:
+
+No debe abrir el raster en modo escritura.
+
+Salida:
+
+    logs\raster_validation_<nombre>_<fecha>.json
+
+------------------------------------------------------------------------------
+10.4. excel_boundary.py
+------------------------------------------------------------------------------
+
+Propósito:
+Construir el límite desde Excel y validarlo contra la ortofoto.
+
+Función pública:
+
+    run_boundary_validation(
+        excel_path,
+        raster_path,
+        sheet_reference
+    ) -> int
+
+Debe contener:
+- Lectura .xls mediante xlrd/pandas.
+- Lectura .xlsx mediante openpyxl/pandas.
+- Normalización de nombres de columnas.
+- Selección de ORDEN, X, Y y EPSG.
+- Eliminación controlada de filas vacías.
+- Ordenamiento.
+- Construcción de Polygon.
+- Cierre del polígono.
+- Corrección opcional con make_valid.
+- Validación de área positiva.
+- Verificación de CRS.
+- Comparación con bounds de la ortofoto.
+- Porcentaje dentro de la ortofoto.
+
+Debe devolver o compartir una función interna reutilizable que permita a
+raster_clipping.py obtener:
+- GeoDataFrame del límite.
+- EPSG.
+- Área.
+- Advertencias.
+
+Salida:
+
+    logs\boundary_validation_<archivo>_<fecha>.json
+
+------------------------------------------------------------------------------
+10.5. workspace.py
+------------------------------------------------------------------------------
+
+Propósito:
+Crear una estructura única por ejecución.
+
+Clases:
+
+    RunWorkspace
+
+Campos:
+- run_id
+- root
+- inputs
+- clipped
+- tiles
+- detections_raw
+- detections_clean
+- gis
+- maps
+- report
+- logs
+- temp
+
+Funciones:
+
+    sanitize_name(value)
+    create_run_workspace(project_name, output_root=None)
+
+Debe crear:
+
+    00_entradas
+    01_recorte
+    02_tiles
+    03_detecciones_raw
+    04_detecciones_limpias
+    05_gis
+    06_mapas
+    07_reporte
+    logs
+    temp
+
+Debe:
+- Limpiar acentos y caracteres no seguros.
+- Añadir AAAAMMDD_HHMMSS.
+- Añadir contador cuando exista colisión.
+- Nunca sobrescribir una ejecución.
+
+------------------------------------------------------------------------------
+10.6. raster_clipping.py
+------------------------------------------------------------------------------
+
+Propósito:
+Recortar la ortofoto con el límite.
+
+Función pública:
+
+    run_raster_clipping(
+        excel_path,
+        raster_path,
+        sheet_reference,
+        output_dir=None
+    ) -> int
+
+Proceso:
+1. Validar entradas.
+2. Crear RunWorkspace.
+3. Guardar copia o referencia de entradas.
+4. Construir el límite.
+5. Transformarlo al CRS del raster cuando corresponda.
+6. Aplicar rasterio.mask.mask().
+7. Actualizar height, width, transform y nodata.
+8. Escribir GeoTIFF recortado.
+9. Comprobar que abra correctamente.
+10. Guardar clip_report.json.
+
+Salida principal:
+
+    01_recorte\<ortofoto>_recortada.tif
+
+Reporte:
+
+    logs\clip_report.json
+
+El GeoTIFF debe conservar:
+- CRS.
+- Resolución.
+- Transformación.
+- Bandas.
+- Tipo de datos.
+
+------------------------------------------------------------------------------
+10.7. tiling.py
+------------------------------------------------------------------------------
+
+Propósito:
+Dividir el recorte en tiles georreferenciados superpuestos.
+
+Función pública:
+
+    run_tile_generation(
+        raster_path,
+        tile_size=640,
+        overlap=128,
+        min_valid_percent=0.0,
+        output_dir=None
+    ) -> int
+
+Reglas:
+- step = tile_size - overlap.
+- overlap debe ser menor que tile_size.
+- Los bordes pueden necesitar padding.
+- Cada tile debe conservar CRS y transform.
+- Los GeoTIFF se guardan directamente en:
+
+    02_tiles\geotiff
+
+- No enviar solamente 02_tiles a YOLO.
+- El orquestador debe localizar 02_tiles\geotiff.
+
+Productos:
+
+    02_tiles\geotiff\*.tif
+    02_tiles\tiles_manifest.csv
+    02_tiles\tiles_report.json
+
+El manifiesto debe incluir:
+- tile_id
+- nombre
+- row_off
+- col_off
+- width
+- height
+- porcentaje válido
+- transform
+- bounds
+- CRS
+
+------------------------------------------------------------------------------
+10.8. yolo_inference.py
+------------------------------------------------------------------------------
+
+Propósito:
+Ejecutar el modelo sobre los tiles.
+
+Función pública:
+
+    run_yolo_inference(
+        tiles_directory,
+        model_path,
+        confidence,
+        iou,
+        imgsz,
+        device,
+        max_det,
+        output_dir=None,
+        limit=None
+    ) -> int
+
+Debe:
+- Confirmar que la carpeta contenga .tif o .tiff directamente.
+- Cargar YOLO(best.pt).
+- Resolver device:
+  - auto
+  - cpu
+  - cuda
+  - índice GPU
+- Procesar cada tile.
+- Obtener bbox, clase y confianza.
+- Calcular centro_x_px y centro_y_px.
+- Registrar el nombre exacto del tile.
+- Continuar cuando un tile no tenga detecciones.
+- No guardar imágenes de predicción innecesarias en producción.
+
+Salida:
+
+    03_detecciones_raw\yolo\detections_raw.csv
+    03_detecciones_raw\yolo\yolo_report.json
+
+Columnas recomendadas:
+
+    detection_id
+    tile_name
+    class_id
+    class_name
+    confidence
+    x_min_px
+    y_min_px
+    x_max_px
+    y_max_px
+    center_x_px
+    center_y_px
+    box_width_px
+    box_height_px
+
+------------------------------------------------------------------------------
+10.9. georeferencing.py
+------------------------------------------------------------------------------
+
+Propósito:
+Convertir centros de píxel en coordenadas reales.
+
+Función pública:
+
+    run_detection_georeferencing(
+        detections_csv,
+        tiles_directory,
+        output_dir=None
+    ) -> int
+
+Debe:
+- Leer detections_raw.csv.
+- Abrir el tile correspondiente.
+- Usar la transformación Affine del tile.
+- Convertir:
+
+    coord_x, coord_y = rasterio.transform.xy(
+        transform,
+        center_y_px,
+        center_x_px
+    )
+
+- Guardar EPSG.
+- Mantener tile_name y confidence.
+- Validar que todos los tiles existan.
+
+Salida:
+
+    03_detecciones_raw\georreferenciadas\
+    detections_georeferenced_raw.csv
+
+------------------------------------------------------------------------------
+10.10. vector_outputs.py
+------------------------------------------------------------------------------
+
+Propósito:
+Exportar detecciones georreferenciadas a formatos GIS.
+
+Función pública:
+
+    run_vector_export(
+        input_csv,
+        output_dir=None,
+        name_prefix="inventario_banano_raw",
+        layer_name="detecciones_raw"
+    ) -> int
+
+Debe:
+- Leer coord_x, coord_y y epsg.
+- Crear Point.
+- Crear GeoDataFrame.
+- Escribir CSV.
+- Escribir GeoPackage.
+- Verificar capa y número de registros.
+
+Productos:
+
+    05_gis\detecciones_raw\inventario_banano_raw.csv
+    05_gis\detecciones_raw\inventario_banano_raw.gpkg
+
+------------------------------------------------------------------------------
+10.11. deduplication.py
+------------------------------------------------------------------------------
+
+Propósito:
+Eliminar duplicados creados por el solape entre tiles.
+
+Función pública:
+
+    run_deduplication(
+        input_csv,
+        distance_m=1.00,
+        output_dir=None
+    ) -> int
+
+Método recomendado:
+- Trabajar en CRS proyectado en metros.
+- Ordenar por confianza descendente.
+- Utilizar KDTree, BallTree o índice espacial.
+- Conservar la detección de mayor confianza.
+- Marcar qué detecciones fueron suprimidas.
+- No utilizar grados como unidad de distancia.
+
+Valor validado:
+
+    1.00 m
+
+Productos:
+
+    04_detecciones_limpias\detections_deduplicated.csv
+    04_detecciones_limpias\deduplication_report.json
+
+El reporte debe registrar:
+- Detecciones de entrada.
+- Detecciones finales.
+- Duplicados eliminados.
+- Distancia utilizada.
+
+------------------------------------------------------------------------------
+10.12. statistics.py
+------------------------------------------------------------------------------
+
+Propósito:
+Validar las detecciones contra el límite y calcular indicadores.
+
+Función pública:
+
+    run_spatial_statistics(
+        clean_csv,
+        boundary_excel,
+        raster_path,
+        sheet_reference,
+        output_dir=None
+    ) -> int
+
+Debe:
+- Reconstruir el límite.
+- Crear puntos.
+- Transformar CRS cuando sea necesario.
+- Separar puntos dentro y fuera.
+- Calcular área en m² y ha.
+- Calcular densidad:
+
+    densidad = plantas_dentro / area_ha
+
+Productos:
+
+    05_gis\inventario_banano_validado.csv
+    05_gis\inventario_banano_validado.gpkg
+    05_gis\limite_analisis.gpkg
+    05_gis\estadisticas_banano.csv
+    05_gis\estadisticas_banano.json
+    05_gis\detecciones_fuera_limite.gpkg      cuando existan
+
+Capas recomendadas:
+
+    plantas_banano_validas
+    limite_analisis
+    detecciones_fuera_limite
+
+------------------------------------------------------------------------------
+10.13. spatial_pattern_analysis.py
+------------------------------------------------------------------------------
+
+Propósito:
+Analizar espaciamiento y organización espacial sin imponer filas rígidas.
+
+Clase:
+
+    SpatialPatternResult
+
+Funciones principales:
+- clamp
+- angular_difference_deg
+- load_config
+- resolve_output_directory
+- read_inputs
+- calculate_nearest_neighbors
+- describe_values
+- select_interior_points
+- estimate_dominant_orientation
+- collect_axis_spacings
+- robust_spacing_median
+- choose_row_orientation
+- classify_proximity
+- build_enriched_points
+- build_neighbor_lines
+- build_orientation_line
+- write_csv_atomic
+- write_gpkg_atomic
+- verify_gpkg
+- save_report
+- analyze_spatial_pattern
+- print_spatial_pattern_summary
+- run_spatial_pattern_analysis
+
+Entrada:
+- inventario_banano_validado.gpkg
+- limite_analisis.gpkg
+- spatial_analysis.yaml
+
+Salida:
+
+    05_gis\analisis_espacial\
+    +-- analisis_patron_espacial.json
+    +-- analisis_patron_espacial.csv
+    +-- patron_espacial_puntos.gpkg
+    +-- vecinos_cercanos.gpkg
+    +-- orientacion_dominante.gpkg
+
+Debe:
+- Separar puntos interiores para reducir efecto de borde.
+- Calcular vecinos.
+- Estimar orientación dominante.
+- Calcular espaciamientos robustos.
+- Clasificar proximidad.
+- No afirmar automáticamente que una orientación corresponde a una fila real.
+
+------------------------------------------------------------------------------
+10.14. hex_density.py
+------------------------------------------------------------------------------
+
+Propósito:
+Medir densidad local en celdas de tamaño uniforme.
+
+Clase:
+
+    HexDensityResult
+
+Funciones principales:
+- load_hex_config
+- resolve_output_directory
+- read_inputs
+- regular_hexagon
+- build_hex_grid
+- assign_points_to_hexagons
+- estimate_reference_density
+- classify_density
+- calculate_density_grid
+- build_class_summary
+- write_csv_atomic
+- write_gpkg_atomic
+- verify_gpkg
+- save_report
+- generate_hex_density
+- print_hex_density_summary
+- run_hex_density
+
+Configuración validada:
+- Área de hexágono: 100 m².
+- Cobertura mínima evaluable: 0.50.
+- Cobertura de referencia: 0.90.
+
+Clases:
+
+    deficit_severo
+    deficit_moderado
+    densidad_esperada
+    densidad_elevada
+    densidad_muy_elevada
+    borde_no_evaluable
+
+Productos:
+
+    05_gis\densidad_hexagonal_objetivo_<densidad>\
+    +-- densidad_hexagonal.gpkg
+    +-- resumen_densidad_hexagonal.csv
+    +-- densidad_hexagonal.json
+
+------------------------------------------------------------------------------
+10.15. planting_opportunities.py
+------------------------------------------------------------------------------
+
+Propósito:
+Identificar espacios geométricos para inspección.
+
+Clase:
+
+    PlantingOpportunitiesResult
+
+Funciones principales:
+- clamp
+- resolve_output_directory
+- load_opportunity_config
+- validate_projected_metric_crs
+- read_inputs
+- build_plantable_area
+- filter_inventory_to_area
+- calculate_target_parameters
+- classify_voronoi_ratio
+- build_voronoi_layer
+- create_clearance_grid
+- polygonize_open_zones
+- select_candidate_points
+- assign_candidates_to_opportunities
+- write_csv_atomic
+- write_gpkg_atomic
+- verify_gpkg
+- save_report
+- detect_planting_opportunities
+- print_planting_opportunities_summary
+- run_planting_opportunities
+
+Entradas:
+- inventario validado.
+- límite.
+- densidad objetivo.
+- configuración espacial.
+- GeoPackage/capa de exclusiones opcional.
+
+Metodología:
+1. Crear superficie plantable = límite - exclusiones.
+2. Filtrar plantas a la superficie plantable.
+3. Convertir densidad objetivo a área y espaciamiento de referencia.
+4. Construir Voronoi.
+5. Medir territorios abiertos.
+6. Crear una cuadrícula fina de clearance.
+7. Detectar zonas con distancia suficiente.
+8. Polygonizar.
+9. Seleccionar candidatos separados.
+10. Calcular densidad local y puntaje espacial.
+
+Productos:
+
+    05_gis\oportunidades_siembra_<densidad>\
+    +-- voronoi_plantas.gpkg
+    +-- zonas_oportunidad_siembra.gpkg
+    +-- candidatos_siembra.csv
+    +-- candidatos_siembra.gpkg
+    +-- resumen_oportunidades_siembra.csv
+    +-- oportunidades_siembra.json
+
+Advertencia:
+Un candidato no es una resiembra confirmada.
+
+------------------------------------------------------------------------------
+10.16. operational_priority.py
+------------------------------------------------------------------------------
+
+Propósito:
+Ordenar los candidatos según relevancia operativa.
+
+Clase:
+
+    OperationalPriorityResult
+
+Funciones principales:
+- density_label
+- resolve_output_directory
+- deep_merge
+- load_priority_config
+- validate_layer_columns
+- normalize_bool_series
+- normalize_numeric_columns
+- read_inputs
+- validate_target_density_consistency
+- read_exclusions
+- assign_hexagon_context
+- attach_opportunity_context
+- clamp_array
+- calculate_candidate_priorities
+- build_priority_zones
+- write_csv_atomic
+- write_gpkg_atomic
+- verify_gpkg
+- save_report
+- prioritize_planting_opportunities
+- print_operational_priority_summary
+- run_operational_priority
+
+Pesos recomendados:
+
+    candidate_spatial_score: 0.45
+    hex_density_deficit: 0.35
+    opportunity_area: 0.10
+    boundary_safety: 0.10
+
+Clases:
+
+    prioridad_alta
+    prioridad_media
+    prioridad_baja
+    revision_borde_no_evaluable
+    descartado_por_exclusion
+
+Productos:
+
+    05_gis\prioridad_operativa_<densidad>\
+    +-- candidatos_siembra_priorizados.gpkg
+    +-- zonas_prioridad_operativa.gpkg
+    +-- resumen_prioridad_operativa.csv
+    +-- prioridad_operativa.json
+
+------------------------------------------------------------------------------
+10.17. kde_density_map.py
+------------------------------------------------------------------------------
+
+Propósito:
+Crear una superficie continua de densidad con corrección de borde.
+
+Clase:
+
+    KdeDensityResult
+
+Funciones principales:
+- density_label
+- resolve_output_directory
+- deep_merge
+- load_kde_config
+- validate_target_density
+- ensure_layer_exists
+- load_inputs
+- auto_detect_spatial_report
+- read_report_parameter
+- resolve_radius_and_pixel_size
+- build_analysis_grid
+- build_boundary_mask
+- rasterize_point_counts
+- build_kernel
+- calculate_kde_surfaces
+- classify_density
+- build_float_profile
+- write_float_raster_atomic
+- write_class_raster_atomic
+- build_zone_layer
+- write_gpkg_atomic
+- write_csv_atomic
+- verify_raster
+- save_report
+- generate_kde_density_map
+- print_kde_density_summary
+- run_kde_density_map
+
+Configuración:
+- factor de radio: 2.5.
+- radio mínimo: 5 m.
+- radio máximo: 8 m.
+- tamaño de píxel: 0.5 m.
+- kernel: quartic.
+- corrección de borde: activada.
+
+Productos:
+
+    05_gis\mapa_calor_kde_<densidad>\
+    +-- densidad_kde_corregida_plantas_ha.tif
+    +-- densidad_kde_relativa.tif
+    +-- densidad_kde_raw.tif                 opcional
+    +-- cobertura_kernel.tif                 opcional
+    +-- clases_densidad_kde.tif
+    +-- zonas_densidad_kde.gpkg
+    +-- resumen_mapa_calor_kde.csv
+    +-- mapa_calor_kde.json
+
+------------------------------------------------------------------------------
+10.18. cartographic_package.py
+------------------------------------------------------------------------------
+
+Propósito:
+Crear seis mapas A4 horizontales con identidad DALGORO.
+
+Clase:
+
+    CartographicPackageResult
+
+Funciones principales:
+- density_label
+- load_config
+- resolve_asset_path
+- configure_brand_font
+- add_brand_header
+- find_latest
+- discover_inputs
+- validate_discovered_inputs
+- load_layer
+- read_raster_preview
+- read_kde_raster
+- calculate_map_bounds
+- nice_scale_length
+- add_north_arrow
+- add_scale_bar
+- add_footer
+- create_base_figure
+- save_figure_atomic
+- categorical_polygon_plot
+- categorical_point_plot
+- load_statistics
+- build_subtitle
+- write_index_csv
+- save_manifest
+- generate_cartographic_package
+- print_cartographic_package_summary
+- run_cartographic_package
+
+Mapas mínimos:
+
+1. Inventario general.
+2. Densidad hexagonal.
+3. Densidad continua KDE.
+4. Oportunidades geométricas de siembra.
+5. Priorización operativa.
+6. Sectores de densidad o concentración elevada.
+
+Cada mapa debe contener:
+- Logotipo.
+- Título.
+- Finca.
+- Productor.
+- Densidad objetivo.
+- Leyenda.
+- Flecha norte.
+- Escala.
+- Límite.
+- Autoría.
+- Aviso de verificación técnica.
+
+Productos:
+
+    06_mapas\paquete_cartografico_<densidad>_dalgoro_v2\
+    +-- 01_....png
+    +-- 02_....png
+    +-- 03_....png
+    +-- 04_....png
+    +-- 05_....png
+    +-- 06_....png
+    +-- indice_mapas.csv
+    +-- manifiesto_paquete_cartografico.json
+
+El manifiesto debe tener:
+
+    "success": true
+    "map_count": 6
+    "config_version": 2
+
+------------------------------------------------------------------------------
+10.19. technical_report.py
+------------------------------------------------------------------------------
+
+Propósito:
+Generar el informe técnico PDF.
+
+Clases:
+
+    TechnicalReportResult
+    DalgoroDocTemplate
+
+Métodos especiales de DalgoroDocTemplate:
+- __init__
+- beforeDocument
+- afterFlowable
+
+Funciones principales:
+- density_label
+- sanitize_name
+- load_config
+- resolve_page_size
+- read_single_row_csv
+- find_latest_directory
+- discover_inputs
+- validate_discovered_inputs
+- read_json
+- read_maps_index
+- as_float
+- as_int
+- format_number
+- format_integer
+- escape_text
+- validate_target_consistency
+- resolve_asset_path
+- register_brand_fonts
+- run_relative_path
+- build_glossary_entries
+- map_explanation
+- build_styles
+- table_from_rows
+- fit_image
+- build_indicator_rows
+- density_interpretation
+- build_recommendations
+- build_methodology_steps
+- build_summary_record
+- write_summary_csv
+- draw_page_decorations
+- draw_landscape_map_page
+- build_pdf
+- save_manifest
+- generate_technical_report
+- print_technical_report_summary
+- run_technical_report
+
+Contenido del PDF:
+- Portada.
+- Aviso técnico.
+- Índice con número de páginas.
+- Introducción.
+- Resumen ejecutivo.
+- Metodología.
+- Indicadores.
+- Interpretación.
+- Explicación de mapas.
+- Recomendaciones.
+- Limitaciones.
+- Rutas relativas.
+- Glosario.
+- Seis mapas horizontales, uno por página.
+
+Productos:
+
+    07_reporte\informe_dalgoro_v2_<densidad>\
+    +-- informe_tecnico_<finca>_<densidad>.pdf
+    +-- resumen_informe_<finca>_<densidad>.csv
+    +-- manifiesto_informe_<finca>_<densidad>.json
+
+Debe usar ReportLab multiBuild para que el índice se actualice.
+
+------------------------------------------------------------------------------
+10.20. pipeline_orchestrator.py
+------------------------------------------------------------------------------
+
+Propósito:
+Coordinar todo el sistema y reanudar ejecuciones.
+
+Clases:
+
+    PipelinePaths
+    StageDefinition
+    PipelineContext
+
+Funciones principales:
+- now_iso
+- density_token
+- atomic_write_json
+- atomic_write_yaml
+- resolve_project_path
+- read_yaml
+- validate_support_config
+- load_pipeline_config
+- validate_pipeline_config
+- build_pipeline_paths
+- critical_config
+- config_fingerprint
+- create_initial_state
+- save_state
+- load_or_reconstruct_state
+- command_text
+- run_command
+- validate_files
+- validate_glob_count
+- read_success_json
+- find_clipped_raster
+- find_tiles_directory
+- validadores de cada etapa
+- command_base
+- add_optional_exclusions
+- stage_definitions
+- archive_stage_outputs
+- prepare_run_directories
+- persist_config_snapshot
+- locate_new_run_directory
+- bootstrap_commands
+- print_dry_run
+- should_execute_stage
+- invalidate_from_stage
+- execute_processing_stages
+- run_full_pipeline
+
+Características obligatorias:
+- Utilizar sys.executable.
+- Ejecutar main.py mediante subprocess.
+- Guardar un log por etapa.
+- Validar productos antes de omitir una etapa.
+- Reintentar la etapa fallida.
+- Reanudar desde estado_pipeline.json.
+- Guardar configuración YAML/JSON.
+- Calcular huella de parámetros críticos.
+- Impedir reanudar con ortofoto, modelo o densidad diferentes.
+- Archivar salidas anteriores en logs\reintentos.
+- Buscar tiles en 02_tiles\geotiff.
+- Añadir exclusiones solamente cuando exista ruta y capa.
+
+Estados:
+
+    pending
+    running
+    completed
+    failed
+    paused
+    interrupted
+    skipped
+
+Comando público:
+
+    run_full_pipeline(...)
+
+------------------------------------------------------------------------------
+10.21. main.py
+------------------------------------------------------------------------------
+
+Propósito:
+Punto de entrada de línea de comandos.
+
+Debe:
+- Insertar src en sys.path.
+- Importar todas las funciones run_*.
+- Crear argparse.
+- Definir subcomandos.
+- Despachar cada subcomando.
+- Incluir run-full-analysis.
+
+Subcomandos:
+
+    system-check
+    validate-raster
+    validate-boundary
+    clip-raster
+    generate-tiles
+    run-yolo
+    georeference-detections
+    export-gis
+    deduplicate-detections
+    calculate-statistics
+    analyze-spatial-pattern
+    generate-hex-density
+    detect-planting-opportunities
+    prioritize-planting-opportunities
+    generate-kde-density
+    generate-cartographic-package
+    generate-technical-report
+    run-full-analysis
+
+Estructura:
+
+    def build_argument_parser() -> argparse.ArgumentParser:
+        ...
+
+    def main() -> int:
+        ...
+
+    if __name__ == "__main__":
+        raise SystemExit(main())
+
+No debe contener la lógica geoespacial. Solo importa y despacha.
+
+------------------------------------------------------------------------------
+10.22. interfaz_banano.py
+------------------------------------------------------------------------------
+
+Propósito:
+Permitir que una persona sin programación opere el sistema.
+
+Versión funcional esperada:
+- R4 o posterior.
+- Debe reparar configuraciones antiguas de exclusiones.
+
+Funciones de nivel superior:
+- sanitize_name
+- normalize_existing_file
+- normalize_directory
+- read_yaml
+- validate_support_config
+- validate_installation
+- validate_date
+- project_relative_or_absolute
+- list_gpkg_feature_layers
+- build_combined_exclusions
+- build_pipeline_config
+- validate_values
+- atomic_write_yaml
+- atomic_write_json
+- critical_pipeline_config
+- pipeline_config_fingerprint
+- repair_resume_snapshot
+- open_path
+- build_parser
+- main
+
+Clase:
+
+    BananaAnalyzerApp(tk.Tk)
+
+Métodos:
+- Configuración visual.
+- Creación de variables.
+- Pestañas.
+- Selección de ortofoto, Excel, modelo y exclusiones.
+- Detección de capas GPKG.
+- Guardado YAML.
+- dry-run.
+- ejecución completa.
+- reanudación.
+- subprocess en hilo.
+- lectura de salida en tiempo real.
+- barra de progreso.
+- detención.
+- apertura de PDF.
+- apertura de carpeta.
+- almacenamiento del último uso.
+
+Pestañas:
+
+1. Datos de la finca.
+2. Parámetros técnicos.
+3. Ejecutar y obtener PDF.
+
+La interfaz debe guardar:
+
+    config\pipeline_config_<finca>.yaml
+    config\interfaz_ultimo_uso.json
+
+Al reanudar debe usar:
+
+    <run>\configuracion_analisis.yaml
+
+No debe crear una configuración distinta con los campos visibles.
+
+Corrección de exclusiones:
+- Detectar capas espaciales mediante gpkg_contents.
+- Si hay una sola, usarla.
+- Si hay varias, combinarlas.
+- Guardar en resources\exclusiones_generadas.
+- Escribir exclusions_layer: exclusiones.
+- Nunca restaurar el marcador “COMBINAR TODAS LAS CAPAS”.
+
+------------------------------------------------------------------------------
+10.23. INICIAR_ANALIZADOR_BANANO.bat
+------------------------------------------------------------------------------
+
+Propósito:
+Abrir la interfaz con doble clic.
+
+Contenido:
+
+    @echo off
+    setlocal
+    cd /d "%~dp0"
+
+    if exist ".venv\Scripts\pythonw.exe" (
+        start "" ".venv\Scripts\pythonw.exe" "%~dp0interfaz_banano.py"
+        exit /b 0
+    )
+
+    if exist ".venv\Scripts\python.exe" (
+        ".venv\Scripts\python.exe" "%~dp0interfaz_banano.py"
+        exit /b %errorlevel%
+    )
+
+    echo No se encontro el entorno virtual.
+    pause
+    exit /b 1
+
+------------------------------------------------------------------------------
+10.24. crear_config_finca.py
+------------------------------------------------------------------------------
+
+Propósito:
+Crear YAML mediante consola cuando no se utiliza la interfaz gráfica.
+
+Funciones:
+- sanitize_name
+- normalize_path
+- prompt_text
+- prompt_float
+- prompt_existing_file
+- read_yaml
+- validate_support_config
+- project_relative_or_absolute
+- build_config
+- validate_generated_config
+- save_config
+- interactive_arguments
+- build_parser
+- main
+
+Comando:
+
+    python crear_config_finca.py
+
+------------------------------------------------------------------------------
+10.25. reparar_ejecucion_exclusiones.py
+------------------------------------------------------------------------------
+
+Propósito:
+Reparar una ejecución antigua que guardó como capa:
+
+    COMBINAR TODAS LAS CAPAS
+
+Debe:
+- Cargar las funciones de interfaz_banano.py.
+- Leer configuracion_analisis.yaml.
+- Crear exclusiones unificadas.
+- Actualizar configuracion_analisis.yaml.
+- Actualizar configuracion_analisis.json.
+- Actualizar critical_config_fingerprint.
+- Mantener la etapa fallida para reintentarla.
+
+Comando:
+
+    python reparar_ejecucion_exclusiones.py "<runDir>"
+
+------------------------------------------------------------------------------
+10.26. auditar_ejecucion.py
+------------------------------------------------------------------------------
+
+Propósito:
+Comprobar que una ejecución está completa antes de entregarla.
+
+Clases:
+
+    AuditItem
+    AuditResult
+
+Funciones:
+- now_iso
+- timestamp_token
+- sha256_file
+- read_yaml
+- read_json
+- load_config
+- add_item
+- check_directory
+- check_file
+- find_first
+- find_latest_success_manifest
+- audit_pipeline_state
+- audit_config_snapshot
+- audit_gis_outputs
+- audit_maps
+- audit_report
+- calculate_final_status
+- serialize_item
+- save_outputs
+- run_audit
+- build_parser
+- main
+
+Estados:
+
+    APPROVED
+    APPROVED_WITH_WARNINGS
+    REJECTED
+
+Productos:
+
+    08_auditoria\auditoria_<fecha>\
+    +-- auditoria_final.json
+    +-- auditoria_final.csv
+    +-- auditoria_final.txt
+
+================================================================================
+11. ARCHIVOS DE CONFIGURACIÓN
+================================================================================
+
+------------------------------------------------------------------------------
+11.1. config/spatial_analysis.yaml
+------------------------------------------------------------------------------
+
+Debe tener version: 6.
+
+Contenido base:
+
+    version: 6
+
+    kde:
+      factor: 2.5
+      min_radius_m: 5.0
+      max_radius_m: 8.0
+      pixel_size_m: 0.5
+      kernel: quartic
+
+    hexagons:
+      area_m2: 100.0
+      min_coverage_ratio: 0.5
+      reference_coverage_ratio: 0.9
+      reference_exclude_zero: true
+      deficit_severe_ratio: 0.7
+      deficit_moderate_ratio: 0.9
+      expected_upper_ratio: 1.1
+      elevated_upper_ratio: 1.25
+
+    proximity:
+      factor: 0.7
+      strong_ratio: 0.6
+      high_ratio: 0.75
+      open_ratio: 1.5
+
+    orientation:
+      angle_tolerance_deg: 20.0
+      smoothing_half_window_deg: 5
+      refinement_tolerance_deg: 15.0
+      nearest_neighbors_to_query: 12
+
+    edge_filter:
+      nearest_median_multiplier: 2.0
+      min_margin_m: 3.0
+      max_margin_m: 8.0
+      minimum_interior_fraction: 0.25
+      minimum_interior_points: 20
+
+    voronoi:
+      high_competition_ratio: 0.6
+      possible_open_area_ratio: 1.75
+      severe_open_area_ratio: 2.5
+
+    planting_opportunities:
+      grid_cell_size_m: 0.35
+      minimum_clearance_factor: 0.75
+      candidate_spacing_factor: 0.85
+      local_density_radius_factor: 2.5
+      minimum_polygon_area_factor: 0.2
+      boundary_risk_distance_factor: 0.5
+      max_candidates: 10000
+      high_spatial_score: 0.8
+      medium_spatial_score: 0.6
+      voronoi_high_concentration_ratio: 0.65
+      voronoi_expected_upper_ratio: 1.35
+      voronoi_open_ratio: 1.75
+      voronoi_severe_open_ratio: 2.5
+
+    operational_priority:
+      weights:
+        candidate_spatial_score: 0.45
+        hex_density_deficit: 0.35
+        opportunity_area: 0.1
+        boundary_safety: 0.1
+      high_priority_score: 0.75
+      medium_priority_score: 0.55
+      full_density_deficit_ratio: 0.5
+      minimum_actionable_density_ratio: 0.9
+      opportunity_area_full_score_factor: 2.0
+      maximum_reference_difference_percent: 1.0
+      use_only_evaluable_hexagons: true
+
+    kde_map:
+      fallback_radius_m: 6.0
+      use_edge_correction: true
+      minimum_kernel_coverage_ratio: 0.5
+      minimum_zone_area_m2: 4.0
+      write_raw_density: true
+      write_kernel_coverage: true
+
+La sección gaps puede conservarse por compatibilidad histórica, pero el flujo
+actual debe basarse en oportunidades no lineales, no en reconstrucción forzada
+de filas.
+
+------------------------------------------------------------------------------
+11.2. config/cartography.yaml
+------------------------------------------------------------------------------
+
+Debe tener version: 2.
+
+Contenido esencial:
+
+    version: 2
+
+    cartography:
+      dpi: 220
+      figure_size_inches: [11.69, 8.27]
+
+      branding:
+        primary_color: "#21393F"
+        secondary_color: "#192B2F"
+        accent_color: "#B57548"
+        logo_path: resources/branding/dalgoro_logo_horizontal.jpg
+        font_family: Montserrat
+
+      max_preview_pixels: 2600
+      raster_low_percentile: 2.0
+      raster_high_percentile: 98.0
+      map_margin_ratio: 0.035
+
+      boundary_color: "#192B2F"
+      boundary_linewidth: 1.2
+      inventory_point_color: "#B57548"
+      inventory_point_size: 6.0
+      candidate_point_size: 20.0
+
+      density_class_colors:
+        deficit_severo: "#9E2A2B"
+        deficit_moderado: "#D9834E"
+        densidad_esperada: "#5F8F6D"
+        densidad_elevada: "#376E78"
+        densidad_muy_elevada: "#6B4E71"
+        borde_no_evaluable: "#B8BFC0"
+
+      priority_class_colors:
+        prioridad_alta: "#9E2A2B"
+        prioridad_media: "#D9834E"
+        prioridad_baja: "#D6B85A"
+        revision_borde_no_evaluable: "#8C9698"
+        descartado_por_exclusion: "#192B2F"
+
+El código debe rechazar version: 1.
+
+------------------------------------------------------------------------------
+11.3. config/report.yaml
+------------------------------------------------------------------------------
+
+Debe tener version: 2.
+
+Secciones esenciales:
+
+    version: 2
+
+    report:
+      title: Informe técnico de inventario y análisis espacial de plantación de banano
+      page_size: A4
+
+      margins_cm:
+        left: 1.8
+        right: 1.8
+        top: 3.15
+        bottom: 2.05
+
+      branding:
+        primary_color: "#21393F"
+        secondary_color: "#192B2F"
+        accent_color: "#B57548"
+        text_color: "#192B2F"
+        muted_text_color: "#5F6B6E"
+        letterhead_path: resources/branding/dalgoro_letterhead_portrait.jpg
+        logo_path: resources/branding/dalgoro_logo_horizontal.jpg
+        fonts:
+          regular_candidates:
+            - Montserrat-Regular.ttf
+          semibold_candidates:
+            - Montserrat-SemiBold.ttf
+          bold_candidates:
+            - Montserrat-Bold.ttf
+          italic_candidates:
+            - Montserrat-Italic.ttf
+
+      minimum_map_count: 6
+      target_density_tolerance_percent: 1.0
+
+Además debe contener:
+- introduction
+- introduction_second_paragraph
+- cover_notice
+- legal_notice
+- map_explanations
+- additional_recommendations
+- glossary
+
+No se distribuyen archivos de fuentes. El código busca Montserrat instalada y
+utiliza una fuente alternativa cuando no está disponible.
+
+------------------------------------------------------------------------------
+11.4. config/pipeline_config_FINCA.yaml
+------------------------------------------------------------------------------
+
+Este archivo cambia por finca.
+
+Contenido:
+
+    version: 1
+
+    analysis:
+      farm_name: FINCA_BUENAVISTA
+      producer: NOMBRE_PRODUCTOR
+      author: Ing. Darwin A. González Romero
+      report_date: null
+      orthophoto_path: F:/RUTA/ORTOFOTO.tif
+      boundary_excel_path: F:/RUTA/LIMITE.xls
+      boundary_sheet: Hoja1
+      target_density_plants_ha: 1400
+      model_path: F:/PROY_CONTEO_BANANO_1/runs/detect/banano_v3/weights/best.pt
+      output_root: runs
+      exclusions_gpkg: null
+      exclusions_layer: null
+
+    parameters:
+      tile_size: 640
+      overlap: 128
+      min_valid_percent: 0.0
+      yolo_confidence: 0.40
+      yolo_iou: 0.70
+      yolo_imgsz: 640
+      yolo_device: auto
+      max_detections: 1000
+      yolo_limit: null
+      deduplication_distance_m: 1.00
+      kde_radius_m: null
+      kde_pixel_size_m: 0.50
+
+    configs:
+      spatial_analysis: config/spatial_analysis.yaml
+      cartography: config/cartography.yaml
+      report: config/report.yaml
+
+    pipeline:
+      run_system_check: true
+      run_boundary_validation: true
+
+Cuando existan exclusiones:
+
+    exclusions_gpkg: F:/.../FINCA_exclusiones_<huella>.gpkg
+    exclusions_layer: exclusiones
+
+------------------------------------------------------------------------------
+11.5. config/auditoria_final.yaml
+------------------------------------------------------------------------------
+
+Contenido:
+
+    version: 1
+
+    audit:
+      require_pipeline_completed: true
+      minimum_maps: 6
+      calculate_hashes: true
+
+      required_directories:
+        - 01_recorte
+        - 02_tiles
+        - 03_detecciones_raw
+        - 04_detecciones_limpias
+        - 05_gis
+        - 06_mapas
+        - 07_reporte
+        - logs
+
+      minimum_config_versions:
+        spatial_analysis: 6
+        cartography: 2
+        report: 2
+
+================================================================================
+12. RECURSOS GRÁFICOS
+================================================================================
+
+Carpeta:
+
+    resources\branding
+
+Archivos:
+
+1. dalgoro_letterhead_portrait.jpg
+   - Hoja membretada vertical.
+   - Utilizada como fondo en páginas textuales del PDF.
+
+2. dalgoro_logo_horizontal.jpg
+   - Utilizado en mapas e interfaz.
+
+3. dalgoro_logo_vertical.jpg
+   - Recurso adicional.
+
+Colores:
+
+    Verde principal:   #21393F
+    Verde secundario: #192B2F
+    Cobre:             #B57548
+
+Reglas:
+- No deformar el logotipo.
+- No cambiar colores.
+- No agregar sombras.
+- No agregar bordes.
+- No estirar a una proporción distinta.
+- Mantener margen de seguridad.
+
+================================================================================
+13. FLUJO COMPLETO DE EJECUCIÓN
+================================================================================
+
+ETAPA 1. Verificación del entorno.
+Entrada:
+- Proyecto.
+Salida:
+- system_check.json.
+
+ETAPA 2. Validación de la ortofoto.
+Entrada:
+- GeoTIFF.
+Salida:
+- raster_validation.json.
+
+ETAPA 3. Validación del límite.
+Entrada:
+- Excel + ortofoto.
+Salida:
+- boundary_validation.json.
+
+ETAPA 4. Recorte.
+Entrada:
+- GeoTIFF + límite.
+Salida:
+- 01_recorte\*_recortada.tif.
+
+ETAPA 5. Tiles.
+Entrada:
+- Raster recortado.
+Salida:
+- 02_tiles\geotiff\*.tif.
+
+ETAPA 6. YOLO.
+Entrada:
+- Tiles + best.pt.
+Salida:
+- detections_raw.csv.
+
+ETAPA 7. Georreferenciación.
+Entrada:
+- Detecciones + tiles.
+Salida:
+- detections_georeferenced_raw.csv.
+
+ETAPA 8. Exportación GIS preliminar.
+Entrada:
+- CSV georreferenciado.
+Salida:
+- inventario_banano_raw.gpkg.
+
+ETAPA 9. Deduplicación.
+Entrada:
+- Detecciones georreferenciadas.
+Salida:
+- detections_deduplicated.csv.
+
+ETAPA 10. Estadísticas.
+Entrada:
+- Detecciones limpias + límite.
+Salida:
+- inventario validado, límite y estadísticas.
+
+ETAPA 11. Patrón espacial.
+Entrada:
+- Inventario + límite.
+Salida:
+- vecinos, orientación y espaciamientos.
+
+ETAPA 12. Densidad hexagonal.
+Entrada:
+- Inventario + límite + densidad objetivo.
+Salida:
+- densidad_hexagonal.gpkg.
+
+ETAPA 13. Oportunidades.
+Entrada:
+- Inventario + límite + exclusiones.
+Salida:
+- zonas y candidatos.
+
+ETAPA 14. Prioridad.
+Entrada:
+- Hexágonos + candidatos + oportunidades.
+Salida:
+- candidatos priorizados.
+
+ETAPA 15. KDE.
+Entrada:
+- Inventario + límite.
+Salida:
+- raster de densidad y zonas.
+
+ETAPA 16. Mapas.
+Entrada:
+- Todos los productos GIS.
+Salida:
+- seis PNG.
+
+ETAPA 17. PDF.
+Entrada:
+- Estadísticas + JSON + mapas.
+Salida:
+- informe técnico PDF.
+
+================================================================================
+14. ESTRUCTURA DE UNA EJECUCIÓN
+================================================================================
+
+runs\FINCA_AAAAMMDD_HHMMSS\
+|
++-- 00_entradas\
+|
++-- 01_recorte\
+|   +-- FINCA_recortada.tif
+|
++-- 02_tiles\
+|   +-- geotiff\
+|   |   +-- *.tif
+|   +-- tiles_manifest.csv
+|   +-- tiles_report.json
+|
++-- 03_detecciones_raw\
+|   +-- yolo\
+|   |   +-- detections_raw.csv
+|   +-- georreferenciadas\
+|       +-- detections_georeferenced_raw.csv
+|
++-- 04_detecciones_limpias\
+|   +-- detections_deduplicated.csv
+|
++-- 05_gis\
+|   +-- inventario_banano_validado.csv
+|   +-- inventario_banano_validado.gpkg
+|   +-- limite_analisis.gpkg
+|   +-- estadisticas_banano.csv
+|   +-- estadisticas_banano.json
+|   +-- detecciones_raw\
+|   +-- analisis_espacial\
+|   +-- densidad_hexagonal_objetivo_1400\
+|   +-- oportunidades_siembra_1400\
+|   +-- prioridad_operativa_1400\
+|   +-- mapa_calor_kde_1400\
+|
++-- 06_mapas\
+|
++-- 07_reporte\
+|
++-- 08_auditoria\             opcional
+|
++-- logs\
++-- temp\
+|
++-- configuracion_analisis.yaml
++-- configuracion_analisis.json
++-- estado_pipeline.json
++-- manifiesto_pipeline.json
+
+================================================================================
+15. COMANDOS DE PRUEBA INDIVIDUALES
+================================================================================
+
+Desde:
+
+    F:\PROY_CONTEO_BANANO_1\automatizacion_banano
+
+Activar:
+
+    .\.venv\Scripts\Activate.ps1
+
+Diagnóstico:
+
+    python main.py system-check
+
+Validar ortofoto:
+
+    python main.py validate-raster `
+    "F:\RUTA\ORTOFOTO.tif"
+
+Validar límite:
+
+    python main.py validate-boundary `
+    "F:\RUTA\limite.xls" `
+    "F:\RUTA\ORTOFOTO.tif" `
+    --sheet "Hoja1"
+
+El flujo completo normalmente se ejecuta mediante el orquestador y no requiere
+escribir manualmente cada comando.
+
+================================================================================
+16. EJECUCIÓN MEDIANTE ORQUESTADOR
+================================================================================
+
+16.1. VALIDAR SIN PROCESAR
+
+    python main.py run-full-analysis `
+    ".\config\pipeline_config_FINCA.yaml" `
+    --dry-run
+
+16.2. EJECUTAR TODO
+
+    python main.py run-full-analysis `
+    ".\config\pipeline_config_FINCA.yaml"
+
+16.3. REANUDAR
+
+    python main.py run-full-analysis `
+    "<runDir>\configuracion_analisis.yaml" `
+    --resume-run "<runDir>"
+
+16.4. PAUSAR DESPUÉS DE YOLO
+
+    python main.py run-full-analysis `
+    ".\config\pipeline_config_FINCA.yaml" `
+    --stop-after run_yolo
+
+16.5. REPROCESAR MAPAS E INFORME
+
+    python main.py run-full-analysis `
+    "<runDir>\configuracion_analisis.yaml" `
+    --resume-run "<runDir>" `
+    --force-stage generate_cartographic_package
+
+16.6. REPROCESAR SOLO EL INFORME
+
+    python main.py run-full-analysis `
+    "<runDir>\configuracion_analisis.yaml" `
+    --resume-run "<runDir>" `
+    --force-stage generate_technical_report
+
+================================================================================
+17. OPERACIÓN MEDIANTE INTERFAZ
+================================================================================
+
+17.1. ABRIR
+
+Doble clic:
+
+    INICIAR_ANALIZADOR_BANANO.bat
+
+O:
+
+    python interfaz_banano.py
+
+17.2. DATOS DE LA FINCA
+
+Completar:
+- Nombre.
+- Productor.
+- Ortofoto.
+- Excel.
+- Hoja.
+- Densidad.
+- Modelo.
+- Carpeta de ejecuciones.
+- Fecha.
+- Exclusiones opcionales.
+
+17.3. PARÁMETROS
+
+Mantener inicialmente:
+- tile_size 640.
+- overlap 128.
+- confidence 0.40.
+- IoU 0.70.
+- imgsz 640.
+- max_det 1000.
+- deduplicación 1.00.
+- KDE 0.50.
+
+17.4. BOTONES
+
+Guardar configuración:
+- Valida y escribe YAML.
+
+Validar sin procesar:
+- Ejecuta dry-run.
+
+Ejecutar análisis completo:
+- Ejecuta las 17 etapas.
+
+Reanudar ejecución:
+- Selecciona carpeta con estado_pipeline.json.
+- Usa configuracion_analisis.yaml de esa ejecución.
+
+Detener:
+- Finaliza el árbol de procesos.
+- Conserva las etapas completas.
+
+Abrir informe PDF:
+- Busca manifiesto_pipeline.json y el PDF.
+
+Abrir carpeta:
+- Abre el run actual.
+
+================================================================================
+18. ESTADO Y REANUDACIÓN
+================================================================================
+
+estado_pipeline.json debe contener:
+
+    version
+    pipeline_build
+    created_at
+    updated_at
+    status
+    current_stage
+    run_directory
+    source_config_path
+    critical_config_fingerprint
+    stages
+    artifacts
+    warnings
+    errors
+
+Cada etapa:
+
+    {
+      "title": "...",
+      "status": "completed",
+      "started_at": "...",
+      "finished_at": "...",
+      "elapsed_seconds": 10.2,
+      "return_code": 0,
+      "log_path": "...",
+      "command": ["python", "..."],
+      "validation_messages": [],
+      "error": null
+    }
+
+La huella crítica debe incluir:
+- ortofoto.
+- Excel.
+- hoja.
+- densidad.
+- modelo.
+- exclusiones.
+- tile_size.
+- overlap.
+- confianza.
+- IoU.
+- imgsz.
+- device.
+- max_det.
+- distancia de deduplicación.
+- configuración espacial.
+
+================================================================================
+19. LOGS Y MANIFIESTOS
+================================================================================
+
+Un log por etapa:
+
+    logs\05_generate_tiles.log
+    logs\06_run_yolo.log
+    logs\07_georeference_detections.log
+    ...
+
+Un manifiesto por producto:
+- tiles_report.json.
+- yolo_report.json.
+- oportunidades_siembra.json.
+- prioridad_operativa.json.
+- mapa_calor_kde.json.
+- manifiesto_paquete_cartografico.json.
+- manifiesto_informe_*.json.
+- manifiesto_pipeline.json.
+
+Nunca considerar completada una etapa solamente porque existe una carpeta. Se
+deben validar los archivos esperados y, cuando exista, success=true.
+
+================================================================================
+20. AUDITORÍA FINAL
+================================================================================
+
+Instalar:
+
+    auditar_ejecucion.py
+    config\auditoria_final.yaml
+
+Ejecutar:
+
+    python auditar_ejecucion.py "<runDir>"
+
+Resultado ideal:
+
+    APPROVED
+    Errores: 0
+    Advertencias: 0
+
+Revisar:
+- Estado completed.
+- Etapas fallidas.
+- Versiones 6/2/2.
+- Inventario.
+- Límite.
+- Estadísticas.
+- Hexágonos.
+- Oportunidades.
+- Prioridad.
+- KDE.
+- Seis mapas.
+- PDF.
+- Manifiestos.
+- Archivos vacíos.
+- SHA-256.
+
+================================================================================
+21. ERRORES CONOCIDOS Y SOLUCIÓN
+================================================================================
+
+21.1. YOLO INDICA QUE NO EXISTEN TILES
+
+Causa:
+El sistema envía 02_tiles, pero los archivos están en 02_tiles\geotiff.
+
+Solución:
+pipeline_orchestrator.py debe utilizar find_tiles_directory() y enviar:
+
+    02_tiles\geotiff
+
+a YOLO y georreferenciación.
+
+21.2. KeyError: branding
+
+Causa:
+cartography.yaml o report.yaml versión 1.
+
+Solución:
+Usar version: 2 y comprobar:
+
+    cartography.branding
+    report.branding
+
+21.3. Layer 'COMBINAR TODAS LAS CAPAS' could not be opened
+
+Causa:
+La interfaz guardó el marcador como nombre real.
+
+Solución:
+- Utilizar interfaz R4 o posterior.
+- Reparar la ejecución.
+- La configuración final debe contener:
+
+    exclusions_layer: exclusiones
+
+21.4. HUELLA CRÍTICA DIFERENTE
+
+Causa:
+Se cambió la configuración después de iniciar el run.
+
+Solución:
+- No editar manualmente configuracion_analisis.yaml.
+- Crear un nuevo run cuando cambie ortofoto, modelo o densidad.
+- Solo utilizar el reparador cuando la corrección sea controlada.
+
+21.5. CARPETA DE SALIDA YA EXISTE
+
+Causa:
+Los módulos evitan sobrescritura.
+
+Solución:
+- Crear nueva carpeta.
+- Utilizar --force-stage para archivar la salida anterior.
+
+21.6. ESPACIO INSUFICIENTE
+
+Solución:
+- Eliminar únicamente ejecuciones de prueba respaldadas.
+- No eliminar best.pt.
+- No eliminar una ejecución activa.
+- Conservar PDF, GIS, configuración, estado y logs del proyecto entregado.
+
+21.7. CUDA FALSE
+
+No es un error. El sistema funciona en CPU.
+
+21.8. GPKG SIN CAPAS ESPACIALES
+
+Revisar gpkg_contents. Las tablas de atributos no pueden utilizarse como
+geometrías de exclusión.
+
+================================================================================
+22. PRUEBAS DE ACEPTACIÓN
+================================================================================
+
+PRUEBA 1. Compilación:
+
+    python -m compileall main.py src
+
+PRUEBA 2. Instalación de interfaz:
+
+    python interfaz_banano.py --validate-installation
+
+PRUEBA 3. Dry-run:
+
+    python main.py run-full-analysis `
+    ".\config\pipeline_config_FINCA.yaml" `
+    --dry-run
+
+PRUEBA 4. Raster:
+- CRS correcto.
+- Dimensiones.
+- Resolución.
+- Georreferenciación.
+
+PRUEBA 5. Límite:
+- Área positiva.
+- 100 % o porcentaje esperado dentro de ortofoto.
+
+PRUEBA 6. Tiles:
+- Manifest.
+- Al menos un .tif.
+- Carpeta geotiff.
+
+PRUEBA 7. YOLO:
+- detections_raw.csv no vacío.
+
+PRUEBA 8. Deduplicación:
+- Detecciones finales <= iniciales.
+
+PRUEBA 9. Inventario:
+- GeoPackage abre.
+- CRS correcto.
+- Puntos dentro del límite.
+
+PRUEBA 10. Densidad:
+- Área ha > 0.
+- Densidad = plantas / ha.
+
+PRUEBA 11. Mapas:
+- Seis PNG.
+- Logo.
+- Escala.
+- Norte.
+- Leyenda.
+- Sin recortes.
+
+PRUEBA 12. PDF:
+- Abre.
+- Índice.
+- Mapas.
+- Glosario.
+- Autoría.
+- Fecha.
+- Finca.
+- Productor.
+- Densidad.
+
+PRUEBA 13. Reanudación:
+- Detener después de YOLO.
+- Reanudar.
+- Confirmar que tiles y YOLO se omiten.
+
+PRUEBA 14. Auditoría:
+- APPROVED.
+
+================================================================================
+23. MANTENIMIENTO
+================================================================================
+
+23.1. ANTES DE MODIFICAR CÓDIGO
+
+Crear copia:
+
+    Copy-Item archivo.py archivo_respaldo_AAAAMMDD.py
+
+23.2. REGLA DE CAMBIOS MÍNIMOS
+
+- Modificar un módulo por vez.
+- Compilar.
+- Ejecutar prueba controlada.
+- Conservar logs.
+- No cambiar simultáneamente procesamiento, configuración y salida gráfica.
+
+23.3. ACTUALIZAR EL MODELO
+
+- Guardar modelo anterior.
+- Copiar nuevo best.pt con nombre versionado.
+- Probar en una finca conocida.
+- Comparar conteo y errores.
+- Actualizar YAML solamente después de validar.
+
+23.4. ACTUALIZAR DEPENDENCIAS
+
+Antes:
+
+    pip freeze > requirements-lock-antes.txt
+
+Después de actualización:
+- Compilar.
+- Dry-run.
+- Ejecutar prueba pequeña.
+- Abrir GeoPackage.
+- Abrir PDF.
+- Guardar nuevo lock.
+
+23.5. COPIA DE SEGURIDAD MÍNIMA
+
+Conservar:
+- src.
+- main.py.
+- interfaz.
+- configs.
+- recursos gráficos.
+- requirements-lock.txt.
+- best.pt.
+- data.yaml.
+- scripts de entrenamiento.
+- ejecución final.
+- auditoría.
+- manual.
+
+================================================================================
+24. ENTREGA Y TRANSFERENCIA
+================================================================================
+
+Para transferir el sistema a otra computadora:
+
+1. Instalar Python 3.11.
+2. Copiar el proyecto.
+3. Crear .venv nueva.
+4. Instalar requirements-lock.txt.
+5. Comprobar rutas de best.pt.
+6. Comprobar ortofotos y Excel.
+7. Ejecutar --validate-installation.
+8. Ejecutar system-check.
+9. Ejecutar dry-run.
+10. Procesar una finca pequeña.
+11. Auditar.
+12. Capacitar al operador en:
+    - selección de archivos.
+    - densidad.
+    - exclusiones.
+    - reanudación.
+    - lectura del PDF.
+    - interpretación no automática de candidatos.
+
+No transferir la carpeta .venv entre computadoras como única forma de
+instalación. Es preferible reconstruir el entorno.
+
+================================================================================
+25. REGLAS DE INTERPRETACIÓN TÉCNICA
+================================================================================
+
+1. Una detección es una salida de IA, no una inspección agronómica.
+2. Un candidato es una ubicación para revisión.
+3. Una celda deficitaria puede contener infraestructura.
+4. Una concentración elevada no confirma traslape foliar.
+5. El KDE muestra tendencia, no límites físicos exactos.
+6. Los bordes tienen mayor incertidumbre.
+7. La densidad objetivo debe proceder del productor o responsable técnico.
+8. Todos los escenarios de una misma entrega deben usar la misma densidad.
+9. Las decisiones de resiembra deben verificarse en campo.
+10. El informe debe indicar sus limitaciones.
+
+================================================================================
+26. LISTA FINAL DE CONTROL PARA CONSTRUIR EL SISTEMA
+================================================================================
+
+[ ] Python 3.11 instalado.
+[ ] VS Code instalado.
+[ ] Proyecto creado.
+[ ] .venv creada.
+[ ] Dependencias instaladas.
+[ ] Dataset organizado.
+[ ] data.yaml creado.
+[ ] Modelo entrenado.
+[ ] best.pt conservado.
+[ ] Estructura src creada.
+[ ] Todos los módulos compilados.
+[ ] spatial_analysis.yaml versión 6.
+[ ] cartography.yaml versión 2.
+[ ] report.yaml versión 2.
+[ ] Branding instalado.
+[ ] main.py integrado.
+[ ] Orquestador integrado.
+[ ] Interfaz R4 o posterior instalada.
+[ ] Lanzador BAT instalado.
+[ ] Configuración de finca creada.
+[ ] Dry-run correcto.
+[ ] Ejecución completa.
+[ ] Seis mapas.
+[ ] PDF generado.
+[ ] Reanudación probada.
+[ ] Exclusiones probadas.
+[ ] Auditoría APPROVED.
+[ ] Copia de seguridad creada.
+[ ] Operador capacitado.
+
+================================================================================
+27. CONCLUSIÓN
+================================================================================
+
+El sistema está compuesto por módulos pequeños y verificables. La clave para
+mantenerlo estable es conservar la separación entre:
+
+- Entrenamiento.
+- Configuración.
+- Procesamiento.
+- Presentación.
+- Control.
+- Auditoría.
+
+La interfaz facilita el uso, pero el núcleo técnico continúa siendo main.py,
+pipeline_orchestrator.py y los módulos de banana_analyzer. Una ejecución nunca
+debe considerarse válida únicamente porque generó archivos: debe completarse el
+pipeline, revisar los manifiestos, abrir los mapas, abrir el PDF y ejecutar la
+auditoría final.
+
+FIN DEL DOCUMENTO
+================================================================================

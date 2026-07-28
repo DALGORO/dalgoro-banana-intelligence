@@ -1,0 +1,33 @@
+version: 1
+
+report:
+  title: "Informe técnico de inventario y análisis espacial de plantación de banano"
+  page_size: "A4"
+
+  margins_cm:
+    left: 1.80
+    right: 1.80
+    top: 1.80
+    bottom: 1.70
+
+  primary_color: "#1F5A3A"
+  secondary_color: "#3D6B4F"
+  text_color: "#202020"
+  muted_text_color: "#606060"
+  table_alternate_color: "#EEF4F0"
+  table_grid_color: "#B6C2BA"
+
+  map_max_width_cm: 17.00
+  map_max_height_cm: 17.80
+  minimum_map_count: 6
+  target_density_tolerance_percent: 1.00
+
+  cover_notice: >-
+    Resultados generados mediante procesamiento geoespacial y detección
+    automatizada. Las decisiones de resiembra y manejo requieren verificación
+    técnica en campo.
+
+  legal_notice: >-
+    Elaborado por el Ing. Darwin A. González Romero. Todos los derechos
+    pertenecen al autor. No se autoriza la reproducción, modificación o
+    distribución sin autorización expresa.

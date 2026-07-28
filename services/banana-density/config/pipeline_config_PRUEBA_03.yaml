@@ -1,0 +1,34 @@
+version: 1
+analysis:
+  farm_name: PRUEBA_03
+  producer: Marjorie Castro Guevara
+  author: Ing. Darwin A. González Romero
+  report_date: null
+  orthophoto_path: F:/PROY_CONTEO_BANANO_1/06_Ortofoto_Nueva_Analizar/3.PRUEBA_03/PRUEBA_03.tif
+  boundary_excel_path: F:/PROY_CONTEO_BANANO_1/06_Ortofoto_Nueva_Analizar/3.PRUEBA_03/coordenadas_limite.xls
+  boundary_sheet: Hoja1
+  target_density_plants_ha: 1400
+  model_path: F:/PROY_CONTEO_BANANO_1/runs/detect/banano_v3/weights/best.pt
+  output_root: runs
+  exclusions_gpkg: null
+  exclusions_layer: null
+parameters:
+  tile_size: 640
+  overlap: 128
+  min_valid_percent: 0.0
+  yolo_confidence: 0.4
+  yolo_iou: 0.7
+  yolo_imgsz: 640
+  yolo_device: auto
+  max_detections: 1000
+  yolo_limit: null
+  deduplication_distance_m: 1.0
+  kde_radius_m: null
+  kde_pixel_size_m: 0.5
+configs:
+  spatial_analysis: config/spatial_analysis.yaml
+  cartography: config/cartography.yaml
+  report: config/report.yaml
+pipeline:
+  run_system_check: true
+  run_boundary_validation: true

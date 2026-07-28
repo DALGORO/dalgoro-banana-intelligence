@@ -1,0 +1,189 @@
+{
+  "code": "CAP-01",
+  "activity": "BANANERA",
+  "title": "Plan Anual de Capacitación en SST",
+  "version": 1,
+  "fields": [
+    {
+      "name": "fecha_emision",
+      "label": "Fecha de emisión del Plan",
+      "type": "date",
+      "required": true
+    },
+    {
+      "name": "periodo_inicio",
+      "label": "Vigencia desde",
+      "type": "date",
+      "required": true
+    },
+    {
+      "name": "periodo_fin",
+      "label": "Vigencia hasta",
+      "type": "date",
+      "required": true
+    },
+    {
+      "name": "razon_social",
+      "label": "Razón social",
+      "type": "text"
+    },
+    {
+      "name": "ruc",
+      "label": "RUC",
+      "type": "text"
+    },
+    {
+      "name": "direccion",
+      "label": "Dirección",
+      "type": "text"
+    },
+    {
+      "name": "provincia",
+      "label": "Provincia",
+      "type": "text"
+    },
+    {
+      "name": "canton",
+      "label": "Cantón",
+      "type": "text"
+    },
+    {
+      "name": "parroquia",
+      "label": "Parroquia",
+      "type": "text"
+    },
+    {
+      "name": "telefono",
+      "label": "Teléfono (empresa)",
+      "type": "text"
+    },
+    {
+      "name": "correo",
+      "label": "Correo (empresa)",
+      "type": "text"
+    },
+    {
+      "name": "actividad",
+      "label": "Actividad/CIIU",
+      "type": "text"
+    },
+    {
+      "name": "trabajadores",
+      "label": "Nº trabajadores",
+      "type": "number"
+    },
+    {
+      "name": "riesgo",
+      "label": "Nivel de riesgo (Anexo 2 MDT-2024-196)",
+      "type": "text"
+    },
+    {
+      "name": "tamano_mipyme",
+      "label": "Tamaño de la empresa",
+      "type": "text"
+    },
+    {
+      "name": "representante_legal",
+      "label": "Representante legal/Alta dirección",
+      "type": "text"
+    },
+    {
+      "name": "responsable_sst",
+      "label": "Delegado/Responsable SST",
+      "type": "text"
+    },
+    {
+      "name": "medico_ocupacional",
+      "label": "Médico ocupacional/Servicio de salud",
+      "type": "text"
+    },
+    {
+      "name": "responsables_area",
+      "label": "Jefaturas/Supervisores responsables (coma)",
+      "type": "textarea"
+    },
+    {
+      "name": "monitores_sst",
+      "label": "Monitores de SST (si aplica)",
+      "type": "textarea"
+    },    
+    {
+      "name": "presupuesto",
+      "label": "Presupuesto del Plan",
+      "type": "table",
+      "required": true,
+      "minRows": 1,
+      "columns": [
+        {
+          "name": "concepto",
+          "label": "Concepto",
+          "type": "text"
+        },
+        {
+          "name": "cantidad",
+          "label": "Cantidad",
+          "type": "number"
+        },
+        {
+          "name": "costo_unitario",
+          "label": "Costo unitario",
+          "type": "number"
+        },
+        {
+          "name": "proveedor",
+          "label": "Proveedor",
+          "type": "text"
+        }
+      ]
+    }    
+  ],
+  "autofill": {
+    "company": [
+      "razon_social",
+      "ruc",
+      "direccion",
+      "provincia",
+      "canton",
+      "parroquia",
+      "telefono",
+      "correo",
+      "actividad",
+      "trabajadores",
+      "riesgo",
+      "tamano_mipyme"
+    ],
+    "org_del_01": [
+      "responsable_sst",
+      "representante_legal"
+    ],
+    "rhs_01": [
+      "fecha_emision",
+      "periodo_inicio",
+      "periodo_fin"
+    ],
+    "acta_apr_rhs_01": [
+      "figura_sst"
+    ],
+    "iperc_01": [
+      "rows"
+    ],
+    "pprl_01": [
+      "rows",
+      "peligros_fisicos",
+      "peligros_quimicos",
+      "peligros_biologicos",
+      "peligros_seguridad",
+      "peligros_ergonomicos",
+      "peligros_psicosociales"
+    ]
+  },
+  "render": {
+    "engine": "docx",
+    "docx": {      
+      "text_expanders": {
+        "base_legal_txt": "join(base_legal, '\\n• ')",
+        "roles_txt": "compose_from(roles)"
+      }
+    }
+  }
+}

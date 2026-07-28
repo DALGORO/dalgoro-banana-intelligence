@@ -1,0 +1,398 @@
+Plan maestro (fases y entregables)
+
+Stack: FastAPI + PostgreSQL + SQLAlchemy/Alembic · React + Tailwind + PDF.js/Chart.js · Almacenamiento en GCS (o S3) · JWT/OAuth2
+Hosting: Render (API + DB) y Vercel/Render (frontend)
+
+Cada fase incluye: archivos exactos, comandos, y puntos de verificación.
+
+Fase 0 — Preparación del entorno (VS Code)
+
+Estructura de carpetas
+
+sst-compliance/
+  backend/
+  frontend/
+  infra/
+
+
+Extensiones VS Code
+
+Python, Pylance, Ruff, Black
+
+Docker, GitLens
+
+ESLint, Tailwind CSS IntelliSense
+
+Entornos
+
+# en /backend
+python -m venv .venv && source .venv/bin/activate
+pip install fastapi uvicorn[standard] pydantic[email] python-multipart \
+            sqlalchemy alembic psycopg2-binary passlib[bcrypt] python-jose[cryptography] \
+            httpx python-dotenv google-cloud-storage reportlab weasyprint
+
+# en /frontend
+npm create vite@latest frontend -- --template react-ts
+cd frontend
+npm i tailwindcss @headlessui/react @heroicons/react \
+      react-router-dom zod react-hook-form chart.js react-chartjs-2 pdfjs-dist
+npx tailwindcss init -p
+
+
+VS Code debug
+
+Crea backend/.vscode/launch.json:
+
+{
+  "version": "0.2.0",
+  "configurations": [{
+    "name": "API (Uvicorn)",
+    "type": "python",
+    "request": "launch",
+    "module": "uvicorn",
+    "args": ["app.main:app", "--reload"]
+  }]
+}
+
+Fase 1 — Backend base (FastAPI + configuración)
+
+Objetivo: API viva con healthcheck y configuración por entorno.
+
+Archivos a crear en /backend:
+
+backend/
+  app/
+    __init__.py
+    main.py
+    core/
+      config.py
+      security.py
+    api/
+      __init__.py
+      deps.py
+      v1/
+        __init__.py
+        routes_health.py
+    models/
+      __init__.py
+    db/
+      base.py
+      session.py
+  .env.example
+  pyproject.toml (opcional) / requirements.txt
+
+
+Contenido mínimo
+
+app/core/config.py: lee variables (.env): DATABASE_URL, JWT_SECRET, GCS_BUCKET, etc.
+
+app/db/session.py: SessionLocal, engine (SQLAlchemy).
+
+app/main.py:
+
+from fastapi import FastAPI
+from app.api.v1.routes_health import router as health
+app = FastAPI(title="SST Compliance API")
+app.include_router(health, prefix="/api/v1")
+
+
+app/api/v1/routes_health.py:
+
+from fastapi import APIRouter
+router = APIRouter()
+@router.get("/health", tags=["health"])
+def health():
+    return {"status": "ok"}
+
+
+Verificación
+
+uvicorn app.main:app --reload
+# GET http://127.0.0.1:8000/api/v1/health -> {"status":"ok"}
+
+Fase 2 — Base de datos, modelos y migraciones (multiempresa)
+
+Objetivo: esquema multiusuario/multiempresa con Alembic.
+
+Modelos en backend/app/models/:
+
+user.py (Administrador, Suscriptor, Colaborador, Secundario)
+
+company.py (empresa: RUC, nombre, actividad, riesgo, owner_id)
+
+subscription.py (plan, estado, expiración, cupos)
+
+document.py (tipo, ruta almacenamiento, metadatos, empresa_id, hash)
+
+viewer_token.py (acceso temporal al visor)
+
+audit_log.py (trazabilidad)
+
+Estos modelos soportan los módulos 1–6 del documento: suscripción, empresas, PDF, visor, dashboard y administración. 
+
+EXPLICACION_SISTEMA
+
+Alembic
+
+alembic init alembic
+# en alembic.ini configura sqlalchemy.url = env var
+# en alembic/env.py importa Base desde app.db.base
+alembic revision -m "init" --autogenerate
+alembic upgrade head
+
+Fase 3 — Autenticación y control de roles
+
+Objetivo: OAuth2 Password + JWT y dependencias de seguridad.
+
+app/core/security.py
+
+Funciones create_access_token, verify_password/hash_password, get_current_user, require_role(...).
+
+Rutas en app/api/v1/auth.py:
+
+POST /auth/register (suscriptor)
+
+POST /auth/token (OAuth2PasswordRequestForm)
+
+GET /auth/me
+
+Dependencias en app/api/deps.py:
+
+get_db, get_current_user, require_roles("ADMIN", "SUBSCRIBER", ...)
+
+Checkpoint: Login emite JWT; GET /me retorna perfil y roles.
+
+Fase 4 — Módulo de Suscripción y prueba gratuita
+
+Objetivo: lógica de 15 días free, verificación de plan y cupos. 
+
+EXPLICACION_SISTEMA
+
+Archivos
+
+app/services/billing.py (puente a Kushki/Datafast/Stripe; por ahora “stub”)
+
+app/api/v1/subscriptions.py:
+
+GET /subscriptions/status
+
+POST /subscriptions/checkout-session (inicia pago)
+
+Webhook POST /subscriptions/webhook (confirma pago, activa plan y cupos)
+
+Lógica clave
+
+Al registrarse: crear Subscription(free_trial_until=now+15d, companies_quota=1)
+
+Tras pago: companies_quota=2, +1 por cada “empresa adicional” ($5). 
+
+EXPLICACION_SISTEMA
+
+Fase 5 — Módulo de Empresas
+
+Objetivo: CRUD con cupos y roles.
+
+app/api/v1/companies.py
+
+POST /companies (valida cupo)
+
+GET /companies (del suscriptor)
+
+GET /companies/{id} · PUT · DELETE
+
+POST /companies/{id}/invite-viewer (crea Usuario Secundario o token)
+
+Campos mínimos (según ficha general): RUC, nombre, actividad, #trabajadores, nivel de riesgo. 
+
+EXPLICACION_SISTEMA
+
+Fase 6 — Almacenamiento en nube (GCS) y URLs firmadas
+
+Objetivo: subir/leer documentos con URLs firmadas 24h y estructura:
+/dal_goro_sst/usuario_{id}/empresa_{id}/{tipo}/... 
+
+EXPLICACION_SISTEMA
+
+app/services/storage.py
+
+upload_file(file, path, metadata) -> {url, sha256}
+
+get_signed_url(path, expires=86400)
+
+delete_file(path)
+
+.env
+
+GCS_BUCKET=dal_goro_sst
+GCP_CREDENTIALS_JSON=... (o ADC)
+
+Fase 7 — Generación de PDF (plantillas profesionales)
+
+Objetivo: generar PDF server-side y registrar hash/metadata. 
+
+EXPLICACION_SISTEMA
+
+Plantillas en backend/templates/ (HTML+CSS, modo oscuro/paleta DALGORO).
+
+app/services/pdf_builder.py
+
+render_html(template_name, context)
+
+html_to_pdf(bytes_html) -> bytes_pdf (WeasyPrint)
+
+stamp_footer(signature, qr) (opcional ReportLab)
+
+API app/api/v1/documents.py
+
+POST /companies/{id}/documents:generate con type:
+
+plan_anual, matriz_riesgos, informe_auditoria, acta_comite, etc. 
+
+EXPLICACION_SISTEMA
+
+Guarda en GCS y crea registro Document.
+
+Fase 8 — Visor seguro (PDF.js) y tokens de acceso
+
+Objetivo: ver PDFs sin descarga obligatoria con enlace seguro. 
+
+EXPLICACION_SISTEMA
+
+Modelo ViewerToken(company_id, document_id, expires_at, one_time)
+
+API
+
+POST /documents/{id}/viewer-token
+
+GET /viewer/{token} → devuelve URL firmada temporal + metadatos/histórico
+
+Fase 9 — Dashboard de cumplimiento
+
+Objetivo: KPIs por empresa (Decreto 255 / ISO 45001), vencimientos, historial. 
+
+EXPLICACION_SISTEMA
+
+Servicio app/services/compliance.py
+
+Calcula % por cláusula/artículo y totales.
+
+Devuelve estructura para gráficas (barras/pastel/radar).
+
+API
+
+GET /companies/{id}/dashboard
+
+GET /companies/{id}/documents/expiring
+
+Fase 10 — Frontend (React + Tailwind)
+
+Objetivo: SPA con rutas protegidas, modo oscuro DALGORO. 
+
+EXPLICACION_SISTEMA
+
+Estructura en /frontend/src
+
+src/
+  main.tsx
+  app/
+    routes.tsx
+    api.ts (axios base)
+    auth.ts (JWT storage/refresh)
+  pages/
+    Login.tsx
+    Register.tsx
+    Companies.tsx
+    CompanyDetail.tsx
+    GenerateDoc.tsx
+    Dashboard.tsx
+    Admin.tsx
+  components/
+    Sidebar.tsx Header.tsx Card.tsx
+    PdfViewer.tsx  (PDF.js)
+    Charts.tsx      (wrappers Chart.js)
+
+
+Tailwind: configura paleta (verde petróleo #192B2F, azul profundo #21393F, cobre #B57548, etc.). 
+
+EXPLICACION_SISTEMA
+
+PDF Viewer PdfViewer.tsx
+
+Usa pdfjs-dist + PDFJS.GlobalWorkerOptions.workerSrc.
+
+Recibe URL firmada del backend.
+
+Dashboard
+
+GET /companies/:id/dashboard → Charts.tsx (donut, barras, radar).
+
+Fase 11 — Gestión de usuarios secundarios (auditores/empresas)
+
+Objetivo: invitar visores y controlar permisos. 
+
+EXPLICACION_SISTEMA
+
+Frontend: modal “Invitar visor” en CompanyDetail.tsx → POST invite → envío de link con token.
+
+Backend: endpoint de invitación (Fase 5) + expiración.
+
+Fase 12 — Panel Maestro (Administrador DALGORO)
+
+Objetivo: administración global: usuarios, empresas, suscripciones, plantillas, auditoría. 
+
+EXPLICACION_SISTEMA
+
+Frontend página Admin.tsx con tablas y filtros.
+
+Backend endpoints /admin/... con require_roles("ADMIN").
+
+Fase 13 — Seguridad, logs y auditoría
+
+Objetivo: trazabilidad completa y métricas. 
+
+EXPLICACION_SISTEMA
+
+app/middleware/logging.py (request/response ids)
+
+models/audit_log.py + services/audit.py
+
+Integración futura Prometheus/Grafana (exponer /metrics).
+
+Fase 14 — Despliegue (Render + Vercel/Render)
+
+Infra
+
+infra/
+  render-backend.yaml
+  render-frontend.yaml
+
+
+Backend Render
+
+Build: pip install -r requirements.txt
+
+Start: uvicorn app.main:app --host 0.0.0.0 --port 10000
+
+Vars: DATABASE_URL, JWT_SECRET, GCS_BUCKET, etc.
+
+PostgreSQL: crea instancia en Render y copia DATABASE_URL.
+
+Frontend: Vercel o Render static; VITE_API_URL hacia backend.
+
+Fase 15 — Pruebas y criterios de aceptación
+
+Auth: login/refresh; acceso por rol.
+
+Suscripción: free-trial expira y bloquea; compra activa cupos. 
+
+EXPLICACION_SISTEMA
+
+Empresas: límite según plan; alta/baja/edición.
+
+Documentos: genera PDF, sube a GCS, se visualiza en visor sin descarga. 
+
+EXPLICACION_SISTEMA
+
+Dashboard: porcentajes correctos y alertas de vencimiento.
+
+Admin: CRUD global y auditoría visible.

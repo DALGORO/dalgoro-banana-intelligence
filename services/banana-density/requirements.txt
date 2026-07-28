@@ -1,0 +1,22 @@
+# Inteligencia artificial
+torch==2.11.0
+torchvision==0.26.0
+ultralytics==8.4.26
+
+# Procesamiento raster
+rasterio==1.4.4
+
+# Procesamiento vectorial GIS
+geopandas==1.1.4
+shapely==2.1.2
+pyogrio==0.13.0
+
+# Configuración
+PyYAML==6.0.3
+
+# Visión por computadora
+opencv-python>=4.8,<5
+
+# Lectura de archivos Excel
+xlrd>=2.0,<3
+openpyxl>=3.1,<4reportlab>=4.2,<5
