@@ -36,8 +36,8 @@
   resolución.
 - Sintaxis de los tres smoke tests y parseo del workflow: aprobados.
 - GitHub Actions `30407127911`: los cinco trabajos aprobaron.
-- GitHub Actions final `30407408901`: los cinco trabajos aprobaron sobre el
-  SHA definitivo del PR.
+- GitHub Actions técnica previa al cierre documental `30407408901`: los cinco
+  trabajos aprobaron.
 - Motor geoespacial: instalación completa, `pip check`, `compileall`,
   importaciones y CLI aprobados en un entorno limpio.
 - Gitleaks: historial completo analizado sin secretos detectados.
