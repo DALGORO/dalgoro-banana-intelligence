@@ -4,9 +4,11 @@
 
 - Ticket: `DBI-CI-002`
 - Issue: `#4`
+- Pull request: `#5` (borrador)
 - Fecha de inicio: 2026-07-28
 - Rama: `ci/DBI-CI-002-integracion-continua-modular`
 - Base: `main` en `dfed279a47f5459255b36688f415a2c87e5aca3f`
+- Ejecución verificada: `30407127911`
 
 ## Objetivo
 
@@ -26,6 +28,8 @@ integraciones operativas.
 
 Las acciones externas están fijadas a SHA completos. El workflow no utiliza
 `pull_request_target`, credenciales operativas ni secretos de Render.
+El token de GitHub solo dispone de `contents: read` y `pull-requests: read`;
+Gitleaks tiene desactivados los comentarios automáticos.
 
 ## Aislamiento de las pruebas
 
@@ -83,9 +87,18 @@ La ejecución local de `npm audit --audit-level=high --omit=dev` del
 - 1 de severidad moderada.
 - Parte de los hallazgos indicó que no existía una versión corregida disponible.
 
-Estos resultados no se consideran resueltos. Los resultados de Python y el
-inventario exacto de GitHub Actions se registrarán después de la primera
-ejecución remota.
+La ejecución remota `30407127911` añadió este inventario:
+
+| Módulo | Resultado informativo |
+|---|---|
+| Frontend | 5 vulnerabilidades de producción: 4 altas y 1 moderada |
+| Backend | 81 vulnerabilidades conocidas en 19 paquetes |
+| WhatsApp | 2 vulnerabilidades conocidas en 1 paquete |
+| Densidad | 3 vulnerabilidades conocidas en 2 paquetes |
+
+Estos resultados no se consideran resueltos. Las auditorías son visibles y no
+bloquean el ticket para evitar actualizaciones funcionales o masivas sin una
+evaluación independiente.
 
 ## Validaciones locales
 
@@ -101,17 +114,20 @@ ejecución remota.
 | Backend: `compileall`, importación y healthcheck | Aprobados |
 | Bot: instalación aislada y `pip check` | Aprobados |
 | Bot: `compileall`, importación y endpoint local | Aprobados |
-| Motor geoespacial: instalación completa | Pendiente de GitHub Actions |
-| GitHub Actions del ticket | Pendiente |
-| Gitleaks automatizado | Pendiente |
+| Motor geoespacial: instalación, `pip check`, compilación, importaciones y CLI | Aprobados en GitHub Actions |
+| GitHub Actions del ticket, ejecución `30407127911` | Aprobada: 5 de 5 trabajos |
+| Gitleaks sobre historial completo | Aprobado, sin secretos detectados |
 
 `alembic heads` terminó correctamente y mostró tres cabezas heredadas:
 `20260411_01`, `2cec060d9aa4` y `7ce73aae44ce`. El CI valida que los scripts sean
 interpretables, pero no oculta esta ramificación ni ejecuta migraciones. Su
 resolución debe diseñarse antes de crear el historial DBI independiente.
 
-No se declarará aprobado ningún resultado pendiente hasta observar la ejecución
-real y sus logs.
+La primera ejecución del PR (`30407020105`) reveló que Gitleaks no podía leer
+los metadatos del pull request con `contents: read` únicamente. El trabajo no
+había reportado un secreto: falló con `Resource not accessible by integration`.
+Se añadió el permiso mínimo `pull-requests: read`, se mantuvieron desactivados
+los comentarios y la repetición completa `30407127911` aprobó.
 
 ## Exclusiones confirmadas
 
