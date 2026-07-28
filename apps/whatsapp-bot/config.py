@@ -11,14 +11,14 @@ class Config:
     # Green API
     GREEN_API_INSTANCE = (os.getenv("GREEN_API_INSTANCE") or "").strip()
     GREEN_API_TOKEN = (os.getenv("GREEN_API_TOKEN") or "").strip()
-    GREEN_API_BASE_URL = (os.getenv("GREEN_API_BASE_URL") or "https://api.green-api.com").strip().rstrip("/")   
+    GREEN_API_BASE_URL = (os.getenv("GREEN_API_BASE_URL") or "https://api.green-api.com").strip().rstrip("/")
 
     # Google Sheets
-    GOOGLE_SHEET_ID = os.getenv("GOOGLE_SHEET_ID", "1RggJz98tnR86fo_AspwLWUVOIABn6vVrvojAkfQAqHc")
+    GOOGLE_SHEET_ID = (os.getenv("GOOGLE_SHEET_ID") or "").strip()
     GOOGLE_CREDENTIALS_JSON = os.getenv("GOOGLE_CREDENTIALS_JSON")
 
     # Número personal para notificaciones internas
-    NUMERO_PERSONAL_DALGORO = os.getenv("NUMERO_PERSONAL_DALGORO", "593984770663")
+    NUMERO_PERSONAL_DALGORO = (os.getenv("NUMERO_PERSONAL_DALGORO") or "").strip()
 
     # Comportamiento del bot
     AGRUPADOR_SEGUNDOS = int(os.getenv("AGRUPADOR_SEGUNDOS", "10"))
@@ -27,7 +27,6 @@ class Config:
 
     # Notificaciones internas al número personal
     ENVIAR_NOTIFICACIONES = os.getenv("ENVIAR_NOTIFICACIONES", "true").lower() == "true"
-
 
     # Documento institucional de servicios DALGORO
     # BOT_PUBLIC_URL debe ser la URL pública de Render, por ejemplo:
