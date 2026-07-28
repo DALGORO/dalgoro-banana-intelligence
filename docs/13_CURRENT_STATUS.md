@@ -1,7 +1,7 @@
 # 13 — Estado actual
 
 ## Versión
-0.1.2-ci-modular-rc
+0.1.2-ci-modular-rc2
 
 ## Terminado
 - Estructura inicial del monorepositorio.
@@ -11,7 +11,7 @@
 - CI básica.
 - `DBI-SEC-001`: auditoría de secretos, dependencias y estructura importada.
 
-## Ticket en ejecución
+## Ticket en revisión
 `DBI-CI-002` — Integración continua real e independiente por módulo.
 
 ### Alcance activo
@@ -21,7 +21,7 @@
 - Línea base de lint que impide aumentar los 115 avisos heredados.
 - Auditorías visibles de secretos y dependencias.
 
-### Validación local disponible
+### Validación ejecutada
 - Frontend `npm ci`: aprobado con caché temporal autorizada.
 - Frontend lint: 0 errores y 115 avisos con la línea base propuesta.
 - Frontend build: aprobado con Node 24.
@@ -34,14 +34,20 @@
 - Auditoría npm: ejecutada; mantiene hallazgos heredados sin declarar
   resolución.
 - Sintaxis de los tres smoke tests y parseo del workflow: aprobados.
-- Instalación completa del motor geoespacial: pendiente de GitHub Actions.
-- GitHub Actions del nuevo workflow: pendiente.
+- GitHub Actions `30407127911`: los cinco trabajos aprobaron.
+- Motor geoespacial: instalación completa, `pip check`, `compileall`,
+  importaciones y CLI aprobados en un entorno limpio.
+- Gitleaks: historial completo analizado sin secretos detectados.
+- Auditorías informativas: frontend 5 vulnerabilidades de producción; backend
+  81 hallazgos en 19 paquetes; bot 2 en 1 paquete; densidad 3 en 2 paquetes.
+  Ningún hallazgo se declara corregido en este ticket.
 
 ## Último ticket completado
 `DBI-SEC-001` — Auditoría de secretos, dependencias y estructura importada.
 
 ## Próximo ticket
-Se seleccionará después de cerrar `DBI-CI-002` y confirmar el orden maestro.
+`DBI-REPO-001` — Limpieza controlada de copias, respaldos y artefactos,
+condicionado a la revisión y fusión del PR de `DBI-CI-002`.
 
 ## No realizado todavía
 - No se ha fusionado código entre módulos.
