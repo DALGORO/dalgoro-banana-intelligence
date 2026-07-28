@@ -4,11 +4,11 @@
 
 - Ticket: `DBI-CI-002`
 - Issue: `#4`
-- Pull request: `#5` (borrador)
+- Pull request: `#5`
 - Fecha de inicio: 2026-07-28
 - Rama: `ci/DBI-CI-002-integracion-continua-modular`
 - Base: `main` en `dfed279a47f5459255b36688f415a2c87e5aca3f`
-- Ejecución verificada: `30407127911`
+- Ejecución técnica verificada antes del cierre: `30407408901`
 
 ## Objetivo
 
@@ -138,3 +138,15 @@ los comentarios y la repetición completa `30407127911` aprobó.
 - El flujo conversacional no cambia.
 - No se procesan datos agrícolas.
 - No se actualizan modelos de IA.
+
+## Cierre
+
+- Implementación limitada a los ocho archivos declarados.
+- Ejecución técnica previa al cierre `30407408901`: cinco de cinco trabajos
+  aprobados.
+- Sin comentarios, revisiones solicitando cambios ni hilos pendientes en el PR.
+- Fusión mediante `squash` autorizada el 2026-07-28.
+- Los riesgos heredados de Alembic, lint y dependencias permanecen documentados;
+  no se declaran corregidos por este ticket.
+- No se realizaron despliegues ni cambios en Render, PostgreSQL, Green API o
+  Google Sheets.
