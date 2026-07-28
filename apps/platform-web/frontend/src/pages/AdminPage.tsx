@@ -1,4 +1,5 @@
-import { FormEvent, useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
+import type { FormEvent } from "react";
 import { useNavigate } from "react-router-dom";
 import {
   api,
@@ -471,25 +472,6 @@ export default function AdminPage() {
       await loadUsers();
     } catch (err: any) {
       setError(err?.response?.data?.detail ?? "No se pudo eliminar definitivamente el usuario.");
-    }
-  };
-
-  const removeUser = async (user: UserRow) => {
-    const ok = window.confirm(`¿Seguro que deseas eliminar al usuario ${user.email}?`);
-    if (!ok) return;
-
-    resetMessages();
-
-    try {
-      await deleteAdminUser(user.id);
-      setSuccess("Usuario eliminado correctamente.");
-      if (selectedUserId === user.id) {
-        setSelectedUserId(null);
-        setDetail(null);
-      }
-      await loadUsers();
-    } catch (err: any) {
-      setError(err?.response?.data?.detail ?? "No se pudo eliminar el usuario.");
     }
   };
 

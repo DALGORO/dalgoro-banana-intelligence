@@ -1,5 +1,3 @@
-import React from "react";
-
 type Level = "BAJO" | "MEDIO" | "ALTO" | null | undefined;
 
 // Paletas con Tailwind (suaves, elegantes)

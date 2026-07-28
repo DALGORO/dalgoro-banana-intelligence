@@ -9,7 +9,7 @@ export default function Login(){
   const [loading, setLoading] = useState(false);
   const [err, setErr] = useState<string|undefined>();
 
-  async function onSubmit(e: React.FormEvent){
+  async function onSubmit(e: FormEvent){
     e.preventDefault();
     setErr(undefined); setLoading(true);
     try {

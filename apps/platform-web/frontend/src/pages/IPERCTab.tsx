@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useCallback } from "react";
+import { useEffect, useState, useCallback } from "react";
 import { useParams } from "react-router-dom";
 import { api } from "@/app/api";
 import { toast } from "react-toastify";
@@ -229,7 +229,6 @@ export default function IPERCTab() {
     { v: 25,  label: "Grave (G)" },
     { v: 10,  label: "Leve (L)" },
   ];
-  const NR_LABEL: Record<string,string> = { I:"Situación crítica. Suspender.", II:"Corregir de inmediato.", III:"Mejorar si es posible.", IV:"Mantener y comprobar." };
 
   const onSave = async (row: Row) => {
     if (!row) return;
@@ -389,8 +388,6 @@ export default function IPERCTab() {
               const live = calcLocal(r.nd, r.ne, r.nc);
               const np = live.np ?? r.np ?? "";
               const nr = live.nr ?? r.nr ?? "";
-              const interp = live.risk_interp || r.risk_interp || "";
-              const acc = live.acceptable || r.acceptable || "";
 
               const renderProcessCell = () => {
                 if (!r.__isNew) return r.process;

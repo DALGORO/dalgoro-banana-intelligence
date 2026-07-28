@@ -75,6 +75,8 @@ export default function CompanyEditModal({ open, company, onClose, onSaved }: Pr
 
   if (!open || !company) return null;
 
+  const companyId = company.id;
+
   async function onSubmit(e: React.FormEvent) {
     e.preventDefault();
     setSaving(true);
@@ -88,7 +90,7 @@ export default function CompanyEditModal({ open, company, onClose, onSaved }: Pr
         riesgo: (riesgo || "").toString().toUpperCase(),
         trabajadores: Number(trabajadores || 0),
       };
-      const { data } = await api.put(`/api/v1/companies/${company.id}`, payload);
+      const { data } = await api.put(`/api/v1/companies/${companyId}`, payload);
       onSaved(data);
     } catch (e: any) {
       setErr(e?.response?.data?.detail ?? "No se pudo guardar los cambios.");
