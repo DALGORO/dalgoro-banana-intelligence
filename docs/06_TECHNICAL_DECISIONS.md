@@ -1,32 +1,37 @@
 # 06 — Decisiones técnicas
 
 ## DEC-001
+
 **Decisión:** usar un monorepositorio modular.
 
 **Motivo:** los módulos comparten usuarios, fincas, lotes, contratos y datos,
 pero deben poder evolucionar y probarse por separado.
 
 ## DEC-002
+
 **Decisión:** no subir ortofotos, GeoPackage, pesos de modelos, datasets,
 resultados generados ni credenciales a Git.
 
 **Motivo:** seguridad, tamaño y rendimiento del repositorio.
 
 ## DEC-003
+
 **Decisión:** conservar los sistemas importados sin refactorización destructiva
 durante el primer commit.
 
 **Motivo:** mantener una línea base reproducible antes de integrar.
 
 ## DEC-004
+
 **Decisión:** considerar `apps/platform-web/backend` como candidato a API central
 de DALGORO Banana Intelligence.
 
 **Motivo:** ya contiene FastAPI, autenticación, usuarios, empresas, documentos,
-suscripciones, auditoría y migraciones. La adaptación definitiva se diseñará en
-`DBI-ARC-001`; `DBI-SEC-001` no fusiona ni refactoriza módulos.
+suscripciones, auditoría y migraciones. La adaptación definitiva se define en
+`DBI-ARC-001` y se implementará por tickets posteriores.
 
 ## DEC-005
+
 **Decisión:** aislar físicamente PostgreSQL/PostGIS de los sistemas existentes.
 
 **Motivo:** evitar que una conexión, migración o error operativo de la nueva
@@ -45,15 +50,17 @@ plataforma altere bases que ya funcionan en producción.
 - Ejecutar migraciones de producción solo con aprobación explícita.
 
 ## DEC-006
+
 **Decisión:** no registrar payloads completos de webhooks ni datos personales en
 logs de infraestructura.
 
 **Motivo:** los eventos pueden incluir teléfonos, mensajes, ubicaciones y otros
 datos personales. Los logs operativos deben limitarse a metadatos técnicos
 mínimos; el almacenamiento funcional autorizado en Google Sheets se mantiene
-sin cambios en este ticket.
+sin cambios hasta su migración controlada.
 
 ## DEC-007
+
 **Decisión:** validar cada módulo en un trabajo de CI independiente y sin acceso
 a servicios operativos.
 
@@ -78,6 +85,7 @@ funcionen.
   suministro.
 
 ## DEC-008
+
 **Decisión:** mantener una sola fuente canónica por módulo y conservar las
 versiones históricas exclusivamente en el historial de Git.
 
@@ -98,3 +106,96 @@ corrección se aplique al archivo equivocado.
   específico evalúe su sustitución o traslado.
 - No reescribir el historial del repositorio como parte de una limpieza
   ordinaria.
+
+## DEC-009
+
+**Decisión:** evolucionar `apps/platform-web/backend` como plano de control de
+DALGORO Banana Intelligence mediante adaptación incremental.
+
+**Motivo:** el backend ya ofrece autenticación, organizaciones, autorización,
+auditoría y una superficie HTTP que puede reutilizarse. Reescribirlo o renombrar
+masivamente el dominio SST antes de disponer de contratos y una base DBI
+aislada aumentaría el riesgo.
+
+**Controles obligatorios:**
+
+- Conservar los routers y modelos heredados hasta que exista una migración
+  explícita y probada.
+- Añadir el dominio agrícola en módulos nuevos y delimitados.
+- Evitar que los routers controlen directamente transporte, almacenamiento y
+  procesamiento geoespacial.
+- No declarar un endpoint, tabla o migración como existente hasta que su ticket
+  lo implemente y pruebe.
+
+## DEC-010
+
+**Decisión:** ejecutar el análisis geoespacial como trabajo asíncrono en un
+worker separado.
+
+**Motivo:** el pipeline tiene 17 etapas, usa PyTorch, GDAL y artefactos grandes,
+y puede requerir CPU/GPU y tiempos incompatibles con una petición HTTP
+síncrona.
+
+**Controles obligatorios:**
+
+- La API crea y consulta trabajos; no ejecuta el pipeline dentro de su proceso.
+- El worker recibe referencias autorizadas, nunca rutas locales del cliente.
+- El worker usa almacenamiento temporal descartable.
+- Los resultados se publican mediante manifiesto versionado e idempotente.
+- El worker no escribe directamente en tablas de dominio.
+- Los reintentos no pueden duplicar trabajos ni artefactos canónicos.
+
+## DEC-011
+
+**Decisión:** separar datos transaccionales, geometrías consultables y archivos
+pesados por responsabilidad.
+
+**Motivo:** PostgreSQL/PostGIS es adecuado para relaciones, estado, auditoría y
+consultas espaciales, pero no para ortofotos, modelos, PDF, XLSX o GeoPackage
+pesados.
+
+**Controles obligatorios:**
+
+- PostgreSQL/PostGIS conserva metadatos, relaciones y geometrías operativas.
+- El almacenamiento de objetos conserva binarios privados e inmutables.
+- Cada artefacto tiene huella SHA-256, tipo, tamaño, origen y etapa productora.
+- Las descargas usan autorización temporal.
+- Google Sheets mantiene la autoridad del bot solo durante la transición.
+- No se permite doble autoridad silenciosa entre Sheets y PostgreSQL.
+
+## DEC-012
+
+**Decisión:** versionar contratos de trabajos, resultados y eventos desde su
+primera implementación.
+
+**Motivo:** la API, el worker y el bot evolucionarán a ritmos distintos. Un
+contrato estable y explícito evita importaciones cruzadas y cambios
+incompatibles.
+
+**Controles obligatorios:**
+
+- Incluir `schema_version`, identificador de correlación e idempotencia.
+- Validar estados y transiciones.
+- Referenciar activos por identificadores internos u objetos autorizados.
+- Rechazar campos críticos desconocidos en comandos de ejecución.
+- Mantener compatibilidad o migración explícita entre versiones.
+- No interpretar los ejemplos de `DBI-ARC-001` como endpoints ya implementados.
+
+## DEC-013
+
+**Decisión:** tratar toda salida agronómica e inteligencia artificial como
+evidencia trazable y sujeta a aprobación.
+
+**Motivo:** una detección, una inferencia geométrica y una recomendación
+profesional no tienen el mismo significado ni nivel de certeza.
+
+**Controles obligatorios:**
+
+- Clasificar cada hallazgo como dato observado, inferencia, hipótesis o
+  recomendación.
+- Registrar fuentes, versión del modelo, configuración, nivel de confianza y
+  responsable.
+- Las recomendaciones no aprobadas se muestran como borrador técnico.
+- Un modelo Challenger no sustituye al Champion automáticamente.
+- La promoción requiere métricas comparables, revisión y aprobación registrada.
+- Conservar procedencia y auditoría de cualquier corrección humana.
