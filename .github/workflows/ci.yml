@@ -7,7 +7,6 @@ name: CI modular
       - develop
       - "audit/**"
       - "ci/**"
-      - "chore/**"
       - "feat/**"
       - "fix/**"
   pull_request:
@@ -102,10 +101,17 @@ jobs:
         run: python -m pip check
 
       - name: Compilar backend y migraciones
-        run: python -m compileall app alembic
+        run: python -m compileall app alembic dbi_alembic
 
-      - name: Validar grafo Alembic sin ejecutar migraciones
-        run: alembic heads
+      - name: Validar grafos Alembic sin ejecutar migraciones
+        run: |
+          alembic heads
+          alembic -c dbi_alembic.ini heads
+
+      - name: Validar aislamiento DBI y SQL offline
+        env:
+          PYTHONPATH: .
+        run: python ../../../.github/scripts/ci_dbi_database_isolation.py
 
       - name: Ejecutar importación y healthcheck
         env:

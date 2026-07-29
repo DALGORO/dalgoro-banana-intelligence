@@ -2,7 +2,7 @@
 
 ## Versión
 
-0.2.0-architecture
+0.3.0-data-isolation
 
 ## Terminado
 
@@ -20,66 +20,74 @@
 
 `DBI-ARC-001` — Arquitectura objetivo, límites y contratos de integración.
 
-## Ticket cerrado
+## Ticket actual
 
-`DBI-ARC-001` — Arquitectura objetivo, límites y contratos de integración.
+`DBI-DATA-001` — Base DBI aislada e historial Alembic independiente.
 
-- Issue: #8
-- Rama: `architecture/DBI-ARC-001-limites-contratos`
-- Pull request: #9
-- Estado: completado
-- Base: `main` en `14775cf6b4cd8afa47e22e1728ad44cc55187509`
+- Issue: #10
+- Rama: `feat/DBI-DATA-001-aislamiento-base-dbi`
+- Pull request: pendiente
+- Estado: en implementación
+- Base: `main` en `59652b8afe97ca59991547c1d39ab4fd56bcb38e`
 
 ### Alcance
 
-- Confirmar el papel del backend FastAPI como plano de control.
-- Separar API, worker geoespacial, frontend y adaptador WhatsApp.
-- Definir propiedad de datos y artefactos.
-- Definir contratos conceptuales versionados e idempotentes.
-- Definir trazabilidad agronómica y gobierno Champion/Challenger.
-- Establecer la secuencia segura hacia `DBI-DATA-001`.
+- Añadir configuración exclusiva mediante `DBI_ENVIRONMENT` y
+  `DBI_DATABASE_URL`.
+- Validar PostgreSQL y nombres de base autorizados por ambiente.
+- Crear metadatos SQLAlchemy DBI independientes.
+- Crear un entorno Alembic DBI con tabla de versión propia.
+- Iniciar el historial en una revisión vacía y no destructiva.
+- Añadir pruebas CI offline para impedir mezcla con la base heredada.
 
 ### Archivos involucrados
 
+- `apps/platform-web/backend/app/db/dbi_config.py`
+- `apps/platform-web/backend/app/db/dbi_base.py`
+- `apps/platform-web/backend/dbi_alembic.ini`
+- `apps/platform-web/backend/dbi_alembic/`
+- `apps/platform-web/backend/.env.example`
+- `.github/scripts/ci_dbi_database_isolation.py`
+- `.github/workflows/ci.yml`
 - `docs/01_SYSTEM_ARCHITECTURE.md`
 - `docs/06_TECHNICAL_DECISIONS.md`
 - `docs/13_CURRENT_STATUS.md`
-- `docs/17_ARCHITECTURE_DBI-ARC-001.md`
+- `docs/18_DATABASE_ISOLATION_DBI-DATA-001.md`
 
 ### Exclusiones
 
-- No se modifica código funcional.
-- No se añaden endpoints, tablas, migraciones ni dependencias.
-- No se crea ni consulta PostgreSQL/PostGIS.
+- No se crea ni consulta una base PostgreSQL/PostGIS.
+- No se crean extensiones, esquemas, tablas de dominio o roles.
+- No se ejecutan migraciones online.
+- No se modifica `DATABASE_URL`, `app/core/config.py` o `app/db/session.py`.
+- No se modifica el historial heredado `alembic/`.
 - No se modifican Render, Green API o Google Sheets.
-- No se procesa una ortofoto ni se descarga un modelo.
-- No se actualiza ni promueve un modelo de IA.
+- No se cambia frontend, bot, motor geoespacial o modelos de IA.
 
 ### Validación ejecutada
 
-- Diff remoto: cuatro documentos; tres modificados y uno añadido.
-- Rama: cero commits por detrás de `main`.
-- Contenido remoto coincidente con los archivos validados localmente.
-- Markdownlint: cero errores con longitud de tablas excluida.
-- Cinco ejemplos JSON analizados correctamente.
-- Trece decisiones técnicas consecutivas.
-- GitHub Actions `30420556081`: primera ejecución con seis de seis trabajos aprobados.
-- GitHub Actions `30420731911`: seis de seis trabajos aprobados después de
-  las precisiones documentales.
-- GitHub Actions `30420894766`: ejecución definitiva con seis de seis trabajos
-  aprobados sobre el SHA validado `9e8a1b0e`.
-- No se consultaron servicios ni bases operativas.
+- Compilación Python de `app`, `alembic`, `dbi_alembic` y el control CI:
+  aprobada.
+- Dependencias focalizadas: `pip check` aprobado.
+- Historial heredado: tres cabezas confirmadas e intactas.
+- Historial DBI: raíz y cabeza únicas `dbi_0001_baseline`.
+- Matriz de configuración: cuatro ambientes válidos y cinco escenarios de
+  rechazo aprobados.
+- SQL DBI generado en modo offline con `alembic_version_dbi`.
+- SQL offline sin tablas `users`, `companies` o `documents`.
+- Ninguna conexión externa ni migración online ejecutada.
+- GitHub Actions: pendiente del Draft PR.
 
 ## Próximo paso
 
-Iniciar `DBI-DATA-001`: base DBI aislada e historial Alembic independiente,
-mediante un Issue y una rama propios. Ese ticket deberá diseñar y probar la
-configuración sin tocar bases productivas.
+Publicar el cambio validado, abrir el Draft PR y verificar todos los trabajos de
+GitHub Actions antes de solicitar revisión. La creación de infraestructura o una
+migración online queda fuera de este ticket.
 
 ## Riesgos heredados abiertos
 
 - El backend importado continúa usando `DATABASE_URL`.
-- Alembic conserva tres cabezas heredadas: `20260411_01`, `2cec060d9aa4` y
+- Alembic heredado conserva tres cabezas: `20260411_01`, `2cec060d9aa4` y
   `7ce73aae44ce`.
 - El middleware de suscripción permite continuar ante varias excepciones.
 - El bot depende actualmente de Green API y Google Sheets.
@@ -90,12 +98,12 @@ configuración sin tocar bases productivas.
 
 ## No realizado todavía
 
-- No se ha fusionado código entre módulos.
-- No existe todavía una base PostgreSQL/PostGIS unificada.
-- No se ha creado ni modificado ninguna base DBI.
-- No se han ejecutado migraciones.
-- No existe todavía el dashboard agrícola.
-- No existe todavía el mapa cronológico.
-- No se han cambiado Green API, Google Sheets ni la configuración de Render.
+- No se ha creado una base PostgreSQL/PostGIS DBI.
+- No se han creado roles `dbi_migrator`, `dbi_app` o `dbi_readonly`.
+- No se ha habilitado PostGIS.
+- No se han creado modelos o tablas del dominio agrícola.
+- No se ha conectado el backend heredado al entorno DBI.
+- No existe todavía el dashboard agrícola o el mapa cronológico.
+- No se han cambiado Green API, Google Sheets o Render.
 - No se ha cambiado la lógica conversacional del bot.
 - No se han actualizado modelos de IA.

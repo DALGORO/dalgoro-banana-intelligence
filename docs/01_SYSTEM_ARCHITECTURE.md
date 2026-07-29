@@ -2,12 +2,12 @@
 
 ## Estado de la decisión
 
-La arquitectura objetivo se define en `DBI-ARC-001`. Este ticket establece
-límites y contratos; no integra módulos, no crea bases y no ejecuta
-migraciones.
+La arquitectura objetivo se define en `DBI-ARC-001`. `DBI-DATA-001` implementa
+la primera barrera de datos: configuración DBI validada y un entorno Alembic
+independiente. Ninguno de los dos tickets integra módulos o crea una base.
 
-El diseño detallado y su evidencia están en
-`docs/17_ARCHITECTURE_DBI-ARC-001.md`.
+El diseño y la evidencia están en `docs/17_ARCHITECTURE_DBI-ARC-001.md` y
+`docs/18_DATABASE_ISOLATION_DBI-DATA-001.md`.
 
 ## Módulos existentes
 
@@ -92,8 +92,19 @@ estado y trazabilidad.
 - Las migraciones de producción requerirán aprobación explícita.
 - La aplicación, el migrador y los lectores usarán roles separados.
 
-Estas bases no se crean en `DBI-ARC-001`. Su implementación corresponde a
-`DBI-DATA-001`.
+`DBI-DATA-001` materializa estos controles sin aprovisionar infraestructura:
+
+- `app/db/dbi_config.py` exige `DBI_ENVIRONMENT` y `DBI_DATABASE_URL`;
+- los nombres autorizados son `dbi_development`, `dbi_test`, `dbi_staging` y
+  `dbi_production`;
+- `dbi_alembic.ini` utiliza exclusivamente `dbi_alembic/`;
+- el historial DBI comienza en `dbi_0001_baseline`;
+- la tabla de versión se denomina `alembic_version_dbi`;
+- `alembic/`, `app/core/config.py` y `app/db/session.py` permanecen heredados.
+
+La existencia de esta configuración no significa que una base, esquema, rol o
+extensión haya sido creado. Cualquier migración online requiere un ticket y una
+aprobación explícitos.
 
 ## Dependencias permitidas
 
@@ -118,8 +129,8 @@ Estas bases no se crean en `DBI-ARC-001`. Su implementación corresponde a
 ## Orden de implementación
 
 1. `DBI-ARC-001`: arquitectura, límites y contratos.
-2. `DBI-DATA-001`: base DBI aislada e historial Alembic independiente.
-3. Esqueleto de dominio y contratos versionados en la API.
+2. `DBI-DATA-001`: configuración DBI aislada e historial Alembic independiente.
+3. Esqueleto de dominio agrícola y contratos versionados en la API.
 4. Orquestación asíncrona y adaptador del worker geoespacial.
 5. Integración del dashboard y la PWA.
 6. Migración controlada del bot y conciliación con Google Sheets.
