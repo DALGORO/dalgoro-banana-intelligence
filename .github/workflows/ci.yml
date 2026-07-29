@@ -123,6 +123,11 @@ jobs:
           PYTHONPATH: .
         run: python ../../../.github/scripts/ci_map_contract.py
 
+      - name: Validar contrato de trabajo geoespacial
+        env:
+          PYTHONPATH: .
+        run: python ../../../.github/scripts/ci_analysis_job_contract.py
+
       - name: Ejecutar importación y healthcheck
         env:
           PYTHONPATH: .

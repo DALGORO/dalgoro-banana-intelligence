@@ -2,7 +2,7 @@
 
 ## Versión
 
-0.5.0-agricultural-domain
+0.6.0-analysis-job-contract
 
 ## Terminado
 
@@ -18,18 +18,19 @@
 - `DBI-DATA-001`: base DBI aislada e historial Alembic independiente.
 - `DBI-MAP-001`: interfaz cronológica de mapas y contrato v1.
 - `DBI-DATA-002`: persistencia mínima de finca, lote y campaña.
+- `DBI-JOB-001`: contratos v1 y máquina de estados geoespacial.
 
 ## Último ticket completado
 
-`DBI-DATA-002` — Persistencia mínima de finca, lote y campaña.
+`DBI-JOB-001` — Contratos v1 y máquina de estados geoespacial.
 
-- Issue: #14
-- Pull request: #15
+- Issue: #16
+- Pull request: #17
 - Estado: completado
-- SHA final validado: `7933181459a1b04c666d80d8b776454c69a50108`.
-- GitHub Actions `30458515477`: seis de seis trabajos aprobados.
-- Diff: 13 archivos; seis añadidos y siete modificados.
-- Conexiones externas y migraciones online: cero.
+- SHA final validado: `c5820ff6ddc4a774c7d14a8c0716f19c85819fd3`.
+- GitHub Actions `30462722323`: seis de seis trabajos aprobados.
+- Diff: 10 archivos; seis añadidos y cuatro modificados.
+- Conexiones externas y ejecución del pipeline: cero.
 
 ## Ticket actual
 
@@ -37,9 +38,9 @@ Ninguno.
 
 ## Próximo paso
 
-Seleccionar el siguiente ticket desde `main`. Crear infraestructura, habilitar
-PostGIS, insertar campañas reales o ejecutar migraciones online continúa
-requiriendo aprobación explícita.
+Seleccionar el siguiente ticket desde `main`. Crear persistencia operativa,
+cola, almacenamiento o ejecución del worker continúa requiriendo aprobación
+explícita.
 
 ## Riesgos heredados abiertos
 
@@ -59,10 +60,12 @@ requiriendo aprobación explícita.
 - No se ha creado una base PostgreSQL/PostGIS DBI.
 - No se han creado roles `dbi_migrator`, `dbi_app` o `dbi_readonly`.
 - No se ha habilitado PostGIS.
-- Los modelos y la migración del dominio agrícola están integrados en código;
-  no se han aplicado a una base.
+- Los modelos y la migración del dominio agrícola no se han aplicado a una base.
 - No se ha conectado el backend heredado al entorno DBI.
-- El mapa cronológico v1 todavía no consulta persistencia y no dispone de
+- No se persisten trabajos, intentos, activos, artefactos o hallazgos.
+- No existe cola, broker, productor, consumidor o almacenamiento privado.
+- El adaptador del worker no ejecuta el pipeline ni resuelve activos.
+- El mapa cronológico todavía no consulta persistencia y no dispone de
   geometrías, tiles o fechas reales.
 - No se han cambiado Green API, Google Sheets o Render.
 - No se ha cambiado la lógica conversacional del bot.
