@@ -11,12 +11,16 @@ de finca, lote y campaña, todavía sin aplicar migraciones o conectar la API.
 trabajo geoespacial, sin cola, persistencia operativa o ejecución del pipeline.
 `DBI-JOB-002` añade persistencia transaccional de trabajos e intentos en
 metadatos DBI, todavía sin sesión, endpoint, cola o ejecución.
+`DBI-ASSET-001` añade metadatos verificables de activos de entrada y artefactos,
+todavía sin sesión, repositorio, almacenamiento de objetos o ejecución.
 
 El diseño y la evidencia están en `docs/17_ARCHITECTURE_DBI-ARC-001.md` y
 `docs/18_DATABASE_ISOLATION_DBI-DATA-001.md`. El corte cartográfico se documenta
 en `docs/19_MAP_TIMELINE_DBI-MAP-001.md`, el dominio agrícola en
-`docs/20_AGRICULTURAL_DOMAIN_DBI-DATA-002.md` y la frontera del trabajo en
-`docs/21_ANALYSIS_JOB_CONTRACT_DBI-JOB-001.md`.
+`docs/20_AGRICULTURAL_DOMAIN_DBI-DATA-002.md`, la frontera del trabajo en
+`docs/21_ANALYSIS_JOB_CONTRACT_DBI-JOB-001.md`, su persistencia en
+`docs/22_ANALYSIS_JOB_PERSISTENCE_DBI-JOB-002.md` y los metadatos de objetos en
+`docs/23_ASSET_PERSISTENCE_DBI-ASSET-001.md`.
 
 ## Módulos existentes
 
@@ -185,6 +189,23 @@ La persistencia del esquema no equivale a operación: todavía no existe motor,
 sesión, repositorio, endpoint, autorización, tabla de activos, cola,
 almacenamiento de objetos o ejecución del worker.
 
+## Persistencia de activos y artefactos v1
+
+`DBI-ASSET-001` incorpora `dbi_analysis_input_assets` y
+`dbi_analysis_artifacts` sobre `DBIBase`. Los activos de entrada conservan
+tenant, finca, lote opcional, tipo, estado, clave relativa de objeto, MIME,
+tamaño y SHA-256. Los artefactos materializan `artifact-manifest.v1` con rol,
+etapa productora, objeto, huella y CRS opcional.
+
+Una clave compuesta en los intentos permite que cada artefacto referencie
+simultáneamente `attempt_id + job_id`. Así, la base no admite que el intento
+pertenezca a otro trabajo. Los nueve roles y las 17 etapas permanecen alineados
+con los enums del contrato.
+
+La revisión `dbi_0004_assets_artifacts` se valida solo mediante SQL offline.
+No existe conexión a un bucket, resolución de objetos, URL firmada, sesión,
+repositorio, endpoint, cola o ejecución del worker.
+
 ## Dependencias permitidas
 
 | Origen | Destino permitido |
@@ -213,7 +234,8 @@ almacenamiento de objetos o ejecución del worker.
 4. `DBI-DATA-002`: persistencia mínima de finca, lote y campaña en DBI.
 5. `DBI-JOB-001`: contratos v1, estados y adaptador puro del worker.
 6. `DBI-JOB-002`: persistencia offline de trabajos e intentos.
-7. Gestión de activos, repositorio DBI, cola y ejecución del worker.
-8. Integración del dashboard y la PWA.
-9. Migración controlada del bot y conciliación con Google Sheets.
-10. Observabilidad, gobierno de modelos y despliegues por ambiente.
+7. `DBI-ASSET-001`: persistencia offline de activos y artefactos.
+8. Repositorio DBI, cola y ejecución del worker.
+9. Integración del dashboard y la PWA.
+10. Migración controlada del bot y conciliación con Google Sheets.
+11. Observabilidad, gobierno de modelos y despliegues por ambiente.

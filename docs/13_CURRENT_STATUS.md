@@ -2,7 +2,7 @@
 
 ## Versión
 
-0.7.0-analysis-job-persistence
+0.8.0-asset-persistence
 
 ## Terminado
 
@@ -35,13 +35,17 @@
 
 ## Ticket actual
 
-Ninguno.
+`DBI-ASSET-001` — Persistencia offline de activos y artefactos.
+
+- Issue: #20
+- Rama: `feat/DBI-ASSET-001-persistencia-activos-artefactos`
+- Estado: en implementación.
 
 ## Próximo paso
 
-Definir el siguiente ticket desde la secuencia arquitectónica documentada.
-Crear una sesión, repositorio, endpoint, cola, almacenamiento o ejecución del
-worker continúa requiriendo un ticket y aprobación explícitos.
+Completar la validación remota de `DBI-ASSET-001` y someter su Draft PR a
+revisión. Crear una sesión, repositorio, endpoint, cola, almacenamiento o
+ejecución del worker continúa requiriendo otro ticket y aprobación explícitos.
 
 ## Riesgos heredados abiertos
 
@@ -64,7 +68,8 @@ worker continúa requiriendo un ticket y aprobación explícitos.
 - Los modelos y la migración del dominio agrícola no se han aplicado a una base.
 - No se ha conectado el backend heredado al entorno DBI.
 - Los esquemas de trabajos e intentos existen, pero no se han aplicado a una base.
-- No se persisten activos, artefactos o hallazgos.
+- Los modelos de activos y artefactos existen, pero no se han aplicado a una
+  base ni conectado a almacenamiento; no se persisten hallazgos.
 - No existe cola, broker, productor, consumidor o almacenamiento privado.
 - El adaptador del worker no ejecuta el pipeline ni resuelve activos.
 - El mapa cronológico todavía no consulta persistencia y no dispone de

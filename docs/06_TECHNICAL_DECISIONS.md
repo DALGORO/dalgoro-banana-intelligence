@@ -321,3 +321,27 @@ duplicó o perdió un trabajo.
 - No crear motor, sesión, repositorio o endpoint en `DBI-JOB-002`.
 - No crear cola, broker, almacenamiento o ejecución del pipeline.
 - Validar metadatos y migración exclusivamente en modo offline.
+
+## DEC-019
+
+**Decisión:** persistir metadatos de activos y artefactos antes de conectar
+almacenamiento de objetos, sesiones, endpoints o cola.
+
+**Motivo:** la pertenencia, integridad y verificabilidad de entradas y salidas
+deben existir antes de introducir transferencia de binarios o efectos externos.
+Conectar simultáneamente esquema, bucket, mensajería y worker impediría aislar
+referencias cruzadas, objetos inválidos o artefactos duplicados.
+
+**Controles obligatorios:**
+
+- Usar exclusivamente `DBIBase` y el historial `dbi_alembic`.
+- Separar activos de entrada y artefactos producidos.
+- Relacionar los activos solo con finca y lote DBI.
+- Vincular cada artefacto con un trabajo y un intento coherentes.
+- Conservar claves relativas de objeto, MIME, tamaño positivo y SHA-256.
+- Alinear roles y etapas con `artifact-manifest.v1`.
+- No almacenar URL, credencial o ruta local como clave de objeto.
+- No crear claves foráneas hacia modelos heredados.
+- No crear motor, sesión, repositorio o endpoint en `DBI-ASSET-001`.
+- No conectar bucket, SDK, URL firmada, cola o ejecución del pipeline.
+- Validar metadatos y migración exclusivamente en modo offline.

@@ -133,6 +133,11 @@ jobs:
           PYTHONPATH: .
         run: python ../../../.github/scripts/ci_analysis_job_persistence.py
 
+      - name: Validar persistencia de activos y artefactos
+        env:
+          PYTHONPATH: .
+        run: python ../../../.github/scripts/ci_asset_persistence.py
+
       - name: Ejecutar importación y healthcheck
         env:
           PYTHONPATH: .
