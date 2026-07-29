@@ -7,8 +7,8 @@
 - Fecha: 2026-07-29
 - Rama: `feat/DBI-DATA-002-dominio-agricola-v1`
 - Base: `main` en `de5a5412a254c7d382c98ac4284e948e217fee2a`
-- Pull request: pendiente
-- Estado: en implementación
+- Pull request: #15
+- Estado: en revisión
 
 ## Objetivo
 
@@ -195,7 +195,19 @@ Las pruebas focalizadas usaron Alembic 1.17.0, SQLAlchemy 2.0.44 y psycopg
 
 ## Validación remota
 
-Pendiente de GitHub Actions sobre el Draft PR.
+GitHub Actions `30458247290` aprobó seis de seis trabajos sobre el SHA técnico
+`91d5e8ee2706d80e330f6a36868ad8c289c00d91`.
+
+La ejecución confirmó:
+
+- higiene del repositorio y activos canónicos;
+- frontend con instalación, lint y build completos;
+- backend con dependencias, compilación, ambos grafos Alembic, aislamiento DBI,
+  dominio agrícola offline, contrato cartográfico y healthcheck;
+- bot de WhatsApp con instalación, compilación y smoke test;
+- motor de densidad con dependencias geoespaciales, compilación, importaciones
+  y CLI;
+- detección de secretos sobre el historial.
 
 ## Criterios de aceptación
 
@@ -209,7 +221,7 @@ Pendiente de GitHub Actions sobre el Draft PR.
 | Historial lineal | Una base y una cabeza DBI |
 | Herencia intacta | Control de tres cabezas heredadas |
 | SQL seguro | Generación offline sin extensiones |
-| CI completa | Pendiente |
+| CI completa | GitHub Actions `30458247290`: seis de seis |
 | Estado documentado | Documentos 01, 06, 13 y 20 |
 
 ## Naturaleza de los datos

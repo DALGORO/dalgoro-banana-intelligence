@@ -35,16 +35,19 @@
 `DBI-DATA-002` — Persistencia mínima de finca, lote y campaña.
 
 - Issue: #14
+- Pull request: #15
 - Rama: `feat/DBI-DATA-002-dominio-agricola-v1`
-- Estado: en implementación
+- Estado: en revisión
 - Base: `de5a5412a254c7d382c98ac4284e948e217fee2a`
+- SHA técnico validado: `91d5e8ee2706d80e330f6a36868ad8c289c00d91`
+- GitHub Actions `30458247290`: seis de seis trabajos aprobados.
 - Conexiones externas y migraciones online: cero.
 
 ## Próximo paso
 
-Validar el esquema DBI, la revisión `dbi_0002_agricultural_domain` y el Draft
-PR del Issue #14. Crear infraestructura, habilitar PostGIS, insertar campañas
-reales o ejecutar migraciones online continúa requiriendo aprobación explícita.
+Revisar el Draft PR #15 y su ejecución final. Crear infraestructura, habilitar
+PostGIS, insertar campañas reales o ejecutar migraciones online continúa
+requiriendo aprobación explícita.
 
 ## Riesgos heredados abiertos
 
