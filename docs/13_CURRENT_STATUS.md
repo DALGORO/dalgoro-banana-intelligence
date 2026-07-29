@@ -2,7 +2,7 @@
 
 ## Versión
 
-0.5.0-agricultural-domain
+0.6.0-analysis-job-contract
 
 ## Terminado
 
@@ -26,20 +26,39 @@
 - Issue: #14
 - Pull request: #15
 - Estado: completado
-- SHA final validado: `7933181459a1b04c666d80d8b776454c69a50108`.
-- GitHub Actions `30458515477`: seis de seis trabajos aprobados.
-- Diff: 13 archivos; seis añadidos y siete modificados.
+- Commit fusionado: `b70889179baa031f48124b369fe393a702cbfd81`.
 - Conexiones externas y migraciones online: cero.
 
 ## Ticket actual
 
-Ninguno.
+`DBI-JOB-001` — Contratos v1 y máquina de estados geoespacial.
+
+- Issue: #16
+- Rama: `feat/DBI-JOB-001-contratos-trabajos-v1`
+- Base: `main` en `b70889179baa031f48124b369fe393a702cbfd81`
+- Pull request: pendiente
+- Estado: en implementación
+
+### Alcance
+
+- Contratos estrictos de comando, resultado, manifiesto y hallazgo.
+- Máquina de estados pura con idempotencia y reintento autorizado.
+- Adaptador del worker basado en biblioteca estándar.
+- Paridad de las 17 etapas del pipeline.
+- Validación CI completamente offline.
+
+### Exclusiones
+
+- Sin tablas, migraciones, motores o sesiones DBI.
+- Sin endpoint, cola, broker, consumidor o almacenamiento de objetos.
+- Sin PostGIS, ortofotos, inferencia o ejecución del pipeline.
+- Sin cambios en Render, Green API, Google Sheets o modelos de IA.
 
 ## Próximo paso
 
-Seleccionar el siguiente ticket desde `main`. Crear infraestructura, habilitar
-PostGIS, insertar campañas reales o ejecutar migraciones online continúa
-requiriendo aprobación explícita.
+Publicar el Draft PR de `DBI-JOB-001` y validar los seis trabajos de GitHub
+Actions. La cola, persistencia operativa, almacenamiento y ejecución del worker
+requieren tickets posteriores y aprobación explícita.
 
 ## Riesgos heredados abiertos
 
@@ -59,10 +78,12 @@ requiriendo aprobación explícita.
 - No se ha creado una base PostgreSQL/PostGIS DBI.
 - No se han creado roles `dbi_migrator`, `dbi_app` o `dbi_readonly`.
 - No se ha habilitado PostGIS.
-- Los modelos y la migración del dominio agrícola están integrados en código;
-  no se han aplicado a una base.
+- Los modelos y la migración del dominio agrícola no se han aplicado a una base.
 - No se ha conectado el backend heredado al entorno DBI.
-- El mapa cronológico v1 todavía no consulta persistencia y no dispone de
+- No se persisten trabajos, intentos, activos, artefactos o hallazgos.
+- No existe cola, broker, productor, consumidor o almacenamiento privado.
+- El adaptador del worker no ejecuta el pipeline ni resuelve activos.
+- El mapa cronológico todavía no consulta persistencia y no dispone de
   geometrías, tiles o fechas reales.
 - No se han cambiado Green API, Google Sheets o Render.
 - No se ha cambiado la lógica conversacional del bot.

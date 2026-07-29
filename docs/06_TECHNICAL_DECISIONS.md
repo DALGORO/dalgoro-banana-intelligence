@@ -271,3 +271,30 @@ y PostGIS impediría aislar riesgos y verificar el historial de migraciones.
 - Validar la revisión mediante SQL offline, sin conexiones.
 - Mantener el mapa cronológico en estado vacío hasta un ticket de acceso
   autorizado.
+
+## DEC-017
+
+**Decisión:** implementar contratos estrictos y una máquina de estados pura
+antes de incorporar cola, persistencia de trabajos o ejecución remota.
+
+**Motivo:** conectar simultáneamente FastAPI, almacenamiento, mensajería y el
+pipeline con PyTorch/GDAL impediría aislar errores de contrato, idempotencia y
+seguridad de referencias.
+
+**Controles obligatorios:**
+
+- Versionar comando, resultado y manifiesto desde su primera implementación.
+- Rechazar campos desconocidos en la API y en el adaptador del worker.
+- Transportar identificadores internos de activos, nunca credenciales, URLs o
+  rutas locales.
+- Mantener el adaptador del worker independiente del backend.
+- No importar ni ejecutar el orquestador desde la validación del comando.
+- Distinguir estado global del trabajo de las 17 etapas internas del pipeline.
+- Tratar la repetición del mismo estado como un no-op idempotente.
+- Exigir autorización explícita para el reintento `failed → queued`.
+- Mantener `succeeded` y `canceled` como estados terminales.
+- Exigir tamaño positivo, huella SHA-256, rol y etapa en cada manifiesto.
+- Conservar clasificación, fuentes, confianza y revisión profesional en cada
+  hallazgo futuro.
+- No crear endpoints, tablas, migraciones, colas o infraestructura en
+  `DBI-JOB-001`.

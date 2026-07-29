@@ -7,11 +7,14 @@ la primera barrera de datos: configuración DBI validada y un entorno Alembic
 independiente. `DBI-MAP-001` implementa el primer contrato HTTP y consumidor
 React del mapa cronológico. `DBI-DATA-002` añade el modelo persistente mínimo
 de finca, lote y campaña, todavía sin aplicar migraciones o conectar la API.
+`DBI-JOB-001` establece contratos versionados y reglas puras para el futuro
+trabajo geoespacial, sin cola, persistencia operativa o ejecución del pipeline.
 
 El diseño y la evidencia están en `docs/17_ARCHITECTURE_DBI-ARC-001.md` y
 `docs/18_DATABASE_ISOLATION_DBI-DATA-001.md`. El corte cartográfico se documenta
-en `docs/19_MAP_TIMELINE_DBI-MAP-001.md` y el dominio agrícola en
-`docs/20_AGRICULTURAL_DOMAIN_DBI-DATA-002.md`.
+en `docs/19_MAP_TIMELINE_DBI-MAP-001.md`, el dominio agrícola en
+`docs/20_AGRICULTURAL_DOMAIN_DBI-DATA-002.md` y la frontera del trabajo en
+`docs/21_ANALYSIS_JOB_CONTRACT_DBI-JOB-001.md`.
 
 ## Módulos existentes
 
@@ -146,6 +149,23 @@ PostGIS. Tampoco inserta datos, crea sesiones DBI o conecta el mapa con la base.
 tabla heredada `companies`. La autoridad de organizaciones y permisos se
 definirá en un ticket específico antes de habilitar acceso operativo.
 
+## Contrato de trabajo geoespacial v1
+
+`DBI-JOB-001` implementa `analysis-job-command.v1`,
+`analysis-job-result.v1`, `artifact-manifest.v1` y
+`agronomic-finding.v1`. Los modelos de la API rechazan campos desconocidos,
+rutas locales, URLs de activos y manifiestos sin tamaño o huella válida.
+
+La máquina de estados permite `accepted`, `queued`, `running`, `succeeded`,
+`failed`, `cancel_requested` y `canceled`. Repetir un estado es un no-op
+idempotente; reintentar desde `failed` exige autorización explícita y los
+estados terminales no pueden reabrirse.
+
+El motor de densidad incorpora un adaptador puro que valida el mismo comando
+con la biblioteca estándar. No importa el backend, no resuelve activos y no
+ejecuta `run_full_pipeline`. Por tanto, este corte define una frontera, no una
+orquestación operativa.
+
 ## Dependencias permitidas
 
 | Origen | Destino permitido |
@@ -172,7 +192,8 @@ definirá en un ticket específico antes de habilitar acceso operativo.
 2. `DBI-DATA-001`: configuración DBI aislada e historial Alembic independiente.
 3. `DBI-MAP-001`: contrato y primera interfaz cronológica sin datos simulados.
 4. `DBI-DATA-002`: persistencia mínima de finca, lote y campaña en DBI.
-5. Orquestación asíncrona y adaptador del worker geoespacial.
-6. Integración del dashboard y la PWA.
-7. Migración controlada del bot y conciliación con Google Sheets.
-8. Observabilidad, gobierno de modelos y despliegues por ambiente.
+5. `DBI-JOB-001`: contratos v1, estados y adaptador puro del worker.
+6. Gestión de activos, persistencia de trabajos, cola y ejecución del worker.
+7. Integración del dashboard y la PWA.
+8. Migración controlada del bot y conciliación con Google Sheets.
+9. Observabilidad, gobierno de modelos y despliegues por ambiente.
