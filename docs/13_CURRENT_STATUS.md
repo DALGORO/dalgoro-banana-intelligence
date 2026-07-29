@@ -41,15 +41,20 @@
 `DBI-AUTH-001` — Política de autorización DBI offline.
 
 - Issue: #26
+- Pull request: #27
 - Rama: `feat/DBI-AUTH-001-autorizacion-dbi-offline`
 - Base: `main` en `706537d900e66a0963f555541b9d883f167ce823`
-- Estado: en implementación
+- Estado: en revisión
+- SHA de implementación validado: `86db0a393fe13bce26b9faf6e87265ce6fc26b0e`.
+- GitHub Actions `30497480322`: seis de seis trabajos aprobados.
+- Diff: siete archivos; tres añadidos y cuatro modificados.
+- Conexiones externas y migraciones online: cero.
 
 ## Próximo paso
 
-Implementar y validar `DBI-AUTH-001` sin integrar todavía identidad heredada,
-ciclo de vida FastAPI, endpoints o una base real. La resolución canónica de
-pertenencias continuará requiriendo un ticket separado.
+Revisar el Draft PR #27 y su evidencia completa. Integrar identidad heredada,
+resolver pertenencias, montar el ciclo de vida FastAPI o crear endpoints
+continuará requiriendo tickets separados.
 
 ## Riesgos heredados abiertos
 
