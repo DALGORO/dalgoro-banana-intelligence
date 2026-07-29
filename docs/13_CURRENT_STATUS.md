@@ -2,7 +2,7 @@
 
 ## Versión
 
-0.2.0-architecture-draft
+0.2.0-architecture
 
 ## Terminado
 
@@ -14,19 +14,20 @@
 - `DBI-SEC-001`: auditoría de secretos, dependencias y estructura importada.
 - `DBI-CI-002`: integración continua modular y verificable.
 - `DBI-REPO-001`: limpieza controlada de copias, respaldos y artefactos.
+- `DBI-ARC-001`: arquitectura objetivo, límites y contratos de integración.
 
 ## Último ticket completado
 
-`DBI-REPO-001` — Limpieza controlada de copias, respaldos y artefactos.
+`DBI-ARC-001` — Arquitectura objetivo, límites y contratos de integración.
 
-## Ticket actual
+## Ticket cerrado
 
 `DBI-ARC-001` — Arquitectura objetivo, límites y contratos de integración.
 
 - Issue: #8
 - Rama: `architecture/DBI-ARC-001-limites-contratos`
 - Pull request: #9
-- Estado: en revisión
+- Estado: completado
 - Base: `main` en `14775cf6b4cd8afa47e22e1728ad44cc55187509`
 
 ### Alcance
@@ -65,16 +66,15 @@
 - GitHub Actions `30420556081`: primera ejecución con seis de seis trabajos aprobados.
 - GitHub Actions `30420731911`: seis de seis trabajos aprobados después de
   las precisiones documentales.
+- GitHub Actions `30420894766`: ejecución definitiva con seis de seis trabajos
+  aprobados sobre el SHA validado `9e8a1b0e`.
 - No se consultaron servicios ni bases operativas.
 
 ## Próximo paso
 
-Revisar el Draft PR #9 y mantenerlo sin fusionar hasta la autorización del
-propietario.
-
-Después de aprobar `DBI-ARC-001`, el siguiente ticket previsto es
-`DBI-DATA-001`: base DBI aislada e historial Alembic independiente. Ese ticket
-deberá diseñar y probar la configuración sin tocar bases productivas.
+Iniciar `DBI-DATA-001`: base DBI aislada e historial Alembic independiente,
+mediante un Issue y una rama propios. Ese ticket deberá diseñar y probar la
+configuración sin tocar bases productivas.
 
 ## Riesgos heredados abiertos
 
