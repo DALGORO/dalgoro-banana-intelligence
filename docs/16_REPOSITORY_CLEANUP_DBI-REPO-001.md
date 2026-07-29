@@ -30,8 +30,9 @@ operativos; su inspección de contenido y metadatos requiere un ticket separado.
    historial.
 
 La única referencia encontrada fue
-`apps/platform-web/consolidar_codigo.py`, que generaba el archivo vacío
-`sistema_completo_para_revision.txt`. El generador ahora escribe en
+`apps/platform-web/consolidar_codigo.py`, que generaba y versionaba
+`sistema_completo_para_revision.txt` con 1.025.782 líneas. El generador ahora
+escribe en
 `outputs/review/`, carpeta ya excluida por `.gitignore`.
 
 ## Archivos retirados y fuente canónica
@@ -61,7 +62,9 @@ usuarios contiene las cuatro operaciones antiguas y nueve rutas adicionales;
 - `apps/whatsapp-bot/codigos.txt`
 
 No forman parte de la ejecución. Los dos archivos `codigos.txt` contienen notas
-operativas locales y el segundo archivo estaba vacío.
+operativas locales. `sistema_completo_para_revision.txt` era un volcado
+regenerable de 1.025.782 líneas y explica aproximadamente el 98,6 % de las
+líneas eliminadas por el PR.
 
 ### Configuraciones históricas
 
