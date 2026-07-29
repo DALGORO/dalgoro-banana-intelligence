@@ -7,6 +7,7 @@ name: CI modular
       - develop
       - "audit/**"
       - "ci/**"
+      - "chore/**"
       - "feat/**"
       - "fix/**"
   pull_request:
@@ -23,6 +24,23 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
+  repository-hygiene:
+    name: Repositorio · higiene de artefactos
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    steps:
+      - name: Descargar código
+        uses: actions/checkout@9f698171ed81b15d1823a05fc7211befd50c8ae0 # v6.0.3
+
+      - name: Configurar Python
+        uses: actions/setup-python@ece7cb06caefa5fff74198d8649806c4678c61a1 # v6.3.0
+        with:
+          python-version: "3.11"
+
+      - name: Validar fuentes canónicas y activos preservados
+        run: python .github/scripts/ci_repository_hygiene.py
+
   frontend:
     name: Frontend · lint y build
     runs-on: ubuntu-latest
