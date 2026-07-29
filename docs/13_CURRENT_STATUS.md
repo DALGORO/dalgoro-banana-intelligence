@@ -66,7 +66,7 @@
 - Generación local dentro de `outputs/review/`: aprobada.
 - Diff técnico previo a documentación: 19 eliminaciones, un archivo añadido y
   dos archivos modificados.
-- GitHub Actions del Draft PR: pendiente de ejecución.
+- GitHub Actions `30411081328`: seis de seis trabajos aprobados.
 
 ## Próximo paso
 Completar GitHub Actions, revisar el Draft PR de `DBI-REPO-001` y fusionar
