@@ -369,3 +369,28 @@ importación y dificultar el aislamiento.
 - No integrar todavía la fábrica con `app/main.py` o routers.
 - No crear repositorios, endpoints, cola, almacenamiento o ejecución.
 - Validar el comportamiento con dobles y sin abrir conexiones.
+
+## DEC-021
+
+**Decisión:** separar repositorios DBI, unidad de trabajo y autorización en
+incrementos verificables.
+
+**Motivo:** los modelos y la fábrica transaccional necesitan una superficie de
+acceso común antes de integrarse con FastAPI. Incorporar simultáneamente
+consultas, identidad, ciclo de vida, endpoints y una base real impediría aislar
+lecturas transversales y efectos transaccionales.
+
+**Controles obligatorios:**
+
+- Recibir una sesión DBI explícita en cada repositorio.
+- No construir motores, fábricas o sesiones dentro de repositorios.
+- Exigir `organization_ref` para finca, lote y campaña.
+- Exigir `tenant_ref` para trabajo, intento, activo y artefacto.
+- Unir lote y campaña con finca antes de aplicar el ámbito organizacional.
+- Unir intento y artefacto con trabajo antes de aplicar el ámbito de tenant.
+- Mantener `tenant_ref + request_id` en la consulta idempotente de trabajos.
+- No confirmar, revertir, cerrar o eliminar dentro de repositorios.
+- Reutilizar `dbi_session_scope()` como única autoridad transaccional.
+- No interpretar el ámbito de consulta como autorización de identidad.
+- No integrar FastAPI, endpoints, infraestructura o ejecución en este corte.
+- Validar consultas y transacciones con dobles, sin conexiones.

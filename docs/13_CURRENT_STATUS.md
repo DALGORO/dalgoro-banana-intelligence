@@ -2,7 +2,7 @@
 
 ## Versión
 
-0.9.0-dbi-session-factory
+0.10.0-dbi-repositories
 
 ## Terminado
 
@@ -22,17 +22,18 @@
 - `DBI-JOB-002`: persistencia offline de trabajos e intentos.
 - `DBI-ASSET-001`: persistencia offline de activos y artefactos.
 - `DBI-DATA-003`: fábrica aislada de sesiones DBI.
+- `DBI-DATA-004`: repositorios DBI y unidad de trabajo offline.
 
 ## Último ticket completado
 
-`DBI-DATA-003` — Fábrica aislada de sesiones DBI.
+`DBI-DATA-004` — Repositorios DBI y unidad de trabajo offline.
 
-- Issue: #22
-- Pull request: #23
+- Issue: #24
+- Pull request: #25
 - Estado: completado
-- SHA final validado: `80c0986598ca8f4d416f9e498fdbc8059d8f0b0c`.
-- GitHub Actions `30477179411`: seis de seis trabajos aprobados.
-- Diff: siete archivos; tres añadidos y cuatro modificados.
+- SHA de implementación validado: `f1c39bcddf36fb7956eead168b3cd2b81e85669b`.
+- GitHub Actions `30494100146`: seis de seis trabajos aprobados.
+- Diff: ocho archivos; cuatro añadidos y cuatro modificados.
 - Conexiones externas y migraciones online: cero.
 
 ## Ticket actual
@@ -42,15 +43,14 @@ Ninguno.
 ## Próximo paso
 
 Definir el próximo incremento de DALGORO Banana Intelligence mediante un ticket
-separado. Integrar la fábrica DBI con un ciclo de vida, crear repositorios,
-endpoints, cola, almacenamiento o ejecución del worker continúa requiriendo
-aprobación explícita.
+separado. Integrar los repositorios con identidad, autorización, ciclo de vida
+FastAPI, endpoints o una base real continúa requiriendo aprobación explícita.
 
 ## Riesgos heredados abiertos
 
 - El backend importado continúa usando `DATABASE_URL`.
-- La fábrica DBI todavía no está integrada a un ciclo de vida ni dispone de
-  repositorios de acceso.
+- Los repositorios DBI todavía no están integrados a un ciclo de vida FastAPI
+  ni disponen de autorización de identidad y pertenencia.
 - Alembic heredado conserva tres cabezas: `20260411_01`, `2cec060d9aa4` y
   `7ce73aae44ce`.
 - El middleware de suscripción permite continuar ante varias excepciones.
@@ -67,8 +67,8 @@ aprobación explícita.
 - No se ha habilitado PostGIS.
 - Los modelos y la migración del dominio agrícola no se han aplicado a una base.
 - No se ha conectado el backend heredado al entorno DBI.
-- La fábrica de sesiones DBI no está integrada con `app/main.py` ni se usa para
-  abrir conexiones.
+- La fábrica de sesiones DBI no está integrada con `app/main.py`; los
+  repositorios y la unidad de trabajo tampoco se usan para abrir conexiones.
 - Los esquemas de trabajos e intentos existen, pero no se han aplicado a una base.
 - Los modelos de activos y artefactos existen, pero no se han aplicado a una
   base ni conectado a almacenamiento; no se persisten hallazgos.

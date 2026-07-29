@@ -15,7 +15,9 @@ metadatos DBI, todavía sin sesión, endpoint, cola o ejecución.
 todavía sin sesión, repositorio, almacenamiento de objetos o ejecución.
 `DBI-DATA-003` incorpora una fábrica explícita y diferida de motores y sesiones
 DBI, todavía sin ciclo de vida FastAPI, repositorio, endpoint o conexión
-operativa.
+operativa. `DBI-DATA-004` incorpora repositorios acotados por organización o
+tenant y una unidad de trabajo basada en la misma frontera transaccional,
+todavía sin autorización, ciclo de vida FastAPI, endpoint o conexión operativa.
 
 El diseño y la evidencia están en `docs/17_ARCHITECTURE_DBI-ARC-001.md` y
 `docs/18_DATABASE_ISOLATION_DBI-DATA-001.md`. El corte cartográfico se documenta
@@ -24,7 +26,8 @@ en `docs/19_MAP_TIMELINE_DBI-MAP-001.md`, el dominio agrícola en
 `docs/21_ANALYSIS_JOB_CONTRACT_DBI-JOB-001.md`, su persistencia en
 `docs/22_ANALYSIS_JOB_PERSISTENCE_DBI-JOB-002.md` y los metadatos de objetos en
 `docs/23_ASSET_PERSISTENCE_DBI-ASSET-001.md`. La frontera transaccional se
-documenta en `docs/24_DBI_SESSION_FACTORY_DBI-DATA-003.md`.
+documenta en `docs/24_DBI_SESSION_FACTORY_DBI-DATA-003.md` y el acceso por
+repositorios en `docs/25_DBI_REPOSITORIES_DBI-DATA-004.md`.
 
 ## Módulos existentes
 
@@ -227,6 +230,23 @@ La fábrica no convierte la persistencia en una capacidad operativa. Crear
 repositorios, autorizar recursos, montar endpoints o conectar servicios
 requiere tickets posteriores.
 
+## Repositorios y unidad de trabajo DBI v1
+
+`DBI-DATA-004` añade siete repositorios que reciben una sesión DBI explícita.
+Finca, lote y campaña exigen `organization_ref`; trabajo, intento, activo y
+artefacto exigen `tenant_ref`. Los agregados que no conservan el ámbito en una
+columna propia se unen con finca o trabajo antes de filtrar.
+
+`DBIUnitOfWork` liga los siete repositorios a la misma sesión.
+`dbi_unit_of_work_scope()` reutiliza `dbi_session_scope()`, por lo que los
+repositorios no confirman, revierten o cierran transacciones. La búsqueda
+idempotente de trabajos conserva conjuntamente `tenant_ref + request_id`.
+
+Este acotamiento impide consultas globales accidentales, pero no implementa
+autorización. Identidad, pertenencia, ciclo de vida FastAPI y endpoints requieren
+tickets posteriores. La validación compila sentencias SQLAlchemy para
+PostgreSQL y usa dobles; no construye un motor ni abre conexiones.
+
 ## Dependencias permitidas
 
 | Origen | Destino permitido |
@@ -257,7 +277,8 @@ requiere tickets posteriores.
 6. `DBI-JOB-002`: persistencia offline de trabajos e intentos.
 7. `DBI-ASSET-001`: persistencia offline de activos y artefactos.
 8. `DBI-DATA-003`: fábrica aislada de sesiones DBI.
-9. Repositorios DBI y autorización de acceso.
+9. `DBI-DATA-004`: repositorios y unidad de trabajo offline; después,
+   autorización de acceso.
 10. Cola y ejecución del worker.
 11. Integración del dashboard y la PWA.
 12. Migración controlada del bot y conciliación con Google Sheets.
