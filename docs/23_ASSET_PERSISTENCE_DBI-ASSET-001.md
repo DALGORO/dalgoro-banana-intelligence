@@ -8,7 +8,7 @@
 - Rama: `feat/DBI-ASSET-001-persistencia-activos-artefactos`
 - Base: `main` en `77c849c733b2bbe140de4f63982b3a33dfd95816`
 - Pull request: #21
-- Estado: en revisión
+- Estado: completado
 
 ## Objetivo
 
@@ -141,8 +141,8 @@ No se modificó `requirements.txt`.
 
 ## Validación remota
 
-GitHub Actions `30473212425` aprobó seis de seis trabajos sobre el SHA
-`e68bb53156404618762eeaaafe37fa9f63ff16e5`:
+GitHub Actions `30473493853` aprobó seis de seis trabajos sobre el SHA final
+validado `e43ff9e743fbd0a472b66cd1cba9a6c08075a074`:
 
 - backend con instalación completa, ambos grafos Alembic, aislamiento, dominio,
   mapa, contratos, trabajos, siete tablas, activos, artefactos y healthcheck;
@@ -151,9 +151,10 @@ GitHub Actions `30473212425` aprobó seis de seis trabajos sobre el SHA
 - motor de densidad con dependencias, compilación, importaciones y CLI;
 - higiene de artefactos y detección de secretos.
 
-El diff contiene 11 archivos —cuatro añadidos y siete modificados—, un commit y
-cero retraso frente a `main`. No se abrió una conexión, no se ejecutó una
-migración online, no se resolvió un objeto y no se invocó el pipeline.
+El diff contiene 11 archivos —cuatro añadidos y siete modificados— y cero
+retraso frente a `main`. El cierre fue autorizado expresamente para el PR #21.
+No se abrió una conexión, no se ejecutó una migración online, no se resolvió un
+objeto y no se invocó el pipeline.
 
 ## Naturaleza de los datos
 
