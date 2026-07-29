@@ -1,45 +1,126 @@
-# 01 — Arquitectura inicial
+# 01 — Arquitectura del sistema
 
-## Módulos importados
-- Plataforma web: `apps/platform-web`
-- Bot de WhatsApp: `apps/whatsapp-bot`
-- Densidad de banano: `services/banana-density`
+## Estado de la decisión
 
-## Integración futura
-1. API central FastAPI.
-2. PostgreSQL/PostGIS.
-3. Worker de análisis geoespacial.
-4. Dashboard React.
-5. PWA de campo.
-6. Adaptador WhatsApp.
-7. Almacenamiento externo para ortofotos, modelos y documentos.
+La arquitectura objetivo se define en `DBI-ARC-001`. Este ticket establece
+límites y contratos; no integra módulos, no crea bases y no ejecuta
+migraciones.
 
-## Restricciones de seguridad aprobadas en DBI-SEC-001
+El diseño detallado y su evidencia están en
+`docs/17_ARCHITECTURE_DBI-ARC-001.md`.
 
-- Los sistemas actuales y sus bases PostgreSQL permanecen protegidos y fuera del
-  alcance de las migraciones de DALGORO Banana Intelligence.
-- `apps/platform-web/backend` es el candidato a API central. La decisión de
-  límites y adaptación se completará en `DBI-ARC-001`; este ticket no integra
-  módulos.
-- La nueva plataforma utilizará una conexión exclusiva denominada
-  `DBI_DATABASE_URL`. La variable `DATABASE_URL` existente no será reutilizada
-  ni reemplazada durante la transición.
-- Desarrollo, pruebas, staging y producción tendrán bases independientes.
-  Staging y producción deberán usar servicios PostgreSQL/PostGIS separados de
-  los sistemas actuales.
-- Las migraciones DBI tendrán configuración e historial independientes y
-  validarán el entorno y el nombre autorizado de la base antes de operar.
-- La aplicación, las migraciones y los informes utilizarán roles PostgreSQL
-  separados y con privilegios mínimos.
+## Módulos existentes
 
-## Bases futuras previstas
-
-| Entorno | Base prevista | Regla |
+| Componente | Ruta | Responsabilidad actual |
 |---|---|---|
-| Desarrollo | `dalgoro_banana_intelligence_dev` | Uso local exclusivo |
-| Pruebas | `dalgoro_banana_intelligence_test` | Temporal y descartable |
-| Staging | `dalgoro_banana_intelligence_staging` | Servicio nuevo |
-| Producción | `dalgoro_banana_intelligence_prod` | Servicio nuevo y aprobación previa |
+| Plataforma web | `apps/platform-web/frontend` | Interfaz React que consume la API HTTP |
+| Backend | `apps/platform-web/backend` | API FastAPI importada de SST Compliance |
+| Bot | `apps/whatsapp-bot` | Webhook Flask, conversación, Green API y persistencia en Google Sheets |
+| Motor geoespacial | `services/banana-density` | CLI y pipeline local de análisis de ortofotos |
 
-Estas bases no se crean en `DBI-SEC-001`. Su implementación corresponde a
-`DBI-DATA-001` después de aprobar seguridad, CI y arquitectura.
+Los cuatro componentes continúan separados. Ninguna referencia a la
+arquitectura objetivo significa que ya estén integrados.
+
+## Arquitectura objetivo aprobada
+
+```mermaid
+flowchart TD
+    UI["React / PWA"] --> API["API central FastAPI"]
+    BOT["Adaptador WhatsApp"] --> API
+    API --> DB["PostgreSQL / PostGIS DBI"]
+    API --> QUEUE["Cola de trabajos"]
+    QUEUE --> WORKER["Worker geoespacial"]
+    WORKER --> OBJECTS["Almacenamiento de objetos"]
+    WORKER --> EVENTS["Resultado y manifiesto"]
+    EVENTS --> API
+    API --> OBJECTS
+```
+
+### Plano de control
+
+`apps/platform-web/backend` es el candidato aprobado para evolucionar hacia la
+API central. Será propietario de identidad, autorización, organizaciones,
+fincas, lotes, trabajos, metadatos, trazabilidad, aprobaciones y auditoría.
+
+La adopción será incremental. Los routers, modelos y migraciones heredados de
+SST Compliance no se renombran ni se conectan automáticamente al dominio
+agrícola.
+
+### Plano de procesamiento
+
+`services/banana-density` evolucionará como worker independiente. Recibirá
+trabajos versionados, procesará datos en almacenamiento temporal, publicará
+artefactos en almacenamiento de objetos y devolverá un manifiesto de
+resultados.
+
+El motor no se importará dentro del proceso FastAPI y no será invocado mediante
+una petición HTTP que espere a que termine el análisis completo.
+
+### Adaptadores
+
+- React y la futura PWA consumirán exclusivamente contratos de la API.
+- El bot conservará Green API como transporte y su lógica conversacional
+  mientras se construye un adaptador hacia la API.
+- Google Sheets continuará como almacenamiento operativo del bot hasta un
+  ticket de migración con conciliación y corte explícito.
+- Después del corte, Sheets podrá ser una exportación o vista auxiliar, pero no
+  una segunda fuente canónica.
+
+## Propiedad de datos
+
+| Clase de información | Fuente canónica objetivo |
+|---|---|
+| Usuarios, organizaciones, fincas, lotes y permisos | PostgreSQL DBI |
+| Metadatos de campañas, trabajos y ejecuciones | PostgreSQL DBI |
+| Geometrías operativas y resultados consultables | PostGIS DBI |
+| Ortofotos, modelos, GeoPackage, PDF, XLSX y rásteres | Almacenamiento de objetos |
+| Manifiestos, huellas y referencias de artefactos | PostgreSQL DBI |
+| Estado del bot durante la transición | Google Sheets |
+| Estado del bot después del corte aprobado | PostgreSQL DBI |
+
+PostgreSQL/PostGIS no almacenará ortofotos, pesos de modelos ni otros binarios
+pesados. La base conservará referencias, metadatos, huellas criptográficas,
+estado y trazabilidad.
+
+## Aislamiento de bases
+
+- La plataforma nueva utilizará `DBI_DATABASE_URL`.
+- `DATABASE_URL` heredada no se reutilizará ni reemplazará.
+- Desarrollo, pruebas, staging y producción tendrán bases independientes.
+- Staging y producción usarán servicios nuevos.
+- El historial Alembic DBI será independiente.
+- Las migraciones de producción requerirán aprobación explícita.
+- La aplicación, el migrador y los lectores usarán roles separados.
+
+Estas bases no se crean en `DBI-ARC-001`. Su implementación corresponde a
+`DBI-DATA-001`.
+
+## Dependencias permitidas
+
+| Origen | Destino permitido |
+|---|---|
+| React / PWA | API central |
+| Adaptador WhatsApp | API central y Green API |
+| API central | PostgreSQL/PostGIS DBI, cola y almacenamiento de objetos |
+| Worker geoespacial | Cola, almacenamiento temporal y almacenamiento de objetos |
+| Consumidor de resultados | API central mediante contrato versionado |
+
+## Dependencias prohibidas
+
+- Frontend o bot conectándose directamente a PostgreSQL/PostGIS.
+- API importando PyTorch, GDAL o el pipeline geoespacial.
+- Worker escribiendo directamente en tablas de dominio.
+- Frontend leyendo artefactos privados sin autorización temporal.
+- Uso de rutas locales del equipo del analista como contrato entre servicios.
+- Reutilización de bases, credenciales o migraciones de sistemas productivos.
+- Actualización automática de un modelo Champion.
+
+## Orden de implementación
+
+1. `DBI-ARC-001`: arquitectura, límites y contratos.
+2. `DBI-DATA-001`: base DBI aislada e historial Alembic independiente.
+3. Esqueleto de dominio y contratos versionados en la API.
+4. Orquestación asíncrona y adaptador del worker geoespacial.
+5. Integración del dashboard y la PWA.
+6. Migración controlada del bot y conciliación con Google Sheets.
+7. Observabilidad, gobierno de modelos y despliegues por ambiente.
