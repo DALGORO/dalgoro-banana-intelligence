@@ -9,6 +9,8 @@ React del mapa cronológico. `DBI-DATA-002` añade el modelo persistente mínimo
 de finca, lote y campaña, todavía sin aplicar migraciones o conectar la API.
 `DBI-JOB-001` establece contratos versionados y reglas puras para el futuro
 trabajo geoespacial, sin cola, persistencia operativa o ejecución del pipeline.
+`DBI-JOB-002` añade persistencia transaccional de trabajos e intentos en
+metadatos DBI, todavía sin sesión, endpoint, cola o ejecución.
 
 El diseño y la evidencia están en `docs/17_ARCHITECTURE_DBI-ARC-001.md` y
 `docs/18_DATABASE_ISOLATION_DBI-DATA-001.md`. El corte cartográfico se documenta
@@ -166,6 +168,23 @@ con la biblioteca estándar. No importa el backend, no resuelve activos y no
 ejecuta `run_full_pipeline`. Por tanto, este corte define una frontera, no una
 orquestación operativa.
 
+## Persistencia de trabajos geoespaciales v1
+
+`DBI-JOB-002` incorpora `dbi_analysis_jobs` y
+`dbi_analysis_job_attempts` sobre `DBIBase`. La primera tabla conserva el
+estado global, referencias opacas de entrada, versiones y la huella del comando;
+la segunda separa cada ejecución o reintento mediante un número único por
+trabajo.
+
+La unicidad de `tenant_ref + request_id` respalda idempotencia en la base. Los
+estados, números de intento, huellas y fechas tienen restricciones explícitas.
+La revisión `dbi_0003_analysis_jobs` desciende directamente del dominio
+agrícola y se valida solo mediante SQL offline.
+
+La persistencia del esquema no equivale a operación: todavía no existe motor,
+sesión, repositorio, endpoint, autorización, tabla de activos, cola,
+almacenamiento de objetos o ejecución del worker.
+
 ## Dependencias permitidas
 
 | Origen | Destino permitido |
@@ -193,7 +212,8 @@ orquestación operativa.
 3. `DBI-MAP-001`: contrato y primera interfaz cronológica sin datos simulados.
 4. `DBI-DATA-002`: persistencia mínima de finca, lote y campaña en DBI.
 5. `DBI-JOB-001`: contratos v1, estados y adaptador puro del worker.
-6. Gestión de activos, persistencia de trabajos, cola y ejecución del worker.
-7. Integración del dashboard y la PWA.
-8. Migración controlada del bot y conciliación con Google Sheets.
-9. Observabilidad, gobierno de modelos y despliegues por ambiente.
+6. `DBI-JOB-002`: persistencia offline de trabajos e intentos.
+7. Gestión de activos, repositorio DBI, cola y ejecución del worker.
+8. Integración del dashboard y la PWA.
+9. Migración controlada del bot y conciliación con Google Sheets.
+10. Observabilidad, gobierno de modelos y despliegues por ambiente.
