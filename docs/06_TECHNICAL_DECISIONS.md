@@ -199,3 +199,27 @@ profesional no tienen el mismo significado ni nivel de certeza.
 - Un modelo Challenger no sustituye al Champion automáticamente.
 - La promoción requiere métricas comparables, revisión y aprobación registrada.
 - Conservar procedencia y auditoría de cualquier corrección humana.
+
+## DEC-014
+
+**Decisión:** iniciar el historial de datos DBI en un entorno Alembic
+independiente, sin enlazar ni corregir las tres cabezas heredadas.
+
+**Motivo:** mezclar revisiones del sistema importado con el nuevo dominio
+agrícola podría aplicar operaciones sobre una base no autorizada y convertir
+deuda histórica en una dependencia de DBI.
+
+**Controles obligatorios:**
+
+- `app/db/dbi_config.py` lee únicamente `DBI_ENVIRONMENT` y
+  `DBI_DATABASE_URL`.
+- Solo se aceptan URLs PostgreSQL y el nombre exacto autorizado por ambiente.
+- Ningún motor o sesión DBI se crea durante la importación del módulo.
+- `dbi_alembic.ini` apunta exclusivamente a `dbi_alembic/`.
+- La tabla de control es `alembic_version_dbi`.
+- La primera revisión `dbi_0001_baseline` no crea tablas de dominio.
+- `alembic/`, `app/core/config.py` y `app/db/session.py` no se modifican como
+  parte de `DBI-DATA-001`.
+- CI valida ambos grafos y genera SQL DBI solo en modo offline.
+- Crear bases, extensiones o roles y ejecutar migraciones online requiere un
+  ticket posterior y aprobación explícita.
