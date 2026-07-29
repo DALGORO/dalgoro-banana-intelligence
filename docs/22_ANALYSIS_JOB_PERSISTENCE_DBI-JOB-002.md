@@ -8,7 +8,7 @@
 - Rama: `feat/DBI-JOB-002-persistencia-trabajos-intentos`
 - Base: `main` en `d886830a53de3f3084284def8947107106cd6934`
 - Pull request: #19
-- Estado: en revisión
+- Estado: completado
 
 ## Objetivo
 
@@ -138,6 +138,11 @@ GitHub Actions `30468088066` aprobó seis de seis trabajos sobre el SHA corregid
 - higiene de artefactos y detección de secretos.
 
 No se abrió una conexión ni se ejecutó una migración o el pipeline.
+
+La ejecución final `30468490614` aprobó nuevamente seis de seis trabajos
+sobre el SHA `1442f1e79f47716d0ea8393dcb467cf4ed1cea43`. El diff definitivo
+conservó 11 archivos —cuatro añadidos y siete modificados—, con cero commits
+de retraso frente a `main` y sin comentarios, revisiones o hilos pendientes.
 
 ## Naturaleza de los datos
 
