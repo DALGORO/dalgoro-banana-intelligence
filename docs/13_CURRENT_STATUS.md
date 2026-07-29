@@ -20,35 +20,27 @@
 - `DBI-DATA-002`: persistencia mínima de finca, lote y campaña.
 - `DBI-JOB-001`: contratos v1 y máquina de estados geoespacial.
 - `DBI-JOB-002`: persistencia offline de trabajos e intentos.
+- `DBI-ASSET-001`: persistencia offline de activos y artefactos.
 
 ## Último ticket completado
-
-`DBI-JOB-002` — Persistencia offline de trabajos e intentos.
-
-- Issue: #18
-- Pull request: #19
-- Estado: completado
-- SHA final validado: `1442f1e79f47716d0ea8393dcb467cf4ed1cea43`.
-- GitHub Actions `30468490614`: seis de seis trabajos aprobados.
-- Diff: 11 archivos; cuatro añadidos y siete modificados.
-- Conexiones externas y migraciones online: cero.
-
-## Ticket actual
 
 `DBI-ASSET-001` — Persistencia offline de activos y artefactos.
 
 - Issue: #20
 - Pull request: #21
-- Rama: `feat/DBI-ASSET-001-persistencia-activos-artefactos`
-- Estado: en revisión
-- SHA inicial validado: `e68bb53156404618762eeaaafe37fa9f63ff16e5`.
-- GitHub Actions `30473212425`: seis de seis trabajos aprobados.
+- Estado: completado
+- SHA final validado: `e43ff9e743fbd0a472b66cd1cba9a6c08075a074`.
+- GitHub Actions `30473493853`: seis de seis trabajos aprobados.
 - Diff: 11 archivos; cuatro añadidos y siete modificados.
 - Conexiones externas y migraciones online: cero.
 
+## Ticket actual
+
+Ninguno.
+
 ## Próximo paso
 
-Revisar y, con autorización explícita, fusionar el Draft PR #21. Crear una
+Seleccionar el siguiente incremento arquitectónico desde `main`. Crear una
 sesión, repositorio, endpoint, cola, almacenamiento o ejecución del worker
 continúa requiriendo otro ticket y aprobación explícitos.
 
