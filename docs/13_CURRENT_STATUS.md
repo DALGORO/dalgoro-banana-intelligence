@@ -2,7 +2,7 @@
 
 ## Versión
 
-0.3.0-data-isolation
+0.4.0-map-timeline
 
 ## Terminado
 
@@ -31,13 +31,20 @@
 
 ## Ticket actual
 
-Ninguno.
+`DBI-MAP-001` — Interfaz cronológica de mapas y contrato v1.
+
+- Issue: #12
+- Rama: `feat/DBI-MAP-001-mapa-cronologico-v1`
+- Pull request: pendiente
+- Estado: en implementación
+- Base: `main` en `4abd2ae1d67114098a73f269924bcb9ad91b3779`
+- Conexiones externas, migraciones y datos simulados: cero.
 
 ## Próximo paso
 
-Seleccionar el siguiente ticket desde `main`. La creación de infraestructura,
-la habilitación de PostGIS y cualquier migración online permanecen fuera del
-alcance de `DBI-DATA-001`.
+Validar `DBI-MAP-001` en GitHub Actions y revisar su Draft PR. La creación de
+infraestructura, la habilitación de PostGIS, las campañas reales y cualquier
+migración online permanecen fuera de este ticket.
 
 ## Riesgos heredados abiertos
 
@@ -58,7 +65,8 @@ alcance de `DBI-DATA-001`.
 - No se ha habilitado PostGIS.
 - No se han creado modelos o tablas del dominio agrícola.
 - No se ha conectado el backend heredado al entorno DBI.
-- No existe todavía el dashboard agrícola o el mapa cronológico.
+- El mapa cronológico v1 todavía no dispone de fincas, campañas, geometrías,
+  tiles o fechas reales.
 - No se han cambiado Green API, Google Sheets o Render.
 - No se ha cambiado la lógica conversacional del bot.
 - No se han actualizado modelos de IA.
