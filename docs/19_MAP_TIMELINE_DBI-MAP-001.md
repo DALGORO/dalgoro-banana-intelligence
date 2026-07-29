@@ -7,8 +7,8 @@
 - Fecha: 2026-07-29
 - Rama: `feat/DBI-MAP-001-mapa-cronologico-v1`
 - Base: `main` en `4abd2ae1d67114098a73f269924bcb9ad91b3779`
-- Pull request: pendiente
-- Estado: en implementación
+- Pull request: #13
+- Estado: en revisión
 
 ## Objetivo
 
@@ -185,16 +185,19 @@ autocontenido. El tamaño del módulo cartográfico justifica su carga diferida.
 
 ## Validación remota
 
-Pendiente de la ejecución de GitHub Actions asociada al Draft PR.
+GitHub Actions `30454509983` aprobó seis de seis trabajos sobre el SHA técnico
+`614a1aea`.
 
-El workflow deberá aprobar:
+La ejecución confirmó:
 
-- higiene del repositorio;
-- frontend, incluido lint y build completos;
-- backend, incluido contrato cartográfico y healthcheck;
-- bot de WhatsApp;
-- motor de densidad;
-- detección de secretos.
+- higiene del repositorio y activos canónicos;
+- frontend con `npm ci`, lint y build completos;
+- backend con instalación, ambos grafos Alembic, aislamiento DBI, contrato
+  cartográfico y healthcheck;
+- bot de WhatsApp con instalación, compilación y smoke test;
+- motor de densidad con dependencias geoespaciales, compilación, importaciones
+  y CLI;
+- detección de secretos sobre el historial.
 
 ## Criterios de aceptación
 
@@ -208,7 +211,7 @@ El workflow deberá aprobar:
 | Contrato estricto | Pydantic con campos adicionales prohibidos |
 | Endpoint autenticado | Dependencia `current_user` |
 | Sin datos simulados | `timeline: []` y comparación deshabilitada |
-| CI completa | Pendiente de GitHub Actions |
+| CI completa | GitHub Actions `30454509983`: seis de seis |
 | Estado documentado | Documentos 01, 06, 13 y 19 |
 
 ## Fuentes técnicas

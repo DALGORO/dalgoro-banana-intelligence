@@ -35,9 +35,12 @@
 
 - Issue: #12
 - Rama: `feat/DBI-MAP-001-mapa-cronologico-v1`
-- Pull request: pendiente
-- Estado: en implementación
+- Pull request: #13
+- Estado: en revisión
 - Base: `main` en `4abd2ae1d67114098a73f269924bcb9ad91b3779`
+- SHA técnico validado: `614a1aea7a00cc15170adc22f09dbb717f3b5d5f`
+- GitHub Actions `30454509983`: seis de seis trabajos aprobados.
+- Diff: 15 archivos; seis añadidos y nueve modificados.
 - Conexiones externas, migraciones y datos simulados: cero.
 
 ## Próximo paso
