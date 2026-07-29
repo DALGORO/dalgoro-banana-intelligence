@@ -22,35 +22,29 @@
 - `DBI-JOB-002`: persistencia offline de trabajos e intentos.
 - `DBI-ASSET-001`: persistencia offline de activos y artefactos.
 - `DBI-DATA-003`: fábrica aislada de sesiones DBI.
+- `DBI-DATA-004`: repositorios DBI y unidad de trabajo offline.
 
 ## Último ticket completado
-
-`DBI-DATA-003` — Fábrica aislada de sesiones DBI.
-
-- Issue: #22
-- Pull request: #23
-- Estado: completado
-- SHA final validado: `80c0986598ca8f4d416f9e498fdbc8059d8f0b0c`.
-- GitHub Actions `30477179411`: seis de seis trabajos aprobados.
-- Diff: siete archivos; tres añadidos y cuatro modificados.
-- Conexiones externas y migraciones online: cero.
-
-## Ticket actual
 
 `DBI-DATA-004` — Repositorios DBI y unidad de trabajo offline.
 
 - Issue: #24
-- Rama: `feat/DBI-DATA-004-repositorios-dbi-offline`
-- Estado: en revisión
 - Pull request: #25
-- SHA inicial validado: `99da89eb084e56c1b094f29a734e037929d19a12`
-- GitHub Actions `30493838198`: seis de seis trabajos aprobados.
+- Estado: completado
+- SHA de implementación validado: `f1c39bcddf36fb7956eead168b3cd2b81e85669b`.
+- GitHub Actions `30494100146`: seis de seis trabajos aprobados.
+- Diff: ocho archivos; cuatro añadidos y cuatro modificados.
+- Conexiones externas y migraciones online: cero.
+
+## Ticket actual
+
+Ninguno.
 
 ## Próximo paso
 
-Validar el Draft PR de `DBI-DATA-004` sobre su SHA definitivo. Integrar los
-repositorios con identidad, autorización, ciclo de vida FastAPI, endpoints o
-una base real continúa requiriendo tickets y aprobación explícitos.
+Definir el próximo incremento de DALGORO Banana Intelligence mediante un ticket
+separado. Integrar los repositorios con identidad, autorización, ciclo de vida
+FastAPI, endpoints o una base real continúa requiriendo aprobación explícita.
 
 ## Riesgos heredados abiertos
 
