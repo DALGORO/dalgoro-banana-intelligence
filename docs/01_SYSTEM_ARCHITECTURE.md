@@ -13,6 +13,9 @@ trabajo geoespacial, sin cola, persistencia operativa o ejecución del pipeline.
 metadatos DBI, todavía sin sesión, endpoint, cola o ejecución.
 `DBI-ASSET-001` añade metadatos verificables de activos de entrada y artefactos,
 todavía sin sesión, repositorio, almacenamiento de objetos o ejecución.
+`DBI-DATA-003` incorpora una fábrica explícita y diferida de motores y sesiones
+DBI, todavía sin ciclo de vida FastAPI, repositorio, endpoint o conexión
+operativa.
 
 El diseño y la evidencia están en `docs/17_ARCHITECTURE_DBI-ARC-001.md` y
 `docs/18_DATABASE_ISOLATION_DBI-DATA-001.md`. El corte cartográfico se documenta
@@ -20,7 +23,8 @@ en `docs/19_MAP_TIMELINE_DBI-MAP-001.md`, el dominio agrícola en
 `docs/20_AGRICULTURAL_DOMAIN_DBI-DATA-002.md`, la frontera del trabajo en
 `docs/21_ANALYSIS_JOB_CONTRACT_DBI-JOB-001.md`, su persistencia en
 `docs/22_ANALYSIS_JOB_PERSISTENCE_DBI-JOB-002.md` y los metadatos de objetos en
-`docs/23_ASSET_PERSISTENCE_DBI-ASSET-001.md`.
+`docs/23_ASSET_PERSISTENCE_DBI-ASSET-001.md`. La frontera transaccional se
+documenta en `docs/24_DBI_SESSION_FACTORY_DBI-DATA-003.md`.
 
 ## Módulos existentes
 
@@ -185,9 +189,9 @@ estados, números de intento, huellas y fechas tienen restricciones explícitas.
 La revisión `dbi_0003_analysis_jobs` desciende directamente del dominio
 agrícola y se valida solo mediante SQL offline.
 
-La persistencia del esquema no equivale a operación: todavía no existe motor,
-sesión, repositorio, endpoint, autorización, tabla de activos, cola,
-almacenamiento de objetos o ejecución del worker.
+La persistencia del esquema no equivale a operación. `DBI-DATA-003` añade una
+fábrica de sesiones aislada, pero todavía no existe repositorio, endpoint,
+autorización, cola, almacenamiento de objetos o ejecución del worker.
 
 ## Persistencia de activos y artefactos v1
 
@@ -203,8 +207,25 @@ pertenezca a otro trabajo. Los nueve roles y las 17 etapas permanecen alineados
 con los enums del contrato.
 
 La revisión `dbi_0004_assets_artifacts` se valida solo mediante SQL offline.
-No existe conexión a un bucket, resolución de objetos, URL firmada, sesión,
-repositorio, endpoint, cola o ejecución del worker.
+`DBI-DATA-003` aporta la fábrica transaccional, pero no existe conexión a un
+bucket, resolución de objetos, URL firmada, repositorio, endpoint, cola o
+ejecución del worker.
+
+## Fábrica de sesiones DBI v1
+
+`DBI-DATA-003` incorpora `app/db/dbi_session.py` como única frontera autorizada
+para construir un motor y sesiones DBI. `create_dbi_engine()` usa
+exclusivamente la configuración validada por `load_dbi_database_config()` y no
+abre conexiones al importar.
+
+`create_dbi_session_factory()` liga sesiones solo al motor DBI recibido.
+`dbi_session_scope()` confirma una operación exitosa, revierte cualquier error
+y cierra siempre la sesión. No existen objetos globales, integración con el
+ciclo de vida FastAPI o dependencia de rutas.
+
+La fábrica no convierte la persistencia en una capacidad operativa. Crear
+repositorios, autorizar recursos, montar endpoints o conectar servicios
+requiere tickets posteriores.
 
 ## Dependencias permitidas
 
@@ -235,7 +256,9 @@ repositorio, endpoint, cola o ejecución del worker.
 5. `DBI-JOB-001`: contratos v1, estados y adaptador puro del worker.
 6. `DBI-JOB-002`: persistencia offline de trabajos e intentos.
 7. `DBI-ASSET-001`: persistencia offline de activos y artefactos.
-8. Repositorio DBI, cola y ejecución del worker.
-9. Integración del dashboard y la PWA.
-10. Migración controlada del bot y conciliación con Google Sheets.
-11. Observabilidad, gobierno de modelos y despliegues por ambiente.
+8. `DBI-DATA-003`: fábrica aislada de sesiones DBI.
+9. Repositorios DBI y autorización de acceso.
+10. Cola y ejecución del worker.
+11. Integración del dashboard y la PWA.
+12. Migración controlada del bot y conciliación con Google Sheets.
+13. Observabilidad, gobierno de modelos y despliegues por ambiente.

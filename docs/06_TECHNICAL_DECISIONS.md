@@ -345,3 +345,27 @@ referencias cruzadas, objetos inválidos o artefactos duplicados.
 - No crear motor, sesión, repositorio o endpoint en `DBI-ASSET-001`.
 - No conectar bucket, SDK, URL firmada, cola o ejecución del pipeline.
 - Validar metadatos y migración exclusivamente en modo offline.
+
+## DEC-020
+
+**Decisión:** crear motores y sesiones DBI únicamente mediante una fábrica
+explícita, diferida y separada de la sesión heredada.
+
+**Motivo:** los modelos DBI necesitan una frontera transaccional antes de
+incorporar repositorios o endpoints, pero crear recursos globales o integrar el
+ciclo de vida de FastAPI en el mismo cambio podría conectar una base durante la
+importación y dificultar el aislamiento.
+
+**Controles obligatorios:**
+
+- Cargar exclusivamente configuración validada por `load_dbi_database_config()`.
+- No importar `app/db/session.py` o `app/core/config.py`.
+- No crear motores, fábricas o sesiones como objetos globales.
+- Pasar el objeto `URL` validado a SQLAlchemy sin registrarlo o renderizarlo.
+- Exigir un motor explícito para construir la fábrica de sesiones.
+- Confirmar solo cuando el bloque transaccional termina correctamente.
+- Ejecutar rollback si falla el bloque o el propio commit.
+- Cerrar la sesión en todos los caminos y propagar la excepción.
+- No integrar todavía la fábrica con `app/main.py` o routers.
+- No crear repositorios, endpoints, cola, almacenamiento o ejecución.
+- Validar el comportamiento con dobles y sin abrir conexiones.

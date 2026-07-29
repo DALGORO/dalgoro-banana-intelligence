@@ -2,7 +2,7 @@
 
 ## Versión
 
-0.8.0-asset-persistence
+0.9.0-dbi-session-factory
 
 ## Terminado
 
@@ -36,18 +36,25 @@
 
 ## Ticket actual
 
-Ninguno.
+`DBI-DATA-003` — Fábrica aislada de sesiones DBI.
+
+- Issue: #22
+- Rama: `feat/DBI-DATA-003-sesiones-dbi-aisladas`
+- Estado: en desarrollo
+- Base: `main` en `41880374cfa1a7dfdb4f9b34ec79c70ad10a259d`
+- Pull request: pendiente
 
 ## Próximo paso
 
-Seleccionar el siguiente incremento arquitectónico desde `main`. Crear una
-sesión, repositorio, endpoint, cola, almacenamiento o ejecución del worker
-continúa requiriendo otro ticket y aprobación explícitos.
+Validar la fábrica exclusivamente con dobles, publicar el cambio en la rama y
+abrir un Draft PR. Crear repositorios, endpoints, cola, almacenamiento o
+ejecución del worker continúa requiriendo otro ticket y aprobación explícitos.
 
 ## Riesgos heredados abiertos
 
 - El backend importado continúa usando `DATABASE_URL`.
-- DBI todavía no dispone de motor, sesión o repositorio de acceso.
+- La fábrica DBI todavía no está integrada a un ciclo de vida ni dispone de
+  repositorios de acceso.
 - Alembic heredado conserva tres cabezas: `20260411_01`, `2cec060d9aa4` y
   `7ce73aae44ce`.
 - El middleware de suscripción permite continuar ante varias excepciones.
@@ -64,6 +71,8 @@ continúa requiriendo otro ticket y aprobación explícitos.
 - No se ha habilitado PostGIS.
 - Los modelos y la migración del dominio agrícola no se han aplicado a una base.
 - No se ha conectado el backend heredado al entorno DBI.
+- La fábrica de sesiones DBI no está integrada con `app/main.py` ni se usa para
+  abrir conexiones.
 - Los esquemas de trabajos e intentos existen, pero no se han aplicado a una base.
 - Los modelos de activos y artefactos existen, pero no se han aplicado a una
   base ni conectado a almacenamiento; no se persisten hallazgos.
