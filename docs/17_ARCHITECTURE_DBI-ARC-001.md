@@ -7,7 +7,8 @@
 - Fecha: 2026-07-28
 - Rama: `architecture/DBI-ARC-001-limites-contratos`
 - Base: `main` en `14775cf6b4cd8afa47e22e1728ad44cc55187509`
-- Estado: en implementación y validación
+- Pull request: #9
+- Estado: en revisión
 
 ## Objetivo
 
@@ -441,6 +442,23 @@ no crea esos tickets ni autoriza despliegues.
 | Gobierno de modelos | Flujo Champion/Challenger |
 | Transición segura | Secuencia de datos, worker y bot |
 | Sin integración prematura | Diff documental y CI sin servicios operativos |
+
+## Validaciones ejecutadas
+
+| Verificación | Resultado |
+|---|---|
+| Inventario de routers, modelos, funciones y etapas sobre `main` | Aprobado |
+| Diff remoto limitado a cuatro documentos | Aprobado |
+| Rama respecto de `main` | Cuatro commits por delante y cero por detrás |
+| Coincidencia entre contenido local validado y contenido remoto | Aprobada |
+| Markdownlint | Cero errores; longitud de filas de tablas excluida |
+| Ejemplos JSON | Cinco de cinco válidos |
+| Decisiones técnicas | `DEC-001` a `DEC-013`, consecutivas |
+| GitHub Actions `30420556081` | Seis de seis trabajos aprobados |
+
+GitHub Actions validó higiene, secretos, frontend, backend, bot y motor de
+densidad. Los smoke tests conservaron el aislamiento definido en `DBI-CI-002`;
+no utilizaron credenciales ni servicios operativos.
 
 ## Exclusiones confirmadas
 
