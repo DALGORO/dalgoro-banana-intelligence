@@ -118,6 +118,11 @@ jobs:
           PYTHONPATH: .
         run: python ../../../.github/scripts/ci_dbi_session_factory.py
 
+      - name: Validar repositorios DBI offline
+        env:
+          PYTHONPATH: .
+        run: python ../../../.github/scripts/ci_dbi_repositories.py
+
       - name: Validar dominio agrícola DBI offline
         env:
           PYTHONPATH: .

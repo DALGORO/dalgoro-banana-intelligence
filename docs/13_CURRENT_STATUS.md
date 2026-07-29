@@ -2,7 +2,7 @@
 
 ## Versión
 
-0.9.0-dbi-session-factory
+0.10.0-dbi-repositories
 
 ## Terminado
 
@@ -37,20 +37,24 @@
 
 ## Ticket actual
 
-Ninguno.
+`DBI-DATA-004` — Repositorios DBI y unidad de trabajo offline.
+
+- Issue: #24
+- Rama: `feat/DBI-DATA-004-repositorios-dbi-offline`
+- Estado: en revisión
+- Pull request: pendiente
 
 ## Próximo paso
 
-Definir el próximo incremento de DALGORO Banana Intelligence mediante un ticket
-separado. Integrar la fábrica DBI con un ciclo de vida, crear repositorios,
-endpoints, cola, almacenamiento o ejecución del worker continúa requiriendo
-aprobación explícita.
+Validar el Draft PR de `DBI-DATA-004` sobre su SHA definitivo. Integrar los
+repositorios con identidad, autorización, ciclo de vida FastAPI, endpoints o
+una base real continúa requiriendo tickets y aprobación explícitos.
 
 ## Riesgos heredados abiertos
 
 - El backend importado continúa usando `DATABASE_URL`.
-- La fábrica DBI todavía no está integrada a un ciclo de vida ni dispone de
-  repositorios de acceso.
+- Los repositorios DBI todavía no están integrados a un ciclo de vida FastAPI
+  ni disponen de autorización de identidad y pertenencia.
 - Alembic heredado conserva tres cabezas: `20260411_01`, `2cec060d9aa4` y
   `7ce73aae44ce`.
 - El middleware de suscripción permite continuar ante varias excepciones.
@@ -67,8 +71,8 @@ aprobación explícita.
 - No se ha habilitado PostGIS.
 - Los modelos y la migración del dominio agrícola no se han aplicado a una base.
 - No se ha conectado el backend heredado al entorno DBI.
-- La fábrica de sesiones DBI no está integrada con `app/main.py` ni se usa para
-  abrir conexiones.
+- La fábrica de sesiones DBI no está integrada con `app/main.py`; los
+  repositorios y la unidad de trabajo tampoco se usan para abrir conexiones.
 - Los esquemas de trabajos e intentos existen, pero no se han aplicado a una base.
 - Los modelos de activos y artefactos existen, pero no se han aplicado a una
   base ni conectado a almacenamiento; no se persisten hallazgos.
