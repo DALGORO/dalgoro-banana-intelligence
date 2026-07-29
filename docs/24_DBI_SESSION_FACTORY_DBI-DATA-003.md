@@ -7,8 +7,8 @@
 - Fecha: 2026-07-29
 - Rama: `feat/DBI-DATA-003-sesiones-dbi-aisladas`
 - Base: `main` en `41880374cfa1a7dfdb4f9b34ec79c70ad10a259d`
-- Pull request: pendiente
-- Estado: en desarrollo
+- Pull request: #23
+- Estado: en revisión
 
 ## Objetivo
 
@@ -154,6 +154,22 @@ Tampoco define:
 
 La evidencia definitiva será la ejecución de GitHub Actions sobre el SHA
 publicado. Las pruebas locales no sustituyen esa ejecución.
+
+## Validación remota
+
+GitHub Actions `30476765475` aprobó seis de seis trabajos sobre el SHA inicial
+validado `8d36910af588f34b5dd2c2aca077891984510817`:
+
+- backend con instalación completa, ambos grafos Alembic, aislamiento,
+  fábrica de sesiones, dominio, mapa, contratos, persistencia y healthcheck;
+- frontend con instalación, lint y build de producción;
+- bot con instalación, compilación y smoke test;
+- motor de densidad con dependencias, compilación, importaciones y CLI;
+- higiene de artefactos y detección de secretos.
+
+El diff contiene siete archivos —tres añadidos y cuatro modificados—, un solo
+commit y cero retraso frente a `main`. No se abrió una conexión, no se ejecutó
+una migración online y no se invocó almacenamiento, cola o pipeline.
 
 ## Exclusiones confirmadas
 

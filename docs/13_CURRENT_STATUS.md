@@ -40,15 +40,18 @@
 
 - Issue: #22
 - Rama: `feat/DBI-DATA-003-sesiones-dbi-aisladas`
-- Estado: en desarrollo
+- Estado: en revisión
 - Base: `main` en `41880374cfa1a7dfdb4f9b34ec79c70ad10a259d`
-- Pull request: pendiente
+- Pull request: #23
+- SHA inicial validado: `8d36910af588f34b5dd2c2aca077891984510817`
+- GitHub Actions `30476765475`: seis de seis trabajos aprobados
+- Diff: siete archivos; tres añadidos y cuatro modificados
 
 ## Próximo paso
 
-Validar la fábrica exclusivamente con dobles, publicar el cambio en la rama y
-abrir un Draft PR. Crear repositorios, endpoints, cola, almacenamiento o
-ejecución del worker continúa requiriendo otro ticket y aprobación explícitos.
+Revisar el Draft PR #23 y conservar el alcance transaccional aislado. Crear
+repositorios, endpoints, cola, almacenamiento o ejecución del worker continúa
+requiriendo otro ticket y aprobación explícitos.
 
 ## Riesgos heredados abiertos
 
