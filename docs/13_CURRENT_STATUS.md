@@ -16,38 +16,29 @@
 - `DBI-REPO-001`: limpieza controlada de copias, respaldos y artefactos.
 - `DBI-ARC-001`: arquitectura objetivo, límites y contratos de integración.
 - `DBI-DATA-001`: base DBI aislada e historial Alembic independiente.
+- `DBI-MAP-001`: interfaz cronológica de mapas y contrato v1.
 
 ## Último ticket completado
-
-`DBI-DATA-001` — Base DBI aislada e historial Alembic independiente.
-
-- Issue: #10
-- Pull request: #11
-- Estado: completado
-- SHA técnico validado: `58e0e39a8dc9e62af3e5cd546cd92fb94e5dcb4c`
-- GitHub Actions `30449255042`: seis de seis trabajos aprobados.
-- Diff: 13 archivos; ocho añadidos y cinco modificados.
-- Conexiones externas y migraciones online: cero.
-
-## Ticket actual
 
 `DBI-MAP-001` — Interfaz cronológica de mapas y contrato v1.
 
 - Issue: #12
-- Rama: `feat/DBI-MAP-001-mapa-cronologico-v1`
 - Pull request: #13
-- Estado: en revisión
-- Base: `main` en `4abd2ae1d67114098a73f269924bcb9ad91b3779`
-- SHA técnico validado: `614a1aea7a00cc15170adc22f09dbb717f3b5d5f`
-- GitHub Actions `30454509983`: seis de seis trabajos aprobados.
+- Estado: completado
+- SHA técnico validado: `167892a95ed708e5481df94dc187749884210cd1`.
+- GitHub Actions `30454883303`: seis de seis trabajos aprobados.
 - Diff: 15 archivos; seis añadidos y nueve modificados.
 - Conexiones externas, migraciones y datos simulados: cero.
 
+## Ticket actual
+
+Ninguno.
+
 ## Próximo paso
 
-Validar `DBI-MAP-001` en GitHub Actions y revisar su Draft PR. La creación de
-infraestructura, la habilitación de PostGIS, las campañas reales y cualquier
-migración online permanecen fuera de este ticket.
+Seleccionar el siguiente ticket desde `main`. La creación de infraestructura,
+la habilitación de PostGIS, las campañas reales y cualquier migración online
+requieren alcance y aprobación explícitos.
 
 ## Riesgos heredados abiertos
 
