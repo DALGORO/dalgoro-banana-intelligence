@@ -2,7 +2,7 @@
 
 ## Versión
 
-0.7.0-analysis-job-persistence
+0.8.0-asset-persistence
 
 ## Terminado
 
@@ -20,16 +20,17 @@
 - `DBI-DATA-002`: persistencia mínima de finca, lote y campaña.
 - `DBI-JOB-001`: contratos v1 y máquina de estados geoespacial.
 - `DBI-JOB-002`: persistencia offline de trabajos e intentos.
+- `DBI-ASSET-001`: persistencia offline de activos y artefactos.
 
 ## Último ticket completado
 
-`DBI-JOB-002` — Persistencia offline de trabajos e intentos.
+`DBI-ASSET-001` — Persistencia offline de activos y artefactos.
 
-- Issue: #18
-- Pull request: #19
+- Issue: #20
+- Pull request: #21
 - Estado: completado
-- SHA final validado: `1442f1e79f47716d0ea8393dcb467cf4ed1cea43`.
-- GitHub Actions `30468490614`: seis de seis trabajos aprobados.
+- SHA final validado: `e43ff9e743fbd0a472b66cd1cba9a6c08075a074`.
+- GitHub Actions `30473493853`: seis de seis trabajos aprobados.
 - Diff: 11 archivos; cuatro añadidos y siete modificados.
 - Conexiones externas y migraciones online: cero.
 
@@ -39,9 +40,9 @@ Ninguno.
 
 ## Próximo paso
 
-Definir el siguiente ticket desde la secuencia arquitectónica documentada.
-Crear una sesión, repositorio, endpoint, cola, almacenamiento o ejecución del
-worker continúa requiriendo un ticket y aprobación explícitos.
+Seleccionar el siguiente incremento arquitectónico desde `main`. Crear una
+sesión, repositorio, endpoint, cola, almacenamiento o ejecución del worker
+continúa requiriendo otro ticket y aprobación explícitos.
 
 ## Riesgos heredados abiertos
 
@@ -64,7 +65,8 @@ worker continúa requiriendo un ticket y aprobación explícitos.
 - Los modelos y la migración del dominio agrícola no se han aplicado a una base.
 - No se ha conectado el backend heredado al entorno DBI.
 - Los esquemas de trabajos e intentos existen, pero no se han aplicado a una base.
-- No se persisten activos, artefactos o hallazgos.
+- Los modelos de activos y artefactos existen, pero no se han aplicado a una
+  base ni conectado a almacenamiento; no se persisten hallazgos.
 - No existe cola, broker, productor, consumidor o almacenamiento privado.
 - El adaptador del worker no ejecuta el pipeline ni resuelve activos.
 - El mapa cronológico todavía no consulta persistencia y no dispone de

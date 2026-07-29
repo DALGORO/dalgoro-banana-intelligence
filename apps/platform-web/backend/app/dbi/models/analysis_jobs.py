@@ -140,6 +140,11 @@ class AnalysisJobAttempt(DBIBase):
     __tablename__ = "dbi_analysis_job_attempts"
     __table_args__ = (
         UniqueConstraint(
+            "id",
+            "job_id",
+            name="uq_dbi_analysis_job_attempts_id_job",
+        ),
+        UniqueConstraint(
             "job_id",
             "attempt_number",
             name="uq_dbi_analysis_job_attempts_job_number",
