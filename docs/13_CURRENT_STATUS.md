@@ -57,12 +57,14 @@
 ### Validación ejecutada
 
 - Diff remoto: cuatro documentos; tres modificados y uno añadido.
-- Rama: cuatro commits por delante y cero por detrás de `main`.
+- Rama: cero commits por detrás de `main`.
 - Contenido remoto coincidente con los archivos validados localmente.
 - Markdownlint: cero errores con longitud de tablas excluida.
 - Cinco ejemplos JSON analizados correctamente.
 - Trece decisiones técnicas consecutivas.
-- GitHub Actions `30420556081`: seis de seis trabajos aprobados.
+- GitHub Actions `30420556081`: primera ejecución con seis de seis trabajos aprobados.
+- GitHub Actions `30420731911`: seis de seis trabajos aprobados después de
+  las precisiones documentales.
 - No se consultaron servicios ni bases operativas.
 
 ## Próximo paso

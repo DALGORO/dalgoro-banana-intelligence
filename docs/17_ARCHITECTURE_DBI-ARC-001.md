@@ -449,12 +449,13 @@ no crea esos tickets ni autoriza despliegues.
 |---|---|
 | Inventario de routers, modelos, funciones y etapas sobre `main` | Aprobado |
 | Diff remoto limitado a cuatro documentos | Aprobado |
-| Rama respecto de `main` | Cuatro commits por delante y cero por detrás |
+| Rama respecto de `main` | Cero commits por detrás |
 | Coincidencia entre contenido local validado y contenido remoto | Aprobada |
 | Markdownlint | Cero errores; longitud de filas de tablas excluida |
 | Ejemplos JSON | Cinco de cinco válidos |
 | Decisiones técnicas | `DEC-001` a `DEC-013`, consecutivas |
-| GitHub Actions `30420556081` | Seis de seis trabajos aprobados |
+| GitHub Actions `30420556081` | Primera ejecución: seis de seis trabajos aprobados |
+| GitHub Actions `30420731911` | Ejecución posterior a las precisiones: seis de seis aprobados |
 
 GitHub Actions validó higiene, secretos, frontend, backend, bot y motor de
 densidad. Los smoke tests conservaron el aislamiento definido en `DBI-CI-002`;
