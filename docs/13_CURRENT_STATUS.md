@@ -18,49 +18,29 @@
 - `DBI-DATA-001`: base DBI aislada e historial Alembic independiente.
 - `DBI-MAP-001`: interfaz cronológica de mapas y contrato v1.
 - `DBI-DATA-002`: persistencia mínima de finca, lote y campaña.
+- `DBI-JOB-001`: contratos v1 y máquina de estados geoespacial.
 
 ## Último ticket completado
-
-`DBI-DATA-002` — Persistencia mínima de finca, lote y campaña.
-
-- Issue: #14
-- Pull request: #15
-- Estado: completado
-- Commit fusionado: `b70889179baa031f48124b369fe393a702cbfd81`.
-- Conexiones externas y migraciones online: cero.
-
-## Ticket actual
 
 `DBI-JOB-001` — Contratos v1 y máquina de estados geoespacial.
 
 - Issue: #16
-- Rama: `feat/DBI-JOB-001-contratos-trabajos-v1`
-- Base: `main` en `b70889179baa031f48124b369fe393a702cbfd81`
 - Pull request: #17
-- Estado: en revisión
-- SHA técnico validado: `3425d8254300689fcbeeca330b9ae72d94719a1b`
-- GitHub Actions `30462381405`: seis de seis trabajos aprobados
+- Estado: completado
+- SHA final validado: `c5820ff6ddc4a774c7d14a8c0716f19c85819fd3`.
+- GitHub Actions `30462722323`: seis de seis trabajos aprobados.
+- Diff: 10 archivos; seis añadidos y cuatro modificados.
+- Conexiones externas y ejecución del pipeline: cero.
 
-### Alcance
+## Ticket actual
 
-- Contratos estrictos de comando, resultado, manifiesto y hallazgo.
-- Máquina de estados pura con idempotencia y reintento autorizado.
-- Adaptador del worker basado en biblioteca estándar.
-- Paridad de las 17 etapas del pipeline.
-- Validación CI completamente offline.
-
-### Exclusiones
-
-- Sin tablas, migraciones, motores o sesiones DBI.
-- Sin endpoint, cola, broker, consumidor o almacenamiento de objetos.
-- Sin PostGIS, ortofotos, inferencia o ejecución del pipeline.
-- Sin cambios en Render, Green API, Google Sheets o modelos de IA.
+Ninguno.
 
 ## Próximo paso
 
-Completar la ejecución final de GitHub Actions sobre el SHA documental y
-revisar el Draft PR #17. La cola, persistencia operativa, almacenamiento y
-ejecución del worker requieren tickets posteriores y aprobación explícita.
+Seleccionar el siguiente ticket desde `main`. Crear persistencia operativa,
+cola, almacenamiento o ejecución del worker continúa requiriendo aprobación
+explícita.
 
 ## Riesgos heredados abiertos
 
