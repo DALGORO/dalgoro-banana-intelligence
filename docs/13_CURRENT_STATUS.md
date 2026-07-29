@@ -58,7 +58,7 @@
 
 ### Validación ejecutada
 - Revisión de referencias sobre los 239 archivos del commit base: ninguna copia
-  activa; solo el generador referenciaba el volcado vacío retirado.
+  activa; solo el generador referenciaba el volcado regenerable de 1.025.782 líneas.
 - Comparación de funciones, rutas y claves con los archivos canónicos: las
   versiones vigentes conservan o amplían el comportamiento requerido.
 - Compilación local de los dos scripts modificados: aprobada.
