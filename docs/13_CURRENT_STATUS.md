@@ -21,37 +21,30 @@
 - `DBI-JOB-001`: contratos v1 y máquina de estados geoespacial.
 - `DBI-JOB-002`: persistencia offline de trabajos e intentos.
 - `DBI-ASSET-001`: persistencia offline de activos y artefactos.
+- `DBI-DATA-003`: fábrica aislada de sesiones DBI.
 
 ## Último ticket completado
-
-`DBI-ASSET-001` — Persistencia offline de activos y artefactos.
-
-- Issue: #20
-- Pull request: #21
-- Estado: completado
-- SHA final validado: `e43ff9e743fbd0a472b66cd1cba9a6c08075a074`.
-- GitHub Actions `30473493853`: seis de seis trabajos aprobados.
-- Diff: 11 archivos; cuatro añadidos y siete modificados.
-- Conexiones externas y migraciones online: cero.
-
-## Ticket actual
 
 `DBI-DATA-003` — Fábrica aislada de sesiones DBI.
 
 - Issue: #22
-- Rama: `feat/DBI-DATA-003-sesiones-dbi-aisladas`
-- Estado: en revisión
-- Base: `main` en `41880374cfa1a7dfdb4f9b34ec79c70ad10a259d`
 - Pull request: #23
-- SHA inicial validado: `8d36910af588f34b5dd2c2aca077891984510817`
-- GitHub Actions `30476765475`: seis de seis trabajos aprobados
-- Diff: siete archivos; tres añadidos y cuatro modificados
+- Estado: completado
+- SHA final validado: `80c0986598ca8f4d416f9e498fdbc8059d8f0b0c`.
+- GitHub Actions `30477179411`: seis de seis trabajos aprobados.
+- Diff: siete archivos; tres añadidos y cuatro modificados.
+- Conexiones externas y migraciones online: cero.
+
+## Ticket actual
+
+Ninguno.
 
 ## Próximo paso
 
-Revisar el Draft PR #23 y conservar el alcance transaccional aislado. Crear
-repositorios, endpoints, cola, almacenamiento o ejecución del worker continúa
-requiriendo otro ticket y aprobación explícitos.
+Definir el próximo incremento de DALGORO Banana Intelligence mediante un ticket
+separado. Integrar la fábrica DBI con un ciclo de vida, crear repositorios,
+endpoints, cola, almacenamiento o ejecución del worker continúa requiriendo
+aprobación explícita.
 
 ## Riesgos heredados abiertos
 
