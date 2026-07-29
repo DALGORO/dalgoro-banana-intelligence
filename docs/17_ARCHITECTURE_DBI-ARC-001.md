@@ -25,8 +25,9 @@ Este documento utiliza tres etiquetas:
 
 La revisión se realizó sobre `main` y cubrió:
 
-- los 12 routers montados por
-  `apps/platform-web/backend/app/api/v1/__init__.py`;
+- los 12 routers definidos por
+  `apps/platform-web/backend/app/api/v1/__init__.py`, de los cuales 11 se
+  montan siempre y `documents` depende de `ENABLE_DOCS`;
 - los siete modelos SQLAlchemy de `apps/platform-web/backend/app/models`;
 - `Settings`, `SessionLocal` y el middleware de
   `apps/platform-web/backend/app/main.py`;
@@ -34,7 +35,7 @@ La revisión se realizó sobre `main` y cubrió:
 - los cinco conjuntos de encabezados y `SheetsManager`;
 - los 18 comandos de `services/banana-density/main.py`;
 - las 17 etapas, el estado reanudable y los manifiestos de
-  `pipeline_orchestrator.py`;
+  `services/banana-density/src/banana_analyzer/pipeline_orchestrator.py`;
 - el cliente HTTP y las rutas activas del frontend React;
 - los informes `DBI-SEC-001`, `DBI-CI-002` y `DBI-REPO-001`.
 
@@ -435,7 +436,7 @@ no crea esos tickets ni autoriza despliegues.
 | Arquitectura actual basada en código | Rutas, modelos, funciones y etapas identificados |
 | Límites objetivo | Matriz de responsabilidades y dependencias |
 | Propiedad de datos | Tabla de fuentes canónicas |
-| Contratos conceptuales | Cuatro ejemplos JSON válidos |
+| Contratos conceptuales | Cinco ejemplos JSON válidos |
 | Trazabilidad agronómica | Clasificación, confianza y revisión profesional |
 | Gobierno de modelos | Flujo Champion/Challenger |
 | Transición segura | Secuencia de datos, worker y bot |
