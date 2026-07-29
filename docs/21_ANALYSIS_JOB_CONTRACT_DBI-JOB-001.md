@@ -8,7 +8,7 @@
 - Rama: `feat/DBI-JOB-001-contratos-trabajos-v1`
 - Base: `main` en `b70889179baa031f48124b369fe393a702cbfd81`
 - Pull request: #17
-- Estado: en revisión
+- Estado: completado
 
 ## Objetivo
 
@@ -175,8 +175,12 @@ posteriores.
 
 ## Validación remota
 
-GitHub Actions `30462381405` aprobó seis de seis trabajos sobre el SHA técnico
-`3425d8254300689fcbeeca330b9ae72d94719a1b`.
+GitHub Actions aprobó dos ejecuciones completas:
+
+- `30462381405`: seis de seis trabajos sobre el SHA técnico
+  `3425d8254300689fcbeeca330b9ae72d94719a1b`;
+- `30462722323`: seis de seis trabajos sobre el SHA final
+  `c5820ff6ddc4a774c7d14a8c0716f19c85819fd3`.
 
 La ejecución confirmó:
 
@@ -201,7 +205,7 @@ La ejecución confirmó:
 | Estados controlados | Matriz de transiciones pura |
 | Reintento autorizado | `retry_authorized=True` obligatorio |
 | Artefactos verificables | Tamaño, SHA-256, rol, etapa y objeto |
-| CI completa | GitHub Actions `30462381405`: seis de seis |
+| CI completa | GitHub Actions `30462722323`: seis de seis |
 | Estado documentado | Documentos 01, 06, 13 y 21 |
 
 ## Naturaleza de los datos
