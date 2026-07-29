@@ -25,7 +25,8 @@
 
 - Issue: #8
 - Rama: `architecture/DBI-ARC-001-limites-contratos`
-- Estado: en implementación y validación
+- Pull request: #9
+- Estado: en revisión
 - Base: `main` en `14775cf6b4cd8afa47e22e1728ad44cc55187509`
 
 ### Alcance
@@ -53,10 +54,21 @@
 - No se procesa una ortofoto ni se descarga un modelo.
 - No se actualiza ni promueve un modelo de IA.
 
+### Validación ejecutada
+
+- Diff remoto: cuatro documentos; tres modificados y uno añadido.
+- Rama: cuatro commits por delante y cero por detrás de `main`.
+- Contenido remoto coincidente con los archivos validados localmente.
+- Markdownlint: cero errores con longitud de tablas excluida.
+- Cinco ejemplos JSON analizados correctamente.
+- Trece decisiones técnicas consecutivas.
+- GitHub Actions `30420556081`: seis de seis trabajos aprobados.
+- No se consultaron servicios ni bases operativas.
+
 ## Próximo paso
 
-Completar las validaciones documentales y GitHub Actions, abrir un Draft PR y
-mantenerlo sin fusionar hasta la autorización del propietario.
+Revisar el Draft PR #9 y mantenerlo sin fusionar hasta la autorización del
+propietario.
 
 Después de aprobar `DBI-ARC-001`, el siguiente ticket previsto es
 `DBI-DATA-001`: base DBI aislada e historial Alembic independiente. Ese ticket
