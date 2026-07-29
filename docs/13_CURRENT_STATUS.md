@@ -2,7 +2,7 @@
 
 ## Versión
 
-0.8.0-asset-persistence
+0.9.0-dbi-session-factory
 
 ## Terminado
 
@@ -21,17 +21,18 @@
 - `DBI-JOB-001`: contratos v1 y máquina de estados geoespacial.
 - `DBI-JOB-002`: persistencia offline de trabajos e intentos.
 - `DBI-ASSET-001`: persistencia offline de activos y artefactos.
+- `DBI-DATA-003`: fábrica aislada de sesiones DBI.
 
 ## Último ticket completado
 
-`DBI-ASSET-001` — Persistencia offline de activos y artefactos.
+`DBI-DATA-003` — Fábrica aislada de sesiones DBI.
 
-- Issue: #20
-- Pull request: #21
+- Issue: #22
+- Pull request: #23
 - Estado: completado
-- SHA final validado: `e43ff9e743fbd0a472b66cd1cba9a6c08075a074`.
-- GitHub Actions `30473493853`: seis de seis trabajos aprobados.
-- Diff: 11 archivos; cuatro añadidos y siete modificados.
+- SHA final validado: `80c0986598ca8f4d416f9e498fdbc8059d8f0b0c`.
+- GitHub Actions `30477179411`: seis de seis trabajos aprobados.
+- Diff: siete archivos; tres añadidos y cuatro modificados.
 - Conexiones externas y migraciones online: cero.
 
 ## Ticket actual
@@ -40,14 +41,16 @@ Ninguno.
 
 ## Próximo paso
 
-Seleccionar el siguiente incremento arquitectónico desde `main`. Crear una
-sesión, repositorio, endpoint, cola, almacenamiento o ejecución del worker
-continúa requiriendo otro ticket y aprobación explícitos.
+Definir el próximo incremento de DALGORO Banana Intelligence mediante un ticket
+separado. Integrar la fábrica DBI con un ciclo de vida, crear repositorios,
+endpoints, cola, almacenamiento o ejecución del worker continúa requiriendo
+aprobación explícita.
 
 ## Riesgos heredados abiertos
 
 - El backend importado continúa usando `DATABASE_URL`.
-- DBI todavía no dispone de motor, sesión o repositorio de acceso.
+- La fábrica DBI todavía no está integrada a un ciclo de vida ni dispone de
+  repositorios de acceso.
 - Alembic heredado conserva tres cabezas: `20260411_01`, `2cec060d9aa4` y
   `7ce73aae44ce`.
 - El middleware de suscripción permite continuar ante varias excepciones.
@@ -64,6 +67,8 @@ continúa requiriendo otro ticket y aprobación explícitos.
 - No se ha habilitado PostGIS.
 - Los modelos y la migración del dominio agrícola no se han aplicado a una base.
 - No se ha conectado el backend heredado al entorno DBI.
+- La fábrica de sesiones DBI no está integrada con `app/main.py` ni se usa para
+  abrir conexiones.
 - Los esquemas de trabajos e intentos existen, pero no se han aplicado a una base.
 - Los modelos de activos y artefactos existen, pero no se han aplicado a una
   base ni conectado a almacenamiento; no se persisten hallazgos.
