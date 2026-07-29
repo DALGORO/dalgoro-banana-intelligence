@@ -113,6 +113,11 @@ jobs:
           PYTHONPATH: .
         run: python ../../../.github/scripts/ci_dbi_database_isolation.py
 
+      - name: Validar dominio agrícola DBI offline
+        env:
+          PYTHONPATH: .
+        run: python ../../../.github/scripts/ci_dbi_domain.py
+
       - name: Validar contrato de mapa cronológico
         env:
           PYTHONPATH: .
