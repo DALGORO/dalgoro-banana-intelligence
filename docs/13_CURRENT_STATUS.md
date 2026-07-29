@@ -23,38 +23,31 @@
 - `DBI-ASSET-001`: persistencia offline de activos y artefactos.
 - `DBI-DATA-003`: fábrica aislada de sesiones DBI.
 - `DBI-DATA-004`: repositorios DBI y unidad de trabajo offline.
+- `DBI-AUTH-001`: política de autorización DBI offline.
 
 ## Último ticket completado
-
-`DBI-DATA-004` — Repositorios DBI y unidad de trabajo offline.
-
-- Issue: #24
-- Pull request: #25
-- Estado: completado
-- SHA de implementación validado: `f1c39bcddf36fb7956eead168b3cd2b81e85669b`.
-- GitHub Actions `30494100146`: seis de seis trabajos aprobados.
-- Diff: ocho archivos; cuatro añadidos y cuatro modificados.
-- Conexiones externas y migraciones online: cero.
-
-## Ticket actual
 
 `DBI-AUTH-001` — Política de autorización DBI offline.
 
 - Issue: #26
 - Pull request: #27
-- Rama: `feat/DBI-AUTH-001-autorizacion-dbi-offline`
-- Base: `main` en `706537d900e66a0963f555541b9d883f167ce823`
-- Estado: en revisión
+- Estado: completado
 - SHA de implementación validado: `86db0a393fe13bce26b9faf6e87265ce6fc26b0e`.
-- GitHub Actions `30497480322`: seis de seis trabajos aprobados.
+- SHA final validado: `2f6a4aacff37c5fbda89a463a2013bb2ccf4a66f`.
+- GitHub Actions `30497480322` y `30497741123`: seis de seis trabajos aprobados en cada ejecución.
 - Diff: siete archivos; tres añadidos y cuatro modificados.
 - Conexiones externas y migraciones online: cero.
 
+## Ticket actual
+
+Ninguno.
+
 ## Próximo paso
 
-Revisar el Draft PR #27 y su evidencia completa. Integrar identidad heredada,
-resolver pertenencias, montar el ciclo de vida FastAPI o crear endpoints
-continuará requiriendo tickets separados.
+Definir el próximo incremento de DALGORO Banana Intelligence mediante un ticket
+separado. Resolver identidad y pertenencias DBI, integrar el ciclo de vida
+FastAPI, crear endpoints o conectar una base real continúa requiriendo
+aprobación explícita y tickets independientes.
 
 ## Riesgos heredados abiertos
 
