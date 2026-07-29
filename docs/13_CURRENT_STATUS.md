@@ -2,7 +2,7 @@
 
 ## Versión
 
-0.10.0-dbi-repositories
+0.11.0-dbi-authorization
 
 ## Terminado
 
@@ -38,19 +38,24 @@
 
 ## Ticket actual
 
-Ninguno.
+`DBI-AUTH-001` — Política de autorización DBI offline.
+
+- Issue: #26
+- Rama: `feat/DBI-AUTH-001-autorizacion-dbi-offline`
+- Base: `main` en `706537d900e66a0963f555541b9d883f167ce823`
+- Estado: en implementación
 
 ## Próximo paso
 
-Definir el próximo incremento de DALGORO Banana Intelligence mediante un ticket
-separado. Integrar los repositorios con identidad, autorización, ciclo de vida
-FastAPI, endpoints o una base real continúa requiriendo aprobación explícita.
+Implementar y validar `DBI-AUTH-001` sin integrar todavía identidad heredada,
+ciclo de vida FastAPI, endpoints o una base real. La resolución canónica de
+pertenencias continuará requiriendo un ticket separado.
 
 ## Riesgos heredados abiertos
 
 - El backend importado continúa usando `DATABASE_URL`.
-- Los repositorios DBI todavía no están integrados a un ciclo de vida FastAPI
-  ni disponen de autorización de identidad y pertenencia.
+- La política DBI todavía no está integrada a un ciclo de vida FastAPI y la
+  resolución canónica de identidad y pertenencia continúa pendiente.
 - Alembic heredado conserva tres cabezas: `20260411_01`, `2cec060d9aa4` y
   `7ce73aae44ce`.
 - El middleware de suscripción permite continuar ante varias excepciones.
@@ -69,6 +74,8 @@ FastAPI, endpoints o una base real continúa requiriendo aprobación explícita.
 - No se ha conectado el backend heredado al entorno DBI.
 - La fábrica de sesiones DBI no está integrada con `app/main.py`; los
   repositorios y la unidad de trabajo tampoco se usan para abrir conexiones.
+- La política de autorización no resuelve contextos desde JWT, usuarios,
+  empresas o membresías persistidas.
 - Los esquemas de trabajos e intentos existen, pero no se han aplicado a una base.
 - Los modelos de activos y artefactos existen, pero no se han aplicado a una
   base ni conectado a almacenamiento; no se persisten hallazgos.

@@ -18,6 +18,9 @@ DBI, todavía sin ciclo de vida FastAPI, repositorio, endpoint o conexión
 operativa. `DBI-DATA-004` incorpora repositorios acotados por organización o
 tenant y una unidad de trabajo basada en la misma frontera transaccional,
 todavía sin autorización, ciclo de vida FastAPI, endpoint o conexión operativa.
+`DBI-AUTH-001` añade una política pura, inmutable y cerrada por defecto para
+tenant, organización, finca y lote, todavía sin resolver identidad, integrar
+FastAPI, consultar pertenencias o abrir una conexión.
 
 El diseño y la evidencia están en `docs/17_ARCHITECTURE_DBI-ARC-001.md` y
 `docs/18_DATABASE_ISOLATION_DBI-DATA-001.md`. El corte cartográfico se documenta
@@ -26,8 +29,9 @@ en `docs/19_MAP_TIMELINE_DBI-MAP-001.md`, el dominio agrícola en
 `docs/21_ANALYSIS_JOB_CONTRACT_DBI-JOB-001.md`, su persistencia en
 `docs/22_ANALYSIS_JOB_PERSISTENCE_DBI-JOB-002.md` y los metadatos de objetos en
 `docs/23_ASSET_PERSISTENCE_DBI-ASSET-001.md`. La frontera transaccional se
-documenta en `docs/24_DBI_SESSION_FACTORY_DBI-DATA-003.md` y el acceso por
-repositorios en `docs/25_DBI_REPOSITORIES_DBI-DATA-004.md`.
+documenta en `docs/24_DBI_SESSION_FACTORY_DBI-DATA-003.md`, el acceso por
+repositorios en `docs/25_DBI_REPOSITORIES_DBI-DATA-004.md` y la política de
+autorización en `docs/26_DBI_AUTHORIZATION_DBI-AUTH-001.md`.
 
 ## Módulos existentes
 
@@ -247,6 +251,22 @@ autorización. Identidad, pertenencia, ciclo de vida FastAPI y endpoints requier
 tickets posteriores. La validación compila sentencias SQLAlchemy para
 PostgreSQL y usa dobles; no construye un motor ni abre conexiones.
 
+## Política de autorización DBI v1
+
+`DBI-AUTH-001` incorpora `DBIAccessContext` como una copia inmutable de la
+identidad y los ámbitos que una futura frontera confiable haya resuelto. El
+contexto conserva un tenant, organizaciones, fincas, lotes y permisos
+explícitos; no acepta referencias vacías o comodines.
+
+`DBIAuthorizationPolicy` exige coincidencia exacta en una cadena acumulativa:
+permiso y tenant; luego organización; después finca; finalmente lote. Una
+ausencia o diferencia genera la misma denegación sin revelar qué pertenencia
+falló. Ningún permiso implica otro y `manage` no concede acceso universal.
+
+La política no autentica, decodifica JWT, consulta `User` o `Company`, abre
+sesiones ni invoca repositorios. Resolver identidad y pertenencia, integrar el
+ciclo de vida FastAPI y montar endpoints requiere tickets separados.
+
 ## Dependencias permitidas
 
 | Origen | Destino permitido |
@@ -277,8 +297,9 @@ PostgreSQL y usa dobles; no construye un motor ni abre conexiones.
 6. `DBI-JOB-002`: persistencia offline de trabajos e intentos.
 7. `DBI-ASSET-001`: persistencia offline de activos y artefactos.
 8. `DBI-DATA-003`: fábrica aislada de sesiones DBI.
-9. `DBI-DATA-004`: repositorios y unidad de trabajo offline; después,
-   autorización de acceso.
+9. `DBI-DATA-004`: repositorios y unidad de trabajo offline;
+   `DBI-AUTH-001`: política de autorización offline; después, resolución de
+   identidad, ciclo de vida FastAPI y endpoints.
 10. Cola y ejecución del worker.
 11. Integración del dashboard y la PWA.
 12. Migración controlada del bot y conciliación con Google Sheets.

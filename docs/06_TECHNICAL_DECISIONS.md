@@ -394,3 +394,31 @@ lecturas transversales y efectos transaccionales.
 - No interpretar el ámbito de consulta como autorización de identidad.
 - No integrar FastAPI, endpoints, infraestructura o ejecución en este corte.
 - Validar consultas y transacciones con dobles, sin conexiones.
+
+## DEC-022
+
+**Decisión:** separar la política de autorización DBI de la autenticación
+heredada y de la resolución futura de pertenencias.
+
+**Motivo:** `organization_ref` y `tenant_ref` son referencias opacas sin una
+relación canónica con `User`, `Company` o los roles heredados. Inferir acceso
+desde JWT, `ADMIN` o `Company.owner_id` antes de definir esa autoridad podría
+crear acceso transversal y acoplar la nueva plataforma a `DATABASE_URL`.
+
+**Controles obligatorios:**
+
+- Recibir identidad, tenant, organizaciones, fincas, lotes y permisos como un
+  contexto explícito ya resuelto.
+- Exigir identidad y tenant no vacíos.
+- Rechazar comodines y permisos desconocidos.
+- Copiar los ámbitos a colecciones inmutables.
+- Exigir tenant en toda autorización.
+- Exigir organización antes de finca y finca antes de lote.
+- Negar por defecto cualquier permiso o pertenencia ausente.
+- Usar un único tipo y mensaje de denegación para no enumerar recursos.
+- No interpretar `ADMIN`, otro rol heredado o `Company.owner_id` como acceso
+  DBI.
+- No importar FastAPI, SQLAlchemy, seguridad, modelos o sesiones heredadas.
+- No resolver JWT, consultar pertenencias, invocar repositorios o abrir
+  conexiones en este corte.
+- Validar la política con biblioteca estándar y casos completamente offline.
