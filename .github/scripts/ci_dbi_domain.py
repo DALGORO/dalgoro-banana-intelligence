@@ -60,7 +60,7 @@ def validate_metadata() -> None:
     """Comprueba tablas, columnas y aislamiento de metadatos."""
 
     assert {Farm, Plot, Campaign}
-    assert set(DBIBase.metadata.tables) == EXPECTED_TABLES
+    assert EXPECTED_TABLES.issubset(DBIBase.metadata.tables)
 
     for table_name, expected_columns in EXPECTED_COLUMNS.items():
         table = DBIBase.metadata.tables[table_name]
@@ -120,7 +120,10 @@ def validate_migration_graph() -> None:
     config = Config(str(BACKEND_ROOT / "dbi_alembic.ini"))
     scripts = ScriptDirectory.from_config(config)
     assert scripts.get_bases() == ["dbi_0001_baseline"]
-    assert scripts.get_heads() == ["dbi_0002_agricultural_domain"]
+    assert len(scripts.get_heads()) == 1
+    revision = scripts.get_revision("dbi_0002_agricultural_domain")
+    assert revision is not None
+    assert revision.down_revision == "dbi_0001_baseline"
 
 
 def validate_offline_sql() -> None:

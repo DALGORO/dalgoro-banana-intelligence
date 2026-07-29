@@ -298,3 +298,26 @@ seguridad de referencias.
   hallazgo futuro.
 - No crear endpoints, tablas, migraciones, colas o infraestructura en
   `DBI-JOB-001`.
+
+## DEC-018
+
+**Decisión:** persistir el estado global y los intentos antes de crear sesiones,
+endpoints, cola o ejecución del worker.
+
+**Motivo:** la idempotencia y los reintentos deben tener respaldo transaccional
+antes de introducir efectos externos. Conectar simultáneamente persistencia,
+mensajería, almacenamiento y pipeline impediría determinar qué componente
+duplicó o perdió un trabajo.
+
+**Controles obligatorios:**
+
+- Usar exclusivamente `DBIBase` y el historial `dbi_alembic`.
+- Separar el trabajo global de cada intento numerado.
+- Hacer único `tenant_ref + request_id`.
+- Relacionar trabajos solo con finca, lote y campaña DBI.
+- Mantener las referencias de activos como identificadores opacos.
+- Conservar huellas SHA-256, estados y fechas mediante restricciones.
+- No crear claves foráneas hacia modelos heredados.
+- No crear motor, sesión, repositorio o endpoint en `DBI-JOB-002`.
+- No crear cola, broker, almacenamiento o ejecución del pipeline.
+- Validar metadatos y migración exclusivamente en modo offline.

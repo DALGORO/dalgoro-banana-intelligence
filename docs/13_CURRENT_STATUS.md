@@ -2,7 +2,7 @@
 
 ## Versión
 
-0.6.0-analysis-job-contract
+0.7.0-analysis-job-persistence
 
 ## Terminado
 
@@ -34,13 +34,17 @@
 
 ## Ticket actual
 
-Ninguno.
+`DBI-JOB-002` — Persistencia offline de trabajos e intentos.
+
+- Issue: #18
+- Rama: `feat/DBI-JOB-002-persistencia-trabajos-intentos`
+- Estado: en implementación
 
 ## Próximo paso
 
-Seleccionar el siguiente ticket desde `main`. Crear persistencia operativa,
-cola, almacenamiento o ejecución del worker continúa requiriendo aprobación
-explícita.
+Publicar y validar la migración y los metadatos exclusivamente en modo offline.
+Crear una sesión, repositorio, endpoint, cola, almacenamiento o ejecución del
+worker continúa requiriendo un ticket y aprobación explícitos.
 
 ## Riesgos heredados abiertos
 
