@@ -8,7 +8,7 @@
 - Rama: `architecture/DBI-ARC-001-limites-contratos`
 - Base: `main` en `14775cf6b4cd8afa47e22e1728ad44cc55187509`
 - Pull request: #9
-- Estado: en revisión
+- Estado: completado
 
 ## Objetivo
 
@@ -456,6 +456,7 @@ no crea esos tickets ni autoriza despliegues.
 | Decisiones técnicas | `DEC-001` a `DEC-013`, consecutivas |
 | GitHub Actions `30420556081` | Primera ejecución: seis de seis trabajos aprobados |
 | GitHub Actions `30420731911` | Ejecución posterior a las precisiones: seis de seis aprobados |
+| GitHub Actions `30420894766` | Ejecución definitiva sobre `9e8a1b0e`: seis de seis aprobados |
 
 GitHub Actions validó higiene, secretos, frontend, backend, bot y motor de
 densidad. Los smoke tests conservaron el aislamiento definido en `DBI-CI-002`;
