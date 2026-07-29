@@ -8,7 +8,7 @@
 - Rama: `feat/DBI-AUTH-001-autorizacion-dbi-offline`
 - Base: `main` en `706537d900e66a0963f555541b9d883f167ce823`
 - Pull request: #27
-- Estado: en revisión
+- Estado: completado
 
 ## Objetivo
 
@@ -172,9 +172,15 @@ SHA final. Las pruebas locales no sustituyen esa ejecución.
 
 ## Validación remota
 
-GitHub Actions `30497480322` aprobó seis de seis trabajos sobre el SHA de
-implementación validado
-`86db0a393fe13bce26b9faf6e87265ce6fc26b0e`:
+GitHub Actions inicial `30497480322` aprobó seis de seis trabajos sobre el SHA
+de implementación
+`86db0a393fe13bce26b9faf6e87265ce6fc26b0e`.
+
+GitHub Actions final `30497741123` aprobó seis de seis trabajos sobre el SHA
+documentado
+`2f6a4aacff37c5fbda89a463a2013bb2ccf4a66f`.
+
+Ambas ejecuciones validaron:
 
 - backend con Python 3.11, instalación completa, ambos grafos Alembic,
   aislamiento, fábrica, repositorios, autorización, dominio, contratos,
@@ -184,14 +190,13 @@ implementación validado
 - motor de densidad con dependencias, compilación, importaciones y CLI;
 - higiene de artefactos y detección de secretos.
 
-El diff contiene siete archivos —tres añadidos y cuatro modificados—, un commit
-y cero retraso frente a `main`. No se abrió una conexión, no se ejecutó una
-migración online y no se invocó almacenamiento, cola o pipeline.
+El diff contiene siete archivos —tres añadidos y cuatro modificados—, dos
+commits y cero retraso frente a `main`. No se abrió una conexión, no se
+ejecutó una migración online y no se invocó almacenamiento, cola o pipeline.
 
-La ejecución comprueba los diez criterios del Issue #26 sobre el código
-funcional. Este cierre documental no modifica código y debe aprobar una
-ejecución completa de GitHub Actions antes de considerar el Draft PR listo
-para revisión.
+Los diez criterios del Issue #26 quedaron verificados. Este cierre documental
+no modifica código funcional y debe aprobar una ejecución completa de GitHub
+Actions antes de fusionar el PR #27.
 
 ## Exclusiones confirmadas
 
