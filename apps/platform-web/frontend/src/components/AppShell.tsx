@@ -95,6 +95,13 @@ function getPageMeta(pathname: string) {
     };
   }
 
+  if (/^\/fincas\/[^/]+\/mapa$/.test(pathname)) {
+    return {
+      title: 'Mapa cronológico de la finca',
+      subtitle: 'Explora campañas y capas georreferenciadas por fecha sin mezclar datos observados, inferencias y recomendaciones.',
+    };
+  }
+
   if (pathname.startsWith('/companies/') && pathname.includes('/documents')) {
     return {
       title: 'Documentos',

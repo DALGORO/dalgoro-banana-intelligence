@@ -2,7 +2,7 @@
 
 ## Versión
 
-0.3.0-data-isolation
+0.4.0-map-timeline
 
 ## Terminado
 
@@ -16,18 +16,19 @@
 - `DBI-REPO-001`: limpieza controlada de copias, respaldos y artefactos.
 - `DBI-ARC-001`: arquitectura objetivo, límites y contratos de integración.
 - `DBI-DATA-001`: base DBI aislada e historial Alembic independiente.
+- `DBI-MAP-001`: interfaz cronológica de mapas y contrato v1.
 
 ## Último ticket completado
 
-`DBI-DATA-001` — Base DBI aislada e historial Alembic independiente.
+`DBI-MAP-001` — Interfaz cronológica de mapas y contrato v1.
 
-- Issue: #10
-- Pull request: #11
+- Issue: #12
+- Pull request: #13
 - Estado: completado
-- SHA técnico validado: `58e0e39a8dc9e62af3e5cd546cd92fb94e5dcb4c`
-- GitHub Actions `30449255042`: seis de seis trabajos aprobados.
-- Diff: 13 archivos; ocho añadidos y cinco modificados.
-- Conexiones externas y migraciones online: cero.
+- SHA técnico validado: `167892a95ed708e5481df94dc187749884210cd1`.
+- GitHub Actions `30454883303`: seis de seis trabajos aprobados.
+- Diff: 15 archivos; seis añadidos y nueve modificados.
+- Conexiones externas, migraciones y datos simulados: cero.
 
 ## Ticket actual
 
@@ -36,8 +37,8 @@ Ninguno.
 ## Próximo paso
 
 Seleccionar el siguiente ticket desde `main`. La creación de infraestructura,
-la habilitación de PostGIS y cualquier migración online permanecen fuera del
-alcance de `DBI-DATA-001`.
+la habilitación de PostGIS, las campañas reales y cualquier migración online
+requieren alcance y aprobación explícitos.
 
 ## Riesgos heredados abiertos
 
@@ -58,7 +59,8 @@ alcance de `DBI-DATA-001`.
 - No se ha habilitado PostGIS.
 - No se han creado modelos o tablas del dominio agrícola.
 - No se ha conectado el backend heredado al entorno DBI.
-- No existe todavía el dashboard agrícola o el mapa cronológico.
+- El mapa cronológico v1 todavía no dispone de fincas, campañas, geometrías,
+  tiles o fechas reales.
 - No se han cambiado Green API, Google Sheets o Render.
 - No se ha cambiado la lógica conversacional del bot.
 - No se han actualizado modelos de IA.

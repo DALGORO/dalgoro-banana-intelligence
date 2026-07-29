@@ -223,3 +223,28 @@ deuda histórica en una dependencia de DBI.
 - CI valida ambos grafos y genera SQL DBI solo en modo offline.
 - Crear bases, extensiones o roles y ejecutar migraciones online requiere un
   ticket posterior y aprobación explícita.
+
+## DEC-015
+
+**Decisión:** iniciar el mapa cronológico con un contrato de lectura estricto y
+una interfaz MapLibre sin fuentes cartográficas externas ni datos simulados.
+
+**Motivo:** la experiencia de navegación, filtros y comparación puede
+establecerse antes de disponer de PostGIS y campañas reales, pero una maqueta
+con geometrías o índices inventados podría confundirse con evidencia
+agronómica.
+
+**Controles obligatorios:**
+
+- Versionar la respuesta como `farm-map-timeline.v1`.
+- Rechazar campos desconocidos en los modelos del contrato.
+- Exponer la consulta bajo la autenticación existente.
+- Tratar los identificadores de finca como referencias internas opacas.
+- Distinguir catálogo de capas de capas efectivamente disponibles.
+- Devolver una cronología vacía mientras no exista persistencia autorizada.
+- No incluir URLs, rutas locales, geometrías o mediciones de marcador.
+- Mantener MapLibre con un estilo local y `sources: {}` en este corte.
+- Habilitar comparación solo con dos fechas reales distintas.
+- Conservar clasificación, confianza, procedencia y revisión profesional para
+  cada entrada futura.
+- No crear tablas, migraciones o conexiones como parte de `DBI-MAP-001`.

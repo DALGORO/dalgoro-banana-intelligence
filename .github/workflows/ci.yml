@@ -113,6 +113,11 @@ jobs:
           PYTHONPATH: .
         run: python ../../../.github/scripts/ci_dbi_database_isolation.py
 
+      - name: Validar contrato de mapa cronológico
+        env:
+          PYTHONPATH: .
+        run: python ../../../.github/scripts/ci_map_contract.py
+
       - name: Ejecutar importación y healthcheck
         env:
           PYTHONPATH: .

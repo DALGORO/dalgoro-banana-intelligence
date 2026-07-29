@@ -1,4 +1,4 @@
-import type { ReactElement } from 'react';
+import { lazy, Suspense, type ReactElement } from 'react';
 import { createBrowserRouter, Navigate } from 'react-router-dom';
 import AppShell from '../components/AppShell';
 import Login from '../pages/Login';
@@ -18,6 +18,7 @@ import AdminPage from '../pages/AdminPage';
 
 
 const enableDocs = import.meta.env.VITE_ENABLE_DOCS === "1";
+const FarmMapTimeline = lazy(() => import('../pages/FarmMapTimeline'));
 
 function Protected({ element }: { element: ReactElement }) {
   return localStorage.getItem('token') ? element : <Navigate to="/login" replace />;
@@ -37,6 +38,18 @@ export const router = createBrowserRouter([
       { path: 'pay', element: <PaymentPage /> },
       { path: 'companies/:id/iperc', element: <Protected element={<IPERCTab/>} /> },
       { path: 'companies/:id/investigacion-incidentes', element: <Protected element={<IncidentAssistant />} /> },
+      {
+        path: 'fincas/:fincaId/mapa',
+        element: (
+          <Protected
+            element={(
+              <Suspense fallback={<div className="card">Cargando visor cartográfico…</div>}>
+                <FarmMapTimeline />
+              </Suspense>
+            )}
+          />
+        ),
+      },
 
       // Rutas de documentos SOLO si el flag está activo
       ...(enableDocs ? [

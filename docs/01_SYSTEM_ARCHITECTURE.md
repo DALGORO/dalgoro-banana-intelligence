@@ -4,10 +4,12 @@
 
 La arquitectura objetivo se define en `DBI-ARC-001`. `DBI-DATA-001` implementa
 la primera barrera de datos: configuración DBI validada y un entorno Alembic
-independiente. Ninguno de los dos tickets integra módulos o crea una base.
+independiente. `DBI-MAP-001` implementa el primer contrato HTTP y consumidor
+React del mapa cronológico, todavía sin persistencia o datos geoespaciales.
 
 El diseño y la evidencia están en `docs/17_ARCHITECTURE_DBI-ARC-001.md` y
-`docs/18_DATABASE_ISOLATION_DBI-DATA-001.md`.
+`docs/18_DATABASE_ISOLATION_DBI-DATA-001.md`. El corte cartográfico se documenta
+en `docs/19_MAP_TIMELINE_DBI-MAP-001.md`.
 
 ## Módulos existentes
 
@@ -18,8 +20,9 @@ El diseño y la evidencia están en `docs/17_ARCHITECTURE_DBI-ARC-001.md` y
 | Bot | `apps/whatsapp-bot` | Webhook Flask, conversación, Green API y persistencia en Google Sheets |
 | Motor geoespacial | `services/banana-density` | CLI y pipeline local de análisis de ortofotos |
 
-Los cuatro componentes continúan separados. Ninguna referencia a la
-arquitectura objetivo significa que ya estén integrados.
+Los cuatro componentes continúan separados. El contrato cartográfico conecta
+únicamente React y FastAPI. No conecta la API con PostGIS, almacenamiento de
+objetos o el worker geoespacial.
 
 ## Arquitectura objetivo aprobada
 
@@ -106,6 +109,26 @@ La existencia de esta configuración no significa que una base, esquema, rol o
 extensión haya sido creado. Cualquier migración online requiere un ticket y una
 aprobación explícitos.
 
+## Mapa cronológico v1
+
+`DBI-MAP-001` añade dos superficies coordinadas:
+
+- la ruta React protegida `/fincas/:fincaId/mapa`;
+- `GET /api/v1/dbi/farms/{farm_id}/map/timeline`.
+
+El endpoint devuelve `farm-map-timeline.v1`, ocho tipos de capa y una cronología
+vacía. La respuesta no contiene geometrías, mediciones, URLs, rutas locales o
+resultados simulados.
+
+MapLibre GL JS se ejecuta con un estilo local neutro y `sources: {}`. La
+interfaz muestra carga, error y ausencia de campañas; la comparación permanece
+deshabilitada hasta que existan al menos dos fechas reales.
+
+Este corte implementa un contrato y su consumidor. No implementa finca o lote
+como tablas, autorización por pertenencia de finca, campañas, tiles, artefactos
+ni procesamiento geoespacial. Esas capacidades requieren persistencia DBI y
+contratos de acceso autorizados en tickets posteriores.
+
 ## Dependencias permitidas
 
 | Origen | Destino permitido |
@@ -130,8 +153,9 @@ aprobación explícitos.
 
 1. `DBI-ARC-001`: arquitectura, límites y contratos.
 2. `DBI-DATA-001`: configuración DBI aislada e historial Alembic independiente.
-3. Esqueleto de dominio agrícola y contratos versionados en la API.
-4. Orquestación asíncrona y adaptador del worker geoespacial.
-5. Integración del dashboard y la PWA.
-6. Migración controlada del bot y conciliación con Google Sheets.
-7. Observabilidad, gobierno de modelos y despliegues por ambiente.
+3. `DBI-MAP-001`: contrato y primera interfaz cronológica sin datos simulados.
+4. Persistencia del dominio finca, lote y campaña en DBI.
+5. Orquestación asíncrona y adaptador del worker geoespacial.
+6. Integración del dashboard y la PWA.
+7. Migración controlada del bot y conciliación con Google Sheets.
+8. Observabilidad, gobierno de modelos y despliegues por ambiente.
