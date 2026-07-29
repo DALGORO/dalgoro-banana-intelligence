@@ -38,14 +38,19 @@
 `DBI-ASSET-001` — Persistencia offline de activos y artefactos.
 
 - Issue: #20
+- Pull request: #21
 - Rama: `feat/DBI-ASSET-001-persistencia-activos-artefactos`
-- Estado: en implementación.
+- Estado: en revisión
+- SHA inicial validado: `e68bb53156404618762eeaaafe37fa9f63ff16e5`.
+- GitHub Actions `30473212425`: seis de seis trabajos aprobados.
+- Diff: 11 archivos; cuatro añadidos y siete modificados.
+- Conexiones externas y migraciones online: cero.
 
 ## Próximo paso
 
-Completar la validación remota de `DBI-ASSET-001` y someter su Draft PR a
-revisión. Crear una sesión, repositorio, endpoint, cola, almacenamiento o
-ejecución del worker continúa requiriendo otro ticket y aprobación explícitos.
+Revisar y, con autorización explícita, fusionar el Draft PR #21. Crear una
+sesión, repositorio, endpoint, cola, almacenamiento o ejecución del worker
+continúa requiriendo otro ticket y aprobación explícitos.
 
 ## Riesgos heredados abiertos
 
