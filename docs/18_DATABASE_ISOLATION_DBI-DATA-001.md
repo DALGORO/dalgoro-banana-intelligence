@@ -7,8 +7,8 @@
 - Fecha: 2026-07-29
 - Rama: `feat/DBI-DATA-001-aislamiento-base-dbi`
 - Base: `main` en `59652b8afe97ca59991547c1d39ab4fd56bcb38e`
-- Pull request: pendiente
-- Estado: en implementación
+- Pull request: #11
+- Estado: en revisión
 
 ## Objetivo
 
@@ -218,6 +218,22 @@ El archivo no contiene una contraseña real y no se usa durante CI.
 Las pruebas focalizadas usaron Alembic 1.17.0 y SQLAlchemy 2.0.44, las versiones
 fijadas por `requirements.txt`.
 
+## Validación remota
+
+GitHub Actions `30448937826` aprobó seis de seis trabajos sobre el SHA
+`a390d466`:
+
+- higiene del repositorio;
+- frontend;
+- backend;
+- bot de WhatsApp;
+- motor de densidad;
+- detección de secretos.
+
+Dentro del trabajo backend aprobaron instalación completa, `pip check`,
+compilación, grafos Alembic heredado y DBI, aislamiento y SQL offline, smoke test
+FastAPI y auditoría informativa de dependencias.
+
 ## Criterios de aceptación
 
 | Criterio | Evidencia |
@@ -230,7 +246,7 @@ fijadas por `requirements.txt`.
 | Evitar integración prematura | Revisión inicial sin operaciones |
 | Evitar conexiones en CI | `command.upgrade(..., sql=True)` |
 | Documentar estado real | Arquitectura, decisión, estado e informe |
-| Aprobar workflow remoto | Pendiente del Draft PR |
+| Aprobar workflow remoto | GitHub Actions `30448937826`: seis de seis |
 
 ## Fuentes técnicas
 

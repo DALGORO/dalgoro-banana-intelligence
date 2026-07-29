@@ -26,8 +26,8 @@
 
 - Issue: #10
 - Rama: `feat/DBI-DATA-001-aislamiento-base-dbi`
-- Pull request: pendiente
-- Estado: en implementación
+- Pull request: #11
+- Estado: en revisión
 - Base: `main` en `59652b8afe97ca59991547c1d39ab4fd56bcb38e`
 
 ### Alcance
@@ -76,13 +76,14 @@
 - SQL DBI generado en modo offline con `alembic_version_dbi`.
 - SQL offline sin tablas `users`, `companies` o `documents`.
 - Ninguna conexión externa ni migración online ejecutada.
-- GitHub Actions: pendiente del Draft PR.
+- GitHub Actions `30448937826`: seis de seis trabajos aprobados.
+- El trabajo backend aprobó instalación completa, dependencias, compilación,
+  ambos grafos Alembic, aislamiento DBI, SQL offline y healthcheck.
 
 ## Próximo paso
 
-Publicar el cambio validado, abrir el Draft PR y verificar todos los trabajos de
-GitHub Actions antes de solicitar revisión. La creación de infraestructura o una
-migración online queda fuera de este ticket.
+Revisar el Draft PR #11 y fusionarlo únicamente con autorización explícita. La
+creación de infraestructura o una migración online queda fuera de este ticket.
 
 ## Riesgos heredados abiertos
 
