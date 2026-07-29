@@ -7,8 +7,8 @@
 - Fecha: 2026-07-29
 - Rama: `feat/DBI-JOB-002-persistencia-trabajos-intentos`
 - Base: `main` en `d886830a53de3f3084284def8947107106cd6934`
-- Pull request: pendiente
-- Estado: en implementación
+- Pull request: #19
+- Estado: en revisión
 
 ## Objetivo
 
@@ -99,11 +99,12 @@ finalizar antes del comienzo.
 - `docs/13_CURRENT_STATUS.md`: ticket vigente.
 - `docs/22_ANALYSIS_JOB_PERSISTENCE_DBI-JOB-002.md`: evidencia técnica.
 
-## Validaciones previstas
+## Validaciones locales ejecutadas
 
-| Verificación | Criterio |
+| Verificación | Resultado |
 | --- | --- |
-| Compilación Python | Sin errores |
+| Compilación Python | Aprobada |
+| `pip check` focalizado | Aprobado |
 | Metadatos DBI | Cinco tablas exactas |
 | Tablas nuevas | Trabajo e intento |
 | Idempotencia | Tenant y solicitud únicos |
@@ -112,9 +113,31 @@ finalizar antes del comienzo.
 | Huellas | SHA-256 minúscula de 64 caracteres |
 | Relaciones | Solo tablas DBI |
 | Cabeza DBI | `dbi_0003_analysis_jobs` |
+| Dominio agrícola heredado | Aprobado |
+| Contrato API–worker heredado | Aprobado |
 | SQL Alembic | Generación exclusivamente offline |
 | Extensiones y datos iniciales | Ausentes |
+| Markdownlint | Cero errores |
 | Conexiones externas | Cero |
+
+## Validación remota
+
+La primera ejecución `30467911734` identificó que
+`ci_dbi_database_isolation.py` fijaba `dbi_0002_agricultural_domain` como cabeza
+permanente. El commit `3512876dcc7f1453aadef09ffabbb5178ecf6fbc`
+corrigió únicamente esa expectativa para exigir una sola cabeza DBI; el nuevo
+control conserva la exigencia exacta de `dbi_0003_analysis_jobs`.
+
+GitHub Actions `30468088066` aprobó seis de seis trabajos sobre el SHA corregido:
+
+- backend con instalación completa, ambos grafos Alembic, aislamiento, dominio,
+  mapa, contrato, persistencia y healthcheck;
+- frontend con instalación, lint y build de producción;
+- bot con instalación, compilación y smoke test;
+- motor de densidad con dependencias, compilación, importaciones y CLI;
+- higiene de artefactos y detección de secretos.
+
+No se abrió una conexión ni se ejecutó una migración o el pipeline.
 
 ## Naturaleza de los datos
 

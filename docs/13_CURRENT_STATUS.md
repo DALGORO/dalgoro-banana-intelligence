@@ -37,12 +37,17 @@
 `DBI-JOB-002` — Persistencia offline de trabajos e intentos.
 
 - Issue: #18
+- Pull request: #19
 - Rama: `feat/DBI-JOB-002-persistencia-trabajos-intentos`
-- Estado: en implementación
+- Estado: en revisión
+- SHA técnico validado: `3512876dcc7f1453aadef09ffabbb5178ecf6fbc`.
+- GitHub Actions `30468088066`: seis de seis trabajos aprobados.
+- Diff: 11 archivos; cuatro añadidos y siete modificados.
+- Conexiones externas y migraciones online: cero.
 
 ## Próximo paso
 
-Publicar y validar la migración y los metadatos exclusivamente en modo offline.
+Completar la revisión del Draft PR #19 y conservar la validación offline.
 Crear una sesión, repositorio, endpoint, cola, almacenamiento o ejecución del
 worker continúa requiriendo un ticket y aprobación explícitos.
 
