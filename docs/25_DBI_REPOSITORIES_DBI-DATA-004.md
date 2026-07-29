@@ -7,7 +7,7 @@
 - Fecha: 2026-07-29
 - Rama: `feat/DBI-DATA-004-repositorios-dbi-offline`
 - Base: `main` en `1e57631c19c0546d4d7e5343c4ff84eae28b7748`
-- Pull request: pendiente
+- Pull request: #25
 - Estado: en revisión
 
 ## Objetivo
@@ -178,7 +178,22 @@ SHA final. Las pruebas locales no sustituyen esa ejecución.
 
 ## Validación remota
 
-Pendiente de la ejecución de GitHub Actions asociada al Draft PR.
+GitHub Actions `30493838198` aprobó seis de seis trabajos sobre el SHA inicial
+validado `99da89eb084e56c1b094f29a734e037929d19a12`:
+
+- backend con instalación completa, ambos grafos Alembic, aislamiento, fábrica,
+  repositorios, dominio, contratos, persistencia y healthcheck;
+- frontend con instalación, lint y build de producción;
+- bot con instalación, compilación y smoke test;
+- motor de densidad con dependencias, compilación, importaciones y CLI;
+- higiene de artefactos y detección de secretos.
+
+El diff contiene ocho archivos —cuatro añadidos y cuatro modificados—, un commit
+y cero retraso frente a `main`. No se abrió una conexión, no se ejecutó una
+migración online y no se invocó almacenamiento, cola o pipeline.
+
+La ejecución definitiva corresponderá al commit documental que registre esta
+evidencia.
 
 ## Exclusiones confirmadas
 

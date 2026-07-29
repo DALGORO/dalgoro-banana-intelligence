@@ -42,7 +42,9 @@
 - Issue: #24
 - Rama: `feat/DBI-DATA-004-repositorios-dbi-offline`
 - Estado: en revisión
-- Pull request: pendiente
+- Pull request: #25
+- SHA inicial validado: `99da89eb084e56c1b094f29a734e037929d19a12`
+- GitHub Actions `30493838198`: seis de seis trabajos aprobados.
 
 ## Próximo paso
 
