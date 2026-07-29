@@ -76,3 +76,25 @@ funcionen.
   existan hallazgos heredados que requieran un ticket separado.
 - Fijar las acciones externas a SHA completos para reducir riesgo de cadena de
   suministro.
+
+## DEC-008
+**Decisión:** mantener una sola fuente canónica por módulo y conservar las
+versiones históricas exclusivamente en el historial de Git.
+
+**Motivo:** las copias con nombres como `copy`, `_antes_` o `_respaldo`
+pueden compilar por accidente, confundir revisiones y provocar que una
+corrección se aplique al archivo equivocado.
+
+**Controles obligatorios:**
+
+- No versionar copias directas, respaldos manuales, archivos comprimidos ni
+  volcados de revisión.
+- Generar `sistema_completo_para_revision.txt` únicamente dentro de
+  `outputs/review/`, ruta excluida de Git.
+- Validar en CI las rutas obtenidas con `git ls-files`.
+- Mantener las configuraciones y módulos históricos recuperables desde Git, sin
+  duplicarlos en el árbol activo.
+- Preservar y comprobar los 12 activos binarios funcionales hasta que un ticket
+  específico evalúe su sustitución o traslado.
+- No reescribir el historial del repositorio como parte de una limpieza
+  ordinaria.
