@@ -7,8 +7,8 @@
 - Fecha: 2026-07-29
 - Rama: `feat/DBI-JOB-001-contratos-trabajos-v1`
 - Base: `main` en `b70889179baa031f48124b369fe393a702cbfd81`
-- Pull request: pendiente
-- Estado: en implementación
+- Pull request: #17
+- Estado: en revisión
 
 ## Objetivo
 
@@ -173,6 +173,22 @@ posteriores.
 | Ejecución de pipeline | Cero |
 | Conexiones externas | Cero |
 
+## Validación remota
+
+GitHub Actions `30462381405` aprobó seis de seis trabajos sobre el SHA técnico
+`3425d8254300689fcbeeca330b9ae72d94719a1b`.
+
+La ejecución confirmó:
+
+- higiene del repositorio y activos canónicos;
+- frontend con instalación, lint y build completos;
+- backend con dependencias, compilación, ambos grafos Alembic, aislamiento DBI,
+  dominio agrícola, mapa, contrato geoespacial y healthcheck;
+- bot de WhatsApp con instalación, compilación y smoke test;
+- motor de densidad con dependencias geoespaciales, compilación, importaciones
+  y CLI;
+- detección de secretos sobre el historial.
+
 ## Criterios de aceptación
 
 | Criterio | Evidencia |
@@ -185,7 +201,7 @@ posteriores.
 | Estados controlados | Matriz de transiciones pura |
 | Reintento autorizado | `retry_authorized=True` obligatorio |
 | Artefactos verificables | Tamaño, SHA-256, rol, etapa y objeto |
-| CI completa | Pendiente de ejecución remota |
+| CI completa | GitHub Actions `30462381405`: seis de seis |
 | Estado documentado | Documentos 01, 06, 13 y 21 |
 
 ## Naturaleza de los datos

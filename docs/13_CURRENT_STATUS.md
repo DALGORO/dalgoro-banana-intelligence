@@ -36,8 +36,10 @@
 - Issue: #16
 - Rama: `feat/DBI-JOB-001-contratos-trabajos-v1`
 - Base: `main` en `b70889179baa031f48124b369fe393a702cbfd81`
-- Pull request: pendiente
-- Estado: en implementación
+- Pull request: #17
+- Estado: en revisión
+- SHA técnico validado: `3425d8254300689fcbeeca330b9ae72d94719a1b`
+- GitHub Actions `30462381405`: seis de seis trabajos aprobados
 
 ### Alcance
 
@@ -56,9 +58,9 @@
 
 ## Próximo paso
 
-Publicar el Draft PR de `DBI-JOB-001` y validar los seis trabajos de GitHub
-Actions. La cola, persistencia operativa, almacenamiento y ejecución del worker
-requieren tickets posteriores y aprobación explícita.
+Completar la ejecución final de GitHub Actions sobre el SHA documental y
+revisar el Draft PR #17. La cola, persistencia operativa, almacenamiento y
+ejecución del worker requieren tickets posteriores y aprobación explícita.
 
 ## Riesgos heredados abiertos
 
