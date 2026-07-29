@@ -19,35 +19,27 @@
 - `DBI-MAP-001`: interfaz cronológica de mapas y contrato v1.
 - `DBI-DATA-002`: persistencia mínima de finca, lote y campaña.
 - `DBI-JOB-001`: contratos v1 y máquina de estados geoespacial.
+- `DBI-JOB-002`: persistencia offline de trabajos e intentos.
 
 ## Último ticket completado
-
-`DBI-JOB-001` — Contratos v1 y máquina de estados geoespacial.
-
-- Issue: #16
-- Pull request: #17
-- Estado: completado
-- SHA final validado: `c5820ff6ddc4a774c7d14a8c0716f19c85819fd3`.
-- GitHub Actions `30462722323`: seis de seis trabajos aprobados.
-- Diff: 10 archivos; seis añadidos y cuatro modificados.
-- Conexiones externas y ejecución del pipeline: cero.
-
-## Ticket actual
 
 `DBI-JOB-002` — Persistencia offline de trabajos e intentos.
 
 - Issue: #18
 - Pull request: #19
-- Rama: `feat/DBI-JOB-002-persistencia-trabajos-intentos`
-- Estado: en revisión
-- SHA técnico validado: `3512876dcc7f1453aadef09ffabbb5178ecf6fbc`.
-- GitHub Actions `30468088066`: seis de seis trabajos aprobados.
+- Estado: completado
+- SHA final validado: `1442f1e79f47716d0ea8393dcb467cf4ed1cea43`.
+- GitHub Actions `30468490614`: seis de seis trabajos aprobados.
 - Diff: 11 archivos; cuatro añadidos y siete modificados.
 - Conexiones externas y migraciones online: cero.
 
+## Ticket actual
+
+Ninguno.
+
 ## Próximo paso
 
-Completar la revisión del Draft PR #19 y conservar la validación offline.
+Definir el siguiente ticket desde la secuencia arquitectónica documentada.
 Crear una sesión, repositorio, endpoint, cola, almacenamiento o ejecución del
 worker continúa requiriendo un ticket y aprobación explícitos.
 
@@ -71,7 +63,8 @@ worker continúa requiriendo un ticket y aprobación explícitos.
 - No se ha habilitado PostGIS.
 - Los modelos y la migración del dominio agrícola no se han aplicado a una base.
 - No se ha conectado el backend heredado al entorno DBI.
-- No se persisten trabajos, intentos, activos, artefactos o hallazgos.
+- Los esquemas de trabajos e intentos existen, pero no se han aplicado a una base.
+- No se persisten activos, artefactos o hallazgos.
 - No existe cola, broker, productor, consumidor o almacenamiento privado.
 - El adaptador del worker no ejecuta el pipeline ni resuelve activos.
 - El mapa cronológico todavía no consulta persistencia y no dispone de
