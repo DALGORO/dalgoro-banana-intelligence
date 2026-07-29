@@ -8,7 +8,7 @@
 - Rama: `feat/DBI-MAP-001-mapa-cronologico-v1`
 - Base: `main` en `4abd2ae1d67114098a73f269924bcb9ad91b3779`
 - Pull request: #13
-- Estado: en revisión
+- Estado: completado
 
 ## Objetivo
 
@@ -185,10 +185,14 @@ autocontenido. El tamaño del módulo cartográfico justifica su carga diferida.
 
 ## Validación remota
 
-GitHub Actions `30454509983` aprobó seis de seis trabajos sobre el SHA técnico
-`614a1aea`.
+GitHub Actions aprobó dos ejecuciones completas:
 
-La ejecución confirmó:
+- `30454509983`: seis de seis trabajos sobre el SHA técnico inicial
+  `614a1aea`;
+- `30454883303`: seis de seis trabajos sobre el SHA técnico final
+  `167892a9`.
+
+La ejecución final confirmó:
 
 - higiene del repositorio y activos canónicos;
 - frontend con `npm ci`, lint y build completos;
@@ -211,7 +215,7 @@ La ejecución confirmó:
 | Contrato estricto | Pydantic con campos adicionales prohibidos |
 | Endpoint autenticado | Dependencia `current_user` |
 | Sin datos simulados | `timeline: []` y comparación deshabilitada |
-| CI completa | GitHub Actions `30454509983`: seis de seis |
+| CI completa | GitHub Actions `30454883303`: seis de seis |
 | Estado documentado | Documentos 01, 06, 13 y 19 |
 
 ## Fuentes técnicas
