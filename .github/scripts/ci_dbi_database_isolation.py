@@ -129,7 +129,7 @@ def validate_migration_graphs() -> None:
     dbi_config = Config(str(BACKEND_ROOT / "dbi_alembic.ini"))
     dbi_scripts = ScriptDirectory.from_config(dbi_config)
     assert dbi_scripts.get_bases() == ["dbi_0001_baseline"]
-    assert dbi_scripts.get_heads() == ["dbi_0001_baseline"]
+    assert dbi_scripts.get_heads() == ["dbi_0002_agricultural_domain"]
 
 
 def validate_offline_sql() -> None:

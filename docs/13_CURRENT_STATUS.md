@@ -2,7 +2,7 @@
 
 ## Versión
 
-0.4.0-map-timeline
+0.5.0-agricultural-domain
 
 ## Terminado
 
@@ -32,17 +32,24 @@
 
 ## Ticket actual
 
-Ninguno.
+`DBI-DATA-002` — Persistencia mínima de finca, lote y campaña.
+
+- Issue: #14
+- Rama: `feat/DBI-DATA-002-dominio-agricola-v1`
+- Estado: en implementación
+- Base: `de5a5412a254c7d382c98ac4284e948e217fee2a`
+- Conexiones externas y migraciones online: cero.
 
 ## Próximo paso
 
-Seleccionar el siguiente ticket desde `main`. La creación de infraestructura,
-la habilitación de PostGIS, las campañas reales y cualquier migración online
-requieren alcance y aprobación explícitos.
+Validar el esquema DBI, la revisión `dbi_0002_agricultural_domain` y el Draft
+PR del Issue #14. Crear infraestructura, habilitar PostGIS, insertar campañas
+reales o ejecutar migraciones online continúa requiriendo aprobación explícita.
 
 ## Riesgos heredados abiertos
 
 - El backend importado continúa usando `DATABASE_URL`.
+- DBI todavía no dispone de motor, sesión o repositorio de acceso.
 - Alembic heredado conserva tres cabezas: `20260411_01`, `2cec060d9aa4` y
   `7ce73aae44ce`.
 - El middleware de suscripción permite continuar ante varias excepciones.
@@ -57,10 +64,11 @@ requieren alcance y aprobación explícitos.
 - No se ha creado una base PostgreSQL/PostGIS DBI.
 - No se han creado roles `dbi_migrator`, `dbi_app` o `dbi_readonly`.
 - No se ha habilitado PostGIS.
-- No se han creado modelos o tablas del dominio agrícola.
+- Los modelos y la migración del dominio agrícola existen solo como código del
+  ticket actual; no se han aplicado a una base.
 - No se ha conectado el backend heredado al entorno DBI.
-- El mapa cronológico v1 todavía no dispone de fincas, campañas, geometrías,
-  tiles o fechas reales.
+- El mapa cronológico v1 todavía no consulta persistencia y no dispone de
+  geometrías, tiles o fechas reales.
 - No se han cambiado Green API, Google Sheets o Render.
 - No se ha cambiado la lógica conversacional del bot.
 - No se han actualizado modelos de IA.

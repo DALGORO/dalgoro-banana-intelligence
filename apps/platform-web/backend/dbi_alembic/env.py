@@ -9,6 +9,7 @@ from sqlalchemy import engine_from_config, pool
 
 from app.db.dbi_base import DBIBase
 from app.db.dbi_config import load_dbi_database_config
+from app.dbi import models as dbi_models  # noqa: F401
 
 config = context.config
 

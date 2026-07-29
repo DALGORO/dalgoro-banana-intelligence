@@ -248,3 +248,26 @@ agronómica.
 - Conservar clasificación, confianza, procedencia y revisión profesional para
   cada entrada futura.
 - No crear tablas, migraciones o conexiones como parte de `DBI-MAP-001`.
+
+## DEC-016
+
+**Decisión:** modelar finca, lote y campaña en metadatos DBI independientes
+antes de crear sesiones, endpoints o capacidades geoespaciales.
+
+**Motivo:** el contrato cartográfico necesita identificadores y campañas
+persistentes, pero acoplar simultáneamente esquema, acceso online, autorización
+y PostGIS impediría aislar riesgos y verificar el historial de migraciones.
+
+**Controles obligatorios:**
+
+- Usar exclusivamente `DBIBase` y el historial `dbi_alembic`.
+- Crear solo `dbi_farms`, `dbi_plots` y `dbi_campaigns`.
+- Mantener referencias internas UUID y códigos únicos por ámbito.
+- No crear claves foráneas hacia modelos heredados.
+- Restringir estados y consistencia temporal en la base.
+- Generar UUID en la aplicación sin exigir extensiones PostgreSQL.
+- No crear geometrías ni habilitar PostGIS en este corte.
+- No sembrar fincas, lotes, campañas o resultados de ejemplo.
+- Validar la revisión mediante SQL offline, sin conexiones.
+- Mantener el mapa cronológico en estado vacío hasta un ticket de acceso
+  autorizado.
