@@ -1,7 +1,7 @@
 # 13 — Estado actual
 
 ## Versión
-0.1.2-ci-modular
+0.1.3-repo-hygiene
 
 ## Terminado
 - Estructura inicial del monorepositorio.
@@ -45,9 +45,32 @@
   81 hallazgos en 19 paquetes; bot 2 en 1 paquete; densidad 3 en 2 paquetes.
   Ningún hallazgo se declara corregido en este ticket.
 
-## Próximo ticket
+## Ticket actual
 `DBI-REPO-001` — Limpieza controlada de copias, respaldos y artefactos.
 
+### Resultado implementado en la rama
+- Retiro de 19 archivos no canónicos previamente inventariados.
+- Conservación verificada de 10 plantillas DOCX, una plantilla XLSX y un PDF
+  institucional.
+- Salida de `consolidar_codigo.py` aislada en `outputs/review/`.
+- Nuevo control CI basado en archivos realmente versionados.
+- Sexto trabajo independiente de GitHub Actions para higiene del repositorio.
+
+### Validación ejecutada
+- Revisión de referencias sobre los 239 archivos del commit base: ninguna copia
+  activa; solo el generador referenciaba el volcado vacío retirado.
+- Comparación de funciones, rutas y claves con los archivos canónicos: las
+  versiones vigentes conservan o amplían el comportamiento requerido.
+- Compilación local de los dos scripts modificados: aprobada.
+- Caso limpio y cuatro casos prohibidos del validador: aprobados.
+- Generación local dentro de `outputs/review/`: aprobada.
+- Diff técnico previo a documentación: 19 eliminaciones, un archivo añadido y
+  dos archivos modificados.
+- GitHub Actions del Draft PR: pendiente de ejecución.
+
+## Próximo paso
+Completar GitHub Actions, revisar el Draft PR de `DBI-REPO-001` y fusionar
+únicamente con autorización del propietario.
 ## No realizado todavía
 - No se ha fusionado código entre módulos.
 - No existe todavía una base PostgreSQL/PostGIS unificada.
