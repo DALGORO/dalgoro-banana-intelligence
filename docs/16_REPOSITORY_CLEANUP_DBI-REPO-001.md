@@ -141,9 +141,9 @@ El trabajo `repository-hygiene` se añade a `.github/workflows/ci.yml` y la rama
 | Validador con árbol limpio | Aprobada |
 | Validador con cuatro patrones prohibidos | Aprobada; cuatro rechazos |
 | Generación en `outputs/review/` | Aprobada |
-| GitHub Actions completa | Pendiente del Draft PR |
+| GitHub Actions `30411081328` | Aprobada: 6 de 6 trabajos |
 
-Ninguna prueba pendiente se declara aprobada.
+La ejecución aprobó higiene, frontend, backend, bot, densidad y secretos.
 
 ## Recuperación
 
