@@ -8,7 +8,7 @@
 - Rama: `feat/DBI-DATA-002-dominio-agricola-v1`
 - Base: `main` en `de5a5412a254c7d382c98ac4284e948e217fee2a`
 - Pull request: #15
-- Estado: en revisión
+- Estado: completado
 
 ## Objetivo
 
@@ -195,8 +195,12 @@ Las pruebas focalizadas usaron Alembic 1.17.0, SQLAlchemy 2.0.44 y psycopg
 
 ## Validación remota
 
-GitHub Actions `30458247290` aprobó seis de seis trabajos sobre el SHA técnico
-`91d5e8ee2706d80e330f6a36868ad8c289c00d91`.
+GitHub Actions aprobó dos ejecuciones completas:
+
+- `30458247290`: seis de seis trabajos sobre el SHA técnico inicial
+  `91d5e8ee2706d80e330f6a36868ad8c289c00d91`;
+- `30458515477`: seis de seis trabajos sobre el SHA final
+  `7933181459a1b04c666d80d8b776454c69a50108`.
 
 La ejecución confirmó:
 
@@ -221,7 +225,7 @@ La ejecución confirmó:
 | Historial lineal | Una base y una cabeza DBI |
 | Herencia intacta | Control de tres cabezas heredadas |
 | SQL seguro | Generación offline sin extensiones |
-| CI completa | GitHub Actions `30458247290`: seis de seis |
+| CI completa | GitHub Actions `30458515477`: seis de seis |
 | Estado documentado | Documentos 01, 06, 13 y 20 |
 
 ## Naturaleza de los datos
