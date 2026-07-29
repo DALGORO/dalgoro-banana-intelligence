@@ -8,7 +8,7 @@
 - Rama: `feat/DBI-DATA-001-aislamiento-base-dbi`
 - Base: `main` en `59652b8afe97ca59991547c1d39ab4fd56bcb38e`
 - Pull request: #11
-- Estado: en revisión
+- Estado: completado
 
 ## Objetivo
 
@@ -220,19 +220,18 @@ fijadas por `requirements.txt`.
 
 ## Validación remota
 
-GitHub Actions `30448937826` aprobó seis de seis trabajos sobre el SHA
-`a390d466`:
+GitHub Actions aprobó dos ejecuciones completas:
 
-- higiene del repositorio;
-- frontend;
-- backend;
-- bot de WhatsApp;
-- motor de densidad;
-- detección de secretos.
+- `30448937826`: seis de seis trabajos sobre el SHA técnico inicial
+  `a390d466`;
+- `30449255042`: seis de seis trabajos sobre el SHA técnico final
+  `58e0e39a`.
 
-Dentro del trabajo backend aprobaron instalación completa, `pip check`,
-compilación, grafos Alembic heredado y DBI, aislamiento y SQL offline, smoke test
-FastAPI y auditoría informativa de dependencias.
+En la ejecución final aprobaron higiene del repositorio, frontend, backend,
+bot de WhatsApp, motor de densidad y detección de secretos. Dentro del trabajo
+backend aprobaron instalación completa, `pip check`, compilación, grafos
+Alembic heredado y DBI, aislamiento y SQL offline, smoke test FastAPI y
+auditoría informativa de dependencias.
 
 ## Criterios de aceptación
 
@@ -246,7 +245,7 @@ FastAPI y auditoría informativa de dependencias.
 | Evitar integración prematura | Revisión inicial sin operaciones |
 | Evitar conexiones en CI | `command.upgrade(..., sql=True)` |
 | Documentar estado real | Arquitectura, decisión, estado e informe |
-| Aprobar workflow remoto | GitHub Actions `30448937826`: seis de seis |
+| Aprobar workflow remoto | GitHub Actions `30449255042`: seis de seis |
 
 ## Fuentes técnicas
 
