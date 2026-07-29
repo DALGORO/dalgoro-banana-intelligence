@@ -2,7 +2,7 @@
 
 ## Versión
 
-0.10.0-dbi-repositories
+0.11.0-dbi-authorization
 
 ## Terminado
 
@@ -23,17 +23,19 @@
 - `DBI-ASSET-001`: persistencia offline de activos y artefactos.
 - `DBI-DATA-003`: fábrica aislada de sesiones DBI.
 - `DBI-DATA-004`: repositorios DBI y unidad de trabajo offline.
+- `DBI-AUTH-001`: política de autorización DBI offline.
 
 ## Último ticket completado
 
-`DBI-DATA-004` — Repositorios DBI y unidad de trabajo offline.
+`DBI-AUTH-001` — Política de autorización DBI offline.
 
-- Issue: #24
-- Pull request: #25
+- Issue: #26
+- Pull request: #27
 - Estado: completado
-- SHA de implementación validado: `f1c39bcddf36fb7956eead168b3cd2b81e85669b`.
-- GitHub Actions `30494100146`: seis de seis trabajos aprobados.
-- Diff: ocho archivos; cuatro añadidos y cuatro modificados.
+- SHA de implementación validado: `86db0a393fe13bce26b9faf6e87265ce6fc26b0e`.
+- SHA final validado: `2f6a4aacff37c5fbda89a463a2013bb2ccf4a66f`.
+- GitHub Actions `30497480322` y `30497741123`: seis de seis trabajos aprobados en cada ejecución.
+- Diff: siete archivos; tres añadidos y cuatro modificados.
 - Conexiones externas y migraciones online: cero.
 
 ## Ticket actual
@@ -43,14 +45,15 @@ Ninguno.
 ## Próximo paso
 
 Definir el próximo incremento de DALGORO Banana Intelligence mediante un ticket
-separado. Integrar los repositorios con identidad, autorización, ciclo de vida
-FastAPI, endpoints o una base real continúa requiriendo aprobación explícita.
+separado. Resolver identidad y pertenencias DBI, integrar el ciclo de vida
+FastAPI, crear endpoints o conectar una base real continúa requiriendo
+aprobación explícita y tickets independientes.
 
 ## Riesgos heredados abiertos
 
 - El backend importado continúa usando `DATABASE_URL`.
-- Los repositorios DBI todavía no están integrados a un ciclo de vida FastAPI
-  ni disponen de autorización de identidad y pertenencia.
+- La política DBI todavía no está integrada a un ciclo de vida FastAPI y la
+  resolución canónica de identidad y pertenencia continúa pendiente.
 - Alembic heredado conserva tres cabezas: `20260411_01`, `2cec060d9aa4` y
   `7ce73aae44ce`.
 - El middleware de suscripción permite continuar ante varias excepciones.
@@ -69,6 +72,8 @@ FastAPI, endpoints o una base real continúa requiriendo aprobación explícita.
 - No se ha conectado el backend heredado al entorno DBI.
 - La fábrica de sesiones DBI no está integrada con `app/main.py`; los
   repositorios y la unidad de trabajo tampoco se usan para abrir conexiones.
+- La política de autorización no resuelve contextos desde JWT, usuarios,
+  empresas o membresías persistidas.
 - Los esquemas de trabajos e intentos existen, pero no se han aplicado a una base.
 - Los modelos de activos y artefactos existen, pero no se han aplicado a una
   base ni conectado a almacenamiento; no se persisten hallazgos.
