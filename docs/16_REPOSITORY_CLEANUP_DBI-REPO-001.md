@@ -7,7 +7,9 @@
 - Fecha: 2026-07-28
 - Rama: `chore/DBI-REPO-001-limpieza-controlada`
 - Base: `main` en `cad5f39e470c962dde58ab52159d51ff46af1039`
-- Estado: en revisión
+- Estado: completado y validado
+- Fecha de cierre técnico: 2026-07-28
+- Pull request: #7
 
 ## Objetivo y límites
 
@@ -142,8 +144,20 @@ El trabajo `repository-hygiene` se añade a `.github/workflows/ci.yml` y la rama
 | Validador con cuatro patrones prohibidos | Aprobada; cuatro rechazos |
 | Generación en `outputs/review/` | Aprobada |
 | GitHub Actions `30411081328` | Aprobada: 6 de 6 trabajos |
+| GitHub Actions definitiva `30411243909` | Aprobada: 6 de 6 trabajos |
 
-La ejecución aprobó higiene, frontend, backend, bot, densidad y secretos.
+Las dos ejecuciones aprobaron higiene, frontend, backend, bot, densidad y
+secretos.
+
+## Cierre técnico
+
+- Alcance final: 25 archivos; 19 eliminados, 2 añadidos y 4 modificados.
+- Rama: 29 commits por delante y 0 por detrás de `main`.
+- PR #7: fusionable, sin comentarios, revisiones solicitando cambios ni hilos
+  pendientes.
+- SHA técnico validado: `79dbdf702aa4144e9b0644764cc90b67f7151da2`.
+- La integración fue autorizada por el propietario para realizarse mediante
+  **Squash and merge** y con comprobación del SHA antes de fusionar.
 
 ## Recuperación
 
