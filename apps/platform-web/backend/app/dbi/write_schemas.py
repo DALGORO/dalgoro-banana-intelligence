@@ -12,6 +12,12 @@ class _WriteModel(BaseModel):
     model_config = ConfigDict(extra="forbid", str_strip_whitespace=True)
 
 
+def _reject_explicit_nulls(model: BaseModel, field_names: frozenset[str]) -> None:
+    for field_name in field_names:
+        if field_name in model.model_fields_set and getattr(model, field_name) is None:
+            raise ValueError(f"{field_name} no puede ser null.")
+
+
 class FarmCreate(_WriteModel):
     code: str = Field(min_length=1, max_length=64)
     name: str = Field(min_length=1, max_length=160)
@@ -29,6 +35,7 @@ class FarmUpdate(_WriteModel):
     def require_change(self) -> "FarmUpdate":
         if not self.model_fields_set:
             raise ValueError("Debe indicar al menos un campo para actualizar.")
+        _reject_explicit_nulls(self, frozenset({"name", "status"}))
         return self
 
 
@@ -51,6 +58,7 @@ class PlotUpdate(_WriteModel):
     def require_change(self) -> "PlotUpdate":
         if not self.model_fields_set:
             raise ValueError("Debe indicar al menos un campo para actualizar.")
+        _reject_explicit_nulls(self, frozenset({"name", "status"}))
         return self
 
 
@@ -84,6 +92,10 @@ class CampaignUpdate(_WriteModel):
     def require_change(self) -> "CampaignUpdate":
         if not self.model_fields_set:
             raise ValueError("Debe indicar al menos un campo para actualizar.")
+        _reject_explicit_nulls(
+            self,
+            frozenset({"name", "starts_at", "status"}),
+        )
         if (
             self.starts_at is not None
             and "ends_at" in self.model_fields_set
