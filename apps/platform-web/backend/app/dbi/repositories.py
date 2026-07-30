@@ -6,7 +6,7 @@ from collections.abc import Sequence
 from typing import Generic, TypeVar
 from uuid import UUID
 
-from sqlalchemy import Select, select
+from sqlalchemy import Select, func, select
 from sqlalchemy.orm import Session
 
 from app.dbi.models import (
@@ -18,6 +18,7 @@ from app.dbi.models import (
     Farm,
     Plot,
 )
+from app.dbi.spatial import DBI_SPATIAL_SRID
 
 ModelT = TypeVar("ModelT")
 DBI_READ_LIST_LIMIT = 100
@@ -119,6 +120,44 @@ class PlotRepository(_DBIRepository[Plot]):
             )
             .order_by(Plot.code, Plot.id)
             .limit(DBI_READ_LIST_LIMIT)
+        )
+
+    def list_intersecting_boundary(
+        self,
+        *,
+        organization_ref: str,
+        farm_id: UUID,
+        plot_ids: frozenset[UUID],
+        min_longitude: float,
+        min_latitude: float,
+        max_longitude: float,
+        max_latitude: float,
+        limit: int,
+    ) -> Sequence[Plot]:
+        """Lista lotes autorizados que intersectan una envolvente EPSG:4326."""
+
+        if not plot_ids:
+            return ()
+
+        envelope = func.ST_MakeEnvelope(
+            min_longitude,
+            min_latitude,
+            max_longitude,
+            max_latitude,
+            DBI_SPATIAL_SRID,
+        )
+        return self._all(
+            select(Plot)
+            .join(Farm, Plot.farm_id == Farm.id)
+            .where(
+                Plot.farm_id == farm_id,
+                Farm.organization_ref == organization_ref,
+                Plot.id.in_(plot_ids),
+                Plot.boundary.is_not(None),
+                func.ST_Intersects(Plot.boundary, envelope),
+            )
+            .order_by(Plot.code, Plot.id)
+            .limit(min(limit, DBI_READ_LIST_LIMIT))
         )
 
 
