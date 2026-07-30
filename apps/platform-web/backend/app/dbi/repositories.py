@@ -20,6 +20,7 @@ from app.dbi.models import (
 )
 
 ModelT = TypeVar("ModelT")
+DBI_READ_LIST_LIMIT = 100
 
 
 class _DBIRepository(Generic[ModelT]):
@@ -81,6 +82,7 @@ class FarmRepository(_DBIRepository[Farm]):
             select(Farm)
             .where(Farm.organization_ref == organization_ref)
             .order_by(Farm.code, Farm.id)
+            .limit(DBI_READ_LIST_LIMIT)
         )
 
 
@@ -116,6 +118,7 @@ class PlotRepository(_DBIRepository[Plot]):
                 Farm.organization_ref == organization_ref,
             )
             .order_by(Plot.code, Plot.id)
+            .limit(DBI_READ_LIST_LIMIT)
         )
 
 
@@ -151,6 +154,7 @@ class CampaignRepository(_DBIRepository[Campaign]):
                 Farm.organization_ref == organization_ref,
             )
             .order_by(Campaign.starts_at.desc(), Campaign.id)
+            .limit(DBI_READ_LIST_LIMIT)
         )
 
 
@@ -196,6 +200,7 @@ class AnalysisJobRepository(_DBIRepository[AnalysisJob]):
                 AnalysisJob.farm_id == farm_id,
             )
             .order_by(AnalysisJob.created_at.desc(), AnalysisJob.id)
+            .limit(DBI_READ_LIST_LIMIT)
         )
 
 
@@ -250,6 +255,7 @@ class AnalysisInputAssetRepository(_DBIRepository[AnalysisInputAsset]):
                 AnalysisInputAsset.farm_id == farm_id,
             )
             .order_by(AnalysisInputAsset.created_at.desc(), AnalysisInputAsset.id)
+            .limit(DBI_READ_LIST_LIMIT)
         )
 
 
@@ -291,4 +297,5 @@ class AnalysisArtifactRepository(_DBIRepository[AnalysisArtifact]):
                 AnalysisJob.tenant_ref == tenant_ref,
             )
             .order_by(AnalysisArtifact.created_at, AnalysisArtifact.id)
+            .limit(DBI_READ_LIST_LIMIT)
         )
