@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import inspect
 import os
+import re
 import sys
 from pathlib import Path
 from types import SimpleNamespace
@@ -189,14 +190,20 @@ def validate_static_boundaries() -> None:
     runtime_source = inspect.getsource(sys.modules["app.dbi.runtime"])
     main_source = inspect.getsource(sys.modules["app.main"])
 
-    for forbidden in (
+    for forbidden_import in (
         "app.models.user",
         "app.models.company",
         "from app.db.session",
-        "DATABASE_URL",
     ):
-        assert forbidden not in dependencies_source
-        assert forbidden not in runtime_source
+        assert forbidden_import not in dependencies_source
+        assert forbidden_import not in runtime_source
+
+    legacy_database_url = re.compile(
+        r"(?<![A-Z0-9_])DATABASE_URL(?![A-Z0-9_])"
+    )
+    assert legacy_database_url.search(dependencies_source) is None
+    assert legacy_database_url.search(runtime_source) is None
+    assert "DBI_DATABASE_URL_ENV_VAR" in runtime_source
 
     assert "lifespan=lifespan" in main_source
     assert "DBIRuntime()" in main_source
