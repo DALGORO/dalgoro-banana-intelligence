@@ -133,6 +133,11 @@ jobs:
           PYTHONPATH: .
         run: python ../../../.github/scripts/ci_dbi_identity.py
 
+      - name: Validar ciclo de vida DBI en FastAPI offline
+        env:
+          PYTHONPATH: .
+        run: python ../../../.github/scripts/ci_dbi_fastapi_lifecycle.py
+
       - name: Validar dominio agrícola DBI offline
         env:
           PYTHONPATH: .
