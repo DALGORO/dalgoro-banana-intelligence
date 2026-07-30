@@ -19,6 +19,7 @@ from app.dbi.dependencies import get_dbi_access_context, get_dbi_session
 from app.dbi.models import Campaign, Farm, Plot
 from app.dbi.read_schemas import CampaignRead, FarmRead, PlotRead
 from app.dbi.repositories import CampaignRepository, FarmRepository, PlotRepository
+from app.dbi.spatial import boundary_to_database
 from app.dbi.write_schemas import (
     CampaignCreate,
     CampaignUpdate,
@@ -37,7 +38,7 @@ EntityT = TypeVar("EntityT")
 
 
 FARM_UPDATE_FIELDS = frozenset({"name", "status"})
-PLOT_UPDATE_FIELDS = frozenset({"name", "area_hectares", "status"})
+PLOT_UPDATE_FIELDS = frozenset({"name", "area_hectares", "boundary", "status"})
 CAMPAIGN_UPDATE_FIELDS = frozenset({"name", "starts_at", "ends_at", "status"})
 
 
@@ -180,7 +181,13 @@ def create_plot(
     )
     if farm is None:
         raise _not_found()
-    plot = Plot(farm_id=farm_id, **payload.model_dump())
+
+    values = payload.model_dump(exclude={"boundary"})
+    plot = Plot(
+        farm_id=farm_id,
+        boundary=boundary_to_database(payload.boundary),
+        **values,
+    )
     PlotRepository(session).add(plot)
     return PlotRead.model_validate(_commit_and_refresh(session, plot))
 
@@ -204,7 +211,11 @@ def update_plot(
     )
     if plot is None or plot.farm_id != farm_id:
         raise _not_found()
-    _apply_updates(plot, payload.model_dump(exclude_unset=True), PLOT_UPDATE_FIELDS)
+
+    changes = payload.model_dump(exclude_unset=True, exclude={"boundary"})
+    if "boundary" in payload.model_fields_set:
+        changes["boundary"] = boundary_to_database(payload.boundary)
+    _apply_updates(plot, changes, PLOT_UPDATE_FIELDS)
     return PlotRead.model_validate(_commit_and_refresh(session, plot))
 
 
