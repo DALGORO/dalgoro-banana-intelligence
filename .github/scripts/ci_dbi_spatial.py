@@ -40,10 +40,11 @@ from app.dbi.authorization import (  # noqa: E402
     DBIPlotScope,
 )
 from app.dbi.models import Plot  # noqa: E402
-from app.dbi.read_schemas import PlotRead  # noqa: E402
+from app.dbi.read_schemas import PlotRead, PlotSpatialRead  # noqa: E402
 from app.dbi.repositories import PlotRepository  # noqa: E402
 from app.dbi.spatial import (  # noqa: E402
     DBI_BOUNDARY_MAX_COORDINATES,
+    DBI_SPATIAL_RESULT_LIMIT,
     DBI_SPATIAL_SRID,
     GeoJSONMultiPolygon,
     boundary_from_database,
@@ -80,6 +81,7 @@ def validate_spatial_contract() -> None:
     assert payload.type == "MultiPolygon"
     assert DBI_SPATIAL_SRID == 4326
     assert DBI_BOUNDARY_MAX_COORDINATES == 10_000
+    assert DBI_SPATIAL_RESULT_LIMIT == 20
 
     _assert_validation_error(
         GeoJSONMultiPolygon,
@@ -144,6 +146,9 @@ def validate_model_metadata() -> None:
 
 
 def validate_http_schemas() -> None:
+    assert "boundary" not in PlotRead.model_fields
+    assert "boundary" in PlotSpatialRead.model_fields
+
     created = PlotCreate(code="L-001", name="Lote", boundary=VALID_BOUNDARY)
     assert created.boundary is not None
 
@@ -153,7 +158,7 @@ def validate_http_schemas() -> None:
 
     stored_boundary = boundary_to_database(created.boundary)
     now = datetime.now(timezone.utc)
-    response = PlotRead.model_validate(
+    response = PlotSpatialRead.model_validate(
         SimpleNamespace(
             id=uuid4(),
             farm_id=uuid4(),
@@ -187,7 +192,38 @@ class FakeSession:
         return FakeResult()
 
 
+def _compiled_sql(statement: object) -> tuple[str, list[object]]:
+    compiled = statement.compile(
+        dialect=postgresql.dialect(),
+        compile_kwargs={"render_postcompile": True},
+    )
+    return str(compiled).lower(), list(compiled.params.values())
+
+
+def validate_summary_query_defers_geometry() -> None:
+    session = FakeSession()
+    PlotRepository(session).list_by_farm(
+        organization_ref="organization-1",
+        farm_id=uuid4(),
+    )
+    sql, _ = _compiled_sql(session.statements[-1])
+    assert "dbi_plots.boundary" not in sql
+
+
 def validate_scoped_spatial_query() -> None:
+    empty_session = FakeSession()
+    assert PlotRepository(empty_session).list_intersecting_boundary(
+        organization_ref="organization-1",
+        farm_id=uuid4(),
+        plot_ids=frozenset(),
+        min_longitude=-80.0,
+        min_latitude=-4.0,
+        max_longitude=-79.0,
+        max_latitude=-3.0,
+        limit=DBI_SPATIAL_RESULT_LIMIT,
+    ) == ()
+    assert empty_session.statements == []
+
     session = FakeSession()
     farm_id = uuid4()
     plot_ids = frozenset({uuid4(), uuid4()})
@@ -200,16 +236,11 @@ def validate_scoped_spatial_query() -> None:
         min_latitude=-4.0,
         max_longitude=-79.0,
         max_latitude=-3.0,
-        limit=25,
+        limit=DBI_SPATIAL_RESULT_LIMIT,
     )
     assert result == []
 
-    compiled = session.statements[-1].compile(
-        dialect=postgresql.dialect(),
-        compile_kwargs={"render_postcompile": True},
-    )
-    sql = str(compiled).lower()
-    values = list(compiled.params.values())
+    sql, values = _compiled_sql(session.statements[-1])
     assert "st_intersects" in sql
     assert "st_makeenvelope" in sql
     assert "dbi_plots.boundary is not null" in sql
@@ -217,7 +248,7 @@ def validate_scoped_spatial_query() -> None:
     assert "limit" in sql
     assert "organization-1" in values
     assert farm_id in values
-    assert 25 in values
+    assert DBI_SPATIAL_RESULT_LIMIT in values
 
 
 def _context(*, read: bool = True) -> tuple[DBIAccessContext, UUID, UUID]:
@@ -311,7 +342,8 @@ def validate_migration_and_offline_sql() -> None:
             command.upgrade(config, "head", sql=True)
 
     sql = output.getvalue().lower()
-    assert "geometry(multipolygon,4326)" in sql.replace(" ", "")
+    compact_sql = "".join(sql.split())
+    assert "geometry(multipolygon,4326)" in compact_sql
     assert "ix_dbi_plots_boundary_gist" in sql
     assert "using gist" in sql
     assert "st_isvalid" in sql
@@ -324,12 +356,15 @@ def validate_migration_and_offline_sql() -> None:
 def validate_static_boundaries() -> None:
     spatial_source = inspect.getsource(sys.modules["app.dbi.spatial"])
     router_source = inspect.getsource(dbi_spatial)
+    repositories_source = inspect.getsource(sys.modules["app.dbi.repositories"])
     requirements = (BACKEND / "requirements.txt").read_text(encoding="utf-8")
 
     assert "make_valid" not in spatial_source
     assert "DBI_SPATIAL_SRID = 4326" in spatial_source
+    assert "DBI_SPATIAL_RESULT_LIMIT = 20" in spatial_source
     assert "DBIPermission.READ" in router_source
-    assert "DBI_READ_LIST_LIMIT" in router_source
+    assert "DBI_SPATIAL_RESULT_LIMIT" in router_source
+    assert "defer(Plot.boundary)" in repositories_source
     for forbidden in (
         "SessionLocal",
         "from app.db.session",
@@ -348,6 +383,7 @@ def main() -> None:
     validate_spatial_contract()
     validate_model_metadata()
     validate_http_schemas()
+    validate_summary_query_defers_geometry()
     validate_scoped_spatial_query()
     validate_router_and_authorization()
     validate_migration_and_offline_sql()
