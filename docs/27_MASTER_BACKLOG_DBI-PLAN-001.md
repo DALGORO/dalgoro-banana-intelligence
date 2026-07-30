@@ -526,6 +526,20 @@ validarse completamente offline antes de incorporar FastAPI o una base real.
 
 No debe iniciarse hasta que `DBI-PLAN-001` sea revisado, fusionado y cerrado.
 
+## Evidencia de validación
+
+- SHA de planificación:
+  `90cd0bc6da7d4aa24e41d1694a543e2033df024e`.
+- Validación estructural offline: 35 identificadores únicos, 79 dependencias
+  válidas y cero ciclos.
+- Cobertura de cierre: la dependencia transitiva de `DBI-UAT-001` incluye los
+  otros 34 tickets futuros.
+- Cobertura funcional: todas las capacidades del Charter y README inventariadas
+  tienen uno o más tickets responsables.
+- Markdownlint: cuatro documentos, cero errores.
+- GitHub Actions `30502586256`: seis de seis trabajos aprobados.
+- Conexiones externas, migraciones online y despliegues ejecutados: cero.
+
 ## Criterios de mantenimiento del backlog
 
 - El cierre de cada ticket actualiza este documento y
