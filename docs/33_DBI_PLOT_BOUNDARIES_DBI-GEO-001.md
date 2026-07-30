@@ -126,5 +126,6 @@ Las demás versiones del backend permanecen iguales al commit base.
 
 - CI modular #264: 6/6 trabajos aprobados y todos los pasos posteriores del backend ejecutados, incluida la barrera espacial y el healthcheck.
 - La auditoría posterior a #264 detectó la incompatibilidad de `search_path` antes de cualquier migración o despliegue real.
+- La CI #264 no puede reutilizarse como evidencia de la corrección porque corresponde al commit anterior.
 - Falta una nueva CI modular completa sobre la corrección de visibilidad PostGIS.
 - Falta revisar conversaciones y estado fusionable del PR después de esa ejecución.
