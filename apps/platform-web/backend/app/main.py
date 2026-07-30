@@ -1,3 +1,4 @@
+from contextlib import asynccontextmanager
 from datetime import datetime
 
 from fastapi import FastAPI, Request
@@ -8,8 +9,10 @@ from app.api.v1 import get_api_router
 from app.core.config import settings
 from app.core.security import decode_token
 from app.db.session import SessionLocal
+from app.dbi.runtime import DBIRuntime
 from app.models.subscription import Subscription
 from app.models.user import User
+
 
 def _is_billing_exempt_path(path: str, method: str = "GET") -> bool:
     if path == "/":
@@ -50,6 +53,7 @@ def _extract_bearer_token(request: Request) -> str | None:
 
     return token.strip()
 
+
 def _normalize_plan(value: str | None) -> str:
     raw = (value or "").strip().upper().replace("-", "_").replace(" ", "_")
     if raw in {"TRIAL", "FREE_TRIAL"}:
@@ -61,7 +65,11 @@ def _normalize_status(value: str | None) -> str:
     return (value or "").strip().upper().replace("-", "_").replace(" ", "_")
 
 
-def _billing_block_response(code: str, detail: str, sub: Subscription) -> JSONResponse:
+def _billing_block_response(
+    code: str,
+    detail: str,
+    sub: Subscription,
+) -> JSONResponse:
     return JSONResponse(
         status_code=402,
         content={
@@ -69,12 +77,30 @@ def _billing_block_response(code: str, detail: str, sub: Subscription) -> JSONRe
             "code": code,
             "plan": sub.plan,
             "status": sub.status,
-            "free_trial_until": sub.free_trial_until.isoformat() if sub.free_trial_until else None,
+            "free_trial_until": (
+                sub.free_trial_until.isoformat()
+                if sub.free_trial_until
+                else None
+            ),
         },
         headers={"X-Billing-Block": code},
     )
 
-app = FastAPI(title="SST Compliance API")
+
+@asynccontextmanager
+async def lifespan(application: FastAPI):
+    """Administra DBI sin sustituir recursos heredados de la aplicación."""
+
+    runtime = DBIRuntime()
+    application.state.dbi_runtime = runtime
+    runtime.start()
+    try:
+        yield
+    finally:
+        runtime.stop()
+
+
+app = FastAPI(title="SST Compliance API", lifespan=lifespan)
 
 # Monta TODA la API v1; psico viene desde app/api/v1/__init__.py
 app.include_router(get_api_router(), prefix="/api/v1")
@@ -94,6 +120,7 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
 
 @app.middleware("http")
 async def enforce_subscription_access(request: Request, call_next):
@@ -133,7 +160,11 @@ async def enforce_subscription_access(request: Request, call_next):
         if getattr(user, "role", "").upper() == "ADMIN":
             return await call_next(request)
 
-        sub = db.query(Subscription).filter(Subscription.user_id == user.id).first()
+        sub = (
+            db.query(Subscription)
+            .filter(Subscription.user_id == user.id)
+            .first()
+        )
         if not sub:
             return await call_next(request)
 
@@ -153,14 +184,23 @@ async def enforce_subscription_access(request: Request, call_next):
 
             return _billing_block_response(
                 code="TRIAL_EXPIRED",
-                detail="Tu periodo de prueba ha expirado. Debes activar un plan para continuar.",
+                detail=(
+                    "Tu periodo de prueba ha expirado. "
+                    "Debes activar un plan para continuar."
+                ),
                 sub=sub,
             )
 
-        if normalized_plan != "FREE_TRIAL" and normalized_status in {"PAST_DUE", "CANCELED"}:
+        if (
+            normalized_plan != "FREE_TRIAL"
+            and normalized_status in {"PAST_DUE", "CANCELED"}
+        ):
             return _billing_block_response(
                 code="SUBSCRIPTION_INACTIVE",
-                detail="Tu suscripción no está activa. Debes regularizar el pago para continuar.",
+                detail=(
+                    "Tu suscripción no está activa. "
+                    "Debes regularizar el pago para continuar."
+                ),
                 sub=sub,
             )
 
@@ -170,6 +210,7 @@ async def enforce_subscription_access(request: Request, call_next):
         db.close()
 
     return await call_next(request)
+
 
 @app.get("/")
 def root():
