@@ -6,7 +6,9 @@ from datetime import datetime
 from decimal import Decimal
 from uuid import UUID
 
-from pydantic import BaseModel, ConfigDict
+from pydantic import BaseModel, ConfigDict, field_validator
+
+from app.dbi.spatial import GeoJSONMultiPolygon, boundary_from_database
 
 
 class _DBIReadModel(BaseModel):
@@ -31,9 +33,15 @@ class PlotRead(_DBIReadModel):
     code: str
     name: str
     area_hectares: Decimal | None
+    boundary: GeoJSONMultiPolygon | None
     status: str
     created_at: datetime
     updated_at: datetime
+
+    @field_validator("boundary", mode="before")
+    @classmethod
+    def serialize_boundary(cls, value: object) -> GeoJSONMultiPolygon | None:
+        return boundary_from_database(value)
 
 
 class CampaignRead(_DBIReadModel):
