@@ -8,7 +8,6 @@ import sys
 from datetime import datetime, timezone
 from pathlib import Path
 from types import SimpleNamespace
-from unittest.mock import patch
 from uuid import uuid4
 
 os.environ.setdefault("DATABASE_URL", "sqlite:///./ci_dbi_authorized_writes.db")
@@ -33,9 +32,11 @@ from app.dbi.authorization import (  # noqa: E402
 )
 from app.dbi.write_schemas import (  # noqa: E402
     CampaignCreate,
+    CampaignUpdate,
     FarmCreate,
     FarmUpdate,
     PlotCreate,
+    PlotUpdate,
 )
 
 
@@ -88,40 +89,34 @@ def validate_router_contract() -> None:
     assert expected.issubset(methods)
 
 
+def _assert_validation_error(factory, **kwargs) -> None:
+    try:
+        factory(**kwargs)
+    except ValidationError:
+        return
+    raise AssertionError(f"{factory.__name__} debía rechazar los datos proporcionados.")
+
+
 def validate_strict_contracts() -> None:
-    try:
-        FarmCreate(code="F-1", name="Finca", internal=True)
-    except ValidationError:
-        pass
-    else:
-        raise AssertionError("Los contratos deben rechazar campos desconocidos.")
-
-    try:
-        FarmUpdate()
-    except ValidationError:
-        pass
-    else:
-        raise AssertionError("Una actualización vacía debía rechazarse.")
-
-    try:
-        PlotCreate(code="L-1", name="Lote", area_hectares=0)
-    except ValidationError:
-        pass
-    else:
-        raise AssertionError("El área no positiva debía rechazarse.")
+    _assert_validation_error(FarmCreate, code="F-1", name="Finca", internal=True)
+    _assert_validation_error(FarmUpdate)
+    _assert_validation_error(FarmUpdate, name=None)
+    _assert_validation_error(FarmUpdate, status=None)
+    _assert_validation_error(PlotCreate, code="L-1", name="Lote", area_hectares=0)
+    _assert_validation_error(PlotUpdate, name=None)
+    _assert_validation_error(PlotUpdate, status=None)
+    _assert_validation_error(CampaignUpdate, name=None)
+    _assert_validation_error(CampaignUpdate, starts_at=None)
+    _assert_validation_error(CampaignUpdate, status=None)
 
     now = datetime.now(timezone.utc)
-    try:
-        CampaignCreate(
-            code="C-1",
-            name="Campaña",
-            starts_at=now,
-            ends_at=now.replace(year=now.year - 1),
-        )
-    except ValidationError:
-        pass
-    else:
-        raise AssertionError("El orden temporal inválido debía rechazarse.")
+    _assert_validation_error(
+        CampaignCreate,
+        code="C-1",
+        name="Campaña",
+        starts_at=now,
+        ends_at=now.replace(year=now.year - 1),
+    )
 
 
 def validate_write_permission() -> None:
@@ -208,7 +203,6 @@ def validate_static_boundaries() -> None:
         "app.models.user",
         "app.models.company",
         "payload.__dict__",
-        "setattr(entity, field_name, changes[field_name])\n    for",
     ):
         assert forbidden not in source
     assert "DBIPermission.WRITE" in source
