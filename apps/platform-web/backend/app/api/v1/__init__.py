@@ -14,6 +14,8 @@ from .iperc import router as iperc_router
 from .psico import router as psico_router
 from .incident_assistant import router as incident_assistant_router
 from .dbi_map import router as dbi_map_router
+from .dbi_reads import router as dbi_reads_router
+
 
 def get_api_router() -> APIRouter:
     api = APIRouter()
@@ -29,6 +31,7 @@ def get_api_router() -> APIRouter:
     api.include_router(psico_router)
     api.include_router(incident_assistant_router)
     api.include_router(dbi_map_router)
+    api.include_router(dbi_reads_router)
 
     if getattr(settings, "ENABLE_DOCS", False):
         api.include_router(documents_router)
