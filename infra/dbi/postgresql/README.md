@@ -25,6 +25,14 @@ Cada ambiente usa nombres independientes:
 
 Ninguno de los roles de aplicación es superusuario, propietario global o usuario de la base heredada. El rol `migrator` no hereda ni puede asumir el rol `owner`; recibe únicamente `CONNECT` sobre la base y `USAGE, CREATE` sobre el esquema `dbi`.
 
+PostGIS se instala de forma predeterminada en `public`. Por ello, migrator, api, worker y observer reciben únicamente `USAGE` sobre ese esquema para resolver el tipo `geometry` y las funciones `ST_*`. No reciben `CREATE` sobre `public`. El `search_path` operativo es:
+
+```text
+search_path = dbi, public
+```
+
+`dbi` permanece primero para que los objetos no cualificados se creen allí. `pg_catalog` no se declara explícitamente porque PostgreSQL lo busca de forma implícita antes de los esquemas configurados.
+
 ## Variables
 
 Las únicas variables de conexión aceptadas por DBI son:
@@ -49,7 +57,7 @@ DBI_DATABASE_URL
    - FastAPI DBI: api.
    - Worker geoespacial: worker.
    - Observabilidad: observer.
-8. Verificar privilegios antes de habilitar cualquier componente.
+8. Verificar privilegios y resolución de PostGIS antes de habilitar cualquier componente.
 
 Este procedimiento no forma parte de CI y requiere autorización específica para cada ambiente.
 
@@ -58,18 +66,31 @@ Este procedimiento no forma parte de CI y requiere autorización específica par
 Ejecutar como operador autorizado:
 
 ```sql
-SELECT extname FROM pg_extension WHERE extname = 'postgis';
+SELECT extname, extnamespace::regnamespace
+FROM pg_extension
+WHERE extname = 'postgis';
 SELECT nspname FROM pg_namespace WHERE nspname = 'dbi';
-SELECT rolname, rolsuper, rolcreatedb, rolcreaterole FROM pg_roles WHERE rolname LIKE 'dbi\_%' ESCAPE '\\';
+SELECT rolname, rolsuper, rolcreatedb, rolcreaterole
+FROM pg_roles
+WHERE rolname LIKE 'dbi\_%' ESCAPE '\\';
 ```
 
 Después, comprobar con cada credencial:
+
+```sql
+SHOW search_path;
+SELECT postgis_full_version();
+SELECT ST_IsValid(ST_GeomFromText('POINT(0 0)', 4326));
+```
+
+También se debe confirmar que:
 
 - migrator puede crear y alterar objetos únicamente en `dbi`;
 - migrator no puede ejecutar `SET ROLE` al propietario de la base;
 - api puede seleccionar, insertar, actualizar y eliminar datos, pero no ejecutar DDL;
 - worker no puede eliminar tablas ni filas;
 - observer no puede modificar datos;
+- ninguno de los roles puede crear objetos dentro de `public`;
 - ningún rol puede acceder a la base heredada.
 
 ## Reversión
@@ -95,4 +116,4 @@ Nunca se copian secretos en Issues, PR, logs, archivos `.env` versionados o docu
 
 ## Límites actuales
 
-Esta infraestructura prepara PostgreSQL, PostGIS, el esquema `dbi` y roles mínimos. No incorpora geometrías operativas, índices espaciales de negocio, tiles, despliegues reales ni aplicación remota de migraciones.
+Esta carpeta prepara PostgreSQL, PostGIS, el esquema `dbi` y roles mínimos. No ejecuta migraciones funcionales, tiles, despliegues reales ni aplicación remota de cambios.
