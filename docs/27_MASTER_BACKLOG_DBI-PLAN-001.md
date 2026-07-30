@@ -131,6 +131,8 @@ propia aceptación.
   explícita y casos de denegación por identidad o pertenencia inconsistente.
 - Exclusiones: FastAPI, JWT, conexión PostgreSQL y cambios en `User` o
   `Company`.
+- Estado operativo: en revisión en el Issue #34 y Draft PR #36; no se considera
+  implementado hasta su fusión en `main`.
 
 #### 2. `DBI-API-001` — Ciclo de vida DBI en FastAPI
 

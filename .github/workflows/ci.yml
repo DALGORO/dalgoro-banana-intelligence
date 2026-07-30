@@ -128,6 +128,11 @@ jobs:
           PYTHONPATH: .
         run: python ../../../.github/scripts/ci_dbi_authorization.py
 
+      - name: Validar identidad y membresías DBI offline
+        env:
+          PYTHONPATH: .
+        run: python ../../../.github/scripts/ci_dbi_identity.py
+
       - name: Validar dominio agrícola DBI offline
         env:
           PYTHONPATH: .

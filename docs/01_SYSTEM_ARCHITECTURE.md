@@ -19,8 +19,9 @@ operativa. `DBI-DATA-004` incorpora repositorios acotados por organización o
 tenant y una unidad de trabajo basada en la misma frontera transaccional,
 todavía sin autorización, ciclo de vida FastAPI, endpoint o conexión operativa.
 `DBI-AUTH-001` añade una política pura, inmutable y cerrada por defecto para
-tenant, organización, finca y lote, todavía sin resolver identidad, integrar
-FastAPI, consultar pertenencias o abrir una conexión.
+tenant, organización, finca y lote. `DBI-AUTH-002` añade la autoridad
+persistente y el resolvedor canónico, todavía sin integrar FastAPI, decodificar
+JWT, aplicar migraciones o abrir una conexión.
 
 El diseño y la evidencia están en `docs/17_ARCHITECTURE_DBI-ARC-001.md` y
 `docs/18_DATABASE_ISOLATION_DBI-DATA-001.md`. El corte cartográfico se documenta
@@ -30,8 +31,9 @@ en `docs/19_MAP_TIMELINE_DBI-MAP-001.md`, el dominio agrícola en
 `docs/22_ANALYSIS_JOB_PERSISTENCE_DBI-JOB-002.md` y los metadatos de objetos en
 `docs/23_ASSET_PERSISTENCE_DBI-ASSET-001.md`. La frontera transaccional se
 documenta en `docs/24_DBI_SESSION_FACTORY_DBI-DATA-003.md`, el acceso por
-repositorios en `docs/25_DBI_REPOSITORIES_DBI-DATA-004.md` y la política de
-autorización en `docs/26_DBI_AUTHORIZATION_DBI-AUTH-001.md`.
+repositorios en `docs/25_DBI_REPOSITORIES_DBI-DATA-004.md`, la política de
+autorización en `docs/26_DBI_AUTHORIZATION_DBI-AUTH-001.md` y la resolución de
+identidad en `docs/28_DBI_IDENTITY_MEMBERSHIPS_DBI-AUTH-002.md`.
 
 ## Módulos existentes
 
@@ -264,8 +266,33 @@ ausencia o diferencia genera la misma denegación sin revelar qué pertenencia
 falló. Ningún permiso implica otro y `manage` no concede acceso universal.
 
 La política no autentica, decodifica JWT, consulta `User` o `Company`, abre
-sesiones ni invoca repositorios. Resolver identidad y pertenencia, integrar el
-ciclo de vida FastAPI y montar endpoints requiere tickets separados.
+sesiones ni invoca repositorios. `DBI-AUTH-002` resuelve identidad y
+pertenencias en una capa separada; integrar el ciclo de vida FastAPI y montar
+endpoints requiere tickets posteriores.
+
+## Resolución canónica de identidad y membresías DBI v1
+
+`DBI-AUTH-002` incorpora cuatro tablas normalizadas sobre `DBIBase`: principal,
+membresía por tenant, permisos globales y ámbitos jerárquicos. El principal
+asigna un UUID canónico a una `legacy_identity_ref` opaca. `tenant_ref` y
+`organization_ref` también permanecen opacas y no crean claves foráneas hacia
+`User`, `Company` u otra tabla heredada.
+
+Los permisos se almacenan separados de los ámbitos porque
+`DBIAccessContext` aplica el mismo conjunto de permisos a todos sus ámbitos.
+Una membresía sin ámbitos autoriza solo el tenant. Los ámbitos de finca y lote
+incorporan su cadena de organización y se contrastan con `dbi_farms` y
+`dbi_plots`.
+
+`DBIIdentityRepository` recibe una sesión explícita y
+`DBIAccessContextResolver` recibe el repositorio. El resolvedor exige un único
+principal y una única membresía activos, al menos un permiso reconocido y una
+jerarquía consistente. Ausencia, duplicidad, inactividad, revocación o
+inconsistencia producen la misma denegación externa.
+
+Esta capa no decodifica JWT, no interpreta `ADMIN`, no crea motores o sesiones,
+no abre conexiones y no está integrada con FastAPI. La revisión
+`dbi_0005_identity_memberships` se valida solo mediante metadatos y SQL offline.
 
 ## Dependencias permitidas
 

@@ -94,7 +94,7 @@ def validate_metadata() -> None:
         AnalysisInputAsset,
         AnalysisArtifact,
     }
-    assert set(DBIBase.metadata.tables) == EXPECTED_TABLES
+    assert EXPECTED_TABLES.issubset(DBIBase.metadata.tables)
 
     for table_name, columns in EXPECTED_COLUMNS.items():
         assert set(DBIBase.metadata.tables[table_name].columns.keys()) == columns
@@ -214,7 +214,13 @@ def validate_migration_graph() -> None:
     config = Config(str(BACKEND_ROOT / "dbi_alembic.ini"))
     scripts = ScriptDirectory.from_config(config)
     assert scripts.get_bases() == ["dbi_0001_baseline"]
-    assert scripts.get_heads() == ["dbi_0004_assets_artifacts"]
+    heads = scripts.get_heads()
+    assert len(heads) == 1
+    lineage = {
+        revision.revision
+        for revision in scripts.iterate_revisions(heads[0], "base")
+    }
+    assert "dbi_0004_assets_artifacts" in lineage
     revision = scripts.get_revision("dbi_0004_assets_artifacts")
     assert revision is not None
     assert revision.down_revision == "dbi_0003_analysis_jobs"

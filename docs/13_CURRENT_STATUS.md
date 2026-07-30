@@ -2,7 +2,7 @@
 
 ## Versión
 
-0.12.0-master-backlog
+0.13.0-dbi-identity-memberships
 
 ## Terminado
 
@@ -44,10 +44,17 @@
 
 ## Ticket actual
 
-Ninguno.
+`DBI-AUTH-002` — Resolución canónica de identidad y membresías DBI offline.
 
-`DBI-AUTH-002` permanece pendiente en el Issue #34 y será el próximo
-incremento ejecutable, siempre en una rama independiente.
+- Issue: #34.
+- Draft PR: #36.
+- Estado: en revisión.
+- Rama: `feat/DBI-AUTH-002-identidad-membresias-offline`.
+- Base: `main` en `50fda6bc6c0308f79d21454e92a8a4734ca55898`.
+- SHA funcional validado: `fb8a8192f9364f13904aef7b0022699d9fbd1284`.
+- GitHub Actions `30506879227`: seis de seis trabajos aprobados.
+- Alcance funcional: cuatro tablas DBI, repositorio y resolvedor offline.
+- Integración FastAPI, conexión, migración online y datos sembrados: cero.
 
 ## Backlog operativo
 
@@ -59,19 +66,21 @@ incremento ejecutable, siempre en una rama independiente.
 - Próximo ticket ejecutable, `DBI-AUTH-002`: Issue #34.
 
 Los Issues de hito son rastreadores y no representan funciones implementadas.
-`DBI-AUTH-002` permanece pendiente hasta iniciar su propio ticket y rama.
+`DBI-AUTH-002` está en revisión en el Issue #34 y Draft PR #36; todavía no
+se considera implementado en `main`.
 
 ## Próximo paso
 
-Iniciar `DBI-AUTH-002` en una rama independiente creada desde el `main` que
-integre el PR #35, para resolver identidad y membresías DBI completamente
-offline. Este paso no autoriza FastAPI, una base real ni migraciones online.
+Revisar y, con autorización explícita, fusionar el Draft PR #36 después de su
+CI final. `DBI-API-001` será el siguiente incremento ejecutable únicamente
+cuando `DBI-AUTH-002` esté integrado en `main`; no se autoriza todavía
+FastAPI, una base real ni migraciones online.
 
 ## Riesgos heredados abiertos
 
 - El backend importado continúa usando `DATABASE_URL`.
-- La política DBI no está integrada a FastAPI y no existe una autoridad
-  persistida de membresías.
+- La autoridad de identidad y membresías existe solo en el Draft PR #36; no
+  está aplicada a una base ni integrada con FastAPI o JWT.
 - Alembic heredado conserva tres cabezas: `20260411_01`, `2cec060d9aa4` y
   `7ce73aae44ce`.
 - El middleware de suscripción permite continuar ante varias excepciones.
@@ -91,7 +100,8 @@ offline. Este paso no autoriza FastAPI, una base real ni migraciones online.
 - Los modelos y migraciones DBI no se han aplicado a una base.
 - No se ha conectado el backend heredado al entorno DBI.
 - La fábrica, repositorios y autorización DBI no están integrados con FastAPI.
-- No existe autoridad persistida para principales, membresías o permisos DBI.
+- Las tablas de principal y membresía no se han aplicado a una base; el
+  resolvedor tampoco está integrado con FastAPI o JWT.
 - No existe API operativa de fincas, lotes, campañas, trabajos o activos.
 - No existe almacenamiento privado, cola, broker, productor o consumidor.
 - El adaptador del worker no ejecuta el pipeline ni resuelve activos.
