@@ -1,4 +1,4 @@
-"""Valida controles y planificación de migraciones DBI sin conexiones externas."""
+"""Valida controles, plan y preflight DBI sin conexiones externas."""
 
 from __future__ import annotations
 
@@ -25,6 +25,91 @@ from app.dbi.migration_control import (  # noqa: E402
     validate_migration_target,
 )
 from app.dbi.migration_plan import generate_offline_plan  # noqa: E402
+from app.dbi.migration_preflight import (  # noqa: E402
+    READ_ONLY_STATEMENTS,
+    run_migration_preflight,
+)
+
+
+class _Mappings:
+    def __init__(self, row):
+        self.row = row
+
+    def one(self):
+        assert self.row is not None
+        return self.row
+
+    def one_or_none(self):
+        return self.row
+
+
+class _Scalars:
+    def __init__(self, values):
+        self.values = values
+
+    def all(self):
+        return list(self.values)
+
+
+class _Result:
+    def __init__(self, *, row=None, values=()):
+        self.row = row
+        self.values = values
+
+    def mappings(self):
+        return _Mappings(self.row)
+
+    def scalars(self):
+        return _Scalars(self.values)
+
+
+class _FakeConnection:
+    def __init__(
+        self,
+        *,
+        database_name="dbi_test",
+        username="dbi_test_migrator",
+        search_path="dbi, public",
+        role=None,
+        capabilities=None,
+        revisions=(),
+    ):
+        self.database_name = database_name
+        self.username = username
+        self.search_path = search_path
+        self.role = role or {
+            "rolsuper": False,
+            "rolcreatedb": False,
+            "rolcreaterole": False,
+            "rolreplication": False,
+        }
+        self.capabilities = capabilities or {
+            "postgis_available": True,
+            "dbi_schema_available": True,
+            "version_table_available": bool(revisions),
+        }
+        self.revisions = revisions
+        self.executed = []
+
+    def execute(self, statement):
+        sql = str(statement)
+        self.executed.append(sql)
+        compact = " ".join(sql.lower().split())
+        if "current_database()" in compact:
+            return _Result(
+                row={
+                    "database_name": self.database_name,
+                    "username": self.username,
+                    "search_path": self.search_path,
+                }
+            )
+        if "from pg_roles" in compact:
+            return _Result(row=self.role)
+        if "from pg_extension" in compact:
+            return _Result(row=self.capabilities)
+        if "select version_num" in compact:
+            return _Result(values=self.revisions)
+        raise AssertionError(f"Consulta preflight inesperada: {sql}")
 
 
 def _config(environment: str, database_name: str, username: str) -> DBIDatabaseConfig:
@@ -45,6 +130,13 @@ def _assert_rejected(factory) -> None:
     raise AssertionError("La operación debía ser rechazada por las barreras DBI.")
 
 
+def _test_target():
+    return validate_migration_target(
+        _config("test", "dbi_test", "dbi_test_migrator"),
+        running_in_ci=True,
+    )
+
+
 def validate_targets() -> None:
     development = validate_migration_target(
         _config("development", "dbi_development", "dbi_development_migrator"),
@@ -53,10 +145,7 @@ def validate_targets() -> None:
     assert development.database_name == "dbi_development"
     assert development.apply_confirmation == "APPLY dbi_development"
 
-    test = validate_migration_target(
-        _config("test", "dbi_test", "dbi_test_migrator"),
-        running_in_ci=True,
-    )
+    test = _test_target()
     assert test.environment == "test"
 
     _assert_rejected(
@@ -92,10 +181,7 @@ def validate_targets() -> None:
 
 
 def validate_confirmation() -> None:
-    target = validate_migration_target(
-        _config("test", "dbi_test", "dbi_test_migrator"),
-        running_in_ci=True,
-    )
+    target = _test_target()
     require_apply_confirmation(target, "APPLY dbi_test")
     _assert_rejected(lambda: require_apply_confirmation(target, None))
     _assert_rejected(lambda: require_apply_confirmation(target, "apply dbi_test"))
@@ -148,6 +234,58 @@ def validate_offline_plan() -> None:
     )
 
 
+def validate_read_only_preflight() -> None:
+    target = _test_target()
+    known = {"dbi_0001_baseline", "dbi_0006_plot_boundaries"}
+
+    empty_connection = _FakeConnection()
+    empty = run_migration_preflight(
+        empty_connection,
+        target=target,
+        known_revisions=known,
+        head_revision="dbi_0006_plot_boundaries",
+    )
+    assert empty.database_is_empty is True
+    assert empty.current_revision is None
+    assert empty.search_path == ("dbi", "public")
+    assert len(empty_connection.executed) == 3
+
+    migrated_connection = _FakeConnection(revisions=("dbi_0006_plot_boundaries",))
+    migrated = run_migration_preflight(
+        migrated_connection,
+        target=target,
+        known_revisions=known,
+        head_revision="dbi_0006_plot_boundaries",
+    )
+    assert migrated.is_at_head is True
+    assert len(migrated_connection.executed) == 4
+
+    rejected_connections = (
+        _FakeConnection(database_name="dbi_shadow"),
+        _FakeConnection(username="dbi_test_owner"),
+        _FakeConnection(search_path="public, dbi"),
+        _FakeConnection(role={"rolsuper": True, "rolcreatedb": False, "rolcreaterole": False, "rolreplication": False}),
+        _FakeConnection(capabilities={"postgis_available": False, "dbi_schema_available": True, "version_table_available": False}),
+        _FakeConnection(capabilities={"postgis_available": True, "dbi_schema_available": False, "version_table_available": False}),
+        _FakeConnection(revisions=("revision_unknown",)),
+        _FakeConnection(revisions=("dbi_0001_baseline", "dbi_0006_plot_boundaries")),
+    )
+    for connection in rejected_connections:
+        _assert_rejected(
+            lambda connection=connection: run_migration_preflight(
+                connection,
+                target=target,
+                known_revisions=known,
+                head_revision="dbi_0006_plot_boundaries",
+            )
+        )
+
+    assert all(
+        statement.lstrip().upper().startswith("SELECT")
+        for statement in READ_ONLY_STATEMENTS
+    )
+
+
 def validate_static_boundaries() -> None:
     control_source = (
         BACKEND / "app" / "dbi" / "migration_control.py"
@@ -182,14 +320,36 @@ def validate_static_boundaries() -> None:
     ):
         assert forbidden not in plan_lower
 
+    preflight_source = (
+        BACKEND / "app" / "dbi" / "migration_preflight.py"
+    ).read_text(encoding="utf-8")
+    preflight_lower = preflight_source.lower()
+    assert "connection.execute" in preflight_lower
+    for forbidden in (
+        "create_engine",
+        "engine_from_config",
+        "sessionmaker",
+        "insert ",
+        "update ",
+        "delete ",
+        "alter ",
+        "drop ",
+        "truncate ",
+        "command.upgrade",
+        "command.downgrade",
+        "command.stamp",
+    ):
+        assert forbidden not in preflight_lower
+
 
 def main() -> None:
     validate_targets()
     validate_confirmation()
     validate_evidence_contract()
     validate_offline_plan()
+    validate_read_only_preflight()
     validate_static_boundaries()
-    print("Controles y plan offline de migración DBI aprobados.")
+    print("Controles, plan y preflight de migración DBI aprobados.")
 
 
 if __name__ == "__main__":
