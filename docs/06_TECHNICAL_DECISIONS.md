@@ -454,8 +454,9 @@ hacia el producto completo.
 
 ## DEC-024
 
-**Decisión:** persistir una autoridad DBI normalizada de principal, membresía,
-permisos y ámbitos antes de integrar identidad con FastAPI.
+**Decisión:** en `DBI-AUTH-002`, persistir una autoridad DBI normalizada de
+principal, membresía, permisos y ámbitos antes de integrar identidad con
+FastAPI.
 
 **Motivo:** `DBIAccessContext` aplica permisos globales a todos sus ámbitos.
 Mezclar en una sola concesión permisos distintos por organización, finca o lote
