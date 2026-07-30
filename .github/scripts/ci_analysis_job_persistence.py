@@ -187,8 +187,6 @@ def validate_offline_sql() -> None:
     assert "uq_dbi_analysis_job_attempts_job_number" in sql
     for forbidden in (
         "create extension",
-        "postgis",
-        "geometry(",
         "geography(",
         "gen_random_uuid",
         "uuid_generate",
@@ -237,6 +235,9 @@ def validate_sources() -> None:
     assert "create extension" not in migration_source
     assert "op.bulk_insert" not in migration_source
     assert "op.execute" not in migration_source
+    assert "postgis" not in migration_source
+    assert "geometry" not in migration_source
+    assert "geography" not in migration_source
 
 
 def main() -> None:
