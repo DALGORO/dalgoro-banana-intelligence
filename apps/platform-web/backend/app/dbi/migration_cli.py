@@ -6,6 +6,8 @@ import argparse
 import json
 import os
 import sys
+from contextlib import redirect_stderr
+from io import StringIO
 from pathlib import Path
 from typing import Sequence
 
@@ -105,7 +107,10 @@ def _plan(
     running_in_ci: bool,
     sql_output: Path | None,
 ) -> int:
-    plan = generate_offline_plan(config, running_in_ci=running_in_ci)
+    # Alembic puede emitir mensajes INFO por stderr aunque el plan sea válido.
+    # La CLI reserva stderr para errores y mantiene la evidencia JSON en stdout.
+    with redirect_stderr(StringIO()):
+        plan = generate_offline_plan(config, running_in_ci=running_in_ci)
     if sql_output is not None:
         _write_sql_plan(sql_output, plan.sql)
 
