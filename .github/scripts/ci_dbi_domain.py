@@ -38,6 +38,7 @@ EXPECTED_COLUMNS = {
         "code",
         "name",
         "area_hectares",
+        "boundary",
         "status",
         "created_at",
         "updated_at",
@@ -81,7 +82,7 @@ def validate_metadata() -> None:
 
 
 def validate_constraints() -> None:
-    """Comprueba unicidad, estados y consistencia temporal."""
+    """Comprueba unicidad, estados y consistencia temporal y espacial."""
 
     constraint_names = {
         constraint.name
@@ -96,6 +97,8 @@ def validate_constraints() -> None:
         "ck_dbi_farms_status",
         "ck_dbi_plots_status",
         "ck_dbi_plots_positive_area",
+        "ck_dbi_plots_boundary_not_empty",
+        "ck_dbi_plots_boundary_valid",
         "ck_dbi_campaigns_status",
         "ck_dbi_campaigns_date_order",
     }.issubset(constraint_names)
@@ -144,14 +147,15 @@ def validate_offline_sql() -> None:
             command.upgrade(config, "head", sql=True)
 
     sql = output.getvalue().lower()
+    compact_sql = sql.replace(" ", "")
     for table_name in EXPECTED_TABLES:
         assert f"create table {table_name}" in sql
 
     assert "alembic_version_dbi" in sql
+    assert "geometry(multipolygon,4326)" in compact_sql
+    assert "ix_dbi_plots_boundary_gist" in sql
     for forbidden in (
         "create extension",
-        "postgis",
-        "geometry(",
         "geography(",
         "gen_random_uuid",
         "uuid_generate",
@@ -166,12 +170,12 @@ def validate_offline_sql() -> None:
 
 
 def validate_sources() -> None:
-    """Bloquea motores, sesiones y extensiones dentro del dominio."""
+    """Bloquea motores, sesiones y extensiones fuera de migraciones espaciales."""
 
     models_source = (
         BACKEND_ROOT / "app" / "dbi" / "models" / "agriculture.py"
     ).read_text(encoding="utf-8").lower()
-    migration_source = (
+    original_migration_source = (
         BACKEND_ROOT
         / "dbi_alembic"
         / "versions"
@@ -186,14 +190,18 @@ def validate_sources() -> None:
         "sessionmaker",
         "app.models.user",
         "app.models.company",
-        "geometry",
-        "geography",
-        "postgis",
     ):
         assert forbidden not in models_source
 
-    assert "create extension" not in migration_source
-    assert "op.bulk_insert" not in migration_source
+    for forbidden in (
+        "create extension",
+        "geometry",
+        "geography",
+        "postgis",
+        "op.bulk_insert",
+    ):
+        assert forbidden not in original_migration_source
+
     assert "app.dbi import models as dbi_models" in env_source
 
 
