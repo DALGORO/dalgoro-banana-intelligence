@@ -6,11 +6,12 @@ import inspect
 import os
 import sys
 from contextlib import redirect_stdout
+from datetime import datetime, timezone
 from io import StringIO
 from pathlib import Path
 from types import SimpleNamespace
 from unittest.mock import patch
-from uuid import uuid4
+from uuid import UUID, uuid4
 
 from alembic import command
 from alembic.config import Config
@@ -151,6 +152,7 @@ def validate_http_schemas() -> None:
     assert cleared.model_fields_set == {"boundary"}
 
     stored_boundary = boundary_to_database(created.boundary)
+    now = datetime.now(timezone.utc)
     response = PlotRead.model_validate(
         SimpleNamespace(
             id=uuid4(),
@@ -160,8 +162,8 @@ def validate_http_schemas() -> None:
             area_hectares=None,
             boundary=stored_boundary,
             status="active",
-            created_at=SimpleNamespace(),
-            updated_at=SimpleNamespace(),
+            created_at=now,
+            updated_at=now,
         )
     )
     assert response.boundary == created.boundary
@@ -207,16 +209,18 @@ def validate_scoped_spatial_query() -> None:
         compile_kwargs={"render_postcompile": True},
     )
     sql = str(compiled).lower()
-    values = set(compiled.params.values())
+    values = list(compiled.params.values())
     assert "st_intersects" in sql
     assert "st_makeenvelope" in sql
     assert "dbi_plots.boundary is not null" in sql
     assert "dbi_plots.id in" in sql
     assert "limit" in sql
-    assert {"organization-1", farm_id, 25}.issubset(values)
+    assert "organization-1" in values
+    assert farm_id in values
+    assert 25 in values
 
 
-def _context(*, read: bool = True) -> tuple[DBIAccessContext, object, object]:
+def _context(*, read: bool = True) -> tuple[DBIAccessContext, UUID, UUID]:
     farm_id = uuid4()
     plot_id = uuid4()
     permissions = {DBIPermission.READ} if read else {DBIPermission.WRITE}
