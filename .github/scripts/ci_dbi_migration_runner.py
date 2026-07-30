@@ -39,10 +39,11 @@ def _assert_rejected(factory) -> None:
 def validate_external_connection_adapter() -> None:
     connection = _FakeConnection()
     calls = []
+    expected_connection = connection
 
     def fake_upgrade(config, revision):
         calls.append((config, revision))
-        assert config.attributes["connection"] is connection
+        assert config.attributes["connection"] is expected_connection
 
     with patch("app.dbi.migration_runner.command.upgrade", fake_upgrade):
         upgrade_head_on_connection(connection)
@@ -52,9 +53,12 @@ def validate_external_connection_adapter() -> None:
     assert calls[0][1] == "head"
 
     clean_connection = _FakeConnection(in_transaction=False)
+    expected_connection = clean_connection
     with patch("app.dbi.migration_runner.command.upgrade", fake_upgrade):
         upgrade_head_on_connection(clean_connection)
     assert clean_connection.commits == 0
+    assert len(calls) == 2
+    assert calls[1][1] == "head"
 
     _assert_rejected(lambda: upgrade_head_on_connection(_FakeConnection(closed=True)))
 
