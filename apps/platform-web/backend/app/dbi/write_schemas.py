@@ -7,6 +7,8 @@ from decimal import Decimal
 
 from pydantic import BaseModel, ConfigDict, Field, model_validator
 
+from app.dbi.spatial import GeoJSONMultiPolygon
+
 
 class _WriteModel(BaseModel):
     model_config = ConfigDict(extra="forbid", str_strip_whitespace=True)
@@ -43,12 +45,14 @@ class PlotCreate(_WriteModel):
     code: str = Field(min_length=1, max_length=64)
     name: str = Field(min_length=1, max_length=160)
     area_hectares: Decimal | None = Field(default=None, gt=0, max_digits=12, decimal_places=4)
+    boundary: GeoJSONMultiPolygon | None = None
     status: str = Field(default="active", pattern="^(active|inactive|archived)$")
 
 
 class PlotUpdate(_WriteModel):
     name: str | None = Field(default=None, min_length=1, max_length=160)
     area_hectares: Decimal | None = Field(default=None, gt=0, max_digits=12, decimal_places=4)
+    boundary: GeoJSONMultiPolygon | None = None
     status: str | None = Field(
         default=None,
         pattern="^(active|inactive|archived)$",
