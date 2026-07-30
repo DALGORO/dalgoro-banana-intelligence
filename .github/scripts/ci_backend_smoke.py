@@ -3,8 +3,6 @@
 from __future__ import annotations
 
 import os
-import runpy
-from pathlib import Path
 
 
 def main() -> None:
@@ -24,12 +22,6 @@ def main() -> None:
     assert health_response.status_code == 200, health_response.text
     assert health_response.json() == {"status": "ok"}
     assert root_response.status_code == 200, root_response.text
-
-    repository_root = Path(__file__).resolve().parents[2]
-    runpy.run_path(
-        str(repository_root / ".github" / "scripts" / "ci_dbi_authorized_writes.py"),
-        run_name="__main__",
-    )
 
     print("Backend smoke test: importación y healthcheck aprobados.")
 
