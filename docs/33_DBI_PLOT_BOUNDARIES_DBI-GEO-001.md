@@ -2,7 +2,7 @@
 
 ## Estado
 
-Implementación espacial preparada y sometida a una primera CI completa. No se ejecutaron migraciones online, no se abrió ninguna conexión remota y no se modificó la base heredada. La auditoría posterior a CI #264 detectó y corrigió una incompatibilidad entre la ubicación predeterminada de PostGIS y el `search_path` de los roles DBI; la corrección requiere una nueva CI completa antes del cierre.
+Implementación espacial completada y auditada. No se ejecutaron migraciones online, no se abrió ninguna conexión remota y no se modificó la base heredada. La auditoría posterior a CI #264 detectó una incompatibilidad entre la ubicación predeterminada de PostGIS y el `search_path` de los roles DBI; la corrección fue validada por la CI modular #268.
 
 ## Decisión espacial canónica
 
@@ -110,7 +110,7 @@ Las demás versiones del backend permanecen iguales al commit base.
 2. La consulta espacial quedó limitada a 20 resultados y el contrato a 10.000 posiciones por geometría.
 3. Las barreras históricas fijaban revisiones antiguas como cabeza o prohibían geometría en todo el historial; se ajustaron para preservar sus migraciones originales dentro de un único linaje.
 4. La primera infraestructura usaba `search_path = dbi, pg_catalog`, que ocultaba PostGIS instalado en `public`. Se corrigió a `dbi, public`, se concedió únicamente `USAGE` sobre `public` y se mantuvo revocado `CREATE`.
-5. La prueba de infraestructura ahora bloquea cualquier regreso a `pg_catalog` explícito, ausencia de `public` o concesión de `CREATE` sobre `public`.
+5. La prueba de infraestructura bloquea cualquier regreso a `pg_catalog` explícito, ausencia de `public` o concesión de `CREATE` sobre `public`.
 
 ## Exclusiones preservadas
 
@@ -124,8 +124,26 @@ Las demás versiones del backend permanecen iguales al commit base.
 
 ## Evidencia
 
-- CI modular #264: 6/6 trabajos aprobados y todos los pasos posteriores del backend ejecutados, incluida la barrera espacial y el healthcheck.
+- CI modular #264: 6/6 trabajos aprobados para la primera implementación espacial y todos los pasos posteriores del backend ejecutados.
 - La auditoría posterior a #264 detectó la incompatibilidad de `search_path` antes de cualquier migración o despliegue real.
-- La CI #264 no puede reutilizarse como evidencia de la corrección porque corresponde al commit anterior.
-- Falta una nueva CI modular completa sobre la corrección de visibilidad PostGIS.
-- Falta revisar conversaciones y estado fusionable del PR después de esa ejecución.
+- CI modular #268: 6/6 trabajos aprobados sobre la corrección de visibilidad PostGIS.
+- En #268 aprobaron la barrera de infraestructura, las geometrías DBI, el dominio agrícola, las persistencias, el healthcheck y las auditorías de dependencias, sin pasos omitidos.
+- Gitleaks, frontend, WhatsApp, densidad geoespacial e higiene del repositorio aprobaron.
+- El PR no tiene conversaciones de revisión pendientes y sus 21 archivos corresponden al alcance auditado.
+
+## Criterios de cierre
+
+- [x] Decisión espacial canónica documentada y justificada.
+- [x] Modelo y migración DBI implementados sin tocar el historial heredado.
+- [x] Contratos GeoJSON estrictos y autorizados.
+- [x] SRID, validez, tipo y complejidad controlados.
+- [x] Índice GiST mínimo y justificado.
+- [x] SQL Alembic DBI offline auditado.
+- [x] Sin conexiones ni migraciones remotas.
+- [x] Sin exposición de representación binaria interna.
+- [x] CI modular #268 completa en verde.
+- [x] Diff, archivos y conversaciones auditados.
+
+## Puerta final
+
+El PR permanece en borrador hasta que la CI posterior a este commit documental termine completamente en verde y se confirme nuevamente su estado fusionable.
