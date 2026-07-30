@@ -1,0 +1,60 @@
+{
+  "schema_version": 1,
+  "environments": {
+    "local": {
+      "dbi_environment": "development",
+      "database_name": "dbi_development",
+      "remote_execution_allowed": false,
+      "roles": {
+        "owner": "dbi_development_owner",
+        "migrator": "dbi_development_migrator",
+        "api": "dbi_development_api",
+        "worker": "dbi_development_worker",
+        "observer": "dbi_development_observer"
+      }
+    },
+    "ci": {
+      "dbi_environment": "test",
+      "database_name": "dbi_test",
+      "remote_execution_allowed": false,
+      "roles": {
+        "owner": "dbi_test_owner",
+        "migrator": "dbi_test_migrator",
+        "api": "dbi_test_api",
+        "worker": "dbi_test_worker",
+        "observer": "dbi_test_observer"
+      }
+    },
+    "staging": {
+      "dbi_environment": "staging",
+      "database_name": "dbi_staging",
+      "remote_execution_allowed": false,
+      "roles": {
+        "owner": "dbi_staging_owner",
+        "migrator": "dbi_staging_migrator",
+        "api": "dbi_staging_api",
+        "worker": "dbi_staging_worker",
+        "observer": "dbi_staging_observer"
+      }
+    },
+    "production": {
+      "dbi_environment": "production",
+      "database_name": "dbi_production",
+      "remote_execution_allowed": false,
+      "roles": {
+        "owner": "dbi_production_owner",
+        "migrator": "dbi_production_migrator",
+        "api": "dbi_production_api",
+        "worker": "dbi_production_worker",
+        "observer": "dbi_production_observer"
+      }
+    }
+  },
+  "required_environment_variables": [
+    "DBI_ENVIRONMENT",
+    "DBI_DATABASE_URL"
+  ],
+  "forbidden_environment_variables": [
+    "DATABASE_URL"
+  ]
+}
