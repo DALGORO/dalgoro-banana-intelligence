@@ -48,6 +48,12 @@
 - Archivos previstos: cuatro documentos; uno nuevo y tres modificados.
 - Código funcional, dependencias y workflow modificados: cero.
 - Conexiones externas, migraciones y despliegues: cero.
+- SHA de planificación validado:
+  `90cd0bc6da7d4aa24e41d1694a543e2033df024e`.
+- Validación estructural offline: 35 tickets únicos, 79 dependencias válidas,
+  cero ciclos y cobertura transitiva de los otros 34 tickets desde UAT.
+- Markdownlint: cuatro documentos, cero errores.
+- GitHub Actions `30502586256`: seis de seis trabajos aprobados.
 
 ## Backlog operativo
 
