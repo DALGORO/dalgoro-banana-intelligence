@@ -10,7 +10,7 @@ from dataclasses import dataclass
 from hashlib import sha256
 from typing import Final
 
-from app.db.dbi_config import DBIDatabaseConfig
+from app.db.dbi_config import DBI_DATABASE_NAMES, DBIDatabaseConfig
 
 DBI_MIGRATION_LOCK_NAMESPACE: Final[str] = "dalgoro-dbi-migrations-v1"
 DBI_CI_ENVIRONMENT: Final[str] = "test"
@@ -55,13 +55,19 @@ def validate_migration_target(
             "Las migraciones de producción están bloqueadas por esta herramienta."
         )
 
+    expected_database = DBI_DATABASE_NAMES.get(config.environment)
+    if expected_database is None or config.database_name != expected_database:
+        raise DBIMigrationControlError(
+            "La base DBI no corresponde al ambiente autorizado."
+        )
+
     if running_in_ci and config.environment != DBI_CI_ENVIRONMENT:
         raise DBIMigrationControlError(
             "CI solo puede operar contra el ambiente DBI test."
         )
 
     username = (config.url.username or "").strip()
-    migrator_role = expected_migrator_role(config.database_name)
+    migrator_role = expected_migrator_role(expected_database)
     if username != migrator_role:
         raise DBIMigrationControlError(
             "La conexión DBI debe usar el rol migrador autorizado del ambiente."
@@ -69,7 +75,7 @@ def validate_migration_target(
 
     return DBIMigrationTarget(
         environment=config.environment,
-        database_name=config.database_name,
+        database_name=expected_database,
         username=username,
         expected_migrator_role=migrator_role,
     )
