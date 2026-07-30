@@ -147,7 +147,7 @@ def validate_offline_sql() -> None:
             command.upgrade(config, "head", sql=True)
 
     sql = output.getvalue().lower()
-    compact_sql = sql.replace(" ", "")
+    compact_sql = "".join(sql.split())
     for table_name in EXPECTED_TABLES:
         assert f"create table {table_name}" in sql
 
