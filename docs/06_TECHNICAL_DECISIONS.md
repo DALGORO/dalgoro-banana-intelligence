@@ -451,3 +451,34 @@ hacia el producto completo.
 - El cierre de cada ticket actualiza el backlog y
   `docs/13_CURRENT_STATUS.md`.
 - Cambiar el orden o alcance exige evidencia y un ticket explícito.
+
+## DEC-024
+
+**Decisión:** persistir una autoridad DBI normalizada de principal, membresía,
+permisos y ámbitos antes de integrar identidad con FastAPI.
+
+**Motivo:** `DBIAccessContext` aplica permisos globales a todos sus ámbitos.
+Mezclar en una sola concesión permisos distintos por organización, finca o lote
+podría combinar privilegios y pertenencias que nunca fueron aprobados juntos.
+Además, deducir la autoridad desde `User`, `Company`, `ADMIN` o JWT
+mantendría el acoplamiento con la base heredada.
+
+**Controles obligatorios:**
+
+- Usar exclusivamente `DBIBase` y el historial `dbi_alembic`.
+- Asignar un UUID canónico a cada `legacy_identity_ref` opaca.
+- Mantener `tenant_ref` y `organization_ref` como referencias opacas.
+- No crear claves foráneas hacia tablas heredadas.
+- Hacer única la relación principal–tenant.
+- Separar permisos globales de ámbitos jerárquicos.
+- Alinear permisos exactamente con `DBIPermission`.
+- Permitir contexto solo a principal y membresía `active`.
+- Rechazar ausencia, duplicidad, inactividad, revocación o inconsistencia.
+- Validar finca–organización y lote–finca–organización.
+- Usar el UUID DBI como `principal_ref` del contexto.
+- Recibir la sesión en el repositorio y el repositorio en el resolvedor.
+- Conservar un único tipo y mensaje de denegación.
+- No decodificar JWT ni interpretar roles heredados.
+- No crear motores, fábricas, conexiones, endpoints o dependencias FastAPI.
+- Mantener una sola cabeza DBI y las tres cabezas heredadas intactas.
+- Validar modelos, consultas, resolución y SQL exclusivamente offline.
