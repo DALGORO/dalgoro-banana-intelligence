@@ -42,14 +42,14 @@ Implementación declarativa completada y auditada. No se aprovisionó infraestru
 3. **Auditoría de mínimo privilegio:** se eliminó la membresía owner → migrator, porque permitía al migrador asumir privilegios de propietario de la base.
 4. La barrera CI impide que esa herencia de privilegios reaparezca.
 5. **Auditoría espacial DBI-GEO-001:** se detectó que `search_path = dbi, pg_catalog` excluía el esquema donde la instalación predeterminada mantiene PostGIS. Se corrigió a `dbi, public`, se concedió únicamente `USAGE` sobre `public` y se mantuvo revocado `CREATE`.
-6. La barrera CI ahora exige cuatro líneas de `search_path = dbi, public`, acceso `USAGE` a `public` y ausencia de cualquier concesión `CREATE` en ese esquema.
+6. La barrera CI exige cuatro líneas de `search_path = dbi, public`, acceso `USAGE` a `public` y ausencia de cualquier concesión `CREATE` en ese esquema.
 
 ## Evidencia CI
 
 - CI modular #252: 6/6 trabajos aprobados después de corregir la validación documental.
 - CI modular #258: 6/6 trabajos aprobados después de eliminar la herencia owner → migrator.
 - CI modular #264: 6/6 trabajos aprobados para la primera implementación espacial; su auditoría posterior detectó la incompatibilidad de `search_path` antes de cualquier despliegue real.
-- La corrección de visibilidad PostGIS requiere una nueva ejecución completa antes del cierre de DBI-GEO-001.
+- CI modular #268: 6/6 trabajos aprobados después de corregir la visibilidad de PostGIS. La barrera de aislamiento e infraestructura, las geometrías DBI y todos los pasos posteriores del backend aprobaron sin omisiones.
 - Gitleaks aprobó sin secretos detectados.
 - Frontend, WhatsApp, densidad geoespacial e higiene del repositorio aprobaron.
 
@@ -72,6 +72,7 @@ Implementación declarativa completada y auditada. No se aprovisionó infraestru
 - [x] Sin operaciones destructivas automáticas.
 - [x] Procedimientos de verificación, reversión y rotación.
 - [x] Sin infraestructura ni migraciones remotas.
+- [x] CI #268 completa en verde.
 - [x] Diff y controles estáticos auditados.
 
 ## Puerta operativa
