@@ -7,7 +7,7 @@ from typing import Generic, TypeVar
 from uuid import UUID
 
 from sqlalchemy import Select, func, select
-from sqlalchemy.orm import Session
+from sqlalchemy.orm import Session, defer
 
 from app.dbi.models import (
     AnalysisArtifact,
@@ -18,7 +18,7 @@ from app.dbi.models import (
     Farm,
     Plot,
 )
-from app.dbi.spatial import DBI_SPATIAL_SRID
+from app.dbi.spatial import DBI_SPATIAL_RESULT_LIMIT, DBI_SPATIAL_SRID
 
 ModelT = TypeVar("ModelT")
 DBI_READ_LIST_LIMIT = 100
@@ -113,6 +113,7 @@ class PlotRepository(_DBIRepository[Plot]):
     ) -> Sequence[Plot]:
         return self._all(
             select(Plot)
+            .options(defer(Plot.boundary))
             .join(Farm, Plot.farm_id == Farm.id)
             .where(
                 Plot.farm_id == farm_id,
@@ -157,7 +158,7 @@ class PlotRepository(_DBIRepository[Plot]):
                 func.ST_Intersects(Plot.boundary, envelope),
             )
             .order_by(Plot.code, Plot.id)
-            .limit(min(limit, DBI_READ_LIST_LIMIT))
+            .limit(min(limit, DBI_SPATIAL_RESULT_LIMIT))
         )
 
 
