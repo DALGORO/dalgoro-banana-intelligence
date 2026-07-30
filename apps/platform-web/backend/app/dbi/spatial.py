@@ -14,6 +14,7 @@ from shapely.validation import explain_validity
 
 DBI_SPATIAL_SRID = 4326
 DBI_BOUNDARY_MAX_COORDINATES = 10_000
+DBI_SPATIAL_RESULT_LIMIT = 20
 
 Position = tuple[float, float]
 LinearRingCoordinates = list[Position]
