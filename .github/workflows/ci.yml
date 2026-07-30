@@ -123,6 +123,11 @@ jobs:
           PYTHONPATH: .
         run: python ../../../.github/scripts/ci_dbi_migration_lock.py
 
+      - name: Validar orquestador cerrado de apply DBI offline
+        env:
+          PYTHONPATH: .
+        run: python ../../../.github/scripts/ci_dbi_migration_apply.py
+
       - name: Validar fábrica de sesiones DBI offline
         env:
           PYTHONPATH: .
