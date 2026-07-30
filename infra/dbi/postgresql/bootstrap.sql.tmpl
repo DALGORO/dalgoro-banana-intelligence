@@ -96,7 +96,9 @@ ALTER DEFAULT PRIVILEGES FOR ROLE "{{DBI_MIGRATOR_ROLE}}" IN SCHEMA dbi
 ALTER DEFAULT PRIVILEGES FOR ROLE "{{DBI_MIGRATOR_ROLE}}" IN SCHEMA dbi
   GRANT USAGE, SELECT ON SEQUENCES TO "{{DBI_API_ROLE}}", "{{DBI_WORKER_ROLE}}";
 
--- 7. Endurecimiento explícito.
+-- 7. Endurecimiento explícito. El migrador debe resolver tablas sin esquema
+-- dentro de dbi para que Alembic no escriba accidentalmente en public.
+ALTER ROLE "{{DBI_MIGRATOR_ROLE}}" SET search_path = dbi, pg_catalog;
 ALTER ROLE "{{DBI_API_ROLE}}" SET search_path = dbi, pg_catalog;
 ALTER ROLE "{{DBI_WORKER_ROLE}}" SET search_path = dbi, pg_catalog;
 ALTER ROLE "{{DBI_OBSERVER_ROLE}}" SET search_path = dbi, pg_catalog;
