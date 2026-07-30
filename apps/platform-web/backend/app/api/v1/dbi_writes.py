@@ -17,7 +17,11 @@ from app.dbi.authorization import (
 )
 from app.dbi.dependencies import get_dbi_access_context, get_dbi_session
 from app.dbi.models import Campaign, Farm, Plot
-from app.dbi.read_schemas import CampaignRead, FarmRead, PlotRead
+from app.dbi.read_schemas import (
+    CampaignRead,
+    FarmRead,
+    PlotSpatialRead,
+)
 from app.dbi.repositories import CampaignRepository, FarmRepository, PlotRepository
 from app.dbi.spatial import boundary_to_database
 from app.dbi.write_schemas import (
@@ -164,7 +168,7 @@ def update_farm(
 
 @router.post(
     "/organizations/{organization_ref}/farms/{farm_id}/plots",
-    response_model=PlotRead,
+    response_model=PlotSpatialRead,
     status_code=status.HTTP_201_CREATED,
 )
 def create_plot(
@@ -173,7 +177,7 @@ def create_plot(
     payload: PlotCreate,
     session: SessionDependency,
     context: AccessDependency,
-) -> PlotRead:
+) -> PlotSpatialRead:
     _require_farm_write(context, organization_ref, farm_id)
     farm = FarmRepository(session).get_by_id(
         organization_ref=organization_ref,
@@ -189,12 +193,12 @@ def create_plot(
         **values,
     )
     PlotRepository(session).add(plot)
-    return PlotRead.model_validate(_commit_and_refresh(session, plot))
+    return PlotSpatialRead.model_validate(_commit_and_refresh(session, plot))
 
 
 @router.patch(
     "/organizations/{organization_ref}/farms/{farm_id}/plots/{plot_id}",
-    response_model=PlotRead,
+    response_model=PlotSpatialRead,
 )
 def update_plot(
     organization_ref: str,
@@ -203,7 +207,7 @@ def update_plot(
     payload: PlotUpdate,
     session: SessionDependency,
     context: AccessDependency,
-) -> PlotRead:
+) -> PlotSpatialRead:
     _require_plot_write(context, organization_ref, farm_id, plot_id)
     plot = PlotRepository(session).get_by_id(
         organization_ref=organization_ref,
@@ -216,7 +220,7 @@ def update_plot(
     if "boundary" in payload.model_fields_set:
         changes["boundary"] = boundary_to_database(payload.boundary)
     _apply_updates(plot, changes, PLOT_UPDATE_FIELDS)
-    return PlotRead.model_validate(_commit_and_refresh(session, plot))
+    return PlotSpatialRead.model_validate(_commit_and_refresh(session, plot))
 
 
 @router.post(
