@@ -6,10 +6,11 @@
 
 - Ticket: `DBI-PLAN-001`.
 - Issue: #28.
+- Pull request: #35.
 - Fecha: 2026-07-29.
 - Rama: `feat/DBI-PLAN-001-backlog-maestro`.
 - Base: `main` en `21346aeb7bf568fba97ca0c4fa7364b12b4670df`.
-- Estado: en revisión.
+- Estado: completado.
 - Código funcional modificado: ninguno.
 
 ## Objetivo
@@ -524,12 +525,14 @@ La selección se fundamenta en que la política `DBI-AUTH-001` ya existe, pero
 ninguna fuente canónica produce todavía el contexto que exige. El ticket puede
 validarse completamente offline antes de incorporar FastAPI o una base real.
 
-No debe iniciarse hasta que `DBI-PLAN-001` sea revisado, fusionado y cerrado.
+`DBI-AUTH-002` debe iniciarse únicamente desde el `main` que integre este PR,
+en su propio Issue, rama, pruebas y Draft PR. El cierre de esta planificación
+no activa ninguna integración ni conexión.
 
 ## Evidencia de validación
 
-- SHA de planificación:
-  `90cd0bc6da7d4aa24e41d1694a543e2033df024e`.
+- SHA de planificación y evidencia previa al cierre:
+  `ce8bf771a2fa49ab56228bb1fe8f21c292a1280f`.
 - Validación estructural offline: 35 identificadores únicos, 79 dependencias
   válidas y cero ciclos.
 - Cobertura de cierre: la dependencia transitiva de `DBI-UAT-001` incluye los
@@ -537,7 +540,10 @@ No debe iniciarse hasta que `DBI-PLAN-001` sea revisado, fusionado y cerrado.
 - Cobertura funcional: todas las capacidades del Charter y README inventariadas
   tienen uno o más tickets responsables.
 - Markdownlint: cuatro documentos, cero errores.
-- GitHub Actions `30502586256`: seis de seis trabajos aprobados.
+- GitHub Actions inicial `30502586256`: seis de seis trabajos aprobados.
+- GitHub Actions final `30502931704`: seis de seis trabajos aprobados.
+- Diff validado: cuatro documentos; uno añadido y tres modificados.
+- Issue #28: diez de diez criterios de aceptación cumplidos.
 - Conexiones externas, migraciones online y despliegues ejecutados: cero.
 
 ## Criterios de mantenimiento del backlog
