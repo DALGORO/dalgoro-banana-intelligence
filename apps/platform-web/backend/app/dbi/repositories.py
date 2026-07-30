@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from collections.abc import Sequence
 from typing import Generic, TypeVar
 from uuid import UUID
 
@@ -39,6 +40,12 @@ class _DBIRepository(Generic[ModelT]):
     ) -> ModelT | None:
         return self._session.execute(statement).scalar_one_or_none()
 
+    def _all(
+        self,
+        statement: Select[tuple[ModelT]],
+    ) -> Sequence[ModelT]:
+        return self._session.execute(statement).scalars().all()
+
 
 class FarmRepository(_DBIRepository[Farm]):
     """Acceso a fincas limitado por la organización referenciada."""
@@ -69,6 +76,13 @@ class FarmRepository(_DBIRepository[Farm]):
             )
         )
 
+    def list_by_organization(self, *, organization_ref: str) -> Sequence[Farm]:
+        return self._all(
+            select(Farm)
+            .where(Farm.organization_ref == organization_ref)
+            .order_by(Farm.code, Farm.id)
+        )
+
 
 class PlotRepository(_DBIRepository[Plot]):
     """Acceso a lotes acotado mediante la organización de su finca."""
@@ -88,6 +102,22 @@ class PlotRepository(_DBIRepository[Plot]):
             )
         )
 
+    def list_by_farm(
+        self,
+        *,
+        organization_ref: str,
+        farm_id: UUID,
+    ) -> Sequence[Plot]:
+        return self._all(
+            select(Plot)
+            .join(Farm, Plot.farm_id == Farm.id)
+            .where(
+                Plot.farm_id == farm_id,
+                Farm.organization_ref == organization_ref,
+            )
+            .order_by(Plot.code, Plot.id)
+        )
+
 
 class CampaignRepository(_DBIRepository[Campaign]):
     """Acceso a campañas acotado mediante la organización de su finca."""
@@ -105,6 +135,22 @@ class CampaignRepository(_DBIRepository[Campaign]):
                 Campaign.id == campaign_id,
                 Farm.organization_ref == organization_ref,
             )
+        )
+
+    def list_by_farm(
+        self,
+        *,
+        organization_ref: str,
+        farm_id: UUID,
+    ) -> Sequence[Campaign]:
+        return self._all(
+            select(Campaign)
+            .join(Farm, Campaign.farm_id == Farm.id)
+            .where(
+                Campaign.farm_id == farm_id,
+                Farm.organization_ref == organization_ref,
+            )
+            .order_by(Campaign.starts_at.desc(), Campaign.id)
         )
 
 
@@ -135,6 +181,21 @@ class AnalysisJobRepository(_DBIRepository[AnalysisJob]):
                 AnalysisJob.tenant_ref == tenant_ref,
                 AnalysisJob.request_id == request_id,
             )
+        )
+
+    def list_by_farm(
+        self,
+        *,
+        tenant_ref: str,
+        farm_id: UUID,
+    ) -> Sequence[AnalysisJob]:
+        return self._all(
+            select(AnalysisJob)
+            .where(
+                AnalysisJob.tenant_ref == tenant_ref,
+                AnalysisJob.farm_id == farm_id,
+            )
+            .order_by(AnalysisJob.created_at.desc(), AnalysisJob.id)
         )
 
 
@@ -176,6 +237,21 @@ class AnalysisInputAssetRepository(_DBIRepository[AnalysisInputAsset]):
             )
         )
 
+    def list_by_farm(
+        self,
+        *,
+        tenant_ref: str,
+        farm_id: UUID,
+    ) -> Sequence[AnalysisInputAsset]:
+        return self._all(
+            select(AnalysisInputAsset)
+            .where(
+                AnalysisInputAsset.tenant_ref == tenant_ref,
+                AnalysisInputAsset.farm_id == farm_id,
+            )
+            .order_by(AnalysisInputAsset.created_at.desc(), AnalysisInputAsset.id)
+        )
+
 
 class AnalysisArtifactRepository(_DBIRepository[AnalysisArtifact]):
     """Acceso a artefactos acotado mediante el tenant de su trabajo."""
@@ -198,3 +274,21 @@ class AnalysisArtifactRepository(_DBIRepository[AnalysisArtifact]):
             )
         )
 
+    def list_by_job(
+        self,
+        *,
+        tenant_ref: str,
+        job_id: UUID,
+    ) -> Sequence[AnalysisArtifact]:
+        return self._all(
+            select(AnalysisArtifact)
+            .join(
+                AnalysisJob,
+                AnalysisArtifact.job_id == AnalysisJob.id,
+            )
+            .where(
+                AnalysisArtifact.job_id == job_id,
+                AnalysisJob.tenant_ref == tenant_ref,
+            )
+            .order_by(AnalysisArtifact.created_at, AnalysisArtifact.id)
+        )
