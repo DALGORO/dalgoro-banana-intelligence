@@ -276,7 +276,7 @@ def validate_metadata_authority() -> None:
 
 
 def validate_migration_and_offline_sql() -> None:
-    """Comprueba las cabezas y genera el historial DBI sin conexión."""
+    """Comprueba el linaje de identidad y genera el historial sin conexión."""
 
     legacy_config = Config(str(BACKEND_ROOT / "alembic.ini"))
     legacy_scripts = ScriptDirectory.from_config(legacy_config)
@@ -285,7 +285,18 @@ def validate_migration_and_offline_sql() -> None:
     dbi_config = Config(str(BACKEND_ROOT / "dbi_alembic.ini"))
     dbi_scripts = ScriptDirectory.from_config(dbi_config)
     assert dbi_scripts.get_bases() == ["dbi_0001_baseline"]
-    assert dbi_scripts.get_heads() == ["dbi_0005_identity_memberships"]
+    heads = dbi_scripts.get_heads()
+    assert len(heads) == 1
+    lineage = {
+        revision.revision
+        for revision in dbi_scripts.iterate_revisions(heads[0], "base")
+    }
+    assert "dbi_0005_identity_memberships" in lineage
+    identity_revision = dbi_scripts.get_revision(
+        "dbi_0005_identity_memberships"
+    )
+    assert identity_revision is not None
+    assert identity_revision.down_revision == "dbi_0004_assets_artifacts"
 
     output = StringIO()
     environment = {
@@ -518,6 +529,17 @@ def validate_closed_denials() -> None:
 
     repository, principal, membership, _, _ = _repository_fixture()
     repository.memberships = (membership, membership)
+    operations.append(
+        lambda repository=repository: DBIAccessContextResolver(
+            repository
+        ).resolve(
+            legacy_identity_ref="legacy-user-001",
+            tenant_ref="tenant-001",
+        )
+    )
+
+    repository, principal, membership, _, _ = _repository_fixture()
+    membership.tenant_ref = "tenant-other"
     operations.append(
         lambda repository=repository: DBIAccessContextResolver(
             repository
