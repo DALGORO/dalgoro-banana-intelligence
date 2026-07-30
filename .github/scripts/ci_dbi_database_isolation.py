@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import os
+import runpy
 import sys
 from contextlib import redirect_stdout
 from io import StringIO
@@ -188,6 +189,15 @@ def validate_source_isolation() -> None:
     assert "dalgoro_banana" not in ini_source
 
 
+def validate_declarative_infrastructure() -> None:
+    """Ejecuta la barrera PostgreSQL/PostGIS sin abrir conexiones."""
+
+    runpy.run_path(
+        str(REPOSITORY_ROOT / ".github" / "scripts" / "ci_dbi_postgresql_infrastructure.py"),
+        run_name="__main__",
+    )
+
+
 def main() -> None:
     """Ejecuta todas las comprobaciones sin servicios externos."""
 
@@ -196,7 +206,8 @@ def main() -> None:
     validate_offline_sql()
     validate_no_destructive_database_command()
     validate_source_isolation()
-    print("Aislamiento DBI: configuración y Alembic offline aprobados.")
+    validate_declarative_infrastructure()
+    print("Aislamiento DBI: configuración, Alembic e infraestructura aprobados.")
 
 
 if __name__ == "__main__":
