@@ -449,7 +449,8 @@ propia aceptación.
 
 - Objetivo: ejecutar un piloto con criterios funcionales, técnicos,
   agronómicos, seguridad, rendimiento, continuidad y operación autónoma.
-- Depende de: puertas aplicables de los hitos 9–13 y `DBI-DR-001`.
+- Depende de: `DBI-INSPECT-001`, `DBI-METEO-001`, `DBI-PACK-001`,
+  `DBI-SST-001`, `DBI-AGR-001`, `DBI-BOT-003` y `DBI-DR-001`.
 - Resultado verificable: matriz de aceptación, incidencias resueltas, manuales,
   capacitación, responsables, acta de aceptación y plan de soporte.
 - Exclusiones: declarar producción completa con criterios abiertos o evidencia
