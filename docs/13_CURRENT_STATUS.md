@@ -24,36 +24,30 @@
 - `DBI-DATA-003`: fábrica aislada de sesiones DBI.
 - `DBI-DATA-004`: repositorios DBI y unidad de trabajo offline.
 - `DBI-AUTH-001`: política de autorización DBI offline.
+- `DBI-PLAN-001`: backlog maestro verificable.
 
 ## Último ticket completado
-
-`DBI-AUTH-001` — Política de autorización DBI offline.
-
-- Issue: #26.
-- Pull request: #27.
-- Estado: completado.
-- Commit integrado en `main`:
-  `21346aeb7bf568fba97ca0c4fa7364b12b4670df`.
-- GitHub Actions de cierre `30500300967`: seis de seis trabajos aprobados.
-- Conexiones externas y migraciones online: cero.
-
-## Ticket actual
 
 `DBI-PLAN-001` — Backlog maestro verificable.
 
 - Issue: #28.
-- Rama: `feat/DBI-PLAN-001-backlog-maestro`.
-- Base: `main` en `21346aeb7bf568fba97ca0c4fa7364b12b4670df`.
-- Estado: en revisión.
-- Archivos previstos: cuatro documentos; uno nuevo y tres modificados.
-- Código funcional, dependencias y workflow modificados: cero.
-- Conexiones externas, migraciones y despliegues: cero.
-- SHA de planificación validado:
-  `90cd0bc6da7d4aa24e41d1694a543e2033df024e`.
-- Validación estructural offline: 35 tickets únicos, 79 dependencias válidas,
-  cero ciclos y cobertura transitiva de los otros 34 tickets desde UAT.
-- Markdownlint: cuatro documentos, cero errores.
-- GitHub Actions `30502586256`: seis de seis trabajos aprobados.
+- Pull request: #35.
+- Estado: completado.
+- SHA de planificación y evidencia previa al cierre:
+  `ce8bf771a2fa49ab56228bb1fe8f21c292a1280f`.
+- GitHub Actions inicial `30502586256`: seis de seis trabajos aprobados.
+- GitHub Actions final `30502931704`: seis de seis trabajos aprobados.
+- Validación estructural: 35 tickets únicos, 79 dependencias válidas, cero
+  ciclos y cobertura transitiva de los otros 34 tickets desde UAT.
+- Código funcional, conexiones externas, migraciones online y despliegues:
+  cero.
+
+## Ticket actual
+
+Ninguno.
+
+`DBI-AUTH-002` permanece pendiente en el Issue #34 y será el próximo
+incremento ejecutable, siempre en una rama independiente.
 
 ## Backlog operativo
 
@@ -65,13 +59,13 @@
 - Próximo ticket ejecutable, `DBI-AUTH-002`: Issue #34.
 
 Los Issues de hito son rastreadores y no representan funciones implementadas.
-`DBI-AUTH-002` permanece pendiente hasta cerrar `DBI-PLAN-001`.
+`DBI-AUTH-002` permanece pendiente hasta iniciar su propio ticket y rama.
 
 ## Próximo paso
 
-Validar y revisar `DBI-PLAN-001`. Después de su fusión, iniciar
-`DBI-AUTH-002` en una rama independiente para resolver identidad y membresías
-DBI completamente offline.
+Iniciar `DBI-AUTH-002` en una rama independiente creada desde el `main` que
+integre el PR #35, para resolver identidad y membresías DBI completamente
+offline. Este paso no autoriza FastAPI, una base real ni migraciones online.
 
 ## Riesgos heredados abiertos
 
