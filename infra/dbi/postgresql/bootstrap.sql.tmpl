@@ -32,7 +32,8 @@ BEGIN
 END
 $dbi_roles$;
 
-GRANT "{{DBI_OWNER_ROLE}}" TO "{{DBI_MIGRATOR_ROLE}}";
+-- El rol migrador no hereda el rol propietario de la base. Sus privilegios se
+-- conceden únicamente sobre la base y el esquema DBI.
 
 -- 2. Base aislada. \gexec permite creación condicional en psql sin DROP.
 SELECT format(
