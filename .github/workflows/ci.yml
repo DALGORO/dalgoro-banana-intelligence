@@ -113,6 +113,11 @@ jobs:
           PYTHONPATH: .
         run: python ../../../.github/scripts/ci_dbi_database_isolation.py
 
+      - name: Validar controles de migración DBI offline
+        env:
+          PYTHONPATH: .
+        run: python ../../../.github/scripts/ci_dbi_migration_control.py
+
       - name: Validar fábrica de sesiones DBI offline
         env:
           PYTHONPATH: .
