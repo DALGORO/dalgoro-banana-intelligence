@@ -67,6 +67,12 @@ def validate_targets() -> None:
     )
     _assert_rejected(
         lambda: validate_migration_target(
+            _config("test", "dbi_shadow", "dbi_shadow_migrator"),
+            running_in_ci=True,
+        )
+    )
+    _assert_rejected(
+        lambda: validate_migration_target(
             _config("test", "dbi_test", "dbi_test_owner"),
             running_in_ci=True,
         )
