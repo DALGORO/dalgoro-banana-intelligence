@@ -23,7 +23,7 @@ Cada ambiente usa nombres independientes:
 - **worker**: lectura, inserción y actualización para procesamiento geoespacial; no recibe `DELETE` ni DDL.
 - **observer**: solo lectura para observabilidad y soporte.
 
-Ninguno de los roles de aplicación es superusuario, propietario global o usuario de la base heredada.
+Ninguno de los roles de aplicación es superusuario, propietario global o usuario de la base heredada. El rol `migrator` no hereda ni puede asumir el rol `owner`; recibe únicamente `CONNECT` sobre la base y `USAGE, CREATE` sobre el esquema `dbi`.
 
 ## Variables
 
@@ -66,6 +66,7 @@ SELECT rolname, rolsuper, rolcreatedb, rolcreaterole FROM pg_roles WHERE rolname
 Después, comprobar con cada credencial:
 
 - migrator puede crear y alterar objetos únicamente en `dbi`;
+- migrator no puede ejecutar `SET ROLE` al propietario de la base;
 - api puede seleccionar, insertar, actualizar y eliminar datos, pero no ejecutar DDL;
 - worker no puede eliminar tablas ni filas;
 - observer no puede modificar datos;
