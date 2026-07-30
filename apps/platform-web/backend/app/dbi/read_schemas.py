@@ -28,15 +28,22 @@ class FarmRead(_DBIReadModel):
 
 
 class PlotRead(_DBIReadModel):
+    """Resumen de lote sin cargar ni transferir geometría completa."""
+
     id: UUID
     farm_id: UUID
     code: str
     name: str
     area_hectares: Decimal | None
-    boundary: GeoJSONMultiPolygon | None
     status: str
     created_at: datetime
     updated_at: datetime
+
+
+class PlotSpatialRead(PlotRead):
+    """Lote con límite GeoJSON para operaciones espaciales explícitas."""
+
+    boundary: GeoJSONMultiPolygon | None
 
     @field_validator("boundary", mode="before")
     @classmethod
