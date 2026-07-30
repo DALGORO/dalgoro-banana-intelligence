@@ -1,0 +1,105 @@
+-- Plantilla declarativa DBI. Debe renderizarse fuera del repositorio con los
+-- identificadores definidos en environments.json y credenciales secretas.
+-- No contiene contraseñas, hosts ni operaciones destructivas.
+
+-- Tokens requeridos:
+-- {{DBI_DATABASE_NAME}}
+-- {{DBI_OWNER_ROLE}}
+-- {{DBI_MIGRATOR_ROLE}}
+-- {{DBI_API_ROLE}}
+-- {{DBI_WORKER_ROLE}}
+-- {{DBI_OBSERVER_ROLE}}
+
+-- 1. Roles mínimos. Las contraseñas se asignan por un gestor de secretos y
+-- nunca se incluyen en esta plantilla.
+DO $dbi_roles$
+BEGIN
+  IF NOT EXISTS (SELECT 1 FROM pg_roles WHERE rolname = '{{DBI_OWNER_ROLE}}') THEN
+    CREATE ROLE "{{DBI_OWNER_ROLE}}" NOLOGIN NOSUPERUSER NOCREATEDB NOCREATEROLE NOREPLICATION;
+  END IF;
+  IF NOT EXISTS (SELECT 1 FROM pg_roles WHERE rolname = '{{DBI_MIGRATOR_ROLE}}') THEN
+    CREATE ROLE "{{DBI_MIGRATOR_ROLE}}" LOGIN NOSUPERUSER NOCREATEDB NOCREATEROLE NOREPLICATION;
+  END IF;
+  IF NOT EXISTS (SELECT 1 FROM pg_roles WHERE rolname = '{{DBI_API_ROLE}}') THEN
+    CREATE ROLE "{{DBI_API_ROLE}}" LOGIN NOSUPERUSER NOCREATEDB NOCREATEROLE NOREPLICATION;
+  END IF;
+  IF NOT EXISTS (SELECT 1 FROM pg_roles WHERE rolname = '{{DBI_WORKER_ROLE}}') THEN
+    CREATE ROLE "{{DBI_WORKER_ROLE}}" LOGIN NOSUPERUSER NOCREATEDB NOCREATEROLE NOREPLICATION;
+  END IF;
+  IF NOT EXISTS (SELECT 1 FROM pg_roles WHERE rolname = '{{DBI_OBSERVER_ROLE}}') THEN
+    CREATE ROLE "{{DBI_OBSERVER_ROLE}}" LOGIN NOSUPERUSER NOCREATEDB NOCREATEROLE NOREPLICATION;
+  END IF;
+END
+$dbi_roles$;
+
+-- El rol migrador no hereda el rol propietario de la base. Sus privilegios se
+-- conceden únicamente sobre la base y el esquema DBI.
+
+-- 2. Base aislada. \gexec permite creación condicional en psql sin DROP.
+SELECT format(
+  'CREATE DATABASE %I OWNER %I TEMPLATE template0 ENCODING ''UTF8''',
+  '{{DBI_DATABASE_NAME}}',
+  '{{DBI_OWNER_ROLE}}'
+)
+WHERE NOT EXISTS (
+  SELECT 1 FROM pg_database WHERE datname = '{{DBI_DATABASE_NAME}}'
+)\gexec
+
+REVOKE ALL ON DATABASE "{{DBI_DATABASE_NAME}}" FROM PUBLIC;
+GRANT CONNECT ON DATABASE "{{DBI_DATABASE_NAME}}" TO
+  "{{DBI_MIGRATOR_ROLE}}",
+  "{{DBI_API_ROLE}}",
+  "{{DBI_WORKER_ROLE}}",
+  "{{DBI_OBSERVER_ROLE}}";
+
+\connect "{{DBI_DATABASE_NAME}}"
+
+-- 3. PostGIS se instala por el operador de infraestructura. Ningún rol de
+-- aplicación recibe privilegios de superusuario para hacerlo.
+CREATE EXTENSION IF NOT EXISTS postgis;
+
+-- 4. Esquema DBI aislado.
+CREATE SCHEMA IF NOT EXISTS dbi AUTHORIZATION "{{DBI_OWNER_ROLE}}";
+REVOKE ALL ON SCHEMA public FROM PUBLIC;
+REVOKE ALL ON SCHEMA dbi FROM PUBLIC;
+
+GRANT USAGE, CREATE ON SCHEMA dbi TO "{{DBI_MIGRATOR_ROLE}}";
+GRANT USAGE ON SCHEMA dbi TO
+  "{{DBI_API_ROLE}}",
+  "{{DBI_WORKER_ROLE}}",
+  "{{DBI_OBSERVER_ROLE}}";
+
+-- 5. Privilegios sobre objetos existentes.
+GRANT SELECT, INSERT, UPDATE, DELETE ON ALL TABLES IN SCHEMA dbi TO "{{DBI_API_ROLE}}";
+GRANT SELECT, INSERT, UPDATE ON ALL TABLES IN SCHEMA dbi TO "{{DBI_WORKER_ROLE}}";
+GRANT SELECT ON ALL TABLES IN SCHEMA dbi TO "{{DBI_OBSERVER_ROLE}}";
+GRANT USAGE, SELECT ON ALL SEQUENCES IN SCHEMA dbi TO
+  "{{DBI_API_ROLE}}",
+  "{{DBI_WORKER_ROLE}}";
+GRANT SELECT ON ALL SEQUENCES IN SCHEMA dbi TO "{{DBI_OBSERVER_ROLE}}";
+
+-- 6. Privilegios por defecto para objetos creados por propietario o migrador.
+ALTER DEFAULT PRIVILEGES FOR ROLE "{{DBI_OWNER_ROLE}}" IN SCHEMA dbi
+  GRANT SELECT, INSERT, UPDATE, DELETE ON TABLES TO "{{DBI_API_ROLE}}";
+ALTER DEFAULT PRIVILEGES FOR ROLE "{{DBI_OWNER_ROLE}}" IN SCHEMA dbi
+  GRANT SELECT, INSERT, UPDATE ON TABLES TO "{{DBI_WORKER_ROLE}}";
+ALTER DEFAULT PRIVILEGES FOR ROLE "{{DBI_OWNER_ROLE}}" IN SCHEMA dbi
+  GRANT SELECT ON TABLES TO "{{DBI_OBSERVER_ROLE}}";
+ALTER DEFAULT PRIVILEGES FOR ROLE "{{DBI_OWNER_ROLE}}" IN SCHEMA dbi
+  GRANT USAGE, SELECT ON SEQUENCES TO "{{DBI_API_ROLE}}", "{{DBI_WORKER_ROLE}}";
+
+ALTER DEFAULT PRIVILEGES FOR ROLE "{{DBI_MIGRATOR_ROLE}}" IN SCHEMA dbi
+  GRANT SELECT, INSERT, UPDATE, DELETE ON TABLES TO "{{DBI_API_ROLE}}";
+ALTER DEFAULT PRIVILEGES FOR ROLE "{{DBI_MIGRATOR_ROLE}}" IN SCHEMA dbi
+  GRANT SELECT, INSERT, UPDATE ON TABLES TO "{{DBI_WORKER_ROLE}}";
+ALTER DEFAULT PRIVILEGES FOR ROLE "{{DBI_MIGRATOR_ROLE}}" IN SCHEMA dbi
+  GRANT SELECT ON TABLES TO "{{DBI_OBSERVER_ROLE}}";
+ALTER DEFAULT PRIVILEGES FOR ROLE "{{DBI_MIGRATOR_ROLE}}" IN SCHEMA dbi
+  GRANT USAGE, SELECT ON SEQUENCES TO "{{DBI_API_ROLE}}", "{{DBI_WORKER_ROLE}}";
+
+-- 7. Endurecimiento explícito. El migrador debe resolver tablas sin esquema
+-- dentro de dbi para que Alembic no escriba accidentalmente en public.
+ALTER ROLE "{{DBI_MIGRATOR_ROLE}}" SET search_path = dbi, pg_catalog;
+ALTER ROLE "{{DBI_API_ROLE}}" SET search_path = dbi, pg_catalog;
+ALTER ROLE "{{DBI_WORKER_ROLE}}" SET search_path = dbi, pg_catalog;
+ALTER ROLE "{{DBI_OBSERVER_ROLE}}" SET search_path = dbi, pg_catalog;
