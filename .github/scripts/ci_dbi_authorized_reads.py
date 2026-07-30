@@ -22,8 +22,7 @@ sys.path.insert(0, str(BACKEND_ROOT))
 
 from fastapi import HTTPException  # noqa: E402
 
-from app.api.v1 import get_api_router  # noqa: E402
-from app.api.v1 import dbi_reads  # noqa: E402
+from app.api.v1 import dbi_reads, get_api_router  # noqa: E402
 from app.dbi.authorization import (  # noqa: E402
     DBIAccessContext,
     DBIFarmScope,
@@ -169,6 +168,46 @@ def validate_scope_filtering() -> None:
     assert [item.id for item in result] == [allowed_farm_id]
 
 
+def validate_plot_scope_for_jobs() -> None:
+    context, farm_id, allowed_plot_id = _context()
+    denied_plot_id = uuid4()
+    now = datetime.now(timezone.utc)
+
+    def job(plot_id):
+        return SimpleNamespace(
+            id=uuid4(),
+            request_id="request-1",
+            correlation_id="correlation-1",
+            farm_id=farm_id,
+            plot_id=plot_id,
+            campaign_id=None,
+            model_version_ref="model-v1",
+            pipeline_config_version="pipeline-v1",
+            status="accepted",
+            accepted_at=now,
+            created_at=now,
+            updated_at=now,
+        )
+
+    class RecordingJobRepository:
+        def __init__(self, session):
+            self.session = session
+
+        def list_by_farm(self, *, tenant_ref, farm_id):
+            assert tenant_ref == "tenant-1"
+            return [job(allowed_plot_id), job(denied_plot_id)]
+
+    with patch.object(dbi_reads, "AnalysisJobRepository", RecordingJobRepository):
+        result = dbi_reads.list_jobs(
+            "organization-1",
+            farm_id,
+            SimpleNamespace(),
+            context,
+        )
+    assert len(result) == 1
+    assert result[0].plot_id == allowed_plot_id
+
+
 def validate_static_boundaries() -> None:
     router_source = inspect.getsource(dbi_reads)
     repositories_source = inspect.getsource(sys.modules["app.dbi.repositories"])
@@ -185,6 +224,8 @@ def validate_static_boundaries() -> None:
     assert "Farm.organization_ref == organization_ref" in repositories_source
     assert "AnalysisJob.tenant_ref == tenant_ref" in repositories_source
     assert "AnalysisInputAsset.tenant_ref == tenant_ref" in repositories_source
+    assert "DBI_READ_LIST_LIMIT = 100" in repositories_source
+    assert repositories_source.count(".limit(DBI_READ_LIST_LIMIT)") == 6
 
 
 if __name__ == "__main__":
@@ -192,5 +233,6 @@ if __name__ == "__main__":
     validate_sensitive_fields_are_excluded()
     validate_non_enumerable_denial()
     validate_scope_filtering()
+    validate_plot_scope_for_jobs()
     validate_static_boundaries()
     print("Consultas DBI autorizadas validadas offline.")
