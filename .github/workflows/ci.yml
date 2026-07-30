@@ -138,6 +138,11 @@ jobs:
           PYTHONPATH: .
         run: python ../../../.github/scripts/ci_dbi_fastapi_lifecycle.py
 
+      - name: Validar consultas DBI autorizadas offline
+        env:
+          PYTHONPATH: .
+        run: python ../../../.github/scripts/ci_dbi_authorized_reads.py
+
       - name: Validar dominio agrícola DBI offline
         env:
           PYTHONPATH: .
