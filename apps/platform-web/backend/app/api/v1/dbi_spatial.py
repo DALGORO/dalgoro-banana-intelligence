@@ -15,8 +15,9 @@ from app.dbi.authorization import (
     DBIPermission,
 )
 from app.dbi.dependencies import get_dbi_access_context, get_dbi_session
-from app.dbi.read_schemas import PlotRead
-from app.dbi.repositories import DBI_READ_LIST_LIMIT, PlotRepository
+from app.dbi.read_schemas import PlotSpatialRead
+from app.dbi.repositories import PlotRepository
+from app.dbi.spatial import DBI_SPATIAL_RESULT_LIMIT
 
 router = APIRouter(prefix="/dbi", tags=["dbi-spatial"])
 
@@ -69,7 +70,7 @@ def _authorized_plot_ids(
 
 @router.get(
     "/organizations/{organization_ref}/farms/{farm_id}/plots/spatial/intersections",
-    response_model=list[PlotRead],
+    response_model=list[PlotSpatialRead],
 )
 def list_intersecting_plots(
     organization_ref: str,
@@ -92,8 +93,11 @@ def list_intersecting_plots(
         float,
         Query(alias="max_lat", ge=-90, le=90),
     ],
-    limit: Annotated[int, Query(ge=1, le=DBI_READ_LIST_LIMIT)] = DBI_READ_LIST_LIMIT,
-) -> list[PlotRead]:
+    limit: Annotated[
+        int,
+        Query(ge=1, le=DBI_SPATIAL_RESULT_LIMIT),
+    ] = DBI_SPATIAL_RESULT_LIMIT,
+) -> list[PlotSpatialRead]:
     """Lista lotes autorizados que intersectan una envolvente EPSG:4326."""
 
     if min_longitude >= max_longitude or min_latitude >= max_latitude:
@@ -110,4 +114,4 @@ def list_intersecting_plots(
         max_latitude=max_latitude,
         limit=limit,
     )
-    return [PlotRead.model_validate(plot) for plot in plots]
+    return [PlotSpatialRead.model_validate(plot) for plot in plots]
