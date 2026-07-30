@@ -75,6 +75,7 @@ def validate_sql_template() -> None:
     assert "GRANT USAGE, CREATE ON SCHEMA dbi" in sql
     assert "GRANT USAGE ON SCHEMA dbi" in sql
     assert "ALTER DEFAULT PRIVILEGES" in sql
+    assert 'GRANT "{{DBI_OWNER_ROLE}}" TO' not in sql
 
     forbidden = (
         "DROP DATABASE",
