@@ -104,8 +104,10 @@ def validate_sql_template() -> None:
 
 def validate_documentation() -> None:
     text = README_PATH.read_text(encoding="utf-8")
-    for environment in EXPECTED:
-        assert environment.capitalize() in text or environment.upper() in text
+    for context_name, (dbi_environment, database_name) in EXPECTED.items():
+        assert context_name in text.lower()
+        assert f"`{dbi_environment}`" in text
+        assert f"`{database_name}`" in text
     for term in (
         "DBI_ENVIRONMENT",
         "DBI_DATABASE_URL",
