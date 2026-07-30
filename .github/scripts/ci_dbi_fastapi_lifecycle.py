@@ -9,6 +9,12 @@ from pathlib import Path
 from types import SimpleNamespace
 from unittest.mock import patch
 
+# La dependencia de autenticación heredada valida estas variables al importarse.
+# Se fijan valores locales antes de importar la aplicación; no se usan para abrir
+# conexiones y no sustituyen la configuración DBI aislada que valida este script.
+os.environ.setdefault("DATABASE_URL", "sqlite:///./ci_dbi_fastapi_lifecycle.db")
+os.environ.setdefault("JWT_SECRET", "ci-only-dbi-fastapi-lifecycle-secret")
+
 from fastapi import HTTPException
 from fastapi.testclient import TestClient
 from starlette.requests import Request
