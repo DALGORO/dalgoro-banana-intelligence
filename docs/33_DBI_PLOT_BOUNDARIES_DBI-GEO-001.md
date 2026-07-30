@@ -2,7 +2,7 @@
 
 ## Estado
 
-Implementación inicial preparada para validación CI. No se ejecutaron migraciones online, no se abrió ninguna conexión remota y no se modificó la base heredada.
+Implementación espacial preparada y sometida a una primera CI completa. No se ejecutaron migraciones online, no se abrió ninguna conexión remota y no se modificó la base heredada. La auditoría posterior a CI #264 detectó y corrigió una incompatibilidad entre la ubicación predeterminada de PostGIS y el `search_path` de los roles DBI; la corrección requiere una nueva CI completa antes del cierre.
 
 ## Decisión espacial canónica
 
@@ -57,7 +57,7 @@ La revisión `dbi_0006_plot_boundaries`:
 6. no instala PostGIS ni ejecuta operaciones sobre tablas heredadas;
 7. ofrece un downgrade limitado a índice, restricciones y columna espacial.
 
-PostGIS debe estar aprovisionado previamente conforme a `DBI-INFRA-001`.
+PostGIS debe estar aprovisionado previamente conforme a `DBI-INFRA-001`. La instalación predeterminada conserva sus tipos y funciones en `public`; por ello los roles DBI usan `search_path = dbi, public`, reciben solo `USAGE` sobre `public` y no reciben `CREATE` en ese esquema. `dbi` permanece primero para que Alembic cree allí los objetos no cualificados.
 
 ## Contratos HTTP
 
@@ -104,6 +104,14 @@ shapely==2.1.2
 
 Las demás versiones del backend permanecen iguales al commit base.
 
+## Incidencias detectadas durante la auditoría
+
+1. Los listados normales no deben transferir geometrías completas; se separaron `PlotRead` y `PlotSpatialRead` y se difiere `boundary` en listados.
+2. La consulta espacial quedó limitada a 20 resultados y el contrato a 10.000 posiciones por geometría.
+3. Las barreras históricas fijaban revisiones antiguas como cabeza o prohibían geometría en todo el historial; se ajustaron para preservar sus migraciones originales dentro de un único linaje.
+4. La primera infraestructura usaba `search_path = dbi, pg_catalog`, que ocultaba PostGIS instalado en `public`. Se corrigió a `dbi, public`, se concedió únicamente `USAGE` sobre `public` y se mantuvo revocado `CREATE`.
+5. La prueba de infraestructura ahora bloquea cualquier regreso a `pg_catalog` explícito, ausencia de `public` o concesión de `CREATE` sobre `public`.
+
 ## Exclusiones preservadas
 
 - Sin migraciones remotas o productivas.
@@ -114,9 +122,9 @@ Las demás versiones del backend permanecen iguales al commit base.
 - Sin cálculo automático de superficie.
 - Sin cambios en `DATABASE_URL`, `User`, `Company`, frontend, WhatsApp o Google Sheets.
 
-## Evidencia pendiente
+## Evidencia
 
-- CI modular completa sobre la rama oficial.
-- Confirmación de SQL Alembic offline generado.
-- Auditoría de los seis trabajos y de todos los pasos posteriores del backend.
-- Revisión final del diff y conversaciones del PR.
+- CI modular #264: 6/6 trabajos aprobados y todos los pasos posteriores del backend ejecutados, incluida la barrera espacial y el healthcheck.
+- La auditoría posterior a #264 detectó la incompatibilidad de `search_path` antes de cualquier migración o despliegue real.
+- Falta una nueva CI modular completa sobre la corrección de visibilidad PostGIS.
+- Falta revisar conversaciones y estado fusionable del PR después de esa ejecución.
