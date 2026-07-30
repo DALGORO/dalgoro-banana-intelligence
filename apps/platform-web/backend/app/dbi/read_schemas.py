@@ -6,7 +6,9 @@ from datetime import datetime
 from decimal import Decimal
 from uuid import UUID
 
-from pydantic import BaseModel, ConfigDict
+from pydantic import BaseModel, ConfigDict, field_validator
+
+from app.dbi.spatial import GeoJSONMultiPolygon, boundary_from_database
 
 
 class _DBIReadModel(BaseModel):
@@ -26,6 +28,8 @@ class FarmRead(_DBIReadModel):
 
 
 class PlotRead(_DBIReadModel):
+    """Resumen de lote sin cargar ni transferir geometría completa."""
+
     id: UUID
     farm_id: UUID
     code: str
@@ -34,6 +38,17 @@ class PlotRead(_DBIReadModel):
     status: str
     created_at: datetime
     updated_at: datetime
+
+
+class PlotSpatialRead(PlotRead):
+    """Lote con límite GeoJSON para operaciones espaciales explícitas."""
+
+    boundary: GeoJSONMultiPolygon | None
+
+    @field_validator("boundary", mode="before")
+    @classmethod
+    def serialize_boundary(cls, value: object) -> GeoJSONMultiPolygon | None:
+        return boundary_from_database(value)
 
 
 class CampaignRead(_DBIReadModel):

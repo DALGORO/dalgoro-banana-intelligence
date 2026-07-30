@@ -55,14 +55,21 @@ GRANT CONNECT ON DATABASE "{{DBI_DATABASE_NAME}}" TO
 \connect "{{DBI_DATABASE_NAME}}"
 
 -- 3. PostGIS se instala por el operador de infraestructura. Ningún rol de
--- aplicación recibe privilegios de superusuario para hacerlo.
+-- aplicación recibe privilegios de superusuario para hacerlo. La instalación
+-- predeterminada deja tipos y funciones espaciales dentro de public.
 CREATE EXTENSION IF NOT EXISTS postgis;
 
--- 4. Esquema DBI aislado.
+-- 4. Esquema DBI aislado. public permanece sin CREATE para roles no confiables;
+-- los roles DBI reciben solo USAGE para resolver geometry y funciones ST_*.
 CREATE SCHEMA IF NOT EXISTS dbi AUTHORIZATION "{{DBI_OWNER_ROLE}}";
 REVOKE ALL ON SCHEMA public FROM PUBLIC;
 REVOKE ALL ON SCHEMA dbi FROM PUBLIC;
 
+GRANT USAGE ON SCHEMA public TO
+  "{{DBI_MIGRATOR_ROLE}}",
+  "{{DBI_API_ROLE}}",
+  "{{DBI_WORKER_ROLE}}",
+  "{{DBI_OBSERVER_ROLE}}";
 GRANT USAGE, CREATE ON SCHEMA dbi TO "{{DBI_MIGRATOR_ROLE}}";
 GRANT USAGE ON SCHEMA dbi TO
   "{{DBI_API_ROLE}}",
@@ -97,9 +104,11 @@ ALTER DEFAULT PRIVILEGES FOR ROLE "{{DBI_MIGRATOR_ROLE}}" IN SCHEMA dbi
 ALTER DEFAULT PRIVILEGES FOR ROLE "{{DBI_MIGRATOR_ROLE}}" IN SCHEMA dbi
   GRANT USAGE, SELECT ON SEQUENCES TO "{{DBI_API_ROLE}}", "{{DBI_WORKER_ROLE}}";
 
--- 7. Endurecimiento explícito. El migrador debe resolver tablas sin esquema
--- dentro de dbi para que Alembic no escriba accidentalmente en public.
-ALTER ROLE "{{DBI_MIGRATOR_ROLE}}" SET search_path = dbi, pg_catalog;
-ALTER ROLE "{{DBI_API_ROLE}}" SET search_path = dbi, pg_catalog;
-ALTER ROLE "{{DBI_WORKER_ROLE}}" SET search_path = dbi, pg_catalog;
-ALTER ROLE "{{DBI_OBSERVER_ROLE}}" SET search_path = dbi, pg_catalog;
+-- 7. Endurecimiento explícito. dbi permanece primero para que Alembic cree
+-- objetos allí. public se incluye solo para PostGIS y no conserva CREATE.
+-- pg_catalog se omite deliberadamente: PostgreSQL lo busca implícitamente antes
+-- de los elementos declarados del search_path.
+ALTER ROLE "{{DBI_MIGRATOR_ROLE}}" SET search_path = dbi, public;
+ALTER ROLE "{{DBI_API_ROLE}}" SET search_path = dbi, public;
+ALTER ROLE "{{DBI_WORKER_ROLE}}" SET search_path = dbi, public;
+ALTER ROLE "{{DBI_OBSERVER_ROLE}}" SET search_path = dbi, public;

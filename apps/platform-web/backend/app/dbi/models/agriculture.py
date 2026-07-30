@@ -6,6 +6,8 @@ from datetime import datetime, timezone
 from decimal import Decimal
 from uuid import UUID, uuid4
 
+from geoalchemy2 import Geometry
+from geoalchemy2.elements import WKBElement
 from sqlalchemy import (
     CheckConstraint,
     DateTime,
@@ -19,6 +21,7 @@ from sqlalchemy import (
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.db.dbi_base import DBIBase
+from app.dbi.spatial import DBI_SPATIAL_SRID
 
 
 def utc_now() -> datetime:
@@ -95,7 +98,20 @@ class Plot(DBIBase):
             "area_hectares IS NULL OR area_hectares > 0",
             name="ck_dbi_plots_positive_area",
         ),
+        CheckConstraint(
+            "boundary IS NULL OR NOT ST_IsEmpty(boundary)",
+            name="ck_dbi_plots_boundary_not_empty",
+        ),
+        CheckConstraint(
+            "boundary IS NULL OR ST_IsValid(boundary)",
+            name="ck_dbi_plots_boundary_valid",
+        ),
         Index("ix_dbi_plots_farm_id", "farm_id"),
+        Index(
+            "ix_dbi_plots_boundary_gist",
+            "boundary",
+            postgresql_using="gist",
+        ),
     )
 
     id: Mapped[UUID] = mapped_column(Uuid, primary_key=True, default=uuid4)
@@ -108,6 +124,14 @@ class Plot(DBIBase):
     name: Mapped[str] = mapped_column(String(160), nullable=False)
     area_hectares: Mapped[Decimal | None] = mapped_column(
         Numeric(12, 4),
+        nullable=True,
+    )
+    boundary: Mapped[WKBElement | None] = mapped_column(
+        Geometry(
+            geometry_type="MULTIPOLYGON",
+            srid=DBI_SPATIAL_SRID,
+            spatial_index=False,
+        ),
         nullable=True,
     )
     status: Mapped[str] = mapped_column(

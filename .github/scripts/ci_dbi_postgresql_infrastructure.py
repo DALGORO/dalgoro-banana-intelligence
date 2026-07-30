@@ -64,7 +64,9 @@ def validate_sql_template() -> None:
     assert "WHERE NOT EXISTS" in sql
     assert "IF NOT EXISTS" in sql
     assert "REVOKE ALL ON DATABASE" in sql
+    assert "REVOKE ALL ON SCHEMA public FROM PUBLIC" in sql
     assert "REVOKE ALL ON SCHEMA dbi FROM PUBLIC" in sql
+    assert "GRANT USAGE ON SCHEMA public TO" in sql
     assert "NOSUPERUSER" in sql
     assert "NOCREATEDB" in sql
     assert "NOCREATEROLE" in sql
@@ -76,6 +78,18 @@ def validate_sql_template() -> None:
     assert "GRANT USAGE ON SCHEMA dbi" in sql
     assert "ALTER DEFAULT PRIVILEGES" in sql
     assert 'GRANT "{{DBI_OWNER_ROLE}}" TO' not in sql
+
+    search_path_lines = [
+        line.strip()
+        for line in sql.splitlines()
+        if line.strip().startswith("ALTER ROLE")
+        and " SET search_path = " in line
+    ]
+    assert len(search_path_lines) == 4
+    assert all(line.endswith("SET search_path = dbi, public;") for line in search_path_lines)
+    assert not any("pg_catalog" in line for line in search_path_lines)
+    assert "GRANT CREATE ON SCHEMA public" not in sql
+    assert "GRANT USAGE, CREATE ON SCHEMA public" not in sql
 
     forbidden = (
         "DROP DATABASE",
@@ -120,6 +134,10 @@ def validate_documentation() -> None:
         "DROP DATABASE",
         "migrator",
         "observer",
+        "search_path = dbi, public",
+        "USAGE",
+        "CREATE",
+        "PostGIS",
     ):
         assert term in text
 
