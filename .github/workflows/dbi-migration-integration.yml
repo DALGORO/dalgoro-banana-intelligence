@@ -63,10 +63,16 @@ jobs:
       - name: Comprobar dependencias
         run: python -m pip check
 
-      - name: Compilar herramienta y prueba DBI
+      - name: Compilar herramienta y pruebas DBI
         run: |
           python -m compileall app/dbi dbi_alembic
+          python -m py_compile ../../../.github/scripts/ci_dbi_migration_cli.py
           python -m py_compile ../../../.github/scripts/ci_dbi_migration_integration.py
+
+      - name: Validar interfaz operativa DBI offline
+        env:
+          PYTHONPATH: .
+        run: python ../../../.github/scripts/ci_dbi_migration_cli.py
 
       - name: Aplicar y verificar migraciones DBI en PostGIS efímero
         env:
