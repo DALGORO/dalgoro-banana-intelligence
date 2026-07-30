@@ -61,11 +61,12 @@ def _context():
 
 
 def validate_router_contract() -> None:
-    paths = {
-        route.path: route.methods
-        for route in get_api_router().routes
-        if route.path.startswith("/dbi/")
-    }
+    paths: dict[str, set[str]] = {}
+    for route in get_api_router().routes:
+        if not route.path.startswith("/dbi/"):
+            continue
+        paths.setdefault(route.path, set()).update(route.methods or set())
+
     expected = {
         "/dbi/organizations/{organization_ref}/farms",
         "/dbi/organizations/{organization_ref}/farms/{farm_id}",
@@ -104,9 +105,8 @@ def validate_sensitive_fields_are_excluded() -> None:
 
 def validate_non_enumerable_denial() -> None:
     context, farm_id, _ = _context()
-    unknown_farm_id = uuid4()
     try:
-        dbi_reads._require_farm(context, "organization-1", unknown_farm_id)
+        dbi_reads._require_farm(context, "organization-1", uuid4())
     except HTTPException as error:
         denied = (error.status_code, error.detail)
     else:
@@ -122,10 +122,7 @@ def validate_non_enumerable_denial() -> None:
     with patch.object(dbi_reads, "FarmRepository", EmptyFarmRepository):
         try:
             dbi_reads.get_farm(
-                "organization-1",
-                farm_id,
-                SimpleNamespace(),
-                context,
+                "organization-1", farm_id, SimpleNamespace(), context
             )
         except HTTPException as error:
             missing = (error.status_code, error.detail)
@@ -161,9 +158,7 @@ def validate_scope_filtering() -> None:
 
     with patch.object(dbi_reads, "FarmRepository", RecordingFarmRepository):
         result = dbi_reads.list_farms(
-            "organization-1",
-            SimpleNamespace(),
-            context,
+            "organization-1", SimpleNamespace(), context
         )
     assert [item.id for item in result] == [allowed_farm_id]
 
@@ -199,10 +194,7 @@ def validate_plot_scope_for_jobs() -> None:
 
     with patch.object(dbi_reads, "AnalysisJobRepository", RecordingJobRepository):
         result = dbi_reads.list_jobs(
-            "organization-1",
-            farm_id,
-            SimpleNamespace(),
-            context,
+            "organization-1", farm_id, SimpleNamespace(), context
         )
     assert len(result) == 1
     assert result[0].plot_id == allowed_plot_id

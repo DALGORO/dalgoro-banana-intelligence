@@ -7,7 +7,6 @@ import os
 
 def main() -> None:
     """Importa FastAPI y comprueba los endpoints exentos de base de datos."""
-
     os.environ["DATABASE_URL"] = "sqlite+pysqlite:///:memory:"
     os.environ["JWT_SECRET"] = "dbi-ci-placeholder"
     os.environ["ENABLE_DOCS"] = "0"

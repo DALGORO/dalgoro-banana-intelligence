@@ -143,6 +143,11 @@ jobs:
           PYTHONPATH: .
         run: python ../../../.github/scripts/ci_dbi_authorized_reads.py
 
+      - name: Validar escrituras DBI autorizadas offline
+        env:
+          PYTHONPATH: .
+        run: python ../../../.github/scripts/ci_dbi_authorized_writes.py
+
       - name: Validar dominio agrícola DBI offline
         env:
           PYTHONPATH: .
