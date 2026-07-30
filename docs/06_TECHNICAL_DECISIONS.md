@@ -422,3 +422,32 @@ crear acceso transversal y acoplar la nueva plataforma a `DATABASE_URL`.
 - No resolver JWT, consultar pertenencias, invocar repositorios o abrir
   conexiones en este corte.
 - Validar la política con biblioteca estándar y casos completamente offline.
+
+## DEC-023
+
+**Decisión:** mantener un backlog maestro canónico, trazable y gobernado por
+dependencias antes de continuar la integración operativa.
+
+**Motivo:** la arquitectura resumía cinco hitos pendientes, pero GitHub no
+contenía un backlog abierto y varias capacidades del Project Charter y README
+no tenían ticket específico. Continuar seleccionando incrementos aislados
+podría producir una plataforma técnicamente parcial sin una ruta verificable
+hacia el producto completo.
+
+**Controles obligatorios:**
+
+- `docs/27_MASTER_BACKLOG_DBI-PLAN-001.md` conserva el inventario, el orden, las
+  dependencias, las puertas y la cobertura funcional.
+- Los Issues #29 a #33 rastrean las puertas de salida de los hitos 9 a 13.
+- Cada implementación futura requiere su propio Issue, rama, pruebas y Pull
+  Request; un rastreador no autoriza cambios por sí solo.
+- Todo ticket declara objetivo, dependencias, resultado verificable y
+  exclusiones antes de modificar código.
+- Las capacidades futuras se distinguen de las confirmadas en `main`.
+- Ninguna dependencia puede referenciar un ticket ausente o formar ciclos.
+- Seguridad, privacidad, autorización, revisión agronómica, gobierno de modelos,
+  rendimiento, costos, restauración y UAT son puertas obligatorias.
+- No se asignan fechas o presupuestos sin medición y estimación aprobadas.
+- El cierre de cada ticket actualiza el backlog y
+  `docs/13_CURRENT_STATUS.md`.
+- Cambiar el orden o alcance exige evidencia y un ticket explícito.

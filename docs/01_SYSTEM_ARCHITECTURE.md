@@ -287,20 +287,31 @@ ciclo de vida FastAPI y montar endpoints requiere tickets separados.
 - Reutilización de bases, credenciales o migraciones de sistemas productivos.
 - Actualización automática de un modelo Champion.
 
-## Orden de implementación
+## Orden de implementación gobernado
 
-1. `DBI-ARC-001`: arquitectura, límites y contratos.
-2. `DBI-DATA-001`: configuración DBI aislada e historial Alembic independiente.
-3. `DBI-MAP-001`: contrato y primera interfaz cronológica sin datos simulados.
-4. `DBI-DATA-002`: persistencia mínima de finca, lote y campaña en DBI.
-5. `DBI-JOB-001`: contratos v1, estados y adaptador puro del worker.
-6. `DBI-JOB-002`: persistencia offline de trabajos e intentos.
-7. `DBI-ASSET-001`: persistencia offline de activos y artefactos.
-8. `DBI-DATA-003`: fábrica aislada de sesiones DBI.
-9. `DBI-DATA-004`: repositorios y unidad de trabajo offline;
-   `DBI-AUTH-001`: política de autorización offline; después, resolución de
-   identidad, ciclo de vida FastAPI y endpoints.
-10. Cola y ejecución del worker.
-11. Integración del dashboard y la PWA.
-12. Migración controlada del bot y conciliación con Google Sheets.
-13. Observabilidad, gobierno de modelos y despliegues por ambiente.
+La secuencia resumida original queda sustituida por el backlog canónico de
+`docs/27_MASTER_BACKLOG_DBI-PLAN-001.md`. Ese documento desglosa cada capacidad,
+dependencia, resultado verificable y exclusión; los Issues #29 a #33 rastrean
+los cinco hitos pendientes.
+
+La línea base completada abarca arquitectura, aislamiento DBI, mapa vacío,
+dominio agrícola, contratos y persistencia de trabajos/activos, fábrica de
+sesiones, repositorios, unidad de trabajo y política de autorización offline.
+
+El trabajo futuro se agrupa así:
+
+1. Hito 9: identidad y membresías, ciclo de vida FastAPI, API autorizada,
+   infraestructura, geometrías, migraciones y administración funcional.
+2. Hito 10: almacenamiento privado, activos, trabajos, cola, registro de
+   modelos, worker, resultados, mapas reales y multiespectral.
+3. Hito 11: dashboard, PWA, inspecciones, agrometeorología, producción,
+   empacadora, SST, biblioteca y aprobación agronómica.
+4. Hito 12: adaptador del bot, conciliación con Sheets y corte reversible.
+5. Hito 13: observabilidad, seguridad, rendimiento/costos, despliegues,
+   continuidad y UAT.
+
+El próximo ticket ejecutable es `DBI-AUTH-002`, rastreado en el Issue #34. Debe
+resolver la autoridad de membresías y producir `DBIAccessContext` de forma
+offline antes de integrar FastAPI. La existencia de un ticket o de este orden
+no equivale a capacidad implementada ni autoriza conexiones, migraciones,
+despliegues o cambios productivos.

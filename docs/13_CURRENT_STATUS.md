@@ -2,7 +2,7 @@
 
 ## Versión
 
-0.11.0-dbi-authorization
+0.12.0-master-backlog
 
 ## Terminado
 
@@ -24,36 +24,54 @@
 - `DBI-DATA-003`: fábrica aislada de sesiones DBI.
 - `DBI-DATA-004`: repositorios DBI y unidad de trabajo offline.
 - `DBI-AUTH-001`: política de autorización DBI offline.
+- `DBI-PLAN-001`: backlog maestro verificable.
 
 ## Último ticket completado
 
-`DBI-AUTH-001` — Política de autorización DBI offline.
+`DBI-PLAN-001` — Backlog maestro verificable.
 
-- Issue: #26
-- Pull request: #27
-- Estado: completado
-- SHA de implementación validado: `86db0a393fe13bce26b9faf6e87265ce6fc26b0e`.
-- SHA final validado: `2f6a4aacff37c5fbda89a463a2013bb2ccf4a66f`.
-- GitHub Actions `30497480322` y `30497741123`: seis de seis trabajos aprobados en cada ejecución.
-- Diff: siete archivos; tres añadidos y cuatro modificados.
-- Conexiones externas y migraciones online: cero.
+- Issue: #28.
+- Pull request: #35.
+- Estado: completado.
+- SHA de planificación y evidencia previa al cierre:
+  `ce8bf771a2fa49ab56228bb1fe8f21c292a1280f`.
+- GitHub Actions inicial `30502586256`: seis de seis trabajos aprobados.
+- GitHub Actions final `30502931704`: seis de seis trabajos aprobados.
+- Validación estructural: 35 tickets únicos, 79 dependencias válidas, cero
+  ciclos y cobertura transitiva de los otros 34 tickets desde UAT.
+- Código funcional, conexiones externas, migraciones online y despliegues:
+  cero.
 
 ## Ticket actual
 
 Ninguno.
 
+`DBI-AUTH-002` permanece pendiente en el Issue #34 y será el próximo
+incremento ejecutable, siempre en una rama independiente.
+
+## Backlog operativo
+
+- Hito 9, plano de control y persistencia: Issue #29.
+- Hito 10, almacenamiento, cola y worker: Issue #30.
+- Hito 11, producto agrícola, dashboard y PWA: Issue #31.
+- Hito 12, migración controlada del bot: Issue #32.
+- Hito 13, operación y producción: Issue #33.
+- Próximo ticket ejecutable, `DBI-AUTH-002`: Issue #34.
+
+Los Issues de hito son rastreadores y no representan funciones implementadas.
+`DBI-AUTH-002` permanece pendiente hasta iniciar su propio ticket y rama.
+
 ## Próximo paso
 
-Definir el próximo incremento de DALGORO Banana Intelligence mediante un ticket
-separado. Resolver identidad y pertenencias DBI, integrar el ciclo de vida
-FastAPI, crear endpoints o conectar una base real continúa requiriendo
-aprobación explícita y tickets independientes.
+Iniciar `DBI-AUTH-002` en una rama independiente creada desde el `main` que
+integre el PR #35, para resolver identidad y membresías DBI completamente
+offline. Este paso no autoriza FastAPI, una base real ni migraciones online.
 
 ## Riesgos heredados abiertos
 
 - El backend importado continúa usando `DATABASE_URL`.
-- La política DBI todavía no está integrada a un ciclo de vida FastAPI y la
-  resolución canónica de identidad y pertenencia continúa pendiente.
+- La política DBI no está integrada a FastAPI y no existe una autoridad
+  persistida de membresías.
 - Alembic heredado conserva tres cabezas: `20260411_01`, `2cec060d9aa4` y
   `7ce73aae44ce`.
 - El middleware de suscripción permite continuar ante varias excepciones.
@@ -61,26 +79,28 @@ aprobación explícita y tickets independientes.
 - El motor geoespacial depende de PyTorch, GDAL y almacenamiento local.
 - El frontend mantiene 115 avisos ESLint como línea base.
 - Las vulnerabilidades de dependencias inventariadas siguen pendientes de
-  tickets específicos.
+  `DBI-SEC-002`.
+- Rendimiento, volumen de ortofotos y costos no tienen todavía línea base.
+- Los 35 tickets futuros son planificación y requieren aceptación individual.
 
 ## No realizado todavía
 
 - No se ha creado una base PostgreSQL/PostGIS DBI.
 - No se han creado roles `dbi_migrator`, `dbi_app` o `dbi_readonly`.
 - No se ha habilitado PostGIS.
-- Los modelos y la migración del dominio agrícola no se han aplicado a una base.
+- Los modelos y migraciones DBI no se han aplicado a una base.
 - No se ha conectado el backend heredado al entorno DBI.
-- La fábrica de sesiones DBI no está integrada con `app/main.py`; los
-  repositorios y la unidad de trabajo tampoco se usan para abrir conexiones.
-- La política de autorización no resuelve contextos desde JWT, usuarios,
-  empresas o membresías persistidas.
-- Los esquemas de trabajos e intentos existen, pero no se han aplicado a una base.
-- Los modelos de activos y artefactos existen, pero no se han aplicado a una
-  base ni conectado a almacenamiento; no se persisten hallazgos.
-- No existe cola, broker, productor, consumidor o almacenamiento privado.
+- La fábrica, repositorios y autorización DBI no están integrados con FastAPI.
+- No existe autoridad persistida para principales, membresías o permisos DBI.
+- No existe API operativa de fincas, lotes, campañas, trabajos o activos.
+- No existe almacenamiento privado, cola, broker, productor o consumidor.
 - El adaptador del worker no ejecuta el pipeline ni resuelve activos.
-- El mapa cronológico todavía no consulta persistencia y no dispone de
-  geometrías, tiles o fechas reales.
-- No se han cambiado Green API, Google Sheets o Render.
-- No se ha cambiado la lógica conversacional del bot.
-- No se han actualizado modelos de IA.
+- El mapa cronológico no consulta persistencia ni contiene capas reales.
+- Agrometeorología, inspecciones, producción, empacadora, biblioteca técnica y
+  aprobación agronómica no están implementadas.
+- El módulo SST y el bot no usan DBI como fuente canónica.
+- No existen registro operativo de modelos, promoción Champion/Challenger,
+  observabilidad, pruebas de capacidad, DR o UAT integral.
+- No se han cambiado Green API, Google Sheets, Render o la lógica conversacional
+  del bot.
+- No se han actualizado o promovido modelos de IA.
