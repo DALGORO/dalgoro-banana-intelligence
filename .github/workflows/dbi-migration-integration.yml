@@ -1,0 +1,76 @@
+name: DBI migrations integration
+
+"on":
+  push:
+    branches:
+      - main
+      - develop
+      - "audit/**"
+      - "ci/**"
+      - "feat/**"
+      - "fix/**"
+  pull_request:
+    branches:
+      - main
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: dbi-migrations-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  dbi-postgis-integration:
+    name: DBI · PostgreSQL/PostGIS efímero
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+
+    services:
+      postgis:
+        image: postgis/postgis:16-3.5@sha256:4be58fcb1b50df187e73536e663149c2b3b2da2a541c2f518cfb6adebc65ed91
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_DB: postgres
+          POSTGRES_HOST_AUTH_METHOD: trust
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres -d postgres"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 20
+
+    defaults:
+      run:
+        working-directory: apps/platform-web/backend
+
+    steps:
+      - name: Descargar código
+        uses: actions/checkout@9f698171ed81b15d1823a05fc7211befd50c8ae0 # v6.0.3
+
+      - name: Configurar Python
+        uses: actions/setup-python@ece7cb06caefa5fff74198d8649806c4678c61a1 # v6.3.0
+        with:
+          python-version: "3.11"
+          cache: pip
+          cache-dependency-path: apps/platform-web/backend/requirements.txt
+
+      - name: Instalar dependencias
+        run: python -m pip install -r requirements.txt
+
+      - name: Comprobar dependencias
+        run: python -m pip check
+
+      - name: Compilar herramienta y prueba DBI
+        run: |
+          python -m compileall app/dbi dbi_alembic
+          python -m py_compile ../../../.github/scripts/ci_dbi_migration_integration.py
+
+      - name: Aplicar y verificar migraciones DBI en PostGIS efímero
+        env:
+          PYTHONPATH: .
+          DBI_ENVIRONMENT: test
+          DBI_DATABASE_URL: postgresql+psycopg://dbi_test_migrator@127.0.0.1:5432/dbi_test
+        run: python ../../../.github/scripts/ci_dbi_migration_integration.py
