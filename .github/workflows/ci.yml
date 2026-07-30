@@ -148,6 +148,11 @@ jobs:
           PYTHONPATH: .
         run: python ../../../.github/scripts/ci_dbi_authorized_writes.py
 
+      - name: Validar geometrías y consultas espaciales DBI offline
+        env:
+          PYTHONPATH: .
+        run: python ../../../.github/scripts/ci_dbi_spatial.py
+
       - name: Validar dominio agrícola DBI offline
         env:
           PYTHONPATH: .
