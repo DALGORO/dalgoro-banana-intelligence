@@ -66,8 +66,14 @@ jobs:
       - name: Compilar herramienta y pruebas DBI
         run: |
           python -m compileall app/dbi dbi_alembic
+          python -m py_compile ../../../.github/scripts/ci_dbi_migration_privileges.py
           python -m py_compile ../../../.github/scripts/ci_dbi_migration_cli.py
           python -m py_compile ../../../.github/scripts/ci_dbi_migration_integration.py
+
+      - name: Validar privilegios efectivos del migrador DBI offline
+        env:
+          PYTHONPATH: .
+        run: python ../../../.github/scripts/ci_dbi_migration_privileges.py
 
       - name: Validar interfaz operativa DBI offline
         env:
