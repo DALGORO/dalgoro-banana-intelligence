@@ -1,4 +1,4 @@
-"""Orquestación cerrada para una futura aplicación de migraciones DBI.
+"""Orquestación cerrada para la aplicación controlada de migraciones DBI.
 
 Este módulo no crea motores ni invoca Alembic directamente. Recibe una conexión ya
 abierta y una operación ``upgrade_head`` inyectada. La operación solo puede
