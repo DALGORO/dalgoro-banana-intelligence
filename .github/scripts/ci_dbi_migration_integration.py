@@ -62,9 +62,13 @@ def _require_ci_scope() -> None:
         )
     if os.environ.get("DATABASE_URL"):
         raise RuntimeError("DATABASE_URL no está permitida en la integración DBI.")
-    if os.environ.get("DBI_ENVIRONMENT") not in (None, "test"):
+    if os.environ.get("DBI_ENVIRONMENT") != "test":
         raise RuntimeError(
-            "La integración DBI efímera solo admite el ambiente test."
+            "La integración DBI efímera exige DBI_ENVIRONMENT=test."
+        )
+    if not os.environ.get("DBI_DATABASE_URL"):
+        raise RuntimeError(
+            "La integración DBI efímera exige DBI_DATABASE_URL."
         )
 
 
@@ -92,7 +96,7 @@ def _provision_ephemeral_database() -> None:
                 cursor.execute(
                     sql.SQL(
                         "CREATE ROLE {} NOLOGIN NOSUPERUSER NOCREATEDB "
-                        "NOCREATEROLE NOREPLICATION"
+                        "NOCREATEROLE NOREPLICATION NOBYPASSRLS"
                     ).format(sql.Identifier(DBI_OWNER_ROLE))
                 )
 
@@ -104,7 +108,7 @@ def _provision_ephemeral_database() -> None:
                 cursor.execute(
                     sql.SQL(
                         "CREATE ROLE {} LOGIN NOSUPERUSER NOCREATEDB "
-                        "NOCREATEROLE NOREPLICATION"
+                        "NOCREATEROLE NOREPLICATION NOBYPASSRLS"
                     ).format(sql.Identifier(DBI_MIGRATOR_ROLE))
                 )
 
@@ -177,15 +181,26 @@ def _migration_graph() -> tuple[set[str], str]:
 
 
 def _dbi_config():
-    return load_dbi_database_config(
-        {
-            "DBI_ENVIRONMENT": "test",
-            "DBI_DATABASE_URL": (
-                f"postgresql+psycopg://{DBI_MIGRATOR_ROLE}@"
-                f"{HOST}:{PORT}/{DBI_DATABASE}"
-            ),
-        }
+    config = load_dbi_database_config()
+    identity = (
+        config.environment,
+        config.database_name,
+        config.url.username,
+        config.url.host,
+        config.url.port,
     )
+    expected = (
+        "test",
+        DBI_DATABASE,
+        DBI_MIGRATOR_ROLE,
+        HOST,
+        PORT,
+    )
+    if identity != expected:
+        raise RuntimeError(
+            "Las variables DBI de integración no apuntan al fixture local autorizado."
+        )
+    return config
 
 
 def _table_names(connection) -> set[str]:
