@@ -26,9 +26,31 @@ SELECT
 """
 
 ROLE_SQL = """
-SELECT rolsuper, rolcreatedb, rolcreaterole, rolreplication
-FROM pg_roles
-WHERE rolname = current_user
+SELECT
+  role.rolsuper,
+  role.rolcreatedb,
+  role.rolcreaterole,
+  role.rolreplication,
+  role.rolbypassrls,
+  EXISTS (
+    SELECT 1
+    FROM pg_auth_members membership
+    WHERE membership.member = role.oid
+  ) AS has_role_memberships,
+  EXISTS (
+    SELECT 1
+    FROM pg_database database_entry
+    WHERE database_entry.datname = current_database()
+      AND database_entry.datdba = role.oid
+  ) AS owns_database,
+  EXISTS (
+    SELECT 1
+    FROM pg_namespace namespace_entry
+    WHERE namespace_entry.nspname = 'dbi'
+      AND namespace_entry.nspowner = role.oid
+  ) AS owns_dbi_schema
+FROM pg_roles role
+WHERE role.rolname = current_user
 """
 
 CAPABILITIES_SQL = """
@@ -49,6 +71,17 @@ READ_ONLY_STATEMENTS = (
     ROLE_SQL,
     CAPABILITIES_SQL,
     REVISION_SQL,
+)
+
+FORBIDDEN_ROLE_CAPABILITIES = (
+    "rolsuper",
+    "rolcreatedb",
+    "rolcreaterole",
+    "rolreplication",
+    "rolbypassrls",
+    "has_role_memberships",
+    "owns_database",
+    "owns_dbi_schema",
 )
 
 
@@ -130,11 +163,11 @@ def run_migration_preflight(
             "El rol migrador actual no existe en pg_roles."
         )
     if any(
-        bool(role[field])
-        for field in ("rolsuper", "rolcreatedb", "rolcreaterole", "rolreplication")
+        bool(role.get(field, False))
+        for field in FORBIDDEN_ROLE_CAPABILITIES
     ):
         raise DBIMigrationControlError(
-            "El rol migrador posee privilegios administrativos no autorizados."
+            "El rol migrador posee privilegios, membresías o propiedad no autorizados."
         )
 
     capabilities = connection.execute(text(CAPABILITIES_SQL)).mappings().one()
