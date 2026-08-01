@@ -266,7 +266,7 @@ class DBIAdminPolicy:
     ) -> None:
         if (
             before.membership_status is DBIAdminMembershipStatus.REVOKED
-            and after.membership_status is not DBIAdminMembershipStatus.REVOKED
+            and after != before
         ):
             raise DBIAdminConflict()
 
