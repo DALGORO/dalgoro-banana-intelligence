@@ -21,6 +21,7 @@ sys.path.insert(0, str(BACKEND))
 from app.dbi import migration_cli  # noqa: E402
 from app.dbi.migration_control import validate_migration_target  # noqa: E402
 
+HEAD = "dbi_0008_scope_hierarchy"
 TEST_URL = (
     "postgresql+psycopg://dbi_test_migrator:placeholder@"
     "127.0.0.1:5432/dbi_test"
@@ -114,7 +115,7 @@ def validate_default_plan() -> None:
     assert evidence["operation"] == "plan"
     assert evidence["environment"] == "test"
     assert evidence["database"] == "dbi_test"
-    assert evidence["head_revision"] == "dbi_0007_admin_audit"
+    assert evidence["head_revision"] == HEAD
     assert len(evidence["plan_sha256"]) == 64
     assert evidence["sql_output"] is None
     _assert_no_connection_markers(stdout)
@@ -154,6 +155,13 @@ def validate_plan_sql_output() -> None:
         assert "alembic_version_dbi" in sql_text
         assert "geometry(multipolygon,4326)" in "".join(sql_text.split())
         assert "dbi_admin_audit_events" in sql_text
+        for constraint_name in (
+            "uq_dbi_farms_id_organization",
+            "uq_dbi_plots_id_farm",
+            "fk_dbi_membership_scopes_farm_organization",
+            "fk_dbi_membership_scopes_plot_farm",
+        ):
+            assert constraint_name in sql_text
         evidence = json.loads(stdout)
         assert evidence["sql_output"] == str(output_path)
 
@@ -282,7 +290,7 @@ def validate_apply_scope_and_evidence() -> None:
     evidence = json.loads(stdout)
     assert evidence["operation"] == "apply"
     assert evidence["applied"] is True
-    assert evidence["after_revision"] == "dbi_0007_admin_audit"
+    assert evidence["after_revision"] == HEAD
     _assert_no_connection_markers(stdout)
 
     with patch(
