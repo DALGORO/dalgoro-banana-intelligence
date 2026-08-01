@@ -65,7 +65,11 @@ class _FakeConnection:
         self.executed.append(sql)
         compact = " ".join(sql.lower().split())
 
-        if "current_database()" in compact:
+        # ROLE_SQL también contiene current_database() para comprobar propiedad.
+        # Debe reconocerse antes que la consulta de identidad.
+        if "from pg_roles" in compact:
+            return _Result(row=self.role)
+        if "current_database() as database_name" in compact:
             return _Result(
                 row={
                     "database_name": "dbi_test",
@@ -73,8 +77,6 @@ class _FakeConnection:
                     "search_path": "dbi, public",
                 }
             )
-        if "from pg_roles" in compact:
-            return _Result(row=self.role)
         if "from pg_extension" in compact:
             return _Result(
                 row={
