@@ -1,4 +1,4 @@
-"""Guardas transaccionales para operaciones administrativas DBI."""
+"""Guardas y mutaciones transaccionales para administración DBI."""
 
 from __future__ import annotations
 
@@ -8,6 +8,10 @@ from datetime import datetime
 from typing import Protocol
 from uuid import UUID
 
+from app.dbi.admin_mutation_plan import (
+    DBIAdminMembershipMutationPlan,
+    plan_membership_mutation,
+)
 from app.dbi.admin_policy import (
     DBIAdminAuthoritySnapshot,
     DBIAdminConflict,
@@ -20,7 +24,7 @@ from app.dbi.admin_state import (
 
 
 class DBIAdminGuardRepositoryPort(Protocol):
-    """Puerto que impone el orden advisory locks → filas → snapshots."""
+    """Puerto que impone locks, carga exacta y aplicación sin commit interno."""
 
     def lock_and_load_membership_states(
         self,
@@ -38,6 +42,15 @@ class DBIAdminGuardRepositoryPort(Protocol):
         excluded_membership_id: UUID,
     ) -> dict[str, int]: ...
 
+    def apply_membership_mutation(
+        self,
+        *,
+        actor_principal_id: UUID,
+        actor_membership_id: UUID,
+        target_membership_id: UUID,
+        plan: DBIAdminMembershipMutationPlan,
+    ) -> None: ...
+
 
 @dataclass(frozen=True, slots=True)
 class DBIAdminGuardEvidence:
@@ -47,6 +60,23 @@ class DBIAdminGuardEvidence:
     organization_refs: frozenset[str]
     lock_keys: tuple[int, ...]
     protected_organization_refs: frozenset[str] = frozenset()
+
+
+@dataclass(frozen=True, slots=True)
+class DBIAdminMembershipMutationEvidence:
+    """Resultado autorizado y plan aplicado dentro de la transacción externa."""
+
+    guard: DBIAdminGuardEvidence
+    plan: DBIAdminMembershipMutationPlan
+
+
+@dataclass(frozen=True, slots=True)
+class _AuthorizedMembershipChange:
+    locked: DBIAdminLockedMembershipStates
+    actor: DBIAdminPersistedMembershipState
+    target: DBIAdminPersistedMembershipState
+    organization_refs: frozenset[str]
+    protected_organization_refs: frozenset[str]
 
 
 def _required_uuid(value: object) -> UUID:
@@ -105,13 +135,24 @@ def _require_authority_match(
         raise DBIAdminConflict()
 
 
+def _guard_evidence(
+    authorized: _AuthorizedMembershipChange,
+) -> DBIAdminGuardEvidence:
+    return DBIAdminGuardEvidence(
+        tenant_ref=authorized.target.authority.tenant_ref,
+        organization_refs=authorized.organization_refs,
+        lock_keys=authorized.locked.lock_keys,
+        protected_organization_refs=authorized.protected_organization_refs,
+    )
+
+
 class DBIAdminService:
-    """Coordina locks, estado persistido y política sin aplicar mutaciones.
+    """Coordina locks, política, plan y persistencia sin controlar transacciones.
 
     El repositorio debe adquirir primero todos los advisory locks
     organizacionales en orden estable, después bloquear las membresías y sus
-    principales, y finalmente construir los snapshots devueltos. El servicio no
-    admite estados precargados fuera de esa operación atómica.
+    principales, y finalmente construir los snapshots devueltos. La aplicación
+    del plan ocurre sobre el mismo repositorio y la misma transacción externa.
     """
 
     def __init__(self, repository: DBIAdminGuardRepositoryPort) -> None:
@@ -198,7 +239,7 @@ class DBIAdminService:
             lock_keys=locked.lock_keys,
         )
 
-    def guard_membership_change(
+    def _authorize_membership_change(
         self,
         actor: DBIAdminAuthoritySnapshot,
         before: DBIAdminAuthoritySnapshot,
@@ -207,9 +248,7 @@ class DBIAdminService:
         actor_membership_id: UUID,
         target_membership_id: UUID,
         expected_updated_at: datetime,
-    ) -> DBIAdminGuardEvidence:
-        """Bloquea, recarga y protege una mutación de membresía."""
-
+    ) -> _AuthorizedMembershipChange:
         actor = _required_snapshot(actor)
         before = _required_snapshot(before)
         after = _required_snapshot(after)
@@ -253,9 +292,71 @@ class DBIAdminService:
                 remaining_counts,
             )
 
-        return DBIAdminGuardEvidence(
-            tenant_ref=before.tenant_ref,
+        return _AuthorizedMembershipChange(
+            locked=locked,
+            actor=persisted_actor,
+            target=persisted_target,
             organization_refs=organizations,
-            lock_keys=locked.lock_keys,
             protected_organization_refs=protected,
+        )
+
+    def guard_membership_change(
+        self,
+        actor: DBIAdminAuthoritySnapshot,
+        before: DBIAdminAuthoritySnapshot,
+        after: DBIAdminAuthoritySnapshot,
+        *,
+        actor_membership_id: UUID,
+        target_membership_id: UUID,
+        expected_updated_at: datetime,
+    ) -> DBIAdminGuardEvidence:
+        """Bloquea, recarga y protege una mutación sin persistirla."""
+
+        authorized = self._authorize_membership_change(
+            actor,
+            before,
+            after,
+            actor_membership_id=actor_membership_id,
+            target_membership_id=target_membership_id,
+            expected_updated_at=expected_updated_at,
+        )
+        return _guard_evidence(authorized)
+
+    def mutate_membership(
+        self,
+        actor: DBIAdminAuthoritySnapshot,
+        before: DBIAdminAuthoritySnapshot,
+        after: DBIAdminAuthoritySnapshot,
+        *,
+        actor_membership_id: UUID,
+        target_membership_id: UUID,
+        expected_updated_at: datetime,
+        next_updated_at: datetime,
+        correlation_ref: str,
+    ) -> DBIAdminMembershipMutationEvidence:
+        """Autoriza y aplica una mutación usando la transacción externa."""
+
+        authorized = self._authorize_membership_change(
+            actor,
+            before,
+            after,
+            actor_membership_id=actor_membership_id,
+            target_membership_id=target_membership_id,
+            expected_updated_at=expected_updated_at,
+        )
+        plan = plan_membership_mutation(
+            authorized.target,
+            after,
+            next_updated_at=next_updated_at,
+            correlation_ref=correlation_ref,
+        )
+        self._repository.apply_membership_mutation(
+            actor_principal_id=authorized.actor.principal_id,
+            actor_membership_id=actor_membership_id,
+            target_membership_id=target_membership_id,
+            plan=plan,
+        )
+        return DBIAdminMembershipMutationEvidence(
+            guard=_guard_evidence(authorized),
+            plan=plan,
         )
