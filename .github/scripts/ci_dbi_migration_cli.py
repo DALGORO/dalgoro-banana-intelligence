@@ -114,7 +114,7 @@ def validate_default_plan() -> None:
     assert evidence["operation"] == "plan"
     assert evidence["environment"] == "test"
     assert evidence["database"] == "dbi_test"
-    assert evidence["head_revision"] == "dbi_0006_plot_boundaries"
+    assert evidence["head_revision"] == "dbi_0007_admin_audit"
     assert len(evidence["plan_sha256"]) == 64
     assert evidence["sql_output"] is None
     _assert_no_connection_markers(stdout)
@@ -153,6 +153,7 @@ def validate_plan_sql_output() -> None:
         sql_text = output_path.read_text(encoding="utf-8").lower()
         assert "alembic_version_dbi" in sql_text
         assert "geometry(multipolygon,4326)" in "".join(sql_text.split())
+        assert "dbi_admin_audit_events" in sql_text
         evidence = json.loads(stdout)
         assert evidence["sql_output"] == str(output_path)
 
@@ -281,7 +282,7 @@ def validate_apply_scope_and_evidence() -> None:
     evidence = json.loads(stdout)
     assert evidence["operation"] == "apply"
     assert evidence["applied"] is True
-    assert evidence["after_revision"] == "dbi_0006_plot_boundaries"
+    assert evidence["after_revision"] == "dbi_0007_admin_audit"
     _assert_no_connection_markers(stdout)
 
     with patch(
