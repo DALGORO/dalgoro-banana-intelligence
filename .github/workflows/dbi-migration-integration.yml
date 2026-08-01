@@ -67,6 +67,7 @@ jobs:
           python -m py_compile ../../../.github/scripts/ci_dbi_migration_integration.py
           python -m py_compile ../../../.github/scripts/ci_dbi_admin_privilege_diagnostics.py
           python -m py_compile ../../../.github/scripts/ci_dbi_admin_integration.py
+          python -m py_compile ../../../.github/scripts/ci_dbi_admin_integration_runner.py
 
       - name: Validar privilegios efectivos del migrador DBI offline
         env:
@@ -85,7 +86,7 @@ jobs:
           DBI_DATABASE_URL: postgresql+psycopg://dbi_test_migrator@127.0.0.1:5432/dbi_test
         run: python ../../../.github/scripts/ci_dbi_migration_integration.py
 
-      - name: Diagnosticar privilegios efectivos del rol API DBI
+      - name: Validar ACL exacta del rol API DBI
         env:
           PYTHONPATH: .
           DBI_ENVIRONMENT: test
@@ -97,4 +98,4 @@ jobs:
           PYTHONPATH: .
           DBI_ENVIRONMENT: test
           DBI_DATABASE_URL: postgresql+psycopg://dbi_test_api@127.0.0.1:5432/dbi_test
-        run: python ../../../.github/scripts/ci_dbi_admin_integration.py
+        run: python ../../../.github/scripts/ci_dbi_admin_integration_runner.py
