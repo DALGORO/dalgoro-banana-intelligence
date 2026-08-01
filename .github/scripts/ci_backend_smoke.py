@@ -5,14 +5,16 @@ from __future__ import annotations
 import os
 
 from ci_dbi_admin_actor import main as validate_dbi_admin_actor
+from ci_dbi_admin_routes import main as validate_dbi_admin_routes
 from ci_dbi_admin_schemas import main as validate_dbi_admin_schemas
 
 
 def main() -> None:
-    """Valida contratos DBI, importa FastAPI y comprueba endpoints sin base."""
+    """Valida administración DBI e importa FastAPI sin base externa."""
 
     validate_dbi_admin_actor()
     validate_dbi_admin_schemas()
+    validate_dbi_admin_routes()
 
     os.environ["DATABASE_URL"] = "sqlite+pysqlite:///:memory:"
     os.environ["JWT_SECRET"] = "dbi-ci-placeholder"
