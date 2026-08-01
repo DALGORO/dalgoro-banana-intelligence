@@ -12,8 +12,14 @@ medidos.
 - Ticket: `DBI-STORAGE-001`.
 - Issue: #51.
 - Pull request: #52.
-- Etapa A: contratos, política, adaptador en memoria y métricas en construcción.
+- Etapa A: completa y auditada en `fcf16508f418ac016696c1b2a20a927e09fe710c`.
+- Evidencia: `CI modular #513` y `DBI migrations integration #198` aprobadas.
 - Etapa B: bloqueada hasta aprobación explícita del proveedor no productivo.
+
+La Etapa A ya define el puerto, claves, metadatos, integridad, acceso temporal
+vinculado a MIME/tamaño/SHA-256, retiro lógico, adaptador en memoria y métricas
+no sensibles. La decisión pendiente es exclusivamente el adaptador real y su
+ambiente de integración no productivo.
 
 ## Principio de portabilidad
 
@@ -77,11 +83,18 @@ Toda concesión deberá vincular:
 - fecha de emisión UTC;
 - fecha de expiración UTC;
 - TTL dentro de la política DBI;
-- metadatos de integridad cuando el proveedor lo permita.
+- MIME, tamaño y SHA-256 del objeto.
 
 La representación específica del proveedor podrá existir únicamente dentro del
 adaptador y durante la respuesta operativa. No se almacenará en tablas DBI,
 logs, eventos, métricas ni documentos técnicos.
+
+La Etapa A ya demuestra dos escenarios distintos:
+
+- lectura temporal de un objeto activo y verificado;
+- carga temporal previa a existencia, vinculada a los metadatos esperados.
+
+El adaptador real deberá reproducir ambas semánticas sin ampliar el contrato.
 
 ## Modelo de costos a medir
 
