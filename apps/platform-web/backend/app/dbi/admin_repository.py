@@ -234,7 +234,13 @@ class DBIAdminRepository:
         organization_refs: frozenset[str],
         membership_ids: frozenset[UUID],
     ) -> DBIAdminLockedMembershipStates:
-        """Bloquea autoridad y filas, y construye snapshots exactos."""
+        """Serializa por membresía y carga su agregado administrativo exacto.
+
+        La membresía es la raíz mutable: toda sustitución de permisos o ámbitos
+        debe adquirir primero este mismo bloqueo. El principal global es de solo
+        lectura en esta frontera y los hijos se leen después de bloquear su raíz,
+        evitando exigir privilegios UPDATE sobre tablas que no se actualizan.
+        """
 
         normalized_tenant = _validated_ref(
             tenant_ref,
@@ -268,7 +274,6 @@ class DBIAdminRepository:
             select(DBIPrincipal)
             .where(DBIPrincipal.id.in_(ordered_principal_ids))
             .order_by(DBIPrincipal.id)
-            .with_for_update()
         )
         if (
             not all(isinstance(row, DBIPrincipal) for row in principals)
@@ -287,7 +292,6 @@ class DBIAdminRepository:
                 DBIMembershipPermission.membership_id,
                 DBIMembershipPermission.permission,
             )
-            .with_for_update()
         )
         scopes = self._all(
             select(DBIMembershipScope)
@@ -300,7 +304,6 @@ class DBIAdminRepository:
                 DBIMembershipScope.membership_id,
                 DBIMembershipScope.id,
             )
-            .with_for_update()
         )
         if not all(
             isinstance(row, DBIMembershipPermission) for row in permissions
