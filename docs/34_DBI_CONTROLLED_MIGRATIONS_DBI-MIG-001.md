@@ -9,7 +9,8 @@ Incluye:
 - interfaz operativa `plan`, `verify` y `apply`;
 - plan Alembic offline con huella SHA-256;
 - preflight conectado mediante consultas de solo lectura;
-- validación del privilegio efectivo del rol migrador;
+- validación del privilegio efectivo y de la identidad de sesión del rol migrador;
+- validación del workflow y job autorizados de GitHub Actions;
 - advisory lock PostgreSQL de sesión;
 - `upgrade head` sobre la misma conexión;
 - postflight obligatorio e idempotencia;
@@ -40,14 +41,14 @@ DBI_DATABASE_URL
 |---|---|---|---|
 | `plan` | Ambiente no productivo válido | Solo `test` | Ninguna |
 | `verify` | Solo `development` local | Solo `test` efímero | Local o loopback |
-| `apply` | Bloqueado | Solo `test` efímero | Local o loopback |
+| `apply` | Bloqueado | Solo workflow y job DBI autorizados sobre `test` efímero | Local o loopback |
 
 Reglas:
 
 - `production` se rechaza siempre;
 - staging conectado está bloqueado;
 - CI solo admite `dbi_test`;
-- el usuario debe ser exactamente `<database_name>_migrator`;
+- el usuario autenticado y el usuario efectivo deben ser exactamente `<database_name>_migrator`;
 - los hosts conectados permitidos son `localhost`, `127.0.0.1` y `::1`;
 - ningún error imprime URL, contraseña o detalle sensible.
 
@@ -80,7 +81,7 @@ python -m app.dbi.migration_cli verify
 El preflight ejecuta únicamente `SELECT` y comprueba:
 
 1. base actual;
-2. usuario actual;
+2. `current_user` y `session_user` iguales al rol migrador esperado;
 3. `search_path` comenzando por `dbi, public`;
 4. ausencia de `SUPERUSER`, `CREATEDB`, `CREATEROLE`, replicación y `BYPASSRLS`;
 5. ausencia de membresías en otros roles, incluso cuando no se hereden automáticamente;
@@ -92,32 +93,45 @@ El preflight ejecuta únicamente `SELECT` y comprueba:
 11. una sola revisión perteneciente al linaje reconocido;
 12. una sola cabeza Alembic.
 
+La doble comprobación de `current_user` y `session_user` impide aceptar una sesión privilegiada que haya cambiado temporalmente al rol migrador mediante `SET ROLE`.
+
 Se permite una base vacía sin tabla de versión cuando infraestructura, PostGIS, esquema y rol ya fueron aprovisionados correctamente.
 
 ## Apply
 
-`apply` está bloqueado fuera de GitHub Actions. En CI exige simultáneamente:
+`apply` está bloqueado fuera del contexto autorizado de GitHub Actions. Exige simultáneamente:
 
 - `GITHUB_ACTIONS=true`;
+- `CI=true`;
+- `GITHUB_SERVER_URL=https://github.com`;
+- `GITHUB_REPOSITORY=dalgorosas/dalgoro-banana-intelligence`;
+- workflow `DBI migrations integration`;
+- `GITHUB_WORKFLOW_REF` correspondiente a `.github/workflows/dbi-migration-integration.yml`;
+- job `dbi-postgis-integration`;
+- evento `pull_request`, `push` o `workflow_dispatch`;
+- `RUNNER_ENVIRONMENT=github-hosted`;
 - `DBI_ENVIRONMENT=test`;
 - base `dbi_test`;
-- rol `dbi_test_migrator` sin privilegios efectivos adicionales;
+- rol `dbi_test_migrator` autenticado directamente y sin privilegios efectivos adicionales;
 - host local o loopback;
 - confirmación exacta `APPLY dbi_test`.
 
+Los marcadores `GITHUB_*` y `RUNNER_*` se validan como defensa en profundidad. La protección principal del destino sigue siendo la combinación obligatoria de ambiente `test`, nombre exacto de base, rol migrador, host loopback, preflight y confirmación explícita.
+
 Orden de operación:
 
-1. valida ambiente, base, rol y host;
-2. valida confirmación;
-3. genera plan offline y SHA-256;
-4. ejecuta preflight;
-5. adquiere `pg_try_advisory_lock` sin espera;
-6. repite el preflight bajo lock;
-7. omite Alembic si ya está en `head`;
-8. ejecuta una sola llamada a `upgrade head`;
-9. ejecuta postflight;
-10. exige la cabeza autorizada;
-11. libera el lock en `finally`.
+1. valida workflow, job, evento y runner autorizados;
+2. valida ambiente, base, rol y host;
+3. valida confirmación;
+4. genera plan offline y SHA-256;
+5. ejecuta preflight;
+6. adquiere `pg_try_advisory_lock` sin espera;
+7. repite el preflight bajo lock;
+8. omite Alembic si ya está en `head`;
+9. ejecuta una sola llamada a `upgrade head`;
+10. ejecuta postflight;
+11. exige la cabeza autorizada;
+12. libera el lock en `finally`.
 
 No existen `--yes`, confirmaciones genéricas ni una operación predeterminada destructiva.
 
@@ -153,12 +167,13 @@ Workflow:
 
 Características:
 
-- runner aislado;
+- runner hospedado en GitHub y job identificado de forma exacta;
 - PostgreSQL 16/PostGIS 3.5 fijado por digest;
 - autenticación `trust` limitada al contenedor desechable;
 - base `dbi_test`;
 - propietario separado del migrador;
 - migrador sin privilegios administrativos, `BYPASSRLS`, membresías ni propiedad;
+- autenticación directa como migrador, sin `SET ROLE`;
 - URL loopback sin contraseña;
 - destrucción del contenedor al terminar.
 
@@ -167,7 +182,7 @@ El fixture aprovisiona base, roles, PostGIS y esquema por separado. La herramien
 La prueba verifica:
 
 - plan y preflight sin cambios de esquema;
-- barreras de privilegios efectivos;
+- barreras de privilegios efectivos e identidad de sesión;
 - exclusión concurrente real;
 - aplicación desde base vacía hasta `dbi_0006_plot_boundaries`;
 - segunda ejecución idempotente;
@@ -230,12 +245,13 @@ Alembic delega cada revisión transaccional a PostgreSQL. El postflight impide d
 
 - revisar ambiente, base, rol y SHA-256;
 - no reutilizar evidencia de otro commit;
-- no ejecutar `apply` fuera del workflow autorizado;
-- detenerse ante revisión, propiedad o membresía divergente.
+- no ejecutar `apply` fuera del workflow y job autorizados;
+- detenerse ante revisión, propiedad, membresía o identidad de sesión divergente.
 
 ### Herramienta
 
 - fallar cerrado;
+- verificar el contexto autorizado antes de abrir la conexión de `apply`;
 - no aprovisionar infraestructura;
 - no tocar la base heredada;
 - no exponer secretos;
