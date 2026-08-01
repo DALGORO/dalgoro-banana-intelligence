@@ -99,13 +99,19 @@ class DBIStorageWriteResult:
 
 @dataclass(frozen=True, slots=True)
 class DBIStorageTemporaryGrant:
-    """Autorización efímera y opaca; no representa una URL persistible."""
+    """Autorización efímera vinculada a metadatos verificables completos."""
 
     grant_ref: str = field(repr=False)
-    address: DBIStorageAddress
+    metadata: DBIStorageObjectMetadata
     mode: DBIStorageAccessMode
     issued_at: datetime
     expires_at: datetime
+
+    @property
+    def address(self) -> DBIStorageAddress:
+        """Expone la dirección canónica sin duplicar autoridad."""
+
+        return self.metadata.address
 
 
 class DBIPrivateObjectStore(Protocol):
@@ -133,7 +139,7 @@ class DBIPrivateObjectStore(Protocol):
 
     def issue_temporary_access(
         self,
-        address: DBIStorageAddress,
+        metadata: DBIStorageObjectMetadata,
         *,
         mode: DBIStorageAccessMode,
         issued_at: datetime,
