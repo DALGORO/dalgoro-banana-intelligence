@@ -26,10 +26,6 @@ AccessDependency = Annotated[
     DBIAccessContext,
     Depends(get_dbi_access_context),
 ]
-ActorDependency = Annotated[
-    DBIAdminPersistedMembershipState,
-    Depends(lambda: None),
-]
 
 
 def _admin_access_denied() -> HTTPException:
