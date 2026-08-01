@@ -19,11 +19,11 @@ from app.dbi.admin_policy import (  # noqa: E402
     DBIAdminDenied,
     DBIAdminMembershipStatus,
 )
-from app.dbi.admin_service import (  # noqa: E402
+from app.dbi.admin_service import DBIAdminService  # noqa: E402
+from app.dbi.admin_state import (  # noqa: E402
     DBIAdminLockedMembershipStates,
-    DBIAdminService,
+    DBIAdminPersistedMembershipState,
 )
-from app.dbi.admin_state import DBIAdminPersistedMembershipState  # noqa: E402
 from app.dbi.authorization import DBIPermission  # noqa: E402
 
 TENANT = "tenant-a"
@@ -457,6 +457,9 @@ def validate_static_boundaries() -> None:
     source = (
         BACKEND / "app" / "dbi" / "admin_service.py"
     ).read_text(encoding="utf-8").lower()
+    repository_source = (
+        BACKEND / "app" / "dbi" / "admin_repository.py"
+    ).read_text(encoding="utf-8").lower()
 
     for required in (
         "lock_and_load_membership_states",
@@ -483,6 +486,9 @@ def validate_static_boundaries() -> None:
         < count_position
     )
 
+    assert "class dbiadminlockedmembershipstates" not in source
+    assert "from app.dbi.admin_service" not in repository_source
+    assert "from app.dbi.admin_state" in repository_source
     assert "lock_organization_authority" not in source
     assert "persisted_updated_at" not in source
     for forbidden in (
