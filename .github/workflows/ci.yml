@@ -5,10 +5,6 @@ name: CI modular
     branches:
       - main
       - develop
-      - "audit/**"
-      - "ci/**"
-      - "feat/**"
-      - "fix/**"
   pull_request:
     branches:
       - main
@@ -112,6 +108,26 @@ jobs:
         env:
           PYTHONPATH: .
         run: python ../../../.github/scripts/ci_dbi_database_isolation.py
+
+      - name: Validar controles de migración DBI offline
+        env:
+          PYTHONPATH: .
+        run: python ../../../.github/scripts/ci_dbi_migration_control.py
+
+      - name: Validar advisory lock de migración DBI offline
+        env:
+          PYTHONPATH: .
+        run: python ../../../.github/scripts/ci_dbi_migration_lock.py
+
+      - name: Validar orquestador cerrado de apply DBI offline
+        env:
+          PYTHONPATH: .
+        run: python ../../../.github/scripts/ci_dbi_migration_apply.py
+
+      - name: Validar adaptador Alembic DBI externo offline
+        env:
+          PYTHONPATH: .
+        run: python ../../../.github/scripts/ci_dbi_migration_runner.py
 
       - name: Validar fábrica de sesiones DBI offline
         env:
