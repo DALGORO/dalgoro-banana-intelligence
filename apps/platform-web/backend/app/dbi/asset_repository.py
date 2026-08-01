@@ -1,0 +1,153 @@
+"""Persistencia idempotente y bloqueada de activos de entrada DBI."""
+
+from __future__ import annotations
+
+from uuid import UUID
+
+from sqlalchemy import select
+from sqlalchemy.dialects.postgresql import insert as postgresql_insert
+from sqlalchemy.orm import Session
+
+from app.dbi.asset_registration import (
+    DBIAssetRegistrationAction,
+    DBIAssetRegistrationConflict,
+    DBIAssetRegistrationPlan,
+    DBIAssetRegistrationSnapshot,
+    build_asset_registration_plan,
+)
+from app.dbi.models.assets import AnalysisInputAsset
+
+
+def _required_uuid(value: object, *, field_name: str) -> UUID:
+    if not isinstance(value, UUID):
+        raise DBIAssetRegistrationConflict(f"{field_name} debe ser UUID.")
+    return value
+
+
+def _required_ref(value: object, *, field_name: str) -> str:
+    if not isinstance(value, str) or not value or value != value.strip():
+        raise DBIAssetRegistrationConflict(f"{field_name} no es canónico.")
+    return value
+
+
+def _required_plan(value: object) -> DBIAssetRegistrationPlan:
+    if not isinstance(value, DBIAssetRegistrationPlan):
+        raise DBIAssetRegistrationConflict("plan inválido.")
+    return value
+
+
+def _snapshot(row: AnalysisInputAsset) -> DBIAssetRegistrationSnapshot:
+    if not isinstance(row, AnalysisInputAsset):
+        raise DBIAssetRegistrationConflict("registro de activo inválido.")
+    return DBIAssetRegistrationSnapshot(
+        asset_id=row.id,
+        tenant_ref=row.tenant_ref,
+        farm_id=row.farm_id,
+        plot_id=row.plot_id,
+        asset_kind=row.asset_kind,
+        status=row.status,
+        object_key=row.object_key,
+        content_type=row.content_type,
+        size_bytes=row.size_bytes,
+        sha256=row.sha256,
+        crs=row.crs,
+        created_by_ref=row.created_by_ref,
+    )
+
+
+class DBIAssetRepository:
+    """Opera sobre una sesión externa sin confirmar ni revertir transacciones."""
+
+    def __init__(self, session: Session) -> None:
+        if not isinstance(session, Session):
+            raise DBIAssetRegistrationConflict("session debe ser Session.")
+        self._session = session
+
+    def get_for_update(
+        self,
+        *,
+        tenant_ref: str,
+        farm_id: UUID,
+        asset_id: UUID,
+    ) -> AnalysisInputAsset | None:
+        """Bloquea un activo únicamente dentro del tenant y finca solicitados."""
+
+        tenant = _required_ref(tenant_ref, field_name="tenant_ref")
+        farm = _required_uuid(farm_id, field_name="farm_id")
+        asset = _required_uuid(asset_id, field_name="asset_id")
+        row = self._session.execute(
+            select(AnalysisInputAsset)
+            .where(
+                AnalysisInputAsset.tenant_ref == tenant,
+                AnalysisInputAsset.farm_id == farm,
+                AnalysisInputAsset.id == asset,
+            )
+            .with_for_update()
+        ).scalar_one_or_none()
+        if row is not None and not isinstance(row, AnalysisInputAsset):
+            raise DBIAssetRegistrationConflict("resultado de activo inválido.")
+        return row
+
+    def persist_registration(self, *, plan: DBIAssetRegistrationPlan) -> bool:
+        """Inserta un plan CREATE o acepta de forma segura un reintento exacto."""
+
+        registration = _required_plan(plan)
+        if registration.action is DBIAssetRegistrationAction.REUSE:
+            row = self.get_for_update(
+                tenant_ref=registration.tenant_ref,
+                farm_id=registration.farm_id,
+                asset_id=registration.asset_id,
+            )
+            if row is None:
+                raise DBIAssetRegistrationConflict("activo no disponible.")
+            checked = build_asset_registration_plan(
+                intent=registration.intent,
+                existing=_snapshot(row),
+            )
+            if checked.action is not DBIAssetRegistrationAction.REUSE:
+                raise DBIAssetRegistrationConflict("reintento divergente.")
+            return False
+
+        if registration.action is not DBIAssetRegistrationAction.CREATE:
+            raise DBIAssetRegistrationConflict("acción de registro inválida.")
+
+        inserted_id = self._session.execute(
+            postgresql_insert(AnalysisInputAsset)
+            .values(
+                id=registration.asset_id,
+                tenant_ref=registration.tenant_ref,
+                farm_id=registration.farm_id,
+                plot_id=registration.plot_id,
+                asset_kind=registration.asset_kind,
+                status="registered",
+                object_key=registration.metadata.address.object_key,
+                content_type=registration.metadata.content_type,
+                size_bytes=registration.metadata.size_bytes,
+                sha256=registration.metadata.sha256,
+                crs=registration.crs,
+                created_by_ref=registration.created_by_ref,
+                verified_at=None,
+            )
+            .on_conflict_do_nothing()
+            .returning(AnalysisInputAsset.id)
+        ).scalar_one_or_none()
+
+        if inserted_id is not None:
+            if inserted_id != registration.asset_id:
+                raise DBIAssetRegistrationConflict("identidad insertada divergente.")
+            return True
+
+        row = self.get_for_update(
+            tenant_ref=registration.tenant_ref,
+            farm_id=registration.farm_id,
+            asset_id=registration.asset_id,
+        )
+        if row is None:
+            raise DBIAssetRegistrationConflict("activo no disponible.")
+        checked = build_asset_registration_plan(
+            intent=registration.intent,
+            existing=_snapshot(row),
+        )
+        if checked.action is not DBIAssetRegistrationAction.REUSE:
+            raise DBIAssetRegistrationConflict("registro concurrente divergente.")
+        return False
