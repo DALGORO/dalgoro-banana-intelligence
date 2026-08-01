@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from collections.abc import Mapping
 from dataclasses import dataclass
 from datetime import datetime
 from typing import Protocol
@@ -12,17 +13,27 @@ from app.dbi.admin_policy import (
     DBIAdminConflict,
     DBIAdminPolicy,
 )
+from app.dbi.admin_state import DBIAdminPersistedMembershipState
+
+
+@dataclass(frozen=True, slots=True)
+class DBIAdminLockedMembershipStates:
+    """Estados cargados después de adquirir locks organizacionales y de fila."""
+
+    lock_keys: tuple[int, ...]
+    states: Mapping[UUID, DBIAdminPersistedMembershipState]
 
 
 class DBIAdminGuardRepositoryPort(Protocol):
-    """Operaciones de bloqueo y conteo requeridas por las guardas."""
+    """Puerto que impone el orden advisory locks → filas → snapshots."""
 
-    def lock_organization_authority(
+    def lock_and_load_membership_states(
         self,
         *,
         tenant_ref: str,
         organization_refs: frozenset[str],
-    ) -> tuple[int, ...]: ...
+        membership_ids: frozenset[UUID],
+    ) -> DBIAdminLockedMembershipStates: ...
 
     def count_remaining_administrators(
         self,
@@ -43,82 +54,151 @@ class DBIAdminGuardEvidence:
     protected_organization_refs: frozenset[str] = frozenset()
 
 
-def _validated_timestamp(value: object) -> datetime:
-    if (
-        not isinstance(value, datetime)
-        or value.tzinfo is None
-        or value.utcoffset() is None
+def _required_uuid(value: object) -> UUID:
+    if not isinstance(value, UUID):
+        raise DBIAdminConflict()
+    return value
+
+
+def _required_snapshot(value: object) -> DBIAdminAuthoritySnapshot:
+    if not isinstance(value, DBIAdminAuthoritySnapshot):
+        raise DBIAdminConflict()
+    return value
+
+
+def _required_locked_states(
+    value: object,
+    *,
+    membership_ids: frozenset[UUID],
+) -> DBIAdminLockedMembershipStates:
+    if not isinstance(value, DBIAdminLockedMembershipStates):
+        raise DBIAdminConflict()
+    if not isinstance(value.lock_keys, tuple) or not all(
+        isinstance(key, int) and not isinstance(key, bool)
+        for key in value.lock_keys
+    ):
+        raise DBIAdminConflict()
+    if not isinstance(value.states, Mapping):
+        raise DBIAdminConflict()
+    if not membership_ids.issubset(value.states.keys()):
+        raise DBIAdminConflict()
+    if not all(
+        isinstance(membership_id, UUID)
+        and isinstance(state, DBIAdminPersistedMembershipState)
+        and membership_id == state.membership_id
+        for membership_id, state in value.states.items()
     ):
         raise DBIAdminConflict()
     return value
 
 
-def _require_current_version(
-    *,
-    expected_updated_at: datetime,
-    persisted_updated_at: datetime,
+def _required_state(
+    locked: DBIAdminLockedMembershipStates,
+    membership_id: UUID,
+) -> DBIAdminPersistedMembershipState:
+    state = locked.states.get(membership_id)
+    if not isinstance(state, DBIAdminPersistedMembershipState):
+        raise DBIAdminConflict()
+    return state
+
+
+def _require_authority_match(
+    persisted: DBIAdminPersistedMembershipState,
+    expected: DBIAdminAuthoritySnapshot,
 ) -> None:
-    expected = _validated_timestamp(expected_updated_at)
-    persisted = _validated_timestamp(persisted_updated_at)
-    if expected != persisted:
+    if persisted.authority != expected:
         raise DBIAdminConflict()
 
 
 class DBIAdminService:
-    """Coordina política, concurrencia y locks sin aplicar mutaciones.
+    """Coordina locks, estado persistido y política sin aplicar mutaciones.
 
-    Para cambios de membresía, ``actor``, ``before`` y
-    ``persisted_updated_at`` deben provenir de las filas ya bloqueadas con
-    ``FOR UPDATE`` dentro de la misma transacción. Esta guarda no sustituye el
-    bloqueo de filas ni abre una transacción propia.
+    El repositorio debe adquirir primero todos los advisory locks
+    organizacionales en orden estable, después bloquear las membresías y sus
+    principales, y finalmente construir los snapshots devueltos. El servicio no
+    admite estados precargados fuera de esa operación atómica.
     """
 
     def __init__(self, repository: DBIAdminGuardRepositoryPort) -> None:
         self._repository = repository
 
+    def _lock_and_load(
+        self,
+        *,
+        tenant_ref: str,
+        organization_refs: frozenset[str],
+        membership_ids: frozenset[UUID],
+    ) -> DBIAdminLockedMembershipStates:
+        if not isinstance(membership_ids, frozenset) or not membership_ids:
+            raise DBIAdminConflict()
+        normalized_ids = frozenset(_required_uuid(value) for value in membership_ids)
+        locked = self._repository.lock_and_load_membership_states(
+            tenant_ref=tenant_ref,
+            organization_refs=organization_refs,
+            membership_ids=normalized_ids,
+        )
+        return _required_locked_states(locked, membership_ids=normalized_ids)
+
     def guard_principal_registration(
         self,
         actor: DBIAdminAuthoritySnapshot,
         *,
+        actor_membership_id: UUID,
         target_principal_ref: str,
         tenant_ref: str,
         organization_refs: frozenset[str],
     ) -> DBIAdminGuardEvidence:
-        """Autoriza y serializa el registro idempotente de un principal."""
+        """Serializa y autoriza el registro idempotente de un principal."""
 
-        DBIAdminPolicy.require_principal_registration(
-            actor,
-            target_principal_ref=target_principal_ref,
+        actor = _required_snapshot(actor)
+        actor_membership_id = _required_uuid(actor_membership_id)
+        locked = self._lock_and_load(
             tenant_ref=tenant_ref,
             organization_refs=organization_refs,
+            membership_ids=frozenset({actor_membership_id}),
         )
-        lock_keys = self._repository.lock_organization_authority(
+        persisted_actor = _required_state(locked, actor_membership_id)
+        _require_authority_match(persisted_actor, actor)
+        DBIAdminPolicy.require_principal_registration(
+            persisted_actor.authority,
+            target_principal_ref=target_principal_ref,
             tenant_ref=tenant_ref,
             organization_refs=organization_refs,
         )
         return DBIAdminGuardEvidence(
             tenant_ref=tenant_ref,
             organization_refs=organization_refs,
-            lock_keys=lock_keys,
+            lock_keys=locked.lock_keys,
         )
 
     def guard_membership_create(
         self,
         actor: DBIAdminAuthoritySnapshot,
         requested: DBIAdminAuthoritySnapshot,
+        *,
+        actor_membership_id: UUID,
     ) -> DBIAdminGuardEvidence:
-        """Autoriza y serializa la creación de una membresía activa."""
+        """Serializa y autoriza la creación de una membresía activa."""
 
-        DBIAdminPolicy.require_membership_create(actor, requested)
+        actor = _required_snapshot(actor)
+        requested = _required_snapshot(requested)
+        actor_membership_id = _required_uuid(actor_membership_id)
         organizations = requested.all_organization_refs
-        lock_keys = self._repository.lock_organization_authority(
+        locked = self._lock_and_load(
             tenant_ref=requested.tenant_ref,
             organization_refs=organizations,
+            membership_ids=frozenset({actor_membership_id}),
+        )
+        persisted_actor = _required_state(locked, actor_membership_id)
+        _require_authority_match(persisted_actor, actor)
+        DBIAdminPolicy.require_membership_create(
+            persisted_actor.authority,
+            requested,
         )
         return DBIAdminGuardEvidence(
             tenant_ref=requested.tenant_ref,
             organization_refs=organizations,
-            lock_keys=lock_keys,
+            lock_keys=locked.lock_keys,
         )
 
     def guard_membership_change(
@@ -127,31 +207,42 @@ class DBIAdminService:
         before: DBIAdminAuthoritySnapshot,
         after: DBIAdminAuthoritySnapshot,
         *,
+        actor_membership_id: UUID,
         target_membership_id: UUID,
         expected_updated_at: datetime,
-        persisted_updated_at: datetime,
     ) -> DBIAdminGuardEvidence:
-        """Protege una mutación usando estados ya bloqueados y actuales."""
+        """Bloquea, recarga y protege una mutación de membresía."""
 
-        if not isinstance(target_membership_id, UUID):
-            raise DBIAdminConflict()
-
-        DBIAdminPolicy.require_membership_change(actor, before, after)
-        _require_current_version(
-            expected_updated_at=expected_updated_at,
-            persisted_updated_at=persisted_updated_at,
-        )
+        actor = _required_snapshot(actor)
+        before = _required_snapshot(before)
+        after = _required_snapshot(after)
+        actor_membership_id = _required_uuid(actor_membership_id)
+        target_membership_id = _required_uuid(target_membership_id)
 
         organizations = frozenset(
             set(before.all_organization_refs) | set(after.all_organization_refs)
         )
-        lock_keys = self._repository.lock_organization_authority(
+        membership_ids = frozenset(
+            {actor_membership_id, target_membership_id}
+        )
+        locked = self._lock_and_load(
             tenant_ref=before.tenant_ref,
             organization_refs=organizations,
+            membership_ids=membership_ids,
         )
+        persisted_actor = _required_state(locked, actor_membership_id)
+        persisted_target = _required_state(locked, target_membership_id)
+        _require_authority_match(persisted_actor, actor)
+        _require_authority_match(persisted_target, before)
+        persisted_target.require_membership_version(expected_updated_at)
 
+        DBIAdminPolicy.require_membership_change(
+            persisted_actor.authority,
+            persisted_target.authority,
+            after,
+        )
         protected = DBIAdminPolicy.organizations_losing_last_admin_protection(
-            before,
+            persisted_target.authority,
             after,
         )
         if protected:
@@ -168,6 +259,6 @@ class DBIAdminService:
         return DBIAdminGuardEvidence(
             tenant_ref=before.tenant_ref,
             organization_refs=organizations,
-            lock_keys=lock_keys,
+            lock_keys=locked.lock_keys,
             protected_organization_refs=protected,
         )
