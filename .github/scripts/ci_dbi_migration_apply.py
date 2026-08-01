@@ -20,10 +20,11 @@ from app.dbi.migration_preflight import (  # noqa: E402
     FORBIDDEN_ROLE_CAPABILITIES,
 )
 
-HEAD = "dbi_0007_admin_audit"
+HEAD = "dbi_0008_scope_hierarchy"
 KNOWN = {
     "dbi_0001_baseline",
     "dbi_0006_plot_boundaries",
+    "dbi_0007_admin_audit",
     HEAD,
 }
 AUTHORIZED_RUNTIME = {
