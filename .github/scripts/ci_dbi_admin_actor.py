@@ -2,11 +2,16 @@
 
 from __future__ import annotations
 
+import os
 import sys
 from dataclasses import dataclass, replace
 from datetime import datetime, timezone
 from pathlib import Path
 from uuid import UUID, uuid4
+
+os.environ.setdefault("DATABASE_URL", "sqlite+pysqlite:///:memory:")
+os.environ.setdefault("JWT_SECRET", "dbi-ci-placeholder")
+os.environ.setdefault("ENABLE_DOCS", "0")
 
 ROOT = Path(__file__).resolve().parents[2]
 BACKEND = ROOT / "apps" / "platform-web" / "backend"
