@@ -17,6 +17,7 @@ sys.path.insert(0, str(BACKEND))
 
 from app.dbi.storage_contracts import (  # noqa: E402
     DBIStorageAccessMode,
+    DBIStorageConflict,
     DBIStorageDenied,
     DBIStorageIntegrityError,
     DBIStorageNotFound,
@@ -132,7 +133,7 @@ def validate_error_metrics() -> None:
         lambda: store.open_read(request.metadata.address).__enter__(),
     )
     _assert_error(
-        Exception,
+        DBIStorageConflict,
         lambda: store.put(request, BytesIO(PAYLOAD)),
     )
 
