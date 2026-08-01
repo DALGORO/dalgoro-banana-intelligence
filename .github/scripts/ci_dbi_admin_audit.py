@@ -27,7 +27,8 @@ from app.dbi.models.admin_audit import (  # noqa: E402
     DBIAdminAuditResourceType,
 )
 
-HEAD = "dbi_0007_admin_audit"
+HEAD = "dbi_0008_scope_hierarchy"
+AUDIT_REVISION = "dbi_0007_admin_audit"
 TABLE = "dbi_admin_audit_events"
 EXPECTED_COLUMNS = {
     "id",
@@ -118,9 +119,18 @@ def validate_migration_graph_and_sql() -> None:
     assert scripts.get_bases() == ["dbi_0001_baseline"]
     assert scripts.get_heads() == [HEAD]
 
-    revision = scripts.get_revision(HEAD)
-    assert revision is not None
-    assert revision.down_revision == "dbi_0006_plot_boundaries"
+    audit_revision = scripts.get_revision(AUDIT_REVISION)
+    assert audit_revision is not None
+    assert audit_revision.down_revision == "dbi_0006_plot_boundaries"
+    head_revision = scripts.get_revision(HEAD)
+    assert head_revision is not None
+    assert head_revision.down_revision == AUDIT_REVISION
+
+    lineage = {
+        revision.revision
+        for revision in scripts.iterate_revisions(HEAD, "base")
+    }
+    assert AUDIT_REVISION in lineage
 
     output = StringIO()
     environment = {
@@ -138,7 +148,8 @@ def validate_migration_graph_and_sql() -> None:
     compact_sql = "".join(sql.split())
     for required in (
         TABLE,
-        "dbi_0007_admin_audit",
+        AUDIT_REVISION,
+        HEAD,
         "uq_dbi_admin_audit_correlation_resource",
         "ix_dbi_admin_audit_organization_occurred",
     ):
@@ -164,11 +175,17 @@ def validate_source_boundaries() -> None:
     model_source = (
         BACKEND / "app" / "dbi" / "models" / "admin_audit.py"
     ).read_text(encoding="utf-8").lower()
-    migration_source = (
+    audit_migration_source = (
         BACKEND
         / "dbi_alembic"
         / "versions"
         / "20260801_07_admin_audit.py"
+    ).read_text(encoding="utf-8").lower()
+    hierarchy_migration_source = (
+        BACKEND
+        / "dbi_alembic"
+        / "versions"
+        / "20260801_08_scope_hierarchy.py"
     ).read_text(encoding="utf-8").lower()
 
     for required in (
@@ -193,12 +210,14 @@ def validate_source_boundaries() -> None:
     ):
         assert forbidden not in model_source
 
-    assert 'revision: str = "dbi_0007_admin_audit"' in migration_source
-    assert '"dbi_0006_plot_boundaries"' in migration_source
-    assert "alter_column" not in migration_source
-    assert "drop database" not in migration_source
-    assert "users" not in migration_source
-    assert "companies" not in migration_source
+    assert 'revision: str = "dbi_0007_admin_audit"' in audit_migration_source
+    assert '"dbi_0006_plot_boundaries"' in audit_migration_source
+    assert 'revision: str = "dbi_0008_scope_hierarchy"' in hierarchy_migration_source
+    assert '"dbi_0007_admin_audit"' in hierarchy_migration_source
+    assert "alter_column" not in audit_migration_source
+    assert "drop database" not in audit_migration_source
+    assert "users" not in audit_migration_source
+    assert "companies" not in audit_migration_source
 
 
 def main() -> None:
