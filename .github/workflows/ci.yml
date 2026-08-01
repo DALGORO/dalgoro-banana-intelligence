@@ -159,6 +159,11 @@ jobs:
           PYTHONPATH: .
         run: python ../../../.github/scripts/ci_dbi_admin_state.py
 
+      - name: Validar plan puro de mutación administrativa DBI offline
+        env:
+          PYTHONPATH: .
+        run: python ../../../.github/scripts/ci_dbi_admin_mutation_plan.py
+
       - name: Validar auditoría administrativa DBI offline
         env:
           PYTHONPATH: .
