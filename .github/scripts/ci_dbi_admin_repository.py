@@ -3,9 +3,10 @@
 from __future__ import annotations
 
 import sys
+from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
-from uuid import uuid4
+from uuid import UUID, uuid4
 
 from sqlalchemy.dialects import postgresql
 
@@ -13,14 +14,26 @@ ROOT = Path(__file__).resolve().parents[2]
 BACKEND = ROOT / "apps" / "platform-web" / "backend"
 sys.path.insert(0, str(BACKEND))
 
+from app.dbi.admin_policy import DBIAdminConflict  # noqa: E402
 from app.dbi.admin_repository import (  # noqa: E402
     DBIAdminRepository,
     organization_advisory_lock_key,
+)
+from app.dbi.authorization import DBIPermission  # noqa: E402
+from app.dbi.models.identity import (  # noqa: E402
+    DBIMembership,
+    DBIMembershipPermission,
+    DBIMembershipScope,
+    DBIMembershipScopeType,
+    DBIMembershipStatus,
+    DBIPrincipal,
+    DBIPrincipalStatus,
 )
 
 ORG_A = "organization-a"
 ORG_B = "organization-b"
 TENANT = "tenant-a"
+NOW = datetime(2026, 8, 1, 12, 0, tzinfo=timezone.utc)
 
 
 class _ScalarView:
@@ -49,14 +62,17 @@ class _Result:
 
 
 class _FakeSession:
-    def __init__(self) -> None:
+    def __init__(self, results: tuple[_Result, ...] = ()) -> None:
         self.statements: list[Any] = []
         self.added: list[object] = []
+        self._results = list(results)
         self.scalar_values: tuple[object, ...] = ()
         self.rows: tuple[tuple[object, ...], ...] = ()
 
     def execute(self, statement: Any) -> _Result:
         self.statements.append(statement)
+        if self._results:
+            return self._results.pop(0)
         return _Result(
             scalar_values=self.scalar_values,
             rows=self.rows,
@@ -87,6 +103,69 @@ def _assert_rejected(factory, expected_error: type[Exception]) -> None:
     except expected_error:
         return
     raise AssertionError(f"La operación debía lanzar {expected_error.__name__}.")
+
+
+def _principal(*, identity_ref: str = "legacy-actor") -> DBIPrincipal:
+    return DBIPrincipal(
+        id=uuid4(),
+        legacy_identity_ref=identity_ref,
+        status=DBIPrincipalStatus.ACTIVE.value,
+        created_at=NOW,
+        updated_at=NOW,
+    )
+
+
+def _membership(principal: DBIPrincipal) -> DBIMembership:
+    return DBIMembership(
+        id=uuid4(),
+        principal_id=principal.id,
+        tenant_ref=TENANT,
+        status=DBIMembershipStatus.ACTIVE.value,
+        created_at=NOW,
+        updated_at=NOW,
+    )
+
+
+def _permission(
+    membership: DBIMembership,
+    permission: DBIPermission = DBIPermission.MANAGE,
+) -> DBIMembershipPermission:
+    return DBIMembershipPermission(
+        membership_id=membership.id,
+        permission=permission.value,
+    )
+
+
+def _organization_scope(
+    membership: DBIMembership,
+    organization_ref: str = ORG_A,
+) -> DBIMembershipScope:
+    return DBIMembershipScope(
+        id=uuid4(),
+        membership_id=membership.id,
+        scope_type=DBIMembershipScopeType.ORGANIZATION.value,
+        organization_ref=organization_ref,
+        farm_id=None,
+        plot_id=None,
+    )
+
+
+def _locked_state_session(
+    *,
+    principal: DBIPrincipal,
+    membership: DBIMembership,
+    permissions: tuple[DBIMembershipPermission, ...],
+    scopes: tuple[DBIMembershipScope, ...],
+) -> _FakeSession:
+    return _FakeSession(
+        (
+            _Result(),
+            _Result(scalar_values=(membership,)),
+            _Result(scalar_values=(principal,)),
+            _Result(scalar_values=permissions),
+            _Result(scalar_values=scopes),
+        )
+    )
 
 
 def validate_lock_key_contract() -> None:
@@ -193,6 +272,102 @@ def validate_organization_advisory_locks() -> None:
     )
 
 
+def validate_atomic_state_loading() -> None:
+    principal = _principal()
+    membership = _membership(principal)
+    permission = _permission(membership)
+    scope = _organization_scope(membership)
+    session = _locked_state_session(
+        principal=principal,
+        membership=membership,
+        permissions=(permission,),
+        scopes=(scope,),
+    )
+
+    locked = DBIAdminRepository(session).lock_and_load_membership_states(
+        tenant_ref=TENANT,
+        organization_refs=frozenset({ORG_A}),
+        membership_ids=frozenset({membership.id}),
+    )
+    assert locked.lock_keys == (
+        organization_advisory_lock_key(
+            tenant_ref=TENANT,
+            organization_ref=ORG_A,
+        ),
+    )
+    assert frozenset(locked.states) == frozenset({membership.id})
+    state = locked.states[membership.id]
+    assert state.principal_id == principal.id
+    assert state.membership_id == membership.id
+    assert state.authority.principal_ref == principal.legacy_identity_ref
+    assert state.authority.tenant_ref == TENANT
+    assert state.authority.permissions == frozenset({DBIPermission.MANAGE})
+    assert state.authority.organization_scopes == frozenset({ORG_A})
+
+    try:
+        locked.states[membership.id] = state  # type: ignore[index]
+    except TypeError:
+        pass
+    else:
+        raise AssertionError("La colección de estados debía ser inmutable.")
+
+    sql_calls = [_compiled(statement)[0] for statement in session.statements]
+    assert len(sql_calls) == 5
+    assert "pg_advisory_xact_lock" in sql_calls[0]
+    assert "from dbi_memberships" in sql_calls[1]
+    assert "for update" in sql_calls[1]
+    assert "order by dbi_memberships.id" in sql_calls[1]
+    assert "from dbi_principals" in sql_calls[2]
+    assert "for update" in sql_calls[2]
+    assert "order by dbi_principals.id" in sql_calls[2]
+    assert "from dbi_membership_permissions" in sql_calls[3]
+    assert "for update" in sql_calls[3]
+    assert "from dbi_membership_scopes" in sql_calls[4]
+    assert "for update" in sql_calls[4]
+
+
+def validate_atomic_state_rejects_missing_rows() -> None:
+    principal = _principal()
+    membership = _membership(principal)
+
+    missing_membership_session = _FakeSession(
+        (
+            _Result(),
+            _Result(scalar_values=()),
+        )
+    )
+    _assert_rejected(
+        lambda: DBIAdminRepository(
+            missing_membership_session
+        ).lock_and_load_membership_states(
+            tenant_ref=TENANT,
+            organization_refs=frozenset({ORG_A}),
+            membership_ids=frozenset({membership.id}),
+        ),
+        DBIAdminConflict,
+    )
+    assert len(missing_membership_session.statements) == 2
+
+    missing_principal_session = _FakeSession(
+        (
+            _Result(),
+            _Result(scalar_values=(membership,)),
+            _Result(scalar_values=()),
+        )
+    )
+    _assert_rejected(
+        lambda: DBIAdminRepository(
+            missing_principal_session
+        ).lock_and_load_membership_states(
+            tenant_ref=TENANT,
+            organization_refs=frozenset({ORG_A}),
+            membership_ids=frozenset({membership.id}),
+        ),
+        DBIAdminConflict,
+    )
+    assert len(missing_principal_session.statements) == 3
+
+
 def validate_remaining_admin_query() -> None:
     session = _FakeSession()
     session.rows = ((ORG_A, 2),)
@@ -248,6 +423,14 @@ def validate_input_barriers() -> None:
         ValueError,
     )
     _assert_rejected(
+        lambda: repository.lock_and_load_membership_states(
+            tenant_ref=TENANT,
+            organization_refs=frozenset({ORG_A}),
+            membership_ids=frozenset(),
+        ),
+        ValueError,
+    )
+    _assert_rejected(
         lambda: repository.count_remaining_administrators(
             tenant_ref=TENANT,
             organization_refs=frozenset({ORG_A}),
@@ -265,12 +448,33 @@ def validate_static_boundaries() -> None:
     for required in (
         "with_for_update",
         "pg_advisory_xact_lock",
+        "lock_and_load_membership_states",
+        "build_admin_membership_state",
+        "mappingproxytype",
         "count_remaining_administrators",
         "dbimembershipstatus.active",
         "dbiprincipalstatus.active",
         "dbimembershipscopetype.organization",
     ):
         assert required in source
+
+    lock_position = source.index("lock_keys = self.lock_organization_authority")
+    memberships_position = source.index("memberships = self.lock_memberships")
+    principals_position = source.index("principals = self._all", memberships_position)
+    permissions_position = source.index(
+        "permissions = self._all",
+        principals_position,
+    )
+    scopes_position = source.index("scopes = self._all", permissions_position)
+    state_position = source.index("state = build_admin_membership_state")
+    assert (
+        lock_position
+        < memberships_position
+        < principals_position
+        < permissions_position
+        < scopes_position
+        < state_position
+    )
 
     for forbidden in (
         "create_engine",
@@ -294,6 +498,8 @@ def main() -> None:
     validate_lock_key_contract()
     validate_row_locking_queries()
     validate_organization_advisory_locks()
+    validate_atomic_state_loading()
+    validate_atomic_state_rejects_missing_rows()
     validate_remaining_admin_query()
     validate_add_without_transaction_side_effects()
     validate_input_barriers()
