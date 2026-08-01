@@ -72,6 +72,8 @@ def _store(*, max_object_size_bytes: int = 1024) -> DBIInMemoryObjectStore:
         (
             "grant_01J00000000000000000000000",
             "grant_01J00000000000000000000001",
+            "grant_01J00000000000000000000002",
+            "grant_01J00000000000000000000003",
         )
     )
     return DBIInMemoryObjectStore(
@@ -174,11 +176,8 @@ def validate_tenant_isolation() -> None:
     store = _store()
     object_id = uuid4()
     tenant_a_request = _request(tenant_ref=TENANT_A, object_id=object_id)
-    tenant_b_address = DBIStoragePolicy.build_address(
-        tenant_ref=TENANT_B,
-        purpose=DBIStoragePurpose.ANALYSIS_INPUT,
-        object_id=object_id,
-    )
+    tenant_b_request = _request(tenant_ref=TENANT_B, object_id=object_id)
+    tenant_b_address = tenant_b_request.metadata.address
     store.put(tenant_a_request, BytesIO(PAYLOAD))
 
     _assert_error(DBIStorageNotFound, lambda: store.stat(tenant_b_address))
@@ -193,7 +192,7 @@ def validate_tenant_isolation() -> None:
     _assert_error(
         DBIStorageNotFound,
         lambda: store.issue_temporary_access(
-            tenant_b_address,
+            tenant_b_request.metadata,
             mode=DBIStorageAccessMode.READ,
             issued_at=NOW,
             expires_at=NOW + timedelta(minutes=5),
@@ -218,8 +217,17 @@ def validate_logical_retirement() -> None:
     _assert_error(
         DBIStorageNotFound,
         lambda: store.issue_temporary_access(
-            address,
+            request.metadata,
             mode=DBIStorageAccessMode.READ,
+            issued_at=retired_at,
+            expires_at=retired_at + timedelta(minutes=5),
+        ),
+    )
+    _assert_error(
+        DBIStorageConflict,
+        lambda: store.issue_temporary_access(
+            request.metadata,
+            mode=DBIStorageAccessMode.WRITE,
             issued_at=retired_at,
             expires_at=retired_at + timedelta(minutes=5),
         ),
@@ -234,30 +242,72 @@ def validate_temporary_access() -> None:
     store = _store()
     request = _request()
     store.put(request, BytesIO(PAYLOAD))
-    address = request.metadata.address
 
     read_grant = store.issue_temporary_access(
-        address,
+        request.metadata,
         mode=DBIStorageAccessMode.READ,
         issued_at=NOW,
         expires_at=NOW + timedelta(minutes=5),
     )
-    write_grant = store.issue_temporary_access(
-        address,
+    existing_write_grant = store.issue_temporary_access(
+        request.metadata,
         mode=DBIStorageAccessMode.WRITE,
         issued_at=NOW,
         expires_at=NOW + timedelta(minutes=10),
     )
-    assert read_grant.address == address
-    assert read_grant.mode is DBIStorageAccessMode.READ
-    assert write_grant.mode is DBIStorageAccessMode.WRITE
-    assert read_grant.grant_ref != write_grant.grant_ref
-    assert "grant_" not in repr(read_grant)
+    upload_request = _request()
+    upload_grant = store.issue_temporary_access(
+        upload_request.metadata,
+        mode=DBIStorageAccessMode.WRITE,
+        issued_at=NOW,
+        expires_at=NOW + timedelta(minutes=15),
+    )
 
+    assert read_grant.address == request.metadata.address
+    assert read_grant.metadata == request.metadata
+    assert read_grant.mode is DBIStorageAccessMode.READ
+    assert existing_write_grant.mode is DBIStorageAccessMode.WRITE
+    assert upload_grant.metadata == upload_request.metadata
+    assert upload_grant.mode is DBIStorageAccessMode.WRITE
+    assert len(
+        {
+            read_grant.grant_ref,
+            existing_write_grant.grant_ref,
+            upload_grant.grant_ref,
+        }
+    ) == 3
+    assert "grant_" not in repr(read_grant)
+    _assert_error(
+        DBIStorageNotFound,
+        lambda: store.stat(upload_request.metadata.address),
+    )
+
+    divergent_metadata = replace(
+        request.metadata,
+        sha256="f" * 64,
+    )
     _assert_error(
         DBIStorageConflict,
         lambda: store.issue_temporary_access(
-            address,
+            divergent_metadata,
+            mode=DBIStorageAccessMode.READ,
+            issued_at=NOW,
+            expires_at=NOW + timedelta(minutes=5),
+        ),
+    )
+    _assert_error(
+        DBIStorageConflict,
+        lambda: store.issue_temporary_access(
+            divergent_metadata,
+            mode=DBIStorageAccessMode.WRITE,
+            issued_at=NOW,
+            expires_at=NOW + timedelta(minutes=5),
+        ),
+    )
+    _assert_error(
+        DBIStorageConflict,
+        lambda: store.issue_temporary_access(
+            request.metadata,
             mode=DBIStorageAccessMode.READ,
             issued_at=NOW,
             expires_at=NOW + timedelta(seconds=29),
@@ -266,7 +316,7 @@ def validate_temporary_access() -> None:
     _assert_error(
         DBIStorageConflict,
         lambda: store.issue_temporary_access(
-            address,
+            request.metadata,
             mode="read",
             issued_at=NOW,
             expires_at=NOW + timedelta(minutes=5),
