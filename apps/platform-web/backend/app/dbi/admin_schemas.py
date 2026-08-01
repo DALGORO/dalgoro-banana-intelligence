@@ -32,8 +32,11 @@ def _validated_ref(value: str) -> str:
 
 
 def _unique(values: tuple[object, ...], *, field_name: str) -> tuple[object, ...]:
-    if len(set(values)) != len(values):
-        raise ValueError(f"{field_name} no admite duplicados.")
+    seen: list[object] = []
+    for value in values:
+        if value in seen:
+            raise ValueError(f"{field_name} no admite duplicados.")
+        seen.append(value)
     return values
 
 
