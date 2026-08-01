@@ -13,6 +13,7 @@ from .system import router as system_router
 from .iperc import router as iperc_router
 from .psico import router as psico_router
 from .incident_assistant import router as incident_assistant_router
+from .dbi_admin import router as dbi_admin_router
 from .dbi_map import router as dbi_map_router
 from .dbi_reads import router as dbi_reads_router
 from .dbi_spatial import router as dbi_spatial_router
@@ -32,6 +33,7 @@ def get_api_router() -> APIRouter:
     api.include_router(iperc_router)
     api.include_router(psico_router)
     api.include_router(incident_assistant_router)
+    api.include_router(dbi_admin_router)
     api.include_router(dbi_map_router)
     api.include_router(dbi_reads_router)
     api.include_router(dbi_spatial_router)
