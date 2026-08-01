@@ -26,6 +26,25 @@ export AWS_ACCESS_KEY_ID="${access_key}"
 export AWS_SECRET_ACCESS_KEY="${secret_key}"
 export S3_BUCKET="${SYNTHETIC_BUCKET}"
 
+diagnose_container() {
+  if ! docker inspect "${CONTAINER_NAME}" >/dev/null 2>&1; then
+    echo "Diagnóstico: el contenedor ya no existe." >&2
+    return
+  fi
+
+  docker inspect "${CONTAINER_NAME}" \
+    --format 'Diagnóstico: status={{.State.Status}} exit_code={{.State.ExitCode}} oom_killed={{.State.OOMKilled}} error={{printf "%q" .State.Error}}' \
+    >&2 || true
+
+  raw_logs="$(docker logs "${CONTAINER_NAME}" 2>&1 || true)"
+  sanitized_logs="${raw_logs//${access_key}/[REDACTED_ACCESS_KEY]}"
+  sanitized_logs="${sanitized_logs//${secret_key}/[REDACTED_SECRET_KEY]}"
+  if [[ -n "${sanitized_logs}" ]]; then
+    echo "Diagnóstico: últimas líneas sanitizadas del proveedor:" >&2
+    printf '%s\n' "${sanitized_logs}" | tail -n 200 >&2
+  fi
+}
+
 docker pull "${APPROVED_PINNED_REF}" >/dev/null
 
 repo_digests="$(docker image inspect "${APPROVED_PINNED_REF}" --format '{{join .RepoDigests "\n"}}')"
@@ -53,6 +72,7 @@ docker run --detach \
 for _ in $(seq 1 60); do
   if ! docker inspect "${CONTAINER_NAME}" --format '{{.State.Running}}' 2>/dev/null | grep -Fx true >/dev/null; then
     echo "SeaweedFS terminó antes de quedar disponible." >&2
+    diagnose_container
     exit 1
   fi
 
@@ -66,12 +86,14 @@ done
 
 if [[ "${http_code:-000}" != "403" ]]; then
   echo "El endpoint anónimo debía responder 403 y respondió ${http_code:-000}." >&2
+  diagnose_container
   exit 1
 fi
 
 port_binding="$(docker port "${CONTAINER_NAME}" 8333/tcp)"
 if [[ "${port_binding}" != "127.0.0.1:8333" ]]; then
   echo "El puerto S3 no quedó limitado a loopback: ${port_binding}" >&2
+  diagnose_container
   exit 1
 fi
 
@@ -79,12 +101,14 @@ persistent_mounts="$(docker inspect "${CONTAINER_NAME}" \
   --format '{{range .Mounts}}{{if or (eq .Type "bind") (eq .Type "volume")}}{{println .Type .Source .Destination}}{{end}}{{end}}')"
 if [[ -n "${persistent_mounts}" ]]; then
   echo "El contenedor efímero no puede usar bind mounts o volúmenes persistentes." >&2
+  diagnose_container
   exit 1
 fi
 
 version_output="$(docker exec "${CONTAINER_NAME}" weed version 2>&1)"
 if [[ "${version_output}" != *"4.29"* ]]; then
   echo "La imagen fijada no reportó SeaweedFS 4.29." >&2
+  diagnose_container
   exit 1
 fi
 
@@ -92,6 +116,7 @@ container_logs="$(docker logs "${CONTAINER_NAME}" 2>&1 || true)"
 if grep -F "${access_key}" <<<"${container_logs}" >/dev/null \
   || grep -F "${secret_key}" <<<"${container_logs}" >/dev/null; then
   echo "Las credenciales sintéticas aparecieron en los logs del proveedor." >&2
+  diagnose_container
   exit 1
 fi
 
