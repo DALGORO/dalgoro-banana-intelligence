@@ -20,6 +20,7 @@ sys.path.insert(0, str(BACKEND))
 from app.dbi.storage_contracts import (  # noqa: E402
     DBIStorageAccessMode,
     DBIStorageConflict,
+    DBIStorageError,
     DBIStorageNotFound,
     DBIStoragePurpose,
     DBIStorageWriteRequest,
@@ -28,10 +29,36 @@ from app.dbi.storage_policy import DBIStoragePolicy  # noqa: E402
 from app.dbi.storage_s3 import (  # noqa: E402
     DBIS3ObjectStore,
     DBIS3ObjectStoreConfig,
+    build_s3_client,
 )
 
 PAYLOAD_DIRECT = b"dbi-synthetic-direct-object"
 PAYLOAD_SIGNED = b"dbi-synthetic-signed-object"
+
+
+class _DiagnosticS3Client:
+    """Registra solo operación y clase de error; nunca argumentos o secretos."""
+
+    def __init__(self, delegate) -> None:
+        self._delegate = delegate
+        self.last_operation: str | None = None
+        self.last_error_type: str | None = None
+
+    def __getattr__(self, name: str):
+        target = getattr(self._delegate, name)
+        if not callable(target):
+            return target
+
+        def wrapped(*args, **kwargs):
+            self.last_operation = name
+            self.last_error_type = None
+            try:
+                return target(*args, **kwargs)
+            except Exception as error:
+                self.last_error_type = type(error).__name__
+                raise
+
+        return wrapped
 
 
 def _required_env(name: str) -> str:
@@ -94,27 +121,12 @@ def _assert_anonymous_denied(endpoint: str, bucket: str, object_key: str) -> Non
     raise AssertionError("El objeto sintético no puede leerse anónimamente.")
 
 
-def main() -> None:
-    endpoint = _required_env("DBI_STORAGE_S3_ENDPOINT_URL")
-    bucket = _required_env("DBI_STORAGE_S3_BUCKET")
-    access_key = _required_env("AWS_ACCESS_KEY_ID")
-    secret_key = _required_env("AWS_SECRET_ACCESS_KEY")
-
-    store = DBIS3ObjectStore(
-        DBIS3ObjectStoreConfig(
-            endpoint_url=endpoint,
-            bucket=bucket,
-            region="us-east-1",
-            access_key_id=access_key,
-            secret_access_key=secret_key,
-            verify_tls=True,
-            connect_timeout_seconds=3,
-            read_timeout_seconds=10,
-            max_attempts=2,
-            max_object_size_bytes=1024 * 1024,
-        )
-    )
-
+def _validate_integration(
+    store: DBIS3ObjectStore,
+    *,
+    endpoint: str,
+    bucket: str,
+) -> None:
     direct = _request(PAYLOAD_DIRECT)
     created = store.put(direct, BytesIO(PAYLOAD_DIRECT))
     assert created.created is True
@@ -192,6 +204,41 @@ def main() -> None:
 
     assert PAYLOAD_DIRECT.decode("ascii") not in repr(store)
     assert PAYLOAD_SIGNED.decode("ascii") not in repr(store)
+
+
+def main() -> None:
+    endpoint = _required_env("DBI_STORAGE_S3_ENDPOINT_URL")
+    bucket = _required_env("DBI_STORAGE_S3_BUCKET")
+    access_key = _required_env("AWS_ACCESS_KEY_ID")
+    secret_key = _required_env("AWS_SECRET_ACCESS_KEY")
+
+    config = DBIS3ObjectStoreConfig(
+        endpoint_url=endpoint,
+        bucket=bucket,
+        region="us-east-1",
+        access_key_id=access_key,
+        secret_access_key=secret_key,
+        verify_tls=True,
+        connect_timeout_seconds=3,
+        read_timeout_seconds=10,
+        max_attempts=2,
+        max_object_size_bytes=1024 * 1024,
+    )
+    diagnostic_client = _DiagnosticS3Client(build_s3_client(config))
+    store = DBIS3ObjectStore(config, client=diagnostic_client)
+
+    try:
+        _validate_integration(store, endpoint=endpoint, bucket=bucket)
+    except DBIStorageError:
+        operation = diagnostic_client.last_operation or "unknown"
+        error_type = diagnostic_client.last_error_type or "unknown"
+        print(
+            "Diagnóstico S3 seguro: "
+            f"operation={operation} error_type={error_type}",
+            file=sys.stderr,
+        )
+        raise
+
     print("Almacenamiento DBI: integración S3 efímera aprobada.")
 
 
