@@ -219,7 +219,7 @@ def validate_static_boundaries() -> None:
         assert forbidden not in source
 
 
-if __name__ == "__main__":
+def main() -> None:
     validate_schema()
     validate_new_registration()
     validate_exact_idempotency()
@@ -227,3 +227,7 @@ if __name__ == "__main__":
     validate_intent_boundaries()
     validate_static_boundaries()
     print("Registro idempotente de activos DBI validado offline.")
+
+
+if __name__ == "__main__":
+    main()
