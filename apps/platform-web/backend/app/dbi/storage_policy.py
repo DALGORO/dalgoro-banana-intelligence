@@ -28,6 +28,7 @@ _WILDCARD_REFS = frozenset({"all", "any"})
 _SHA256_RE = re.compile(r"^[0-9a-f]{64}$")
 _CONTENT_TYPE_RE = re.compile(r"^[a-z0-9][a-z0-9.+-]*/[a-z0-9][a-z0-9.+-]*$")
 _OBJECT_KEY_RE = re.compile(r"^[a-z0-9][a-z0-9._/-]{0,511}$")
+_GRANT_REF_RE = re.compile(r"^[A-Za-z0-9._~-]{16,256}$")
 
 _ALLOWED_CONTENT_TYPES: dict[DBIStoragePurpose, frozenset[str]] = {
     DBIStoragePurpose.ANALYSIS_INPUT: frozenset(
@@ -285,11 +286,8 @@ def validate_grant(value: object) -> DBIStorageTemporaryGrant:
 
     if not isinstance(value, DBIStorageTemporaryGrant):
         raise DBIStorageConflict("grant debe ser DBIStorageTemporaryGrant.")
-    if (
-        not isinstance(value.grant_ref, str)
-        or not value.grant_ref
-        or len(value.grant_ref) > 512
-        or any(character.isspace() for character in value.grant_ref)
+    if not isinstance(value.grant_ref, str) or not _GRANT_REF_RE.fullmatch(
+        value.grant_ref
     ):
         raise DBIStorageConflict("grant_ref debe ser una referencia opaca acotada.")
     validate_address(value.address)
