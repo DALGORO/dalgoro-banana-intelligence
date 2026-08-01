@@ -246,7 +246,9 @@ def validate_metadata_authority() -> None:
         "dbi_principals.id",
         "dbi_memberships.id",
         "dbi_farms.id",
+        "dbi_farms.organization_ref",
         "dbi_plots.id",
+        "dbi_plots.farm_id",
     }
     assert not any(
         legacy in target
