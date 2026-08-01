@@ -46,3 +46,46 @@ jobs:
         run: >-
           bash .github/scripts/ci_dbi_storage_provider_bootstrap.sh
           "${{ steps.provider.outputs.pinned_ref }}"
+
+  adapter-integration:
+    name: DBI storage · adaptador S3 sintético
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    needs:
+      - provider-boundary
+
+    steps:
+      - name: Descargar código
+        uses: actions/checkout@9f698171ed81b15d1823a05fc7211befd50c8ae0 # v6.0.3
+
+      - name: Configurar Python
+        uses: actions/setup-python@ece7cb06caefa5fff74198d8649806c4678c61a1 # v6.3.0
+        with:
+          python-version: "3.11"
+          cache: pip
+          cache-dependency-path: apps/platform-web/backend/requirements.txt
+
+      - name: Instalar dependencias fijadas
+        run: python -m pip install -r apps/platform-web/backend/requirements.txt
+
+      - name: Comprobar dependencias
+        run: python -m pip check
+
+      - name: Verificar scripts e integración
+        run: |
+          bash -n .github/scripts/ci_dbi_storage_provider_digest.sh
+          bash -n .github/scripts/ci_dbi_storage_provider_bootstrap.sh
+          python -m py_compile \
+            .github/scripts/ci_dbi_storage_s3_integration.py \
+            apps/platform-web/backend/app/dbi/storage_s3.py
+
+      - name: Validar digest inmutable
+        id: provider
+        run: bash .github/scripts/ci_dbi_storage_provider_digest.sh
+
+      - name: Ejecutar integración S3 con datos sintéticos
+        env:
+          DBI_STORAGE_RUN_S3_INTEGRATION: "1"
+        run: >-
+          bash .github/scripts/ci_dbi_storage_provider_bootstrap.sh
+          "${{ steps.provider.outputs.pinned_ref }}"
