@@ -6,12 +6,14 @@ from uuid import UUID
 
 from sqlalchemy import delete, update
 
+from app.dbi.admin_creation_persistence import (
+    DBIAdminCreationPersistenceRepository,
+)
 from app.dbi.admin_mutation_plan import (
     DBIAdminMembershipMutationPlan,
     DBIAdminPlannedAuditEvent,
 )
 from app.dbi.admin_policy import DBIAdminConflict
-from app.dbi.admin_repository import DBIAdminRepository
 from app.dbi.models.admin_audit import (
     DBIAdminAuditEvent,
     DBIAdminAuditOutcome,
@@ -83,8 +85,8 @@ def _validated_events(
     return events
 
 
-class DBIAdminPersistenceRepository(DBIAdminRepository):
-    """Aplica planes ya autorizados usando la misma sesión y transacción."""
+class DBIAdminPersistenceRepository(DBIAdminCreationPersistenceRepository):
+    """Aplica altas y mutaciones usando la misma sesión y transacción."""
 
     def apply_membership_mutation(
         self,
