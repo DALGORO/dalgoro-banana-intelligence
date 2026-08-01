@@ -161,16 +161,15 @@ class DBIAdminPolicy:
             raise DBIAdminDenied()
 
     @classmethod
-    def require_principal_change(
+    def require_principal_registration(
         cls,
         actor: DBIAdminAuthoritySnapshot,
         *,
         target_principal_ref: str,
         tenant_ref: str,
         organization_refs: frozenset[str],
-        activates_principal: bool,
     ) -> None:
-        """Autoriza un cambio de principal dentro de organizaciones controladas."""
+        """Autoriza registrar una identidad sin mutar su estado global."""
 
         cls.require_organization_control(
             actor,
@@ -182,7 +181,7 @@ class DBIAdminPolicy:
         except (TypeError, ValueError) as error:
             raise DBIAdminDenied() from error
 
-        if actor.principal_ref == normalized_target and activates_principal:
+        if actor.principal_ref == normalized_target:
             raise DBIAdminDenied()
 
     @classmethod
@@ -202,7 +201,11 @@ class DBIAdminPolicy:
         )
         cls._require_requested_subset(actor, requested)
 
-        if actor.principal_ref == requested.principal_ref:
+        if (
+            actor.principal_ref == requested.principal_ref
+            or not requested.principal_active
+            or not requested.membership_active
+        ):
             raise DBIAdminDenied()
 
     @classmethod
@@ -265,7 +268,6 @@ class DBIAdminPolicy:
             )
             or not after.farm_scopes.issubset(before.farm_scopes)
             or not after.plot_scopes.issubset(before.plot_scopes)
-            or (not before.principal_active and after.principal_active)
             or (not before.membership_active and after.membership_active)
         ):
             raise DBIAdminDenied()
@@ -283,6 +285,7 @@ class DBIAdminPolicy:
         if (
             before.principal_ref != after.principal_ref
             or before.tenant_ref != after.tenant_ref
+            or before.principal_active != after.principal_active
         ):
             raise DBIAdminConflict()
         return frozenset(
