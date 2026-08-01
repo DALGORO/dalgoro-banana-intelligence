@@ -2,11 +2,19 @@
 
 from __future__ import annotations
 
+import os
 import sys
+from contextlib import redirect_stdout
+from io import StringIO
 from pathlib import Path
 from typing import Any
+from unittest.mock import patch
 from uuid import uuid4
 
+from alembic import command
+from alembic.config import Config
+from alembic.script import ScriptDirectory
+from sqlalchemy import ForeignKeyConstraint, UniqueConstraint
 from sqlalchemy.dialects import postgresql
 
 ROOT = Path(__file__).resolve().parents[2]
@@ -20,6 +28,14 @@ from app.dbi.models.identity import DBIMembershipScope  # noqa: E402
 
 ORG_A = "organization-a"
 ORG_B = "organization-b"
+HEAD = "dbi_0008_scope_hierarchy"
+DOWN_REVISION = "dbi_0007_admin_audit"
+EXPECTED_CONSTRAINTS = {
+    "uq_dbi_farms_id_organization",
+    "uq_dbi_plots_id_farm",
+    "fk_dbi_membership_scopes_farm_organization",
+    "fk_dbi_membership_scopes_plot_farm",
+}
 
 
 class _Result:
@@ -53,6 +69,14 @@ def _assert_type_error(factory) -> None:
     except TypeError:
         return
     raise AssertionError("La entrada jerárquica inválida debía rechazarse.")
+
+
+def _constraint(table, name: str):
+    return next(
+        constraint
+        for constraint in table.constraints
+        if constraint.name == name
+    )
 
 
 def validate_exact_hierarchy_queries() -> None:
@@ -142,25 +166,86 @@ def validate_mismatch_and_empty_contract() -> None:
 
 
 def validate_metadata_constraints() -> None:
-    farm_constraints = {
-        constraint.name for constraint in Farm.__table__.constraints
-    }
-    plot_constraints = {
-        constraint.name for constraint in Plot.__table__.constraints
-    }
-    scope_constraints = {
-        constraint.name for constraint in DBIMembershipScope.__table__.constraints
-    }
-
-    assert "uq_dbi_farms_id_organization" in farm_constraints
-    assert "uq_dbi_plots_id_farm" in plot_constraints
-    assert (
-        "fk_dbi_membership_scopes_farm_organization" in scope_constraints
+    farm_identity = _constraint(
+        Farm.__table__,
+        "uq_dbi_farms_id_organization",
     )
-    assert "fk_dbi_membership_scopes_plot_farm" in scope_constraints
+    assert isinstance(farm_identity, UniqueConstraint)
+    assert [column.name for column in farm_identity.columns] == [
+        "id",
+        "organization_ref",
+    ]
+
+    plot_identity = _constraint(
+        Plot.__table__,
+        "uq_dbi_plots_id_farm",
+    )
+    assert isinstance(plot_identity, UniqueConstraint)
+    assert [column.name for column in plot_identity.columns] == [
+        "id",
+        "farm_id",
+    ]
+
+    farm_scope = _constraint(
+        DBIMembershipScope.__table__,
+        "fk_dbi_membership_scopes_farm_organization",
+    )
+    assert isinstance(farm_scope, ForeignKeyConstraint)
+    assert [column.name for column in farm_scope.columns] == [
+        "farm_id",
+        "organization_ref",
+    ]
+    assert [element.target_fullname for element in farm_scope.elements] == [
+        "dbi_farms.id",
+        "dbi_farms.organization_ref",
+    ]
+    assert farm_scope.ondelete == "RESTRICT"
+
+    plot_scope = _constraint(
+        DBIMembershipScope.__table__,
+        "fk_dbi_membership_scopes_plot_farm",
+    )
+    assert isinstance(plot_scope, ForeignKeyConstraint)
+    assert [column.name for column in plot_scope.columns] == [
+        "plot_id",
+        "farm_id",
+    ]
+    assert [element.target_fullname for element in plot_scope.elements] == [
+        "dbi_plots.id",
+        "dbi_plots.farm_id",
+    ]
+    assert plot_scope.ondelete == "RESTRICT"
 
 
 def validate_migration_contract() -> None:
+    config = Config(str(BACKEND / "dbi_alembic.ini"))
+    scripts = ScriptDirectory.from_config(config)
+    assert scripts.get_bases() == ["dbi_0001_baseline"]
+    assert scripts.get_heads() == [HEAD]
+    revision = scripts.get_revision(HEAD)
+    assert revision is not None
+    assert revision.down_revision == DOWN_REVISION
+
+    output = StringIO()
+    environment = {
+        "DBI_ENVIRONMENT": "test",
+        "DBI_DATABASE_URL": (
+            "postgresql+psycopg://dbi_test_migrator:placeholder@"
+            "example.invalid:5432/dbi_test"
+        ),
+    }
+    with patch.dict(os.environ, environment, clear=True):
+        with redirect_stdout(output):
+            command.upgrade(config, "head", sql=True)
+
+    sql = " ".join(output.getvalue().lower().split())
+    assert HEAD in sql
+    for constraint_name in EXPECTED_CONSTRAINTS:
+        assert constraint_name in sql
+    assert "foreign key(farm_id, organization_ref)" in sql
+    assert "foreign key(plot_id, farm_id)" in sql
+    assert "on delete restrict" in sql
+
     path = (
         BACKEND
         / "dbi_alembic"
@@ -180,6 +265,17 @@ def validate_migration_contract() -> None:
         "op.drop_constraint",
     ):
         assert required in source
+    for forbidden in (
+        "op.execute",
+        "op.bulk_insert",
+        "alter_column",
+        "drop database",
+        "truncate ",
+        "users",
+        "companies",
+        "documents",
+    ):
+        assert forbidden not in source
 
 
 def validate_static_boundaries() -> None:
