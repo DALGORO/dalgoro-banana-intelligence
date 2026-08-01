@@ -11,6 +11,7 @@ from sqlalchemy.orm import Session
 from app.dbi.asset_registration import (
     DBIAssetRegistrationAction,
     DBIAssetRegistrationConflict,
+    DBIAssetRegistrationIntent,
     DBIAssetRegistrationPlan,
     DBIAssetRegistrationSnapshot,
     build_asset_registration_plan,
@@ -34,6 +35,21 @@ def _required_plan(value: object) -> DBIAssetRegistrationPlan:
     if not isinstance(value, DBIAssetRegistrationPlan):
         raise DBIAssetRegistrationConflict("plan inválido.")
     return value
+
+
+def _intent(plan: DBIAssetRegistrationPlan) -> DBIAssetRegistrationIntent:
+    return DBIAssetRegistrationIntent(
+        asset_id=plan.asset_id,
+        tenant_ref=plan.tenant_ref,
+        farm_id=plan.farm_id,
+        plot_id=plan.plot_id,
+        asset_kind=plan.asset_kind,
+        content_type=plan.metadata.content_type,
+        size_bytes=plan.metadata.size_bytes,
+        sha256=plan.metadata.sha256,
+        crs=plan.crs,
+        created_by_ref=plan.created_by_ref,
+    )
 
 
 def _snapshot(row: AnalysisInputAsset) -> DBIAssetRegistrationSnapshot:
@@ -92,6 +108,7 @@ class DBIAssetRepository:
         """Inserta un plan CREATE o acepta de forma segura un reintento exacto."""
 
         registration = _required_plan(plan)
+        canonical_intent = _intent(registration)
         if registration.action is DBIAssetRegistrationAction.REUSE:
             row = self.get_for_update(
                 tenant_ref=registration.tenant_ref,
@@ -101,7 +118,7 @@ class DBIAssetRepository:
             if row is None:
                 raise DBIAssetRegistrationConflict("activo no disponible.")
             checked = build_asset_registration_plan(
-                intent=registration.intent,
+                intent=canonical_intent,
                 existing=_snapshot(row),
             )
             if checked.action is not DBIAssetRegistrationAction.REUSE:
@@ -145,7 +162,7 @@ class DBIAssetRepository:
         if row is None:
             raise DBIAssetRegistrationConflict("activo no disponible.")
         checked = build_asset_registration_plan(
-            intent=registration.intent,
+            intent=canonical_intent,
             existing=_snapshot(row),
         )
         if checked.action is not DBIAssetRegistrationAction.REUSE:
