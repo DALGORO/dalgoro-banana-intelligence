@@ -318,12 +318,12 @@ def validate_atomic_state_loading() -> None:
     assert "for update" in sql_calls[1]
     assert "order by dbi_memberships.id" in sql_calls[1]
     assert "from dbi_principals" in sql_calls[2]
-    assert "for update" in sql_calls[2]
+    assert "for update" not in sql_calls[2]
     assert "order by dbi_principals.id" in sql_calls[2]
     assert "from dbi_membership_permissions" in sql_calls[3]
-    assert "for update" in sql_calls[3]
+    assert "for update" not in sql_calls[3]
     assert "from dbi_membership_scopes" in sql_calls[4]
-    assert "for update" in sql_calls[4]
+    assert "for update" not in sql_calls[4]
 
 
 def validate_atomic_state_rejects_missing_rows() -> None:
@@ -455,6 +455,7 @@ def validate_static_boundaries() -> None:
         "dbimembershipstatus.active",
         "dbiprincipalstatus.active",
         "dbimembershipscopetype.organization",
+        "la membresía es la raíz mutable",
     ):
         assert required in source
 
@@ -475,6 +476,13 @@ def validate_static_boundaries() -> None:
         < scopes_position
         < state_position
     )
+
+    aggregate = source[
+        source.index("def lock_and_load_membership_states") :
+        source.index("def count_remaining_administrators")
+    ]
+    assert aggregate.count(".with_for_update()") == 0
+    assert "memberships = self.lock_memberships" in aggregate
 
     for forbidden in (
         "create_engine",
