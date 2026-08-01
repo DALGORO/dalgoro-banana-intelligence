@@ -30,22 +30,25 @@ class AnalysisInputAssetRegister(_AssetWriteModel):
     sha256: str = Field(pattern=r"^[0-9a-f]{64}$")
     crs: str | None = Field(default=None, min_length=1, max_length=80)
 
-    @field_validator("content_type")
+    @field_validator("content_type", mode="before")
     @classmethod
-    def require_canonical_content_type(cls, value: str) -> str:
+    def require_canonical_content_type(cls, value: object) -> object:
+        if not isinstance(value, str):
+            return value
         if (
-            value != value.lower()
+            value != value.strip()
+            or value != value.lower()
             or ";" in value
             or any(character.isspace() for character in value)
         ):
             raise ValueError("content_type debe ser MIME canónico en minúsculas.")
         return value
 
-    @field_validator("crs")
+    @field_validator("crs", mode="before")
     @classmethod
-    def require_canonical_crs(cls, value: str | None) -> str | None:
-        if value is None:
-            return None
+    def require_canonical_crs(cls, value: object) -> object:
+        if value is None or not isinstance(value, str):
+            return value
         if value != value.strip() or any(ord(character) < 32 for character in value):
             raise ValueError("crs debe ser texto canónico.")
         return value
