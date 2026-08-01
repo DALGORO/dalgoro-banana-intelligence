@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from collections.abc import Mapping
 from dataclasses import dataclass
+from enum import StrEnum
 
 from app.dbi.authorization import DBIFarmScope, DBIPermission, DBIPlotScope
 
@@ -24,6 +25,14 @@ class DBIAdminConflict(RuntimeError):
 
     def __init__(self) -> None:
         super().__init__(ADMIN_CONFLICT_MESSAGE)
+
+
+class DBIAdminMembershipStatus(StrEnum):
+    """Estados administrativos puros de una membresía persistida."""
+
+    ACTIVE = "active"
+    INACTIVE = "inactive"
+    REVOKED = "revoked"
 
 
 def _validated_ref(value: object) -> str:
@@ -54,7 +63,7 @@ class DBIAdminAuthoritySnapshot:
     principal_ref: str
     tenant_ref: str
     principal_active: bool
-    membership_active: bool
+    membership_status: DBIAdminMembershipStatus
     permissions: frozenset[DBIPermission] = frozenset()
     organization_scopes: frozenset[str] = frozenset()
     farm_scopes: frozenset[DBIFarmScope] = frozenset()
@@ -66,8 +75,10 @@ class DBIAdminAuthoritySnapshot:
 
         if not isinstance(self.principal_active, bool):
             raise TypeError("principal_active debe ser booleano.")
-        if not isinstance(self.membership_active, bool):
-            raise TypeError("membership_active debe ser booleano.")
+        if not isinstance(self.membership_status, DBIAdminMembershipStatus):
+            raise TypeError(
+                "membership_status debe ser DBIAdminMembershipStatus."
+            )
 
         permissions = frozenset(self.permissions)
         organization_scopes = frozenset(
@@ -99,6 +110,10 @@ class DBIAdminAuthoritySnapshot:
         object.__setattr__(self, "organization_scopes", organization_scopes)
         object.__setattr__(self, "farm_scopes", farm_scopes)
         object.__setattr__(self, "plot_scopes", plot_scopes)
+
+    @property
+    def membership_active(self) -> bool:
+        return self.membership_status is DBIAdminMembershipStatus.ACTIVE
 
     @property
     def all_organization_refs(self) -> frozenset[str]:
@@ -204,7 +219,7 @@ class DBIAdminPolicy:
         if (
             actor.principal_ref == requested.principal_ref
             or not requested.principal_active
-            or not requested.membership_active
+            or requested.membership_status is not DBIAdminMembershipStatus.ACTIVE
         ):
             raise DBIAdminDenied()
 
@@ -228,6 +243,7 @@ class DBIAdminPolicy:
         ):
             raise DBIAdminConflict()
 
+        cls._require_membership_transition(before, after)
         affected_organizations = frozenset(
             set(before.all_organization_refs) | set(after.all_organization_refs)
         )
@@ -239,7 +255,20 @@ class DBIAdminPolicy:
         cls._require_requested_subset(actor, after)
 
         if actor.principal_ref == before.principal_ref:
+            if actor != before:
+                raise DBIAdminConflict()
             cls._require_self_reduction(before, after)
+
+    @staticmethod
+    def _require_membership_transition(
+        before: DBIAdminAuthoritySnapshot,
+        after: DBIAdminAuthoritySnapshot,
+    ) -> None:
+        if (
+            before.membership_status is DBIAdminMembershipStatus.REVOKED
+            and after.membership_status is not DBIAdminMembershipStatus.REVOKED
+        ):
+            raise DBIAdminConflict()
 
     @staticmethod
     def _require_requested_subset(
@@ -268,7 +297,10 @@ class DBIAdminPolicy:
             )
             or not after.farm_scopes.issubset(before.farm_scopes)
             or not after.plot_scopes.issubset(before.plot_scopes)
-            or (not before.membership_active and after.membership_active)
+            or (
+                before.membership_status is not DBIAdminMembershipStatus.ACTIVE
+                and after.membership_status is DBIAdminMembershipStatus.ACTIVE
+            )
         ):
             raise DBIAdminDenied()
 
@@ -288,6 +320,7 @@ class DBIAdminPolicy:
             or before.principal_active != after.principal_active
         ):
             raise DBIAdminConflict()
+        cls._require_membership_transition(before, after)
         return frozenset(
             before.effective_admin_organizations
             - after.effective_admin_organizations
