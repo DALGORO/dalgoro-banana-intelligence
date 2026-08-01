@@ -26,6 +26,7 @@ from app.dbi.migration_control import (  # noqa: E402
 )
 from app.dbi.migration_plan import generate_offline_plan  # noqa: E402
 from app.dbi.migration_preflight import (  # noqa: E402
+    FORBIDDEN_ROLE_CAPABILITIES,
     READ_ONLY_STATEMENTS,
     run_migration_preflight,
 )
@@ -78,10 +79,8 @@ class _FakeConnection:
         self.username = username
         self.search_path = search_path
         self.role = role or {
-            "rolsuper": False,
-            "rolcreatedb": False,
-            "rolcreaterole": False,
-            "rolreplication": False,
+            field: False
+            for field in FORBIDDEN_ROLE_CAPABILITIES
         }
         self.capabilities = capabilities or {
             "postgis_available": True,
@@ -95,7 +94,12 @@ class _FakeConnection:
         sql = str(statement)
         self.executed.append(sql)
         compact = " ".join(sql.lower().split())
-        if "current_database()" in compact:
+
+        # ROLE_SQL contiene current_database() para comprobar propiedad.
+        # Debe reconocerse antes que la consulta de identidad.
+        if "from pg_roles" in compact:
+            return _Result(row=self.role)
+        if "current_database() as database_name" in compact:
             return _Result(
                 row={
                     "database_name": self.database_name,
@@ -103,8 +107,6 @@ class _FakeConnection:
                     "search_path": self.search_path,
                 }
             )
-        if "from pg_roles" in compact:
-            return _Result(row=self.role)
         if "from pg_extension" in compact:
             return _Result(row=self.capabilities)
         if "select version_num" in compact:
@@ -260,11 +262,17 @@ def validate_read_only_preflight() -> None:
     assert migrated.is_at_head is True
     assert len(migrated_connection.executed) == 4
 
+    privileged_role = {
+        field: False
+        for field in FORBIDDEN_ROLE_CAPABILITIES
+    }
+    privileged_role["rolsuper"] = True
+
     rejected_connections = (
         _FakeConnection(database_name="dbi_shadow"),
         _FakeConnection(username="dbi_test_owner"),
         _FakeConnection(search_path="public, dbi"),
-        _FakeConnection(role={"rolsuper": True, "rolcreatedb": False, "rolcreaterole": False, "rolreplication": False}),
+        _FakeConnection(role=privileged_role),
         _FakeConnection(capabilities={"postgis_available": False, "dbi_schema_available": True, "version_table_available": False}),
         _FakeConnection(capabilities={"postgis_available": True, "dbi_schema_available": False, "version_table_available": False}),
         _FakeConnection(revisions=("revision_unknown",)),
