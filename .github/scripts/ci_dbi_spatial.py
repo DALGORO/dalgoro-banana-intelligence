@@ -52,6 +52,8 @@ from app.dbi.spatial import (  # noqa: E402
 )
 from app.dbi.write_schemas import PlotCreate, PlotUpdate  # noqa: E402
 
+HEAD = "dbi_0008_scope_hierarchy"
+SPATIAL_REVISION = "dbi_0006_plot_boundaries"
 VALID_BOUNDARY = {
     "type": "MultiPolygon",
     "coordinates": [
@@ -324,16 +326,17 @@ def validate_router_and_authorization() -> None:
 def validate_migration_and_offline_sql() -> None:
     config = Config(str(BACKEND / "dbi_alembic.ini"))
     scripts = ScriptDirectory.from_config(config)
-    revision = scripts.get_revision("dbi_0006_plot_boundaries")
+    revision = scripts.get_revision(SPATIAL_REVISION)
     assert revision is not None
     assert revision.down_revision == "dbi_0005_identity_memberships"
-    assert scripts.get_heads() == ["dbi_0007_admin_audit"]
+    assert scripts.get_heads() == [HEAD]
 
     lineage = {
         item.revision
-        for item in scripts.iterate_revisions("dbi_0007_admin_audit", "base")
+        for item in scripts.iterate_revisions(HEAD, "base")
     }
-    assert "dbi_0006_plot_boundaries" in lineage
+    assert SPATIAL_REVISION in lineage
+    assert "dbi_0007_admin_audit" in lineage
 
     output = StringIO()
     environment = {
@@ -354,6 +357,7 @@ def validate_migration_and_offline_sql() -> None:
     assert "using gist" in sql
     assert "st_isvalid" in sql
     assert "st_isempty" in sql
+    assert "dbi_0008_scope_hierarchy" in sql
     assert "create extension" not in sql
     assert "create table users" not in sql
     assert "create table companies" not in sql
