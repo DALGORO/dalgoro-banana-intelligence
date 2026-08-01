@@ -21,6 +21,7 @@ from app.dbi.admin_state import (
     DBIAdminLockedMembershipStates,
     DBIAdminPersistedMembershipState,
 )
+from app.dbi.authorization import DBIFarmScope, DBIPlotScope
 
 
 class DBIAdminGuardRepositoryPort(Protocol):
@@ -33,6 +34,13 @@ class DBIAdminGuardRepositoryPort(Protocol):
         organization_refs: frozenset[str],
         membership_ids: frozenset[UUID],
     ) -> DBIAdminLockedMembershipStates: ...
+
+    def scope_hierarchy_matches(
+        self,
+        *,
+        farm_scopes: frozenset[DBIFarmScope],
+        plot_scopes: frozenset[DBIPlotScope],
+    ) -> bool: ...
 
     def count_remaining_administrators(
         self,
@@ -149,10 +157,10 @@ def _guard_evidence(
 class DBIAdminService:
     """Coordina locks, política, plan y persistencia sin controlar transacciones.
 
-    El repositorio debe adquirir primero todos los advisory locks
-    organizacionales en orden estable, después bloquear las membresías y sus
-    principales, y finalmente construir los snapshots devueltos. La aplicación
-    del plan ocurre sobre el mismo repositorio y la misma transacción externa.
+    El repositorio adquiere primero advisory locks organizacionales y bloquea
+    las membresías como raíces mutables. Después carga principal e hijos, valida
+    la jerarquía agrícola solicitada y aplica el plan sobre la misma transacción
+    externa.
     """
 
     def __init__(self, repository: DBIAdminGuardRepositoryPort) -> None:
@@ -176,6 +184,16 @@ class DBIAdminService:
             membership_ids=normalized_ids,
         )
         return _required_locked_states(locked, membership_ids=normalized_ids)
+
+    def _require_scope_hierarchy(
+        self,
+        snapshot: DBIAdminAuthoritySnapshot,
+    ) -> None:
+        if not self._repository.scope_hierarchy_matches(
+            farm_scopes=snapshot.farm_scopes,
+            plot_scopes=snapshot.plot_scopes,
+        ):
+            raise DBIAdminConflict()
 
     def guard_principal_registration(
         self,
@@ -233,6 +251,7 @@ class DBIAdminService:
             persisted_actor.authority,
             requested,
         )
+        self._require_scope_hierarchy(requested)
         return DBIAdminGuardEvidence(
             tenant_ref=requested.tenant_ref,
             organization_refs=organizations,
@@ -277,6 +296,7 @@ class DBIAdminService:
             persisted_target.authority,
             after,
         )
+        self._require_scope_hierarchy(after)
         protected = DBIAdminPolicy.organizations_losing_last_admin_protection(
             persisted_target.authority,
             after,
