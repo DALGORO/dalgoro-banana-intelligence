@@ -2,13 +2,18 @@
 
 from __future__ import annotations
 
+from collections import defaultdict
 from collections.abc import Sequence
 from hashlib import sha256
+from types import MappingProxyType
 from uuid import UUID
 
 from sqlalchemy import Select, func, select
 from sqlalchemy.orm import Session
 
+from app.dbi.admin_policy import DBIAdminConflict
+from app.dbi.admin_service import DBIAdminLockedMembershipStates
+from app.dbi.admin_state import build_admin_membership_state
 from app.dbi.models.identity import (
     DBIMembership,
     DBIMembershipPermission,
@@ -54,6 +59,16 @@ def _validated_organization_refs(
     if not normalized:
         raise ValueError("organization_refs no puede estar vacío.")
     return normalized
+
+
+def _validated_membership_ids(
+    values: frozenset[UUID],
+) -> tuple[UUID, ...]:
+    if not isinstance(values, frozenset) or not values:
+        raise ValueError("membership_ids debe contener al menos un UUID.")
+    if not all(isinstance(value, UUID) for value in values):
+        raise TypeError("membership_ids solo admite UUID.")
+    return tuple(sorted(values, key=str))
 
 
 def organization_advisory_lock_key(
@@ -148,12 +163,7 @@ class DBIAdminRepository:
             tenant_ref,
             field_name="tenant_ref",
         )
-        if not isinstance(membership_ids, frozenset) or not membership_ids:
-            raise ValueError("membership_ids debe contener al menos un UUID.")
-        if not all(isinstance(value, UUID) for value in membership_ids):
-            raise TypeError("membership_ids solo admite UUID.")
-
-        ordered_ids = tuple(sorted(membership_ids, key=str))
+        ordered_ids = _validated_membership_ids(membership_ids)
         statement = (
             select(DBIMembership)
             .where(
@@ -214,6 +224,123 @@ class DBIAdminRepository:
         for key in keys:
             self._session.execute(select(func.pg_advisory_xact_lock(key)))
         return keys
+
+    def lock_and_load_membership_states(
+        self,
+        *,
+        tenant_ref: str,
+        organization_refs: frozenset[str],
+        membership_ids: frozenset[UUID],
+    ) -> DBIAdminLockedMembershipStates:
+        """Bloquea autoridad y filas, y construye snapshots exactos."""
+
+        normalized_tenant = _validated_ref(
+            tenant_ref,
+            field_name="tenant_ref",
+        )
+        ordered_membership_ids = _validated_membership_ids(membership_ids)
+        expected_membership_ids = frozenset(ordered_membership_ids)
+
+        lock_keys = self.lock_organization_authority(
+            tenant_ref=normalized_tenant,
+            organization_refs=organization_refs,
+        )
+        memberships = self.lock_memberships(
+            tenant_ref=normalized_tenant,
+            membership_ids=expected_membership_ids,
+        )
+        if (
+            not all(isinstance(row, DBIMembership) for row in memberships)
+            or frozenset(row.id for row in memberships)
+            != expected_membership_ids
+        ):
+            raise DBIAdminConflict()
+
+        principal_ids = frozenset(row.principal_id for row in memberships)
+        if not principal_ids or not all(
+            isinstance(value, UUID) for value in principal_ids
+        ):
+            raise DBIAdminConflict()
+        ordered_principal_ids = tuple(sorted(principal_ids, key=str))
+        principals = self._all(
+            select(DBIPrincipal)
+            .where(DBIPrincipal.id.in_(ordered_principal_ids))
+            .order_by(DBIPrincipal.id)
+            .with_for_update()
+        )
+        if (
+            not all(isinstance(row, DBIPrincipal) for row in principals)
+            or frozenset(row.id for row in principals) != principal_ids
+        ):
+            raise DBIAdminConflict()
+
+        permissions = self._all(
+            select(DBIMembershipPermission)
+            .where(
+                DBIMembershipPermission.membership_id.in_(
+                    ordered_membership_ids
+                )
+            )
+            .order_by(
+                DBIMembershipPermission.membership_id,
+                DBIMembershipPermission.permission,
+            )
+            .with_for_update()
+        )
+        scopes = self._all(
+            select(DBIMembershipScope)
+            .where(
+                DBIMembershipScope.membership_id.in_(
+                    ordered_membership_ids
+                )
+            )
+            .order_by(
+                DBIMembershipScope.membership_id,
+                DBIMembershipScope.id,
+            )
+            .with_for_update()
+        )
+        if not all(
+            isinstance(row, DBIMembershipPermission) for row in permissions
+        ) or not all(isinstance(row, DBIMembershipScope) for row in scopes):
+            raise DBIAdminConflict()
+
+        principal_by_id = {row.id: row for row in principals}
+        permissions_by_membership: dict[
+            UUID,
+            list[DBIMembershipPermission],
+        ] = defaultdict(list)
+        for row in permissions:
+            permissions_by_membership[row.membership_id].append(row)
+
+        scopes_by_membership: dict[
+            UUID,
+            list[DBIMembershipScope],
+        ] = defaultdict(list)
+        for row in scopes:
+            scopes_by_membership[row.membership_id].append(row)
+
+        states = {}
+        for membership in memberships:
+            principal = principal_by_id.get(membership.principal_id)
+            if not isinstance(principal, DBIPrincipal):
+                raise DBIAdminConflict()
+            state = build_admin_membership_state(
+                principal=principal,
+                membership=membership,
+                permissions=tuple(
+                    permissions_by_membership.get(membership.id, ())
+                ),
+                scopes=tuple(scopes_by_membership.get(membership.id, ())),
+            )
+            states[membership.id] = state
+
+        if frozenset(states) != expected_membership_ids:
+            raise DBIAdminConflict()
+        return DBIAdminLockedMembershipStates(
+            lock_keys=lock_keys,
+            states=MappingProxyType(states),
+        )
 
     def count_remaining_administrators(
         self,
