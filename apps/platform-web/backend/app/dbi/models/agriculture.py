@@ -40,6 +40,11 @@ class Farm(DBIBase):
             "code",
             name="uq_dbi_farms_organization_code",
         ),
+        UniqueConstraint(
+            "id",
+            "organization_ref",
+            name="uq_dbi_farms_id_organization",
+        ),
         CheckConstraint(
             "status IN ('active', 'inactive', 'archived')",
             name="ck_dbi_farms_status",
@@ -89,6 +94,11 @@ class Plot(DBIBase):
             "farm_id",
             "code",
             name="uq_dbi_plots_farm_code",
+        ),
+        UniqueConstraint(
+            "id",
+            "farm_id",
+            name="uq_dbi_plots_id_farm",
         ),
         CheckConstraint(
             "status IN ('active', 'inactive', 'archived')",
