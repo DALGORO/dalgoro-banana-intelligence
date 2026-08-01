@@ -16,6 +16,7 @@ from ci_dbi_admin_schemas import main as validate_dbi_admin_schemas
 from ci_dbi_storage_contracts import main as validate_dbi_storage_contracts
 from ci_dbi_storage_memory import main as validate_dbi_storage_memory
 from ci_dbi_storage_metrics import main as validate_dbi_storage_metrics
+from ci_dbi_storage_s3 import main as validate_dbi_storage_s3
 from ci_dbi_storage_sdk_dependencies import (
     main as validate_dbi_storage_sdk_dependencies,
 )
@@ -33,6 +34,7 @@ def main() -> None:
     validate_dbi_storage_memory()
     validate_dbi_storage_metrics()
     validate_dbi_storage_sdk_dependencies()
+    validate_dbi_storage_s3()
 
     os.environ["DATABASE_URL"] = "sqlite+pysqlite:///:memory:"
     os.environ["JWT_SECRET"] = "dbi-ci-placeholder"
