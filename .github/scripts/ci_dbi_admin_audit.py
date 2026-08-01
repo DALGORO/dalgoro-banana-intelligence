@@ -62,8 +62,11 @@ EXPECTED_CHECKS = {
 def validate_metadata_contract() -> None:
     assert TABLE in DBIBase.metadata.tables
     table = DBIBase.metadata.tables[TABLE]
-    assert set(table.c) == EXPECTED_COLUMNS
-    assert not ({"payload", "description", "details", "metadata"} & set(table.c))
+    column_names = {column.name for column in table.columns}
+    assert column_names == EXPECTED_COLUMNS
+    assert not (
+        {"payload", "description", "details", "metadata"} & column_names
+    )
 
     foreign_keys = {
         (str(foreign_key.column), foreign_key.ondelete)
@@ -132,15 +135,19 @@ def validate_migration_graph_and_sql() -> None:
             command.upgrade(config, "head", sql=True)
 
     sql = output.getvalue().lower()
+    compact_sql = "".join(sql.split())
     for required in (
         TABLE,
         "dbi_0007_admin_audit",
         "uq_dbi_admin_audit_correlation_resource",
         "ix_dbi_admin_audit_organization_occurred",
-        "foreign key(actor_principal_id)",
-        "foreign key(actor_membership_id)",
     ):
         assert required in sql
+    for required in (
+        "foreignkey(actor_principal_id)",
+        "foreignkey(actor_membership_id)",
+    ):
+        assert required in compact_sql
     for forbidden in (
         "admin_audit_logs",
         "users",
@@ -177,8 +184,8 @@ def validate_source_boundaries() -> None:
         "app.models.company",
         "app.db.base",
         "jsonb",
-        "payload",
-        "description",
+        "mapped[dict",
+        "mapped[list",
         "relationship(",
         "database_url",
         "create_engine",
