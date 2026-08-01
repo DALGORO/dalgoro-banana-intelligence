@@ -16,6 +16,7 @@ from app.dbi.storage_contracts import (
     DBIStorageDenied,
     DBIStorageIntegrityError,
     DBIStorageNotFound,
+    DBIStorageObjectMetadata,
     DBIStorageObjectRecord,
     DBIStorageTemporaryGrant,
     DBIStorageWriteRequest,
@@ -132,19 +133,27 @@ class DBIMeteredObjectStore:
 
     @contextmanager
     def open_read(self, address: DBIStorageAddress) -> Iterator[BinaryIO]:
+        """Mide adquisición/cierre del adaptador, no errores del consumidor."""
+
         self._increment("read_attempts")
+        consumer_error = False
         try:
             record = self._delegate.stat(address)
             with self._delegate.open_read(address) as stream:
                 self._increment("bytes_opened", record.metadata.size_bytes)
-                yield stream
+                try:
+                    yield stream
+                except BaseException:
+                    consumer_error = True
+                    raise
         except (
             DBIStorageDenied,
             DBIStorageIntegrityError,
             DBIStorageNotFound,
             DBIStorageConflict,
         ) as error:
-            self._record_error(error)
+            if not consumer_error:
+                self._record_error(error)
             raise
 
     def retire(
@@ -176,7 +185,7 @@ class DBIMeteredObjectStore:
 
     def issue_temporary_access(
         self,
-        address: DBIStorageAddress,
+        metadata: DBIStorageObjectMetadata,
         *,
         mode: DBIStorageAccessMode,
         issued_at: datetime,
@@ -185,7 +194,7 @@ class DBIMeteredObjectStore:
         self._increment("temporary_access_attempts")
         try:
             grant = self._delegate.issue_temporary_access(
-                address,
+                metadata,
                 mode=mode,
                 issued_at=issued_at,
                 expires_at=expires_at,
