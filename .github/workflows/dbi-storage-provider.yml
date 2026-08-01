@@ -1,0 +1,48 @@
+name: DBI storage provider discovery
+
+"on":
+  pull_request:
+    branches:
+      - main
+    paths:
+      - ".github/scripts/ci_dbi_storage_provider_digest.sh"
+      - ".github/workflows/dbi-storage-provider.yml"
+      - "apps/platform-web/backend/app/dbi/storage_*.py"
+      - "apps/platform-web/backend/requirements.txt"
+      - "docs/36_DBI_STORAGE_DESIGN_DBI-STORAGE-001.md"
+      - "docs/37_DBI_STORAGE_PROVIDER_GATE_DBI-STORAGE-001.md"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: dbi-storage-provider-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  resolve-image-digest:
+    name: DBI storage · resolver digest sin ejecutar imagen
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    steps:
+      - name: Descargar código
+        uses: actions/checkout@9f698171ed81b15d1823a05fc7211befd50c8ae0 # v6.0.3
+
+      - name: Verificar script
+        run: bash -n .github/scripts/ci_dbi_storage_provider_digest.sh
+
+      - name: Resolver manifiesto OCI aprobado
+        id: provider
+        run: bash .github/scripts/ci_dbi_storage_provider_digest.sh
+
+      - name: Confirmar que no se ejecutó contenedor
+        run: |
+          if docker ps -a --format '{{.Image}}' | grep -F 'chrislusf/seaweedfs' >/dev/null; then
+            echo "La etapa de descubrimiento no debe crear contenedores." >&2
+            exit 1
+          fi
+          printf 'Digest auditado: %s@%s\n' \
+            "${{ steps.provider.outputs.image_ref }}" \
+            "${{ steps.provider.outputs.image_digest }}"
