@@ -154,6 +154,11 @@ jobs:
           PYTHONPATH: .
         run: python ../../../.github/scripts/ci_dbi_admin_repository.py
 
+      - name: Validar jerarquía administrativa DBI offline
+        env:
+          PYTHONPATH: .
+        run: python ../../../.github/scripts/ci_dbi_admin_scope_hierarchy.py
+
       - name: Validar estado administrativo DBI versionado offline
         env:
           PYTHONPATH: .
