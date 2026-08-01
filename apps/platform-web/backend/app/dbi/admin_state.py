@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from collections.abc import Sequence
+from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
 from datetime import datetime, timezone
 from uuid import UUID
@@ -57,6 +57,14 @@ class DBIAdminPersistedMembershipState:
     def require_membership_version(self, expected_updated_at: datetime) -> None:
         if self.membership_updated_at != _normalized_timestamp(expected_updated_at):
             raise DBIAdminConflict()
+
+
+@dataclass(frozen=True, slots=True)
+class DBIAdminLockedMembershipStates:
+    """Snapshots obtenidos después de locks organizacionales y de filas."""
+
+    lock_keys: tuple[int, ...]
+    states: Mapping[UUID, DBIAdminPersistedMembershipState]
 
 
 def build_admin_membership_state(
