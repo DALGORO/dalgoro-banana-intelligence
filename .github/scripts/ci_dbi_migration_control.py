@@ -20,6 +20,7 @@ from app.db.dbi_config import (  # noqa: E402
 from app.dbi.migration_control import (  # noqa: E402
     DBIMigrationControlError,
     advisory_lock_key,
+    is_authorized_github_actions_runtime,
     plan_fingerprint,
     require_apply_confirmation,
     validate_migration_target,
@@ -30,6 +31,21 @@ from app.dbi.migration_preflight import (  # noqa: E402
     READ_ONLY_STATEMENTS,
     run_migration_preflight,
 )
+
+AUTHORIZED_RUNTIME = {
+    "GITHUB_ACTIONS": "true",
+    "CI": "true",
+    "GITHUB_SERVER_URL": "https://github.com",
+    "GITHUB_REPOSITORY": "dalgorosas/dalgoro-banana-intelligence",
+    "GITHUB_WORKFLOW": "DBI migrations integration",
+    "GITHUB_WORKFLOW_REF": (
+        "dalgorosas/dalgoro-banana-intelligence/"
+        ".github/workflows/dbi-migration-integration.yml@refs/pull/48/merge"
+    ),
+    "GITHUB_JOB": "dbi-postgis-integration",
+    "GITHUB_EVENT_NAME": "pull_request",
+    "RUNNER_ENVIRONMENT": "github-hosted",
+}
 
 
 class _Mappings:
@@ -70,6 +86,7 @@ class _FakeConnection:
         *,
         database_name="dbi_test",
         username="dbi_test_migrator",
+        session_username=None,
         search_path="dbi, public",
         role=None,
         capabilities=None,
@@ -77,6 +94,9 @@ class _FakeConnection:
     ):
         self.database_name = database_name
         self.username = username
+        self.session_username = (
+            username if session_username is None else session_username
+        )
         self.search_path = search_path
         self.role = role or {
             field: False
@@ -104,6 +124,7 @@ class _FakeConnection:
                 row={
                     "database_name": self.database_name,
                     "username": self.username,
+                    "session_username": self.session_username,
                     "search_path": self.search_path,
                 }
             )
@@ -180,6 +201,22 @@ def validate_targets() -> None:
             running_in_ci=True,
         )
     )
+
+
+def validate_authorized_runtime() -> None:
+    for event_name in ("pull_request", "push", "workflow_dispatch"):
+        runtime = dict(AUTHORIZED_RUNTIME)
+        runtime["GITHUB_EVENT_NAME"] = event_name
+        assert is_authorized_github_actions_runtime(runtime) is True
+
+    for field in AUTHORIZED_RUNTIME:
+        runtime = dict(AUTHORIZED_RUNTIME)
+        runtime[field] = "valor-no-autorizado"
+        assert is_authorized_github_actions_runtime(runtime) is False
+
+    missing_workflow_ref = dict(AUTHORIZED_RUNTIME)
+    missing_workflow_ref.pop("GITHUB_WORKFLOW_REF")
+    assert is_authorized_github_actions_runtime(missing_workflow_ref) is False
 
 
 def validate_confirmation() -> None:
@@ -271,6 +308,7 @@ def validate_read_only_preflight() -> None:
     rejected_connections = (
         _FakeConnection(database_name="dbi_shadow"),
         _FakeConnection(username="dbi_test_owner"),
+        _FakeConnection(session_username="postgres"),
         _FakeConnection(search_path="public, dbi"),
         _FakeConnection(role=privileged_role),
         _FakeConnection(capabilities={"postgis_available": False, "dbi_schema_available": True, "version_table_available": False}),
@@ -299,6 +337,8 @@ def validate_static_boundaries() -> None:
         BACKEND / "app" / "dbi" / "migration_control.py"
     ).read_text(encoding="utf-8")
     control_lower = control_source.lower()
+    assert "github_workflow_ref" in control_lower
+    assert "runner_environment" in control_lower
     for forbidden in (
         "create_engine",
         "engine_from_config",
@@ -333,6 +373,7 @@ def validate_static_boundaries() -> None:
     ).read_text(encoding="utf-8")
     preflight_lower = preflight_source.lower()
     assert "connection.execute" in preflight_lower
+    assert "session_user as session_username" in preflight_lower
     for forbidden in (
         "create_engine",
         "engine_from_config",
@@ -352,6 +393,7 @@ def validate_static_boundaries() -> None:
 
 def main() -> None:
     validate_targets()
+    validate_authorized_runtime()
     validate_confirmation()
     validate_evidence_contract()
     validate_offline_plan()
