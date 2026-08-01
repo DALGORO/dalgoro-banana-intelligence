@@ -221,6 +221,7 @@ class DBIAdminPolicy:
         if (
             before.principal_ref != after.principal_ref
             or before.tenant_ref != after.tenant_ref
+            or before.principal_active != after.principal_active
         ):
             raise DBIAdminConflict()
 
