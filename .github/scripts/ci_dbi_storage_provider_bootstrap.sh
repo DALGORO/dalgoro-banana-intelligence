@@ -116,11 +116,26 @@ if [[ "${version_output}" != *"4.29"* ]]; then
 fi
 
 container_logs="$(docker logs "${CONTAINER_NAME}" 2>&1 || true)"
-if grep -F "${access_key}" <<<"${container_logs}" >/dev/null \
-  || grep -F "${secret_key}" <<<"${container_logs}" >/dev/null; then
-  echo "Las credenciales sintéticas aparecieron en los logs del proveedor." >&2
+if grep -F "${secret_key}" <<<"${container_logs}" >/dev/null; then
+  echo "La clave secreta sintética apareció en los logs del proveedor." >&2
   diagnose_container
   exit 1
+fi
+
+access_key_log_count="$(grep -F -c "${access_key}" <<<"${container_logs}" || true)"
+if (( access_key_log_count > 1 )); then
+  echo "El identificador temporal apareció más veces de lo permitido en logs." >&2
+  diagnose_container
+  exit 1
+fi
+if (( access_key_log_count == 1 )); then
+  access_key_log_line="$(grep -F "${access_key}" <<<"${container_logs}")"
+  if [[ "${access_key_log_line}" != *"Added admin identity from AWS environment variables:"* \
+    || "${access_key_log_line}" != *"accessKey="* ]]; then
+    echo "El identificador temporal apareció fuera de la línea esperada." >&2
+    diagnose_container
+    exit 1
+  fi
 fi
 
 cleanup
@@ -141,7 +156,8 @@ if [[ -n "${GITHUB_STEP_SUMMARY:-}" ]]; then
     echo "- Puerto publicado: \`127.0.0.1:8333\`"
     echo "- Capacidades efectivas: \`CHOWN\`, \`SETGID\`, \`SETUID\`"
     echo "- Acceso anónimo: denegado con HTTP 403"
-    echo "- Credenciales: sintéticas, enmascaradas y no persistidas"
+    echo "- Clave secreta: ausente de logs"
+    echo "- Identificador de acceso: temporal, enmascarado y limitado a la línea de alta esperada"
     echo "- Datos: ningún archivo ni activo real"
     echo "- Persistencia: sin bind mounts ni volúmenes"
     echo "- Limpieza: contenedor eliminado al finalizar"
