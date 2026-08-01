@@ -154,6 +154,11 @@ jobs:
           PYTHONPATH: .
         run: python ../../../.github/scripts/ci_dbi_admin_repository.py
 
+      - name: Validar estado administrativo DBI versionado offline
+        env:
+          PYTHONPATH: .
+        run: python ../../../.github/scripts/ci_dbi_admin_state.py
+
       - name: Validar identidad y membresías DBI offline
         env:
           PYTHONPATH: .
