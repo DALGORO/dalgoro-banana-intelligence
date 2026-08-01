@@ -4,9 +4,14 @@ from __future__ import annotations
 
 import os
 
+from ci_dbi_admin_actor import main as validate_dbi_admin_actor
+
 
 def main() -> None:
-    """Importa FastAPI y comprueba los endpoints exentos de base de datos."""
+    """Valida actor DBI, importa FastAPI y comprueba endpoints sin base."""
+
+    validate_dbi_admin_actor()
+
     os.environ["DATABASE_URL"] = "sqlite+pysqlite:///:memory:"
     os.environ["JWT_SECRET"] = "dbi-ci-placeholder"
     os.environ["ENABLE_DOCS"] = "0"
