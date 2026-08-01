@@ -4,6 +4,7 @@ set -euo pipefail
 readonly APPROVED_PINNED_REF="docker.io/chrislusf/seaweedfs:4.29@sha256:d47c7ee99fcb951351d7194915f4e3a5ea604a8e8871183d713907dec4fb9bf5"
 readonly CONTAINER_NAME="dbi-seaweedfs-ci"
 readonly SYNTHETIC_BUCKET="dbi-ci-synthetic"
+readonly FORBIDDEN_BUCKET="dbi-ci-forbidden"
 readonly HOST_ENDPOINT="http://127.0.0.1:8333"
 
 provided_ref="${1:-}"
@@ -17,6 +18,7 @@ data_tmpfs_size="128m"
 tmp_tmpfs_size="32m"
 memory_limit="512m"
 mini_extra_args=()
+iam_config_file=""
 
 if [[ "${integration_enabled}" == "1" ]]; then
   # SeaweedFS mini reserva varios volúmenes para una colección S3. El mínimo
@@ -30,6 +32,9 @@ fi
 
 cleanup() {
   docker rm --force "${CONTAINER_NAME}" >/dev/null 2>&1 || true
+  if [[ -n "${iam_config_file}" ]]; then
+    rm -f "${iam_config_file}"
+  fi
 }
 trap cleanup EXIT
 cleanup
@@ -40,9 +45,50 @@ printf '::add-mask::%s\n' "${access_key}"
 printf '::add-mask::%s\n' "${secret_key}"
 export AWS_ACCESS_KEY_ID="${access_key}"
 export AWS_SECRET_ACCESS_KEY="${secret_key}"
-export S3_BUCKET="${SYNTHETIC_BUCKET}"
 export DBI_STORAGE_S3_ENDPOINT_URL="${HOST_ENDPOINT}"
 export DBI_STORAGE_S3_BUCKET="${SYNTHETIC_BUCKET}"
+export DBI_STORAGE_S3_FORBIDDEN_BUCKET="${FORBIDDEN_BUCKET}"
+
+iam_config_file="$(mktemp)"
+chmod 600 "${iam_config_file}"
+DBI_STORAGE_IAM_CONFIG_FILE="${iam_config_file}" python - <<'PY'
+from __future__ import annotations
+
+import json
+import os
+from pathlib import Path
+
+bucket = os.environ["DBI_STORAGE_S3_BUCKET"]
+access_key = os.environ["AWS_ACCESS_KEY_ID"]
+secret_key = os.environ["AWS_SECRET_ACCESS_KEY"]
+config_path = Path(os.environ["DBI_STORAGE_IAM_CONFIG_FILE"])
+actions = [
+    f"Read:{bucket}",
+    f"List:{bucket}",
+    f"Tagging:{bucket}",
+    f"Write:{bucket}",
+]
+assert "Admin" not in actions
+assert all("*" not in action for action in actions)
+config = {
+    "identities": [
+        {
+            "name": "dbi-ci-bucket-user",
+            "credentials": [
+                {
+                    "accessKey": access_key,
+                    "secretKey": secret_key,
+                }
+            ],
+            "actions": actions,
+        }
+    ]
+}
+config_path.write_text(
+    json.dumps(config, separators=(",", ":")),
+    encoding="utf-8",
+)
+PY
 
 diagnose_container() {
   if ! docker inspect "${CONTAINER_NAME}" >/dev/null 2>&1; then
@@ -73,12 +119,15 @@ if ! grep -F 'sha256:d47c7ee99fcb951351d7194915f4e3a5ea604a8e8871183d713907dec4f
   exit 1
 fi
 
-docker run --detach \
+mini_command="chown seaweedfs:seaweedfs /dbi-s3.json && chmod 600 /dbi-s3.json && exec /entrypoint.sh mini -dir=/data -s3.config=/dbi-s3.json"
+for argument in "${mini_extra_args[@]}"; do
+  mini_command+=" ${argument}"
+done
+
+docker create \
   --name "${CONTAINER_NAME}" \
   --publish 127.0.0.1:8333:8333 \
-  --env AWS_ACCESS_KEY_ID \
-  --env AWS_SECRET_ACCESS_KEY \
-  --env S3_BUCKET \
+  --env "S3_BUCKET=${SYNTHETIC_BUCKET},${FORBIDDEN_BUCKET}" \
   --tmpfs "/data:rw,nosuid,nodev,size=${data_tmpfs_size}" \
   --tmpfs "/tmp:rw,nosuid,nodev,size=${tmp_tmpfs_size}" \
   --cap-drop ALL \
@@ -89,8 +138,22 @@ docker run --detach \
   --pids-limit 256 \
   --memory "${memory_limit}" \
   --cpus 1 \
+  --entrypoint /bin/sh \
   "${APPROVED_PINNED_REF}" \
-  mini -dir=/data "${mini_extra_args[@]}" >/dev/null
+  -c "${mini_command}" >/dev/null
+
+docker cp "${iam_config_file}" "${CONTAINER_NAME}:/dbi-s3.json"
+rm -f "${iam_config_file}"
+iam_config_file=""
+
+container_environment="$(docker inspect "${CONTAINER_NAME}" --format '{{range .Config.Env}}{{println .}}{{end}}')"
+if grep -F "${access_key}" <<<"${container_environment}" >/dev/null \
+  || grep -F "${secret_key}" <<<"${container_environment}" >/dev/null; then
+  echo "Las credenciales sintéticas no pueden persistir en el entorno del contenedor." >&2
+  exit 1
+fi
+
+docker start "${CONTAINER_NAME}" >/dev/null
 
 for _ in $(seq 1 60); do
   if ! docker inspect "${CONTAINER_NAME}" --format '{{.State.Running}}' 2>/dev/null | grep -Fx true >/dev/null; then
@@ -143,26 +206,11 @@ if [[ "${integration_enabled}" == "1" ]]; then
 fi
 
 container_logs="$(docker logs "${CONTAINER_NAME}" 2>&1 || true)"
-if grep -F "${secret_key}" <<<"${container_logs}" >/dev/null; then
-  echo "La clave secreta sintética apareció en los logs del proveedor." >&2
+if grep -F "${access_key}" <<<"${container_logs}" >/dev/null \
+  || grep -F "${secret_key}" <<<"${container_logs}" >/dev/null; then
+  echo "Las credenciales sintéticas aparecieron en los logs del proveedor." >&2
   diagnose_container
   exit 1
-fi
-
-access_key_log_count="$(grep -F -c "${access_key}" <<<"${container_logs}" || true)"
-if (( access_key_log_count > 1 )); then
-  echo "El identificador temporal apareció más veces de lo permitido en logs." >&2
-  diagnose_container
-  exit 1
-fi
-if (( access_key_log_count == 1 )); then
-  access_key_log_line="$(grep -F "${access_key}" <<<"${container_logs}")"
-  if [[ "${access_key_log_line}" != *"Added admin identity from AWS environment variables:"* \
-    || "${access_key_log_line}" != *"accessKey="* ]]; then
-    echo "El identificador temporal apareció fuera de la línea esperada." >&2
-    diagnose_container
-    exit 1
-  fi
 fi
 
 cleanup
@@ -173,7 +221,7 @@ if docker ps --all --format '{{.Names}}' | grep -Fx "${CONTAINER_NAME}" >/dev/nu
   exit 1
 fi
 
-printf 'SeaweedFS 4.29 efímero: privacidad y limpieza aprobadas.\n'
+printf 'SeaweedFS 4.29 efímero: privacidad, mínimo privilegio y limpieza aprobados.\n'
 
 if [[ -n "${GITHUB_STEP_SUMMARY:-}" ]]; then
   {
@@ -182,9 +230,10 @@ if [[ -n "${GITHUB_STEP_SUMMARY:-}" ]]; then
     echo "- Imagen: \`${APPROVED_PINNED_REF}\`"
     echo "- Puerto publicado: \`127.0.0.1:8333\`"
     echo "- Capacidades efectivas: \`CHOWN\`, \`SETGID\`, \`SETUID\`"
+    echo "- Identidad S3: limitada a \`${SYNTHETIC_BUCKET}\`; sin acción \`Admin\`"
+    echo "- Acceso transversal: \`${FORBIDDEN_BUCKET}\` reservado para prueba negativa"
     echo "- Acceso anónimo: denegado con HTTP 403"
-    echo "- Clave secreta: ausente de logs"
-    echo "- Identificador de acceso: temporal, enmascarado y limitado a la línea de alta esperada"
+    echo "- Credenciales: ausentes del entorno y los logs del contenedor"
     echo "- Datos: exclusivamente objetos sintéticos cuando se activa la integración"
     echo "- Persistencia: tmpfs; sin bind mounts ni volúmenes"
     echo "- Capacidad temporal de integración: \`${data_tmpfs_size}\`"
