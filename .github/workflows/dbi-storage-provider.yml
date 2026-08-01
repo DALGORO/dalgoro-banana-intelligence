@@ -1,4 +1,4 @@
-name: DBI storage provider discovery
+name: DBI storage provider integration
 
 "on":
   pull_request:
@@ -6,6 +6,7 @@ name: DBI storage provider discovery
       - main
     paths:
       - ".github/scripts/ci_dbi_storage_provider_digest.sh"
+      - ".github/scripts/ci_dbi_storage_provider_bootstrap.sh"
       - ".github/workflows/dbi-storage-provider.yml"
       - "apps/platform-web/backend/app/dbi/storage_*.py"
       - "apps/platform-web/backend/requirements.txt"
@@ -21,28 +22,25 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
-  resolve-image-digest:
-    name: DBI storage · resolver digest sin ejecutar imagen
+  provider-boundary:
+    name: DBI storage · SeaweedFS efímero y privado
     runs-on: ubuntu-latest
-    timeout-minutes: 10
+    timeout-minutes: 15
 
     steps:
       - name: Descargar código
         uses: actions/checkout@9f698171ed81b15d1823a05fc7211befd50c8ae0 # v6.0.3
 
-      - name: Verificar script
-        run: bash -n .github/scripts/ci_dbi_storage_provider_digest.sh
+      - name: Verificar scripts
+        run: |
+          bash -n .github/scripts/ci_dbi_storage_provider_digest.sh
+          bash -n .github/scripts/ci_dbi_storage_provider_bootstrap.sh
 
-      - name: Resolver manifiesto OCI aprobado
+      - name: Validar digest inmutable
         id: provider
         run: bash .github/scripts/ci_dbi_storage_provider_digest.sh
 
-      - name: Confirmar que no se ejecutó contenedor
-        run: |
-          if docker ps -a --format '{{.Image}}' | grep -F 'chrislusf/seaweedfs' >/dev/null; then
-            echo "La etapa de descubrimiento no debe crear contenedores." >&2
-            exit 1
-          fi
-          printf 'Digest auditado: %s@%s\n' \
-            "${{ steps.provider.outputs.image_ref }}" \
-            "${{ steps.provider.outputs.image_digest }}"
+      - name: Ejecutar proveedor efímero endurecido
+        run: >-
+          bash .github/scripts/ci_dbi_storage_provider_bootstrap.sh
+          "${{ steps.provider.outputs.pinned_ref }}"
