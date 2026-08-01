@@ -25,6 +25,8 @@ printf '::add-mask::%s\n' "${secret_key}"
 export AWS_ACCESS_KEY_ID="${access_key}"
 export AWS_SECRET_ACCESS_KEY="${secret_key}"
 export S3_BUCKET="${SYNTHETIC_BUCKET}"
+export DBI_STORAGE_S3_ENDPOINT_URL="${HOST_ENDPOINT}"
+export DBI_STORAGE_S3_BUCKET="${SYNTHETIC_BUCKET}"
 
 diagnose_container() {
   if ! docker inspect "${CONTAINER_NAME}" >/dev/null 2>&1; then
@@ -115,6 +117,10 @@ if [[ "${version_output}" != *"4.29"* ]]; then
   exit 1
 fi
 
+if [[ "${DBI_STORAGE_RUN_S3_INTEGRATION:-0}" == "1" ]]; then
+  python .github/scripts/ci_dbi_storage_s3_integration.py
+fi
+
 container_logs="$(docker logs "${CONTAINER_NAME}" 2>&1 || true)"
 if grep -F "${secret_key}" <<<"${container_logs}" >/dev/null; then
   echo "La clave secreta sintética apareció en los logs del proveedor." >&2
@@ -158,7 +164,7 @@ if [[ -n "${GITHUB_STEP_SUMMARY:-}" ]]; then
     echo "- Acceso anónimo: denegado con HTTP 403"
     echo "- Clave secreta: ausente de logs"
     echo "- Identificador de acceso: temporal, enmascarado y limitado a la línea de alta esperada"
-    echo "- Datos: ningún archivo ni activo real"
+    echo "- Datos: exclusivamente objetos sintéticos cuando se activa la integración"
     echo "- Persistencia: sin bind mounts ni volúmenes"
     echo "- Limpieza: contenedor eliminado al finalizar"
   } >> "${GITHUB_STEP_SUMMARY}"
