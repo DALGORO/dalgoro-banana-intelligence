@@ -13,15 +13,10 @@ from app.dbi.admin_policy import (
     DBIAdminConflict,
     DBIAdminPolicy,
 )
-from app.dbi.admin_state import DBIAdminPersistedMembershipState
-
-
-@dataclass(frozen=True, slots=True)
-class DBIAdminLockedMembershipStates:
-    """Estados cargados después de adquirir locks organizacionales y de fila."""
-
-    lock_keys: tuple[int, ...]
-    states: Mapping[UUID, DBIAdminPersistedMembershipState]
+from app.dbi.admin_state import (
+    DBIAdminLockedMembershipStates,
+    DBIAdminPersistedMembershipState,
+)
 
 
 class DBIAdminGuardRepositoryPort(Protocol):
