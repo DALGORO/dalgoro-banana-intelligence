@@ -163,13 +163,22 @@ def validate_complete_state_and_hierarchy() -> None:
     assert authority.organization_scopes == frozenset({ORG_A})
     assert authority.effective_admin_organizations == frozenset({ORG_A})
     assert authority.all_organization_refs == frozenset({ORG_A, ORG_B})
-    assert DBIFarmScope(organization_ref=ORG_A, farm_id=farm_a) in authority.farm_scopes
-    assert DBIFarmScope(organization_ref=ORG_B, farm_id=farm_b) in authority.farm_scopes
-    assert DBIPlotScope(
+    assert authority.farm_scopes == frozenset(
+        {DBIFarmScope(organization_ref=ORG_A, farm_id=farm_a)}
+    )
+    assert DBIFarmScope(
         organization_ref=ORG_B,
         farm_id=farm_b,
-        plot_id=plot_b,
-    ) in authority.plot_scopes
+    ) not in authority.farm_scopes
+    assert authority.plot_scopes == frozenset(
+        {
+            DBIPlotScope(
+                organization_ref=ORG_B,
+                farm_id=farm_b,
+                plot_id=plot_b,
+            )
+        }
+    )
 
 
 def validate_statuses_and_versions() -> None:
@@ -346,9 +355,10 @@ def validate_static_boundaries() -> None:
         "require_principal_version",
         "require_membership_version",
         "dbiadminmembershipstatus",
-        "farm_scopes.add(farm_scope)",
+        "plot_scopes.add(plot_scope)",
     ):
         assert required in source
+    assert source.count("farm_scopes.add(farm_scope)") == 1
 
     for forbidden in (
         "session",
