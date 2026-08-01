@@ -9,6 +9,7 @@ from sqlalchemy import or_, select
 from sqlalchemy.dialects.postgresql import insert as postgresql_insert
 
 from app.dbi.admin_creation_plan import (
+    DBIAdminCreationAction,
     DBIAdminMembershipCreationPlan,
     DBIAdminPlannedCreationAuditEvent,
     DBIAdminPrincipalRegistrationPlan,
@@ -57,6 +58,7 @@ def _validated_events(
     events: Iterable[object],
     *,
     organization_refs: frozenset[str],
+    expected_action: DBIAdminCreationAction,
     resource_type: str,
     resource_ref: str,
     correlation_ref: str,
@@ -67,6 +69,7 @@ def _validated_events(
     if not all(
         isinstance(event, DBIAdminPlannedCreationAuditEvent)
         and event.organization_ref in organization_refs
+        and event.action is expected_action
         and event.resource_type == resource_type
         and event.resource_ref == resource_ref
         and event.correlation_ref == correlation_ref
@@ -171,6 +174,7 @@ class DBIAdminCreationPersistenceRepository(DBIAdminRepository):
         events = _validated_events(
             plan.audit_events,
             organization_refs=plan.organization_refs,
+            expected_action=DBIAdminCreationAction.PRINCIPAL_REGISTERED,
             resource_type="principal",
             resource_ref=str(plan.principal_id),
             correlation_ref=plan.correlation_ref,
@@ -336,6 +340,7 @@ class DBIAdminCreationPersistenceRepository(DBIAdminRepository):
         events = _validated_events(
             plan.audit_events,
             organization_refs=plan.requested.all_organization_refs,
+            expected_action=DBIAdminCreationAction.MEMBERSHIP_CREATED,
             resource_type="membership",
             resource_ref=str(plan.membership_id),
             correlation_ref=plan.correlation_ref,
