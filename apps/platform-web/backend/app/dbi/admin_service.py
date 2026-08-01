@@ -65,7 +65,13 @@ def _require_current_version(
 
 
 class DBIAdminService:
-    """Coordina política, concurrencia y locks sin aplicar mutaciones."""
+    """Coordina política, concurrencia y locks sin aplicar mutaciones.
+
+    Para cambios de membresía, ``actor``, ``before`` y
+    ``persisted_updated_at`` deben provenir de las filas ya bloqueadas con
+    ``FOR UPDATE`` dentro de la misma transacción. Esta guarda no sustituye el
+    bloqueo de filas ni abre una transacción propia.
+    """
 
     def __init__(self, repository: DBIAdminGuardRepositoryPort) -> None:
         self._repository = repository
@@ -125,15 +131,16 @@ class DBIAdminService:
         expected_updated_at: datetime,
         persisted_updated_at: datetime,
     ) -> DBIAdminGuardEvidence:
-        """Protege una mutación de membresía antes de aplicar cualquier cambio."""
+        """Protege una mutación usando estados ya bloqueados y actuales."""
 
         if not isinstance(target_membership_id, UUID):
             raise DBIAdminConflict()
+
+        DBIAdminPolicy.require_membership_change(actor, before, after)
         _require_current_version(
             expected_updated_at=expected_updated_at,
             persisted_updated_at=persisted_updated_at,
         )
-        DBIAdminPolicy.require_membership_change(actor, before, after)
 
         organizations = frozenset(
             set(before.all_organization_refs) | set(after.all_organization_refs)
