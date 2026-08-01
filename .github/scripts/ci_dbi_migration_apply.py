@@ -20,8 +20,12 @@ from app.dbi.migration_preflight import (  # noqa: E402
     FORBIDDEN_ROLE_CAPABILITIES,
 )
 
-HEAD = "dbi_0006_plot_boundaries"
-KNOWN = {"dbi_0001_baseline", HEAD}
+HEAD = "dbi_0007_admin_audit"
+KNOWN = {
+    "dbi_0001_baseline",
+    "dbi_0006_plot_boundaries",
+    HEAD,
+}
 AUTHORIZED_RUNTIME = {
     "GITHUB_ACTIONS": "true",
     "CI": "true",
