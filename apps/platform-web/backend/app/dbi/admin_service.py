@@ -1,4 +1,4 @@
-"""Guardas y mutaciones transaccionales para administración DBI."""
+"""Guardas, altas y mutaciones transaccionales para administración DBI."""
 
 from __future__ import annotations
 
@@ -8,6 +8,12 @@ from datetime import datetime
 from typing import Protocol
 from uuid import UUID
 
+from app.dbi.admin_creation_plan import (
+    DBIAdminMembershipCreationPlan,
+    DBIAdminPrincipalRegistrationPlan,
+    plan_membership_creation,
+    plan_principal_registration,
+)
 from app.dbi.admin_mutation_plan import (
     DBIAdminMembershipMutationPlan,
     plan_membership_mutation,
@@ -25,7 +31,7 @@ from app.dbi.authorization import DBIFarmScope, DBIPlotScope
 
 
 class DBIAdminGuardRepositoryPort(Protocol):
-    """Puerto que impone locks, carga exacta y aplicación sin commit interno."""
+    """Puerto que impone locks, carga exacta y persistencia sin commit interno."""
 
     def lock_and_load_membership_states(
         self,
@@ -50,6 +56,22 @@ class DBIAdminGuardRepositoryPort(Protocol):
         excluded_membership_id: UUID,
     ) -> dict[str, int]: ...
 
+    def register_principal(
+        self,
+        *,
+        actor_principal_id: UUID,
+        actor_membership_id: UUID,
+        plan: DBIAdminPrincipalRegistrationPlan,
+    ) -> bool: ...
+
+    def create_membership(
+        self,
+        *,
+        actor_principal_id: UUID,
+        actor_membership_id: UUID,
+        plan: DBIAdminMembershipCreationPlan,
+    ) -> bool: ...
+
     def apply_membership_mutation(
         self,
         *,
@@ -71,11 +93,37 @@ class DBIAdminGuardEvidence:
 
 
 @dataclass(frozen=True, slots=True)
+class DBIAdminPrincipalRegistrationEvidence:
+    """Resultado de un registro nuevo o idempotente de principal."""
+
+    guard: DBIAdminGuardEvidence
+    plan: DBIAdminPrincipalRegistrationPlan
+    created: bool
+
+
+@dataclass(frozen=True, slots=True)
+class DBIAdminMembershipCreationEvidence:
+    """Resultado de una creación nueva o idempotente de membresía."""
+
+    guard: DBIAdminGuardEvidence
+    plan: DBIAdminMembershipCreationPlan
+    created: bool
+
+
+@dataclass(frozen=True, slots=True)
 class DBIAdminMembershipMutationEvidence:
     """Resultado autorizado y plan aplicado dentro de la transacción externa."""
 
     guard: DBIAdminGuardEvidence
     plan: DBIAdminMembershipMutationPlan
+
+
+@dataclass(frozen=True, slots=True)
+class _AuthorizedActorOperation:
+    locked: DBIAdminLockedMembershipStates
+    actor: DBIAdminPersistedMembershipState
+    tenant_ref: str
+    organization_refs: frozenset[str]
 
 
 @dataclass(frozen=True, slots=True)
@@ -143,7 +191,17 @@ def _require_authority_match(
         raise DBIAdminConflict()
 
 
-def _guard_evidence(
+def _actor_guard_evidence(
+    authorized: _AuthorizedActorOperation,
+) -> DBIAdminGuardEvidence:
+    return DBIAdminGuardEvidence(
+        tenant_ref=authorized.tenant_ref,
+        organization_refs=authorized.organization_refs,
+        lock_keys=authorized.locked.lock_keys,
+    )
+
+
+def _change_guard_evidence(
     authorized: _AuthorizedMembershipChange,
 ) -> DBIAdminGuardEvidence:
     return DBIAdminGuardEvidence(
@@ -155,12 +213,11 @@ def _guard_evidence(
 
 
 class DBIAdminService:
-    """Coordina locks, política, plan y persistencia sin controlar transacciones.
+    """Coordina locks, política, planes y persistencia sin abrir transacciones.
 
-    El repositorio adquiere primero advisory locks organizacionales y bloquea
-    las membresías como raíces mutables. Después carga principal e hijos, valida
-    la jerarquía agrícola solicitada y aplica el plan sobre la misma transacción
-    externa.
+    El repositorio adquiere advisory locks organizacionales y bloquea las
+    membresías como raíces mutables. El servicio valida autoridad y jerarquía,
+    construye planes puros y delega la persistencia sobre la misma sesión.
     """
 
     def __init__(self, repository: DBIAdminGuardRepositoryPort) -> None:
@@ -195,7 +252,7 @@ class DBIAdminService:
         ):
             raise DBIAdminConflict()
 
-    def guard_principal_registration(
+    def _authorize_principal_registration(
         self,
         actor: DBIAdminAuthoritySnapshot,
         *,
@@ -203,9 +260,7 @@ class DBIAdminService:
         target_principal_ref: str,
         tenant_ref: str,
         organization_refs: frozenset[str],
-    ) -> DBIAdminGuardEvidence:
-        """Serializa y autoriza el registro idempotente de un principal."""
-
+    ) -> _AuthorizedActorOperation:
         actor = _required_snapshot(actor)
         actor_membership_id = _required_uuid(actor_membership_id)
         locked = self._lock_and_load(
@@ -221,21 +276,82 @@ class DBIAdminService:
             tenant_ref=tenant_ref,
             organization_refs=organization_refs,
         )
-        return DBIAdminGuardEvidence(
+        return _AuthorizedActorOperation(
+            locked=locked,
+            actor=persisted_actor,
             tenant_ref=tenant_ref,
             organization_refs=organization_refs,
-            lock_keys=locked.lock_keys,
         )
 
-    def guard_membership_create(
+    def guard_principal_registration(
+        self,
+        actor: DBIAdminAuthoritySnapshot,
+        *,
+        actor_membership_id: UUID,
+        target_principal_ref: str,
+        tenant_ref: str,
+        organization_refs: frozenset[str],
+    ) -> DBIAdminGuardEvidence:
+        """Serializa y autoriza el registro idempotente de un principal."""
+
+        return _actor_guard_evidence(
+            self._authorize_principal_registration(
+                actor,
+                actor_membership_id=actor_membership_id,
+                target_principal_ref=target_principal_ref,
+                tenant_ref=tenant_ref,
+                organization_refs=organization_refs,
+            )
+        )
+
+    def register_principal(
+        self,
+        actor: DBIAdminAuthoritySnapshot,
+        *,
+        actor_membership_id: UUID,
+        principal_id: UUID,
+        target_principal_ref: str,
+        tenant_ref: str,
+        organization_refs: frozenset[str],
+        occurred_at: datetime,
+        correlation_ref: str,
+    ) -> DBIAdminPrincipalRegistrationEvidence:
+        """Autoriza y registra un principal activo de forma idempotente."""
+
+        actor_membership_id = _required_uuid(actor_membership_id)
+        authorized = self._authorize_principal_registration(
+            actor,
+            actor_membership_id=actor_membership_id,
+            target_principal_ref=target_principal_ref,
+            tenant_ref=tenant_ref,
+            organization_refs=organization_refs,
+        )
+        plan = plan_principal_registration(
+            principal_id=principal_id,
+            legacy_identity_ref=target_principal_ref,
+            tenant_ref=tenant_ref,
+            organization_refs=organization_refs,
+            occurred_at=occurred_at,
+            correlation_ref=correlation_ref,
+        )
+        created = self._repository.register_principal(
+            actor_principal_id=authorized.actor.principal_id,
+            actor_membership_id=actor_membership_id,
+            plan=plan,
+        )
+        return DBIAdminPrincipalRegistrationEvidence(
+            guard=_actor_guard_evidence(authorized),
+            plan=plan,
+            created=created,
+        )
+
+    def _authorize_membership_create(
         self,
         actor: DBIAdminAuthoritySnapshot,
         requested: DBIAdminAuthoritySnapshot,
         *,
         actor_membership_id: UUID,
-    ) -> DBIAdminGuardEvidence:
-        """Serializa y autoriza la creación de una membresía activa."""
-
+    ) -> _AuthorizedActorOperation:
         actor = _required_snapshot(actor)
         requested = _required_snapshot(requested)
         actor_membership_id = _required_uuid(actor_membership_id)
@@ -252,10 +368,65 @@ class DBIAdminService:
             requested,
         )
         self._require_scope_hierarchy(requested)
-        return DBIAdminGuardEvidence(
+        return _AuthorizedActorOperation(
+            locked=locked,
+            actor=persisted_actor,
             tenant_ref=requested.tenant_ref,
             organization_refs=organizations,
-            lock_keys=locked.lock_keys,
+        )
+
+    def guard_membership_create(
+        self,
+        actor: DBIAdminAuthoritySnapshot,
+        requested: DBIAdminAuthoritySnapshot,
+        *,
+        actor_membership_id: UUID,
+    ) -> DBIAdminGuardEvidence:
+        """Serializa y autoriza la creación de una membresía activa."""
+
+        return _actor_guard_evidence(
+            self._authorize_membership_create(
+                actor,
+                requested,
+                actor_membership_id=actor_membership_id,
+            )
+        )
+
+    def create_membership(
+        self,
+        actor: DBIAdminAuthoritySnapshot,
+        requested: DBIAdminAuthoritySnapshot,
+        *,
+        actor_membership_id: UUID,
+        membership_id: UUID,
+        principal_id: UUID,
+        occurred_at: datetime,
+        correlation_ref: str,
+    ) -> DBIAdminMembershipCreationEvidence:
+        """Autoriza y crea una membresía activa de forma idempotente."""
+
+        actor_membership_id = _required_uuid(actor_membership_id)
+        authorized = self._authorize_membership_create(
+            actor,
+            requested,
+            actor_membership_id=actor_membership_id,
+        )
+        plan = plan_membership_creation(
+            membership_id=membership_id,
+            principal_id=principal_id,
+            requested=requested,
+            occurred_at=occurred_at,
+            correlation_ref=correlation_ref,
+        )
+        created = self._repository.create_membership(
+            actor_principal_id=authorized.actor.principal_id,
+            actor_membership_id=actor_membership_id,
+            plan=plan,
+        )
+        return DBIAdminMembershipCreationEvidence(
+            guard=_actor_guard_evidence(authorized),
+            plan=plan,
+            created=created,
         )
 
     def _authorize_membership_change(
@@ -340,7 +511,7 @@ class DBIAdminService:
             target_membership_id=target_membership_id,
             expected_updated_at=expected_updated_at,
         )
-        return _guard_evidence(authorized)
+        return _change_guard_evidence(authorized)
 
     def mutate_membership(
         self,
@@ -377,6 +548,6 @@ class DBIAdminService:
             plan=plan,
         )
         return DBIAdminMembershipMutationEvidence(
-            guard=_guard_evidence(authorized),
+            guard=_change_guard_evidence(authorized),
             plan=plan,
         )
