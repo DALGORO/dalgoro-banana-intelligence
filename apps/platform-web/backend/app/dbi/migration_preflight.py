@@ -22,6 +22,7 @@ IDENTITY_SQL = """
 SELECT
   current_database() AS database_name,
   current_user AS username,
+  session_user AS session_username,
   current_setting('search_path') AS search_path
 """
 
@@ -146,9 +147,12 @@ def run_migration_preflight(
         raise DBIMigrationControlError(
             "La conexión abierta apunta a una base DBI distinta de la autorizada."
         )
-    if identity["username"] != target.expected_migrator_role:
+    if (
+        identity["username"] != target.expected_migrator_role
+        or identity["session_username"] != target.expected_migrator_role
+    ):
         raise DBIMigrationControlError(
-            "La conexión abierta no usa el rol migrador autorizado."
+            "La conexión debe autenticar y usar directamente el rol migrador autorizado."
         )
 
     search_path = _normalize_search_path(str(identity["search_path"]))
