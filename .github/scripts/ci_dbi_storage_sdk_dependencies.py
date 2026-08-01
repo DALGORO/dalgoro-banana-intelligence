@@ -51,10 +51,10 @@ def validate_dependency_surface() -> None:
     else:
         raise AssertionError("El extra CRT no está autorizado para DBI-STORAGE-001.")
 
-    boto3_metadata = metadata.metadata("boto3")
-    botocore_metadata = metadata.metadata("botocore")
-    assert boto3_metadata["Requires-Python"] == ">=3.10"
-    assert botocore_metadata["Requires-Python"] == ">=3.10"
+    for package_name in ("boto3", "botocore"):
+        requires_python = metadata.metadata(package_name)["Requires-Python"]
+        assert requires_python is not None
+        assert requires_python.replace(" ", "") == ">=3.10"
 
 
 def validate_offline_client_construction() -> None:
