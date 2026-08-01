@@ -73,12 +73,13 @@ def validate_success_metrics() -> None:
     with store.open_read(request.metadata.address) as stream:
         assert stream.read() == PAYLOAD
     grant = store.issue_temporary_access(
-        request.metadata.address,
+        request.metadata,
         mode=DBIStorageAccessMode.READ,
         issued_at=NOW,
         expires_at=NOW + timedelta(minutes=5),
     )
     assert grant.address == request.metadata.address
+    assert grant.metadata == request.metadata
     assert store.retire(
         request.metadata.address,
         retired_at=NOW + timedelta(seconds=1),
@@ -146,6 +147,30 @@ def validate_error_metrics() -> None:
     assert snapshot.bytes_verified == len(PAYLOAD)
 
 
+def validate_consumer_errors_are_not_storage_errors() -> None:
+    request = _request()
+    store = DBIMeteredObjectStore(
+        DBIInMemoryObjectStore(clock=lambda: NOW)
+    )
+    assert store.put(request, BytesIO(PAYLOAD)).created is True
+
+    try:
+        with store.open_read(request.metadata.address):
+            raise DBIStorageConflict("Error deliberado del consumidor.")
+    except DBIStorageConflict:
+        pass
+    else:
+        raise AssertionError("La excepción del consumidor debía propagarse.")
+
+    snapshot = store.metrics_snapshot()
+    assert snapshot.read_attempts == 1
+    assert snapshot.bytes_opened == len(PAYLOAD)
+    assert snapshot.conflict_errors == 0
+    assert snapshot.not_found_errors == 0
+    assert snapshot.integrity_errors == 0
+    assert snapshot.denied_errors == 0
+
+
 def validate_denied_metric() -> None:
     class DeniedStore:
         def stat(self, address):
@@ -211,6 +236,7 @@ def validate_metrics_surface() -> None:
 def main() -> None:
     validate_success_metrics()
     validate_error_metrics()
+    validate_consumer_errors_are_not_storage_errors()
     validate_denied_metric()
     validate_metrics_surface()
     print("Almacenamiento DBI: métricas agregadas aprobadas.")
