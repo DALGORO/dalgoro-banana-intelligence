@@ -119,6 +119,15 @@ def validate_snapshot_contract() -> None:
     assert snapshot.all_organization_refs == frozenset({ORG_A})
     assert snapshot.effective_admin_organizations == frozenset({ORG_A})
 
+    plot_only = _snapshot(
+        organization_scopes=frozenset(),
+        plot_scopes=frozenset({plot_scope}),
+    )
+    assert plot_only.farm_scopes == frozenset()
+    assert plot_only.plot_scopes == frozenset({plot_scope})
+    assert plot_only.all_organization_refs == frozenset({ORG_A})
+    assert plot_only.effective_admin_organizations == frozenset()
+
     inactive = _snapshot(principal_active=False)
     assert inactive.effective_admin_organizations == frozenset()
 
@@ -129,13 +138,6 @@ def validate_snapshot_contract() -> None:
 
     no_manage = _snapshot(permissions=frozenset({DBIPermission.READ}))
     assert no_manage.effective_admin_organizations == frozenset()
-
-    try:
-        _snapshot(plot_scopes=frozenset({plot_scope}))
-    except ValueError:
-        pass
-    else:
-        raise AssertionError("Un lote sin finca padre debía rechazarse.")
 
 
 def validate_organization_control() -> None:
@@ -451,6 +453,7 @@ def validate_static_boundaries() -> None:
     assert "actor != before" in source
     assert "and after != before" in source
     assert "require_remaining_administrators" in source
+    assert "todo ámbito de lote debe incluir" not in source
     assert "require_principal_change" not in source
     assert "activates_principal" not in source
 
