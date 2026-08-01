@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from typing import Annotated
 
-from fastapi import APIRouter, HTTPException, Query, status
+from fastapi import APIRouter, Depends, HTTPException, Query, status
 from pydantic import ValidationError
 from sqlalchemy.orm import Session
 
@@ -19,7 +19,6 @@ from app.dbi.admin_principal_schemas import (
     DBIAdminPrincipalReadResponse,
 )
 from app.dbi.dependencies import get_dbi_session
-from fastapi import Depends
 from app.dbi.models.identity import DBIPrincipalStatus
 
 router = APIRouter(prefix="/dbi/admin", tags=["dbi-admin"])
@@ -35,6 +34,20 @@ DBI_ADMIN_CONFLICT_DETAIL = (
     "La operación administrativa DBI entra en conflicto con el estado actual."
 )
 DBI_ADMIN_QUERY_INVALID_DETAIL = "Parámetros administrativos DBI inválidos."
+
+
+def get_dbi_admin_principal_reader(
+    session: SessionDependency,
+) -> DBIAdminPrincipalReader:
+    """Construye el lector sobre la sesión DBI de la solicitud."""
+
+    return DBIAdminPrincipalReader(session)
+
+
+PrincipalReaderDependency = Annotated[
+    DBIAdminPrincipalReader,
+    Depends(get_dbi_admin_principal_reader),
+]
 
 
 def _not_found() -> HTTPException:
@@ -70,8 +83,8 @@ def _lookup_query(organization_refs: list[str]) -> DBIAdminPrincipalLookupQuery:
 def get_principal(
     legacy_identity_ref: str,
     organization_ref: OrganizationQuery,
-    session: SessionDependency,
     actor: AdminActorDependency,
+    reader: PrincipalReaderDependency,
 ) -> DBIAdminPrincipalReadResponse:
     """Consulta un principal global bajo cobertura organizacional explícita."""
 
@@ -82,7 +95,7 @@ def get_principal(
             tenant_ref=actor.authority.tenant_ref,
             organization_refs=query.organization_set,
         )
-        principal = DBIAdminPrincipalReader(session).resolve(
+        principal = reader.resolve(
             legacy_identity_ref=legacy_identity_ref,
         )
     except (DBIAdminDenied, DBIAdminPrincipalNotFound) as error:
