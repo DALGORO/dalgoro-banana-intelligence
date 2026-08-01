@@ -69,6 +69,17 @@ def _run(argv, environment):
 def _ci_environment(url: str = TEST_URL):
     return {
         "GITHUB_ACTIONS": "true",
+        "CI": "true",
+        "GITHUB_SERVER_URL": "https://github.com",
+        "GITHUB_REPOSITORY": "dalgorosas/dalgoro-banana-intelligence",
+        "GITHUB_WORKFLOW": "DBI migrations integration",
+        "GITHUB_WORKFLOW_REF": (
+            "dalgorosas/dalgoro-banana-intelligence/"
+            ".github/workflows/dbi-migration-integration.yml@refs/pull/48/merge"
+        ),
+        "GITHUB_JOB": "dbi-postgis-integration",
+        "GITHUB_EVENT_NAME": "pull_request",
+        "RUNNER_ENVIRONMENT": "github-hosted",
         "DBI_ENVIRONMENT": "test",
         "DBI_DATABASE_URL": url,
     }
@@ -292,6 +303,22 @@ def validate_apply_scope_and_evidence() -> None:
     assert code == 2
     assert "ci" in stderr.lower()
 
+    spoofed_ci = {
+        "GITHUB_ACTIONS": "true",
+        "DBI_ENVIRONMENT": "test",
+        "DBI_DATABASE_URL": TEST_URL,
+    }
+    with patch(
+        "app.dbi.migration_cli.create_engine",
+        side_effect=AssertionError("runtime incompleto no debe conectar"),
+    ):
+        code, _, stderr = _run(
+            ["apply", "--confirm", "APPLY dbi_test"],
+            spoofed_ci,
+        )
+    assert code == 2
+    assert "workflow" in stderr.lower()
+
     remote = _ci_environment(
         TEST_URL.replace("127.0.0.1", "db.example.invalid")
     )
@@ -331,6 +358,7 @@ def validate_static_boundaries() -> None:
 
     assert 'default="plan"' in source
     assert 'choices=("plan", "verify", "apply")' in source
+    assert "require_authorized_github_actions_runtime()" in source
     assert 'command.upgrade' not in source
     assert "--yes" not in source
     assert "database_url" not in source
