@@ -327,7 +327,13 @@ def validate_migration_and_offline_sql() -> None:
     revision = scripts.get_revision("dbi_0006_plot_boundaries")
     assert revision is not None
     assert revision.down_revision == "dbi_0005_identity_memberships"
-    assert scripts.get_heads() == ["dbi_0006_plot_boundaries"]
+    assert scripts.get_heads() == ["dbi_0007_admin_audit"]
+
+    lineage = {
+        item.revision
+        for item in scripts.iterate_revisions("dbi_0007_admin_audit", "base")
+    }
+    assert "dbi_0006_plot_boundaries" in lineage
 
     output = StringIO()
     environment = {
