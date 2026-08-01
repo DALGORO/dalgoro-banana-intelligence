@@ -32,6 +32,12 @@ from app.dbi.migration_preflight import (  # noqa: E402
     run_migration_preflight,
 )
 
+HEAD = "dbi_0007_admin_audit"
+KNOWN = {
+    "dbi_0001_baseline",
+    "dbi_0006_plot_boundaries",
+    HEAD,
+}
 AUTHORIZED_RUNTIME = {
     "GITHUB_ACTIONS": "true",
     "CI": "true",
@@ -115,8 +121,6 @@ class _FakeConnection:
         self.executed.append(sql)
         compact = " ".join(sql.lower().split())
 
-        # ROLE_SQL contiene current_database() para comprobar propiedad.
-        # Debe reconocerse antes que la consulta de identidad.
         if "from pg_roles" in compact:
             return _Result(row=self.role)
         if "current_database() as database_name" in compact:
@@ -249,7 +253,7 @@ def validate_offline_plan() -> None:
     second = generate_offline_plan(config, running_in_ci=True)
 
     assert first.target.database_name == "dbi_test"
-    assert first.head_revision == "dbi_0006_plot_boundaries"
+    assert first.head_revision == HEAD
     assert first.fingerprint == second.fingerprint
     assert first.sql == second.sql
     assert len(first.fingerprint) == 64
@@ -258,6 +262,7 @@ def validate_offline_plan() -> None:
     assert "alembic_version_dbi" in first.sql
     assert "geometry(multipolygon,4326)" in compact_sql
     assert "ix_dbi_plots_boundary_gist" in first.sql
+    assert "dbi_admin_audit_events" in first.sql
     assert "placeholder" not in first.sql
     assert "example.invalid" not in first.sql
     assert "postgresql+psycopg://" not in first.sql
@@ -275,26 +280,25 @@ def validate_offline_plan() -> None:
 
 def validate_read_only_preflight() -> None:
     target = _test_target()
-    known = {"dbi_0001_baseline", "dbi_0006_plot_boundaries"}
 
     empty_connection = _FakeConnection()
     empty = run_migration_preflight(
         empty_connection,
         target=target,
-        known_revisions=known,
-        head_revision="dbi_0006_plot_boundaries",
+        known_revisions=KNOWN,
+        head_revision=HEAD,
     )
     assert empty.database_is_empty is True
     assert empty.current_revision is None
     assert empty.search_path == ("dbi", "public")
     assert len(empty_connection.executed) == 3
 
-    migrated_connection = _FakeConnection(revisions=("dbi_0006_plot_boundaries",))
+    migrated_connection = _FakeConnection(revisions=(HEAD,))
     migrated = run_migration_preflight(
         migrated_connection,
         target=target,
-        known_revisions=known,
-        head_revision="dbi_0006_plot_boundaries",
+        known_revisions=KNOWN,
+        head_revision=HEAD,
     )
     assert migrated.is_at_head is True
     assert len(migrated_connection.executed) == 4
@@ -314,15 +318,15 @@ def validate_read_only_preflight() -> None:
         _FakeConnection(capabilities={"postgis_available": False, "dbi_schema_available": True, "version_table_available": False}),
         _FakeConnection(capabilities={"postgis_available": True, "dbi_schema_available": False, "version_table_available": False}),
         _FakeConnection(revisions=("revision_unknown",)),
-        _FakeConnection(revisions=("dbi_0001_baseline", "dbi_0006_plot_boundaries")),
+        _FakeConnection(revisions=("dbi_0001_baseline", HEAD)),
     )
     for connection in rejected_connections:
         _assert_rejected(
             lambda connection=connection: run_migration_preflight(
                 connection,
                 target=target,
-                known_revisions=known,
-                head_revision="dbi_0006_plot_boundaries",
+                known_revisions=KNOWN,
+                head_revision=HEAD,
             )
         )
 
