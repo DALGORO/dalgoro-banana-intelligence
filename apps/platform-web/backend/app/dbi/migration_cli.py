@@ -29,6 +29,7 @@ from app.dbi.migration_apply import (
 from app.dbi.migration_control import (
     DBIMigrationControlError,
     require_apply_confirmation,
+    require_authorized_github_actions_runtime,
     validate_migration_target,
 )
 from app.dbi.migration_plan import generate_offline_plan
@@ -207,6 +208,7 @@ def _apply(
         raise DBIMigrationControlError(
             "Apply DBI solo está habilitado dentro de CI controlada."
         )
+    require_authorized_github_actions_runtime()
 
     target = validate_migration_target(config, running_in_ci=True)
     host = (config.url.host or "").strip().lower()
