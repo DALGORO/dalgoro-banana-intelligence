@@ -282,7 +282,7 @@ def validate_access_window(
 
 
 def validate_grant(value: object) -> DBIStorageTemporaryGrant:
-    """Valida una autorización efímera opaca sin interpretar su secreto."""
+    """Valida una autorización efímera opaca y sus metadatos vinculados."""
 
     if not isinstance(value, DBIStorageTemporaryGrant):
         raise DBIStorageConflict("grant debe ser DBIStorageTemporaryGrant.")
@@ -290,7 +290,7 @@ def validate_grant(value: object) -> DBIStorageTemporaryGrant:
         value.grant_ref
     ):
         raise DBIStorageConflict("grant_ref debe ser una referencia opaca acotada.")
-    validate_address(value.address)
+    validate_metadata(value.metadata)
     if not isinstance(value.mode, DBIStorageAccessMode):
         raise DBIStorageConflict("mode debe ser DBIStorageAccessMode.")
     issued, expires = validate_access_window(
