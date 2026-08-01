@@ -80,7 +80,7 @@ def _required_locked_states(
         raise DBIAdminConflict()
     if not isinstance(value.states, Mapping):
         raise DBIAdminConflict()
-    if not membership_ids.issubset(value.states.keys()):
+    if frozenset(value.states.keys()) != membership_ids:
         raise DBIAdminConflict()
     if not all(
         isinstance(membership_id, UUID)
@@ -131,7 +131,9 @@ class DBIAdminService:
     ) -> DBIAdminLockedMembershipStates:
         if not isinstance(membership_ids, frozenset) or not membership_ids:
             raise DBIAdminConflict()
-        normalized_ids = frozenset(_required_uuid(value) for value in membership_ids)
+        normalized_ids = frozenset(
+            _required_uuid(value) for value in membership_ids
+        )
         locked = self._repository.lock_and_load_membership_states(
             tenant_ref=tenant_ref,
             organization_refs=organization_refs,
