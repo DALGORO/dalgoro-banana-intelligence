@@ -5,6 +5,8 @@ name: DBI storage provider integration
     branches:
       - main
     paths:
+      - ".github/scripts/ci_backend_smoke.py"
+      - ".github/scripts/ci_dbi_storage_*.py"
       - ".github/scripts/ci_dbi_storage_provider_digest.sh"
       - ".github/scripts/ci_dbi_storage_provider_bootstrap.sh"
       - ".github/workflows/dbi-storage-provider.yml"
