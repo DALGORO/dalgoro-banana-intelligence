@@ -2,8 +2,10 @@
 
 from __future__ import annotations
 
+import os
 import sys
 from pathlib import Path
+from unittest.mock import patch
 
 from sqlalchemy.engine import make_url
 
@@ -14,9 +16,26 @@ sys.path.insert(0, str(BACKEND))
 from app.db.dbi_config import DBIDatabaseConfig  # noqa: E402
 from app.dbi.migration_apply import apply_migrations_controlled  # noqa: E402
 from app.dbi.migration_control import DBIMigrationControlError  # noqa: E402
+from app.dbi.migration_preflight import (  # noqa: E402
+    FORBIDDEN_ROLE_CAPABILITIES,
+)
 
 HEAD = "dbi_0006_plot_boundaries"
 KNOWN = {"dbi_0001_baseline", HEAD}
+AUTHORIZED_RUNTIME = {
+    "GITHUB_ACTIONS": "true",
+    "CI": "true",
+    "GITHUB_SERVER_URL": "https://github.com",
+    "GITHUB_REPOSITORY": "dalgorosas/dalgoro-banana-intelligence",
+    "GITHUB_WORKFLOW": "DBI migrations integration",
+    "GITHUB_WORKFLOW_REF": (
+        "dalgorosas/dalgoro-banana-intelligence/"
+        ".github/workflows/dbi-migration-integration.yml@refs/pull/48/merge"
+    ),
+    "GITHUB_JOB": "dbi-postgis-integration",
+    "GITHUB_EVENT_NAME": "pull_request",
+    "RUNNER_ENVIRONMENT": "github-hosted",
+}
 
 
 class _Mappings:
@@ -56,13 +75,25 @@ class _Result:
 
 
 class _FakeConnection:
-    def __init__(self, *, revision=None, lock_available=True):
+    def __init__(
+        self,
+        *,
+        revision=None,
+        lock_available=True,
+        session_username="dbi_test_migrator",
+        role=None,
+    ):
         self.database_name = "dbi_test"
         self.username = "dbi_test_migrator"
+        self.session_username = session_username
         self.search_path = "dbi, public"
         self.revision = revision
         self.lock_available = lock_available
         self.lock_held = False
+        self.role = role or {
+            field: False
+            for field in FORBIDDEN_ROLE_CAPABILITIES
+        }
         self.executed = []
 
     def execute(self, statement, parameters=None):
@@ -79,21 +110,15 @@ class _FakeConnection:
             released = self.lock_held
             self.lock_held = False
             return _Result(scalar=released)
-        if "current_database()" in compact:
+        if "from pg_roles" in compact:
+            return _Result(row=self.role)
+        if "current_database() as database_name" in compact:
             return _Result(
                 row={
                     "database_name": self.database_name,
                     "username": self.username,
+                    "session_username": self.session_username,
                     "search_path": self.search_path,
-                }
-            )
-        if "from pg_roles" in compact:
-            return _Result(
-                row={
-                    "rolsuper": False,
-                    "rolcreatedb": False,
-                    "rolcreaterole": False,
-                    "rolreplication": False,
                 }
             )
         if "from pg_extension" in compact:
@@ -128,7 +153,7 @@ def _assert_rejected(factory) -> None:
     raise AssertionError("El apply controlado debía ser rechazado.")
 
 
-def _apply(connection, callback, **overrides):
+def _apply(connection, callback, *, config=None, **overrides):
     values = {
         "confirmation": "APPLY dbi_test",
         "running_in_ci": True,
@@ -137,7 +162,12 @@ def _apply(connection, callback, **overrides):
         "upgrade_head": callback,
     }
     values.update(overrides)
-    return apply_migrations_controlled(_config(), connection, **values)
+    with patch.dict(os.environ, AUTHORIZED_RUNTIME, clear=False):
+        return apply_migrations_controlled(
+            config or _config(),
+            connection,
+            **values,
+        )
 
 
 def validate_success_and_idempotence() -> None:
@@ -168,25 +198,17 @@ def validate_success_and_idempotence() -> None:
 def validate_closed_rejections() -> None:
     no_op = lambda _: None
     _assert_rejected(
-        lambda: apply_migrations_controlled(
-            _config(),
+        lambda: _apply(
             _FakeConnection(),
-            confirmation="APPLY dbi_test",
+            no_op,
             running_in_ci=False,
-            known_revisions=KNOWN,
-            head_revision=HEAD,
-            upgrade_head=no_op,
         )
     )
     _assert_rejected(
-        lambda: apply_migrations_controlled(
-            _config(host="db.example.invalid"),
+        lambda: _apply(
             _FakeConnection(),
-            confirmation="APPLY dbi_test",
-            running_in_ci=True,
-            known_revisions=KNOWN,
-            head_revision=HEAD,
-            upgrade_head=no_op,
+            no_op,
+            config=_config(host="db.example.invalid"),
         )
     )
     _assert_rejected(
@@ -202,6 +224,29 @@ def validate_closed_rejections() -> None:
             no_op,
         )
     )
+    _assert_rejected(
+        lambda: _apply(
+            _FakeConnection(session_username="postgres"),
+            no_op,
+        )
+    )
+
+    with patch.dict(
+        os.environ,
+        {"GITHUB_ACTIONS": "true"},
+        clear=True,
+    ):
+        _assert_rejected(
+            lambda: apply_migrations_controlled(
+                _config(),
+                _FakeConnection(),
+                confirmation="APPLY dbi_test",
+                running_in_ci=True,
+                known_revisions=KNOWN,
+                head_revision=HEAD,
+                upgrade_head=no_op,
+            )
+        )
 
 
 def validate_failure_paths_release_lock() -> None:
@@ -228,6 +273,7 @@ def validate_static_boundaries() -> None:
     source = (
         BACKEND / "app" / "dbi" / "migration_apply.py"
     ).read_text(encoding="utf-8").lower()
+    assert "require_authorized_github_actions_runtime()" in source
     assert "migration_lock(connection)" in source
     assert "upgrade_head(connection)" in source
     assert source.count("upgrade_head(connection)") == 1
