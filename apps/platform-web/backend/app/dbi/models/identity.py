@@ -10,6 +10,7 @@ from sqlalchemy import (
     CheckConstraint,
     DateTime,
     ForeignKey,
+    ForeignKeyConstraint,
     Index,
     String,
     UniqueConstraint,
@@ -201,6 +202,18 @@ class DBIMembershipScope(DBIBase):
             "AND position('*' in organization_ref) = 0 "
             "AND lower(organization_ref) NOT IN ('all', 'any')",
             name="ck_dbi_membership_scopes_organization_ref",
+        ),
+        ForeignKeyConstraint(
+            ["farm_id", "organization_ref"],
+            ["dbi_farms.id", "dbi_farms.organization_ref"],
+            name="fk_dbi_membership_scopes_farm_organization",
+            ondelete="RESTRICT",
+        ),
+        ForeignKeyConstraint(
+            ["plot_id", "farm_id"],
+            ["dbi_plots.id", "dbi_plots.farm_id"],
+            name="fk_dbi_membership_scopes_plot_farm",
+            ondelete="RESTRICT",
         ),
         Index(
             "uq_dbi_membership_scopes_organization",

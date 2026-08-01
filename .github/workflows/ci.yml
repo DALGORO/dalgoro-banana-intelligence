@@ -144,6 +144,61 @@ jobs:
           PYTHONPATH: .
         run: python ../../../.github/scripts/ci_dbi_authorization.py
 
+      - name: Validar política administrativa DBI offline
+        env:
+          PYTHONPATH: .
+        run: python ../../../.github/scripts/ci_dbi_admin_policy.py
+
+      - name: Validar repositorio administrativo DBI offline
+        env:
+          PYTHONPATH: .
+        run: python ../../../.github/scripts/ci_dbi_admin_repository.py
+
+      - name: Validar jerarquía administrativa DBI offline
+        env:
+          PYTHONPATH: .
+        run: python ../../../.github/scripts/ci_dbi_admin_scope_hierarchy.py
+
+      - name: Validar estado administrativo DBI versionado offline
+        env:
+          PYTHONPATH: .
+        run: python ../../../.github/scripts/ci_dbi_admin_state.py
+
+      - name: Validar plan puro de mutación administrativa DBI offline
+        env:
+          PYTHONPATH: .
+        run: python ../../../.github/scripts/ci_dbi_admin_mutation_plan.py
+
+      - name: Validar planes puros de altas administrativas DBI offline
+        env:
+          PYTHONPATH: .
+        run: python ../../../.github/scripts/ci_dbi_admin_creation_plan.py
+
+      - name: Validar persistencia idempotente de altas DBI offline
+        env:
+          PYTHONPATH: .
+        run: python ../../../.github/scripts/ci_dbi_admin_creation_persistence.py
+
+      - name: Validar servicio de altas administrativas DBI offline
+        env:
+          PYTHONPATH: .
+        run: python ../../../.github/scripts/ci_dbi_admin_creation_service.py
+
+      - name: Validar auditoría administrativa DBI offline
+        env:
+          PYTHONPATH: .
+        run: python ../../../.github/scripts/ci_dbi_admin_audit.py
+
+      - name: Validar persistencia administrativa DBI offline
+        env:
+          PYTHONPATH: .
+        run: python ../../../.github/scripts/ci_dbi_admin_persistence.py
+
+      - name: Validar guardas y mutaciones administrativas DBI offline
+        env:
+          PYTHONPATH: .
+        run: python ../../../.github/scripts/ci_dbi_admin_service.py
+
       - name: Validar identidad y membresías DBI offline
         env:
           PYTHONPATH: .
