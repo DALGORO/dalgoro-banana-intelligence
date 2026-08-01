@@ -32,10 +32,11 @@ from app.dbi.migration_preflight import (  # noqa: E402
     run_migration_preflight,
 )
 
-HEAD = "dbi_0007_admin_audit"
+HEAD = "dbi_0008_scope_hierarchy"
 KNOWN = {
     "dbi_0001_baseline",
     "dbi_0006_plot_boundaries",
+    "dbi_0007_admin_audit",
     HEAD,
 }
 AUTHORIZED_RUNTIME = {
@@ -263,6 +264,13 @@ def validate_offline_plan() -> None:
     assert "geometry(multipolygon,4326)" in compact_sql
     assert "ix_dbi_plots_boundary_gist" in first.sql
     assert "dbi_admin_audit_events" in first.sql
+    for constraint_name in (
+        "uq_dbi_farms_id_organization",
+        "uq_dbi_plots_id_farm",
+        "fk_dbi_membership_scopes_farm_organization",
+        "fk_dbi_membership_scopes_plot_farm",
+    ):
+        assert constraint_name in first.sql
     assert "placeholder" not in first.sql
     assert "example.invalid" not in first.sql
     assert "postgresql+psycopg://" not in first.sql
