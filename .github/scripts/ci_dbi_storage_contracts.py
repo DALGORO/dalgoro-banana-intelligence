@@ -195,10 +195,15 @@ def validate_metadata_policy() -> None:
 
 
 def validate_temporal_policy() -> None:
-    address = DBIStoragePolicy.build_address(
-        tenant_ref=TENANT_A,
-        purpose=DBIStoragePurpose.TECHNICAL_SOURCE,
-        object_id=uuid4(),
+    metadata = DBIStoragePolicy.build_metadata(
+        address=DBIStoragePolicy.build_address(
+            tenant_ref=TENANT_A,
+            purpose=DBIStoragePurpose.TECHNICAL_SOURCE,
+            object_id=uuid4(),
+        ),
+        content_type="application/pdf",
+        size_bytes=2_048,
+        sha256_hex="d" * 64,
     )
     issued_at = NOW
     expires_at = NOW + timedelta(minutes=15)
@@ -209,11 +214,13 @@ def validate_temporal_policy() -> None:
 
     grant = DBIStorageTemporaryGrant(
         grant_ref="grant_01J00000000000000000000000",
-        address=address,
+        metadata=metadata,
         mode=DBIStorageAccessMode.READ,
         issued_at=issued_at,
         expires_at=expires_at,
     )
+    assert grant.address == metadata.address
+    assert grant.metadata == metadata
     assert "grant_" not in repr(grant)
     assert DBIStoragePolicy.validate_grant(grant) is grant
 
@@ -237,6 +244,15 @@ def validate_temporal_policy() -> None:
     _assert_conflict(
         lambda: DBIStoragePolicy.validate_grant(
             replace(grant, grant_ref="https://objects.example/signed")
+        )
+    )
+    forged_metadata = replace(
+        metadata,
+        sha256="D" * 64,
+    )
+    _assert_conflict(
+        lambda: DBIStoragePolicy.validate_grant(
+            replace(grant, metadata=forged_metadata)
         )
     )
 
