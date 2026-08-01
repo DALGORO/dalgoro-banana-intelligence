@@ -55,9 +55,10 @@ def _validated_ref(value: object) -> str:
 class DBIAdminAuthoritySnapshot:
     """Autoridad persistida explícita de una membresía administrativa.
 
-    ``organization_scopes`` conserva únicamente ámbitos de organización
-    explícitos. Los ámbitos padre derivados de una finca o lote no se convierten
-    automáticamente en autoridad administrativa de toda la organización.
+    Cada colección conserva únicamente filas persistidas de su propio nivel.
+    Un ámbito de lote mantiene su ``farm_id`` como referencia jerárquica, pero no
+    fabrica un ámbito de finca. Ningún ámbito derivado se convierte en autoridad
+    administrativa de toda la organización.
     """
 
     principal_ref: str
@@ -95,16 +96,6 @@ class DBIAdminAuthoritySnapshot:
             raise TypeError("farm_scopes solo admite DBIFarmScope.")
         if not all(isinstance(scope, DBIPlotScope) for scope in plot_scopes):
             raise TypeError("plot_scopes solo admite DBIPlotScope.")
-
-        for plot_scope in plot_scopes:
-            parent = DBIFarmScope(
-                organization_ref=plot_scope.organization_ref,
-                farm_id=plot_scope.farm_id,
-            )
-            if parent not in farm_scopes:
-                raise ValueError(
-                    "Todo ámbito de lote debe incluir su ámbito de finca padre."
-                )
 
         object.__setattr__(self, "permissions", permissions)
         object.__setattr__(self, "organization_scopes", organization_scopes)
