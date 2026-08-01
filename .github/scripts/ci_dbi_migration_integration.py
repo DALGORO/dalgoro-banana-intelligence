@@ -43,12 +43,20 @@ ADMIN_ROLE = "postgres"
 DBI_DATABASE = "dbi_test"
 DBI_OWNER_ROLE = "dbi_test_owner"
 DBI_MIGRATOR_ROLE = "dbi_test_migrator"
-EXPECTED_HEAD = "dbi_0007_admin_audit"
+EXPECTED_HEAD = "dbi_0008_scope_hierarchy"
 LEGACY_TABLES = frozenset({"documents", "users", "companies"})
 SPATIAL_CONSTRAINTS = frozenset(
     {
         "ck_dbi_plots_boundary_not_empty",
         "ck_dbi_plots_boundary_valid",
+    }
+)
+SCOPE_HIERARCHY_CONSTRAINTS = frozenset(
+    {
+        "uq_dbi_farms_id_organization",
+        "uq_dbi_plots_id_farm",
+        "fk_dbi_membership_scopes_farm_organization",
+        "fk_dbi_membership_scopes_plot_farm",
     }
 )
 
@@ -329,6 +337,28 @@ def _validate_postflight(connection, *, expected_head: str) -> set[str]:
         raise AssertionError(
             "Faltan restricciones espaciales: "
             f"{sorted(SPATIAL_CONSTRAINTS - constraints)}"
+        )
+
+    hierarchy_constraints = set(
+        connection.execute(
+            text(
+                """
+                SELECT constraint_name
+                FROM information_schema.table_constraints
+                WHERE table_schema = 'dbi'
+                  AND table_name IN (
+                    'dbi_farms',
+                    'dbi_plots',
+                    'dbi_membership_scopes'
+                  )
+                """
+            )
+        ).scalars()
+    )
+    if not SCOPE_HIERARCHY_CONSTRAINTS <= hierarchy_constraints:
+        raise AssertionError(
+            "Faltan restricciones jerárquicas DBI: "
+            f"{sorted(SCOPE_HIERARCHY_CONSTRAINTS - hierarchy_constraints)}"
         )
 
     postgis_ok = connection.execute(
