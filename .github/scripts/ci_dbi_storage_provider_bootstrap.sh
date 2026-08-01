@@ -118,7 +118,10 @@ if [[ "${version_output}" != *"4.29"* ]]; then
 fi
 
 if [[ "${DBI_STORAGE_RUN_S3_INTEGRATION:-0}" == "1" ]]; then
-  python .github/scripts/ci_dbi_storage_s3_integration.py
+  if ! python .github/scripts/ci_dbi_storage_s3_integration.py; then
+    diagnose_container
+    exit 1
+  fi
 fi
 
 container_logs="$(docker logs "${CONTAINER_NAME}" 2>&1 || true)"
