@@ -163,6 +163,24 @@ def validate_organization_control() -> None:
     )
 
 
+def validate_principal_registration() -> None:
+    actor = _actor(organization_scopes=frozenset({ORG_A}))
+    DBIAdminPolicy.require_principal_registration(
+        actor,
+        target_principal_ref="principal-target",
+        tenant_ref=TENANT,
+        organization_refs=frozenset({ORG_A}),
+    )
+    _assert_denied(
+        lambda: DBIAdminPolicy.require_principal_registration(
+            actor,
+            target_principal_ref="principal-actor",
+            tenant_ref=TENANT,
+            organization_refs=frozenset({ORG_A}),
+        )
+    )
+
+
 def validate_membership_create_and_change() -> None:
     actor = _actor(organization_scopes=frozenset({ORG_A, ORG_B}))
     requested = _snapshot(
@@ -181,6 +199,24 @@ def validate_membership_create_and_change() -> None:
         lambda: DBIAdminPolicy.require_membership_create(
             actor,
             excessive_permission,
+        )
+    )
+    _assert_denied(
+        lambda: DBIAdminPolicy.require_membership_create(
+            actor,
+            _snapshot(
+                membership_active=False,
+                organization_scopes=frozenset({ORG_A}),
+            ),
+        )
+    )
+    _assert_denied(
+        lambda: DBIAdminPolicy.require_membership_create(
+            actor,
+            _snapshot(
+                principal_active=False,
+                organization_scopes=frozenset({ORG_A}),
+            ),
         )
     )
 
@@ -279,33 +315,6 @@ def validate_self_change_rules() -> None:
     )
 
 
-def validate_principal_rules() -> None:
-    actor = _actor(organization_scopes=frozenset({ORG_A}))
-    DBIAdminPolicy.require_principal_change(
-        actor,
-        target_principal_ref="principal-target",
-        tenant_ref=TENANT,
-        organization_refs=frozenset({ORG_A}),
-        activates_principal=True,
-    )
-    DBIAdminPolicy.require_principal_change(
-        actor,
-        target_principal_ref="principal-actor",
-        tenant_ref=TENANT,
-        organization_refs=frozenset({ORG_A}),
-        activates_principal=False,
-    )
-    _assert_denied(
-        lambda: DBIAdminPolicy.require_principal_change(
-            actor,
-            target_principal_ref="principal-actor",
-            tenant_ref=TENANT,
-            organization_refs=frozenset({ORG_A}),
-            activates_principal=True,
-        )
-    )
-
-
 def validate_last_admin_protection() -> None:
     before = _snapshot(
         organization_scopes=frozenset({ORG_A, ORG_B})
@@ -350,8 +359,11 @@ def validate_static_boundaries() -> None:
     ).read_text(encoding="utf-8").lower()
     assert "dbipermission.manage" in source
     assert "effective_admin_organizations" in source
+    assert "require_principal_registration" in source
     assert "before.principal_active != after.principal_active" in source
     assert "require_remaining_administrators" in source
+    assert "require_principal_change" not in source
+    assert "activates_principal" not in source
 
     for forbidden in (
         "fastapi",
@@ -371,9 +383,9 @@ def validate_static_boundaries() -> None:
 def main() -> None:
     validate_snapshot_contract()
     validate_organization_control()
+    validate_principal_registration()
     validate_membership_create_and_change()
     validate_self_change_rules()
-    validate_principal_rules()
     validate_last_admin_protection()
     validate_static_boundaries()
     print("Política administrativa DBI aprobada offline.")
