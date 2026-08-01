@@ -12,6 +12,22 @@ if [[ "${provided_ref}" != "${APPROVED_PINNED_REF}" ]]; then
   exit 1
 fi
 
+integration_enabled="${DBI_STORAGE_RUN_S3_INTEGRATION:-0}"
+data_tmpfs_size="128m"
+tmp_tmpfs_size="32m"
+memory_limit="512m"
+mini_extra_args=()
+
+if [[ "${integration_enabled}" == "1" ]]; then
+  # SeaweedFS mini reserva varios volúmenes para una colección S3. El mínimo
+  # oficial es 64 MiB por volumen; 1 GiB temporal permite la prueba sintética
+  # sin recurrir a bind mounts o volúmenes persistentes.
+  data_tmpfs_size="1024m"
+  tmp_tmpfs_size="64m"
+  memory_limit="1536m"
+  mini_extra_args+=("-master.volumeSizeLimitMB=64")
+fi
+
 cleanup() {
   docker rm --force "${CONTAINER_NAME}" >/dev/null 2>&1 || true
 }
@@ -42,6 +58,8 @@ diagnose_container() {
   sanitized_logs="${raw_logs//${access_key}/[REDACTED_ACCESS_KEY]}"
   sanitized_logs="${sanitized_logs//${secret_key}/[REDACTED_SECRET_KEY]}"
   if [[ -n "${sanitized_logs}" ]]; then
+    echo "Diagnóstico: primeras líneas sanitizadas del proveedor:" >&2
+    printf '%s\n' "${sanitized_logs}" | head -n 80 >&2
     echo "Diagnóstico: últimas líneas sanitizadas del proveedor:" >&2
     printf '%s\n' "${sanitized_logs}" | tail -n 200 >&2
   fi
@@ -61,18 +79,18 @@ docker run --detach \
   --env AWS_ACCESS_KEY_ID \
   --env AWS_SECRET_ACCESS_KEY \
   --env S3_BUCKET \
-  --tmpfs /data:rw,nosuid,nodev,size=128m \
-  --tmpfs /tmp:rw,nosuid,nodev,size=32m \
+  --tmpfs "/data:rw,nosuid,nodev,size=${data_tmpfs_size}" \
+  --tmpfs "/tmp:rw,nosuid,nodev,size=${tmp_tmpfs_size}" \
   --cap-drop ALL \
   --cap-add CHOWN \
   --cap-add SETGID \
   --cap-add SETUID \
   --security-opt no-new-privileges:true \
   --pids-limit 256 \
-  --memory 512m \
+  --memory "${memory_limit}" \
   --cpus 1 \
   "${APPROVED_PINNED_REF}" \
-  mini -dir=/data >/dev/null
+  mini -dir=/data "${mini_extra_args[@]}" >/dev/null
 
 for _ in $(seq 1 60); do
   if ! docker inspect "${CONTAINER_NAME}" --format '{{.State.Running}}' 2>/dev/null | grep -Fx true >/dev/null; then
@@ -117,7 +135,7 @@ if [[ "${version_output}" != *"4.29"* ]]; then
   exit 1
 fi
 
-if [[ "${DBI_STORAGE_RUN_S3_INTEGRATION:-0}" == "1" ]]; then
+if [[ "${integration_enabled}" == "1" ]]; then
   if ! python .github/scripts/ci_dbi_storage_s3_integration.py; then
     diagnose_container
     exit 1
@@ -168,7 +186,8 @@ if [[ -n "${GITHUB_STEP_SUMMARY:-}" ]]; then
     echo "- Clave secreta: ausente de logs"
     echo "- Identificador de acceso: temporal, enmascarado y limitado a la línea de alta esperada"
     echo "- Datos: exclusivamente objetos sintéticos cuando se activa la integración"
-    echo "- Persistencia: sin bind mounts ni volúmenes"
+    echo "- Persistencia: tmpfs; sin bind mounts ni volúmenes"
+    echo "- Capacidad temporal de integración: \`${data_tmpfs_size}\`"
     echo "- Limpieza: contenedor eliminado al finalizar"
   } >> "${GITHUB_STEP_SUMMARY}"
 fi
