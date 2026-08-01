@@ -17,6 +17,7 @@ from app.dbi.storage_contracts import (
     DBIStorageConflict,
     DBIStorageIntegrityError,
     DBIStorageNotFound,
+    DBIStorageObjectMetadata,
     DBIStorageObjectRecord,
     DBIStorageObjectState,
     DBIStorageTemporaryGrant,
@@ -57,8 +58,8 @@ class DBIInMemoryObjectStore:
     """Doble determinista sin red, disco, SDK o autoridad externa.
 
     Conserva objetos retirados internamente para reproducir borrado lógico, pero
-    ``stat``, ``open_read`` y acceso temporal los tratan como no disponibles.
-    No existe operación de reactivación o purga física.
+    ``stat``, ``open_read`` y acceso temporal de lectura los tratan como no
+    disponibles. No existe operación de reactivación o purga física.
     """
 
     def __init__(
@@ -236,24 +237,47 @@ class DBIInMemoryObjectStore:
 
     def issue_temporary_access(
         self,
-        address: DBIStorageAddress,
+        metadata: DBIStorageObjectMetadata,
         *,
         mode: DBIStorageAccessMode,
         issued_at: datetime,
         expires_at: datetime,
     ) -> DBIStorageTemporaryGrant:
-        """Emite una referencia efímera solo para objetos activos ya verificados."""
+        """Emite acceso efímero vinculado a MIME, tamaño y SHA-256 exactos."""
 
+        canonical = DBIStoragePolicy.validate_metadata(metadata)
         if not isinstance(mode, DBIStorageAccessMode):
             raise DBIStorageConflict("mode debe ser DBIStorageAccessMode.")
-        active = self._active_object(address)
+
+        with self._lock:
+            existing = self._objects.get(canonical.address.object_key)
+            if mode is DBIStorageAccessMode.READ:
+                if (
+                    existing is None
+                    or existing.record.state is not DBIStorageObjectState.ACTIVE
+                ):
+                    raise DBIStorageNotFound()
+                if existing.record.metadata != canonical:
+                    raise DBIStorageConflict(
+                        "La lectura temporal no coincide con el objeto verificado."
+                    )
+            elif existing is not None:
+                if existing.record.state is DBIStorageObjectState.RETIRED:
+                    raise DBIStorageConflict(
+                        "Un objeto retirado no admite nueva carga temporal."
+                    )
+                if existing.record.metadata != canonical:
+                    raise DBIStorageConflict(
+                        "La carga temporal diverge del objeto existente."
+                    )
+
         issued, expires = DBIStoragePolicy.validate_access_window(
             issued_at=issued_at,
             expires_at=expires_at,
         )
         grant = DBIStorageTemporaryGrant(
             grant_ref=self._grant_ref_factory(),
-            address=active.record.metadata.address,
+            metadata=canonical,
             mode=mode,
             issued_at=issued,
             expires_at=expires,
