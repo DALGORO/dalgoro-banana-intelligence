@@ -16,6 +16,8 @@ from app.dbi.admin_state import (
     DBIAdminLockedMembershipStates,
     build_admin_membership_state,
 )
+from app.dbi.authorization import DBIFarmScope, DBIPlotScope
+from app.dbi.models.agriculture import Farm, Plot
 from app.dbi.models.identity import (
     DBIMembership,
     DBIMembershipPermission,
@@ -202,6 +204,52 @@ class DBIAdminRepository:
                 DBIMembershipScope.membership_id == membership_id
             )
         )  # type: ignore[return-value]
+
+    def scope_hierarchy_matches(
+        self,
+        *,
+        farm_scopes: frozenset[DBIFarmScope],
+        plot_scopes: frozenset[DBIPlotScope],
+    ) -> bool:
+        """Comprueba que cada finca y lote pertenezca a su jerarquía declarada."""
+
+        if not isinstance(farm_scopes, frozenset) or not all(
+            isinstance(scope, DBIFarmScope) for scope in farm_scopes
+        ):
+            raise TypeError("farm_scopes debe ser frozenset de DBIFarmScope.")
+        if not isinstance(plot_scopes, frozenset) or not all(
+            isinstance(scope, DBIPlotScope) for scope in plot_scopes
+        ):
+            raise TypeError("plot_scopes debe ser frozenset de DBIPlotScope.")
+
+        expected_farms = {
+            (scope.farm_id, scope.organization_ref) for scope in farm_scopes
+        }
+        if expected_farms:
+            farm_ids = tuple(sorted({item[0] for item in expected_farms}, key=str))
+            farm_rows: Sequence[tuple[UUID, str]] = self._session.execute(
+                select(Farm.id, Farm.organization_ref).where(
+                    Farm.id.in_(farm_ids)
+                )
+            ).all()
+            if set(farm_rows) != expected_farms:
+                return False
+
+        expected_plots = {
+            (scope.plot_id, scope.farm_id, scope.organization_ref)
+            for scope in plot_scopes
+        }
+        if expected_plots:
+            plot_ids = tuple(sorted({item[0] for item in expected_plots}, key=str))
+            plot_rows: Sequence[tuple[UUID, UUID, str]] = self._session.execute(
+                select(Plot.id, Plot.farm_id, Farm.organization_ref)
+                .join(Farm, Plot.farm_id == Farm.id)
+                .where(Plot.id.in_(plot_ids))
+            ).all()
+            if set(plot_rows) != expected_plots:
+                return False
+
+        return True
 
     def lock_organization_authority(
         self,
