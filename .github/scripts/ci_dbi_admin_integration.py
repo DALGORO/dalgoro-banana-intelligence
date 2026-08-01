@@ -154,7 +154,8 @@ def _provision_api_role() -> None:
                     "GRANT SELECT ON TABLE "
                     "dbi.dbi_principals, dbi.dbi_memberships, "
                     "dbi.dbi_membership_permissions, dbi.dbi_membership_scopes, "
-                    "dbi.dbi_admin_audit_events TO {}"
+                    "dbi.dbi_admin_audit_events, dbi.dbi_farms, dbi.dbi_plots "
+                    "TO {}"
                 ).format(sql.Identifier(API_ROLE))
             )
             cursor.execute(
@@ -309,6 +310,14 @@ def _validate_role_capabilities() -> None:
                 "audit_insert": "has_table_privilege(%s, 'dbi.dbi_admin_audit_events', 'INSERT')",
                 "audit_update": "has_table_privilege(%s, 'dbi.dbi_admin_audit_events', 'UPDATE')",
                 "audit_delete": "has_table_privilege(%s, 'dbi.dbi_admin_audit_events', 'DELETE')",
+                "farm_select": "has_table_privilege(%s, 'dbi.dbi_farms', 'SELECT')",
+                "farm_insert": "has_table_privilege(%s, 'dbi.dbi_farms', 'INSERT')",
+                "farm_update": "has_table_privilege(%s, 'dbi.dbi_farms', 'UPDATE')",
+                "farm_delete": "has_table_privilege(%s, 'dbi.dbi_farms', 'DELETE')",
+                "plot_select": "has_table_privilege(%s, 'dbi.dbi_plots', 'SELECT')",
+                "plot_insert": "has_table_privilege(%s, 'dbi.dbi_plots', 'INSERT')",
+                "plot_update": "has_table_privilege(%s, 'dbi.dbi_plots', 'UPDATE')",
+                "plot_delete": "has_table_privilege(%s, 'dbi.dbi_plots', 'DELETE')",
             }
             results: dict[str, bool] = {}
             for name, expression in checks.items():
@@ -329,6 +338,8 @@ def _validate_role_capabilities() -> None:
         "scope_delete",
         "audit_select",
         "audit_insert",
+        "farm_select",
+        "plot_select",
     }
     enabled = {name for name, value in results.items() if value}
     if enabled != expected_true:
@@ -623,6 +634,24 @@ def main() -> None:
         "UPDATE dbi.dbi_membership_permissions SET permission = permission WHERE false",
         "UPDATE dbi.dbi_membership_scopes SET organization_ref = organization_ref WHERE false",
         "DELETE FROM dbi.dbi_admin_audit_events WHERE false",
+        (
+            "INSERT INTO dbi.dbi_farms "
+            "(id, organization_ref, code, name, status, created_at, updated_at) "
+            "SELECT '00000000-0000-0000-0000-000000000001'::uuid, "
+            "'forbidden', 'forbidden', 'forbidden', 'active', now(), now() "
+            "WHERE false"
+        ),
+        "UPDATE dbi.dbi_farms SET name = name WHERE false",
+        "DELETE FROM dbi.dbi_farms WHERE false",
+        (
+            "INSERT INTO dbi.dbi_plots "
+            "(id, farm_id, code, name, status, created_at, updated_at) "
+            "SELECT '00000000-0000-0000-0000-000000000002'::uuid, "
+            "'00000000-0000-0000-0000-000000000003'::uuid, "
+            "'forbidden', 'forbidden', 'active', now(), now() WHERE false"
+        ),
+        "UPDATE dbi.dbi_plots SET name = name WHERE false",
+        "DELETE FROM dbi.dbi_plots WHERE false",
     ):
         _assert_forbidden_sql(statement)
 
