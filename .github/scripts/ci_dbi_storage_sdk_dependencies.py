@@ -20,6 +20,21 @@ EXPECTED_VERSIONS = {
     "s3transfer": "0.19.2",
 }
 
+EXPECTED_LICENSES = {
+    "boto3": frozenset({"Apache-2.0", "Apache License 2.0"}),
+    "botocore": frozenset({"Apache-2.0", "Apache License 2.0"}),
+    "jmespath": frozenset({"MIT", "MIT License"}),
+    "python-dateutil": frozenset({"Dual License"}),
+    "s3transfer": frozenset({"Apache-2.0", "Apache License 2.0"}),
+}
+
+FORBIDDEN_LICENSE_MARKERS = (
+    "agpl",
+    "gnu affero",
+    "gpl-",
+    "gnu general public license",
+)
+
 
 def _normalized_name(value: str) -> str:
     return value.casefold().replace("_", "-")
@@ -41,6 +56,28 @@ def validate_requirement_pins() -> None:
     for package_name, expected_version in EXPECTED_VERSIONS.items():
         assert pins.get(package_name) == expected_version
         assert metadata.version(package_name) == expected_version
+
+
+def validate_license_surface() -> None:
+    """Bloquea licencias copyleft fuertes no aprobadas en el SDK agregado."""
+
+    for package_name, accepted_licenses in EXPECTED_LICENSES.items():
+        package_metadata = metadata.metadata(package_name)
+        license_value = (package_metadata.get("License") or "").strip()
+        assert license_value in accepted_licenses, (
+            f"Licencia no aprobada para {package_name}: {license_value!r}"
+        )
+
+        searchable_metadata = "\n".join(
+            (
+                license_value,
+                *(package_metadata.get_all("Classifier") or ()),
+            )
+        ).casefold()
+        assert not any(
+            marker in searchable_metadata
+            for marker in FORBIDDEN_LICENSE_MARKERS
+        ), f"Se detectó copyleft fuerte no aprobado en {package_name}."
 
 
 def validate_dependency_surface() -> None:
@@ -110,9 +147,10 @@ def validate_offline_client_construction() -> None:
 
 def main() -> None:
     validate_requirement_pins()
+    validate_license_surface()
     validate_dependency_surface()
     validate_offline_client_construction()
-    print("Almacenamiento DBI: SDK S3 fijado y validado offline.")
+    print("Almacenamiento DBI: SDK S3, versiones y licencias aprobados offline.")
 
 
 if __name__ == "__main__":
