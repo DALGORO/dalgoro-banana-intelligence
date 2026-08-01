@@ -305,6 +305,19 @@ def validate_membership_create_and_change() -> None:
             before,
         )
     )
+    revoked_changed = _snapshot(
+        membership_active=False,
+        membership_revoked=True,
+        permissions=frozenset({DBIPermission.READ}),
+        organization_scopes=frozenset({ORG_A, ORG_B}),
+    )
+    _assert_conflict(
+        lambda: DBIAdminPolicy.require_membership_change(
+            actor,
+            revoked_before,
+            revoked_changed,
+        )
+    )
     DBIAdminPolicy.require_membership_change(
         actor,
         revoked_before,
@@ -425,6 +438,7 @@ def validate_static_boundaries() -> None:
     assert "before.principal_active != after.principal_active" in source
     assert "dbiadminmembershipstatus.revoked" in source
     assert "actor != before" in source
+    assert "and after != before" in source
     assert "require_remaining_administrators" in source
     assert "require_principal_change" not in source
     assert "activates_principal" not in source
