@@ -215,6 +215,18 @@ def validate_membership_create_and_change() -> None:
         )
     )
 
+    changed_principal_status = _snapshot(
+        principal_active=False,
+        organization_scopes=frozenset({ORG_A, ORG_B}),
+    )
+    _assert_conflict(
+        lambda: DBIAdminPolicy.require_membership_change(
+            actor,
+            before,
+            changed_principal_status,
+        )
+    )
+
 
 def validate_self_change_rules() -> None:
     before = _snapshot(
@@ -338,6 +350,7 @@ def validate_static_boundaries() -> None:
     ).read_text(encoding="utf-8").lower()
     assert "dbipermission.manage" in source
     assert "effective_admin_organizations" in source
+    assert "before.principal_active != after.principal_active" in source
     assert "require_remaining_administrators" in source
 
     for forbidden in (
