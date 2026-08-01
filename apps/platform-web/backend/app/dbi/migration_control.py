@@ -6,6 +6,8 @@ se deben superar antes de cualquier operación ``plan``, ``verify`` o ``apply``.
 
 from __future__ import annotations
 
+import os
+from collections.abc import Mapping
 from dataclasses import dataclass
 from hashlib import sha256
 from typing import Final
@@ -15,6 +17,15 @@ from app.db.dbi_config import DBI_DATABASE_NAMES, DBIDatabaseConfig
 DBI_MIGRATION_LOCK_NAMESPACE: Final[str] = "dalgoro-dbi-migrations-v1"
 DBI_CI_ENVIRONMENT: Final[str] = "test"
 DBI_PRODUCTION_ENVIRONMENT: Final[str] = "production"
+DBI_GITHUB_REPOSITORY: Final[str] = "dalgorosas/dalgoro-banana-intelligence"
+DBI_GITHUB_WORKFLOW: Final[str] = "DBI migrations integration"
+DBI_GITHUB_WORKFLOW_PATH: Final[str] = (
+    ".github/workflows/dbi-migration-integration.yml"
+)
+DBI_GITHUB_JOB: Final[str] = "dbi-postgis-integration"
+DBI_GITHUB_EVENTS: Final[frozenset[str]] = frozenset(
+    {"pull_request", "push", "workflow_dispatch"}
+)
 
 
 class DBIMigrationControlError(RuntimeError):
@@ -41,6 +52,41 @@ def expected_migrator_role(database_name: str) -> str:
     """Deriva el rol migrador canónico de una base DBI autorizada."""
 
     return f"{database_name}_migrator"
+
+
+def is_authorized_github_actions_runtime(
+    environment: Mapping[str, str] | None = None,
+) -> bool:
+    """Comprueba los marcadores inmutables del workflow DBI autorizado."""
+
+    values = os.environ if environment is None else environment
+    expected_workflow_ref_prefix = (
+        f"{DBI_GITHUB_REPOSITORY}/{DBI_GITHUB_WORKFLOW_PATH}@"
+    )
+    workflow_ref = values.get("GITHUB_WORKFLOW_REF", "")
+
+    return (
+        values.get("GITHUB_ACTIONS") == "true"
+        and values.get("CI") == "true"
+        and values.get("GITHUB_SERVER_URL") == "https://github.com"
+        and values.get("GITHUB_REPOSITORY") == DBI_GITHUB_REPOSITORY
+        and values.get("GITHUB_WORKFLOW") == DBI_GITHUB_WORKFLOW
+        and workflow_ref.startswith(expected_workflow_ref_prefix)
+        and values.get("GITHUB_JOB") == DBI_GITHUB_JOB
+        and values.get("GITHUB_EVENT_NAME") in DBI_GITHUB_EVENTS
+        and values.get("RUNNER_ENVIRONMENT") == "github-hosted"
+    )
+
+
+def require_authorized_github_actions_runtime(
+    environment: Mapping[str, str] | None = None,
+) -> None:
+    """Falla cerrado fuera del workflow y job DBI autorizados."""
+
+    if not is_authorized_github_actions_runtime(environment):
+        raise DBIMigrationControlError(
+            "Apply DBI exige el workflow y job autorizados de GitHub Actions."
+        )
 
 
 def validate_migration_target(
