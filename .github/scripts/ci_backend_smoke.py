@@ -14,6 +14,7 @@ from ci_dbi_admin_principal_routes import (
 from ci_dbi_admin_routes import main as validate_dbi_admin_routes
 from ci_dbi_admin_schemas import main as validate_dbi_admin_schemas
 from ci_dbi_storage_contracts import main as validate_dbi_storage_contracts
+from ci_dbi_storage_memory import main as validate_dbi_storage_memory
 
 
 def main() -> None:
@@ -25,6 +26,7 @@ def main() -> None:
     validate_dbi_admin_mutation_routes()
     validate_dbi_admin_principal_routes()
     validate_dbi_storage_contracts()
+    validate_dbi_storage_memory()
 
     os.environ["DATABASE_URL"] = "sqlite+pysqlite:///:memory:"
     os.environ["JWT_SECRET"] = "dbi-ci-placeholder"
