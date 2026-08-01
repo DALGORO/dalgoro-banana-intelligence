@@ -55,6 +55,34 @@ def _validate_event(
     return event
 
 
+def _validated_events(
+    plan: DBIAdminMembershipMutationPlan,
+    *,
+    target_membership_id: UUID,
+) -> tuple[DBIAdminPlannedAuditEvent, ...]:
+    events = tuple(
+        _validate_event(
+            event,
+            plan=plan,
+            target_membership_id=target_membership_id,
+        )
+        for event in plan.audit_events
+    )
+    keys = {
+        (
+            event.organization_ref,
+            event.action,
+            event.resource_type,
+            event.resource_ref,
+            event.correlation_ref,
+        )
+        for event in events
+    }
+    if len(keys) != len(events):
+        raise DBIAdminConflict()
+    return events
+
+
 class DBIAdminPersistenceRepository(DBIAdminRepository):
     """Aplica planes ya autorizados usando la misma sesión y transacción."""
 
@@ -79,6 +107,10 @@ class DBIAdminPersistenceRepository(DBIAdminRepository):
             return
         if not plan.affected_organization_refs or not plan.audit_events:
             raise DBIAdminConflict()
+        events = _validated_events(
+            plan,
+            target_membership_id=target_membership_id,
+        )
 
         result = self._session.execute(
             update(DBIMembership)
@@ -163,12 +195,7 @@ class DBIAdminPersistenceRepository(DBIAdminRepository):
                     )
                 )
 
-        for planned_event in plan.audit_events:
-            event = _validate_event(
-                planned_event,
-                plan=plan,
-                target_membership_id=target_membership_id,
-            )
+        for event in events:
             self.add(
                 DBIAdminAuditEvent(
                     actor_principal_id=actor_principal_id,
