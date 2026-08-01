@@ -77,6 +77,11 @@ def validate_canonical_addresses() -> None:
             )
         )
 
+    tenant_b_key = DBIStoragePolicy.build_address(
+        tenant_ref=TENANT_B,
+        purpose=DBIStoragePurpose.ANALYSIS_INPUT,
+        object_id=object_id,
+    ).object_key
     forged_keys = (
         f"/{address.object_key}",
         "https://objects.example/private",
@@ -85,7 +90,7 @@ def validate_canonical_addresses() -> None:
         "tenants\\escape",
         f"{address.object_key}?token=secret",
         f"{address.object_key}#fragment",
-        replace(address, tenant_ref=TENANT_B).object_key,
+        tenant_b_key,
     )
     for forged_key in forged_keys:
         _assert_conflict(
