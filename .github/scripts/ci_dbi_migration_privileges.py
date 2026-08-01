@@ -24,8 +24,12 @@ from app.dbi.migration_preflight import (  # noqa: E402
     run_migration_preflight,
 )
 
-HEAD = "dbi_0006_plot_boundaries"
-KNOWN_REVISIONS = {"dbi_0001_baseline", HEAD}
+HEAD = "dbi_0007_admin_audit"
+KNOWN_REVISIONS = {
+    "dbi_0001_baseline",
+    "dbi_0006_plot_boundaries",
+    HEAD,
+}
 
 
 class _Mappings:
