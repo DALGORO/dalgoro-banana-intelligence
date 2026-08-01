@@ -22,14 +22,22 @@ class AnalysisInputAssetRegister(_AssetWriteModel):
     plot_id: UUID | None = None
     asset_kind: AssetKind
     content_type: str = Field(min_length=3, max_length=128)
-    size_bytes: int = Field(gt=0, le=9_223_372_036_854_775_807)
+    size_bytes: int = Field(
+        strict=True,
+        gt=0,
+        le=9_223_372_036_854_775_807,
+    )
     sha256: str = Field(pattern=r"^[0-9a-f]{64}$")
     crs: str | None = Field(default=None, min_length=1, max_length=80)
 
     @field_validator("content_type")
     @classmethod
     def require_canonical_content_type(cls, value: str) -> str:
-        if value != value.lower() or ";" in value or any(character.isspace() for character in value):
+        if (
+            value != value.lower()
+            or ";" in value
+            or any(character.isspace() for character in value)
+        ):
             raise ValueError("content_type debe ser MIME canónico en minúsculas.")
         return value
 
