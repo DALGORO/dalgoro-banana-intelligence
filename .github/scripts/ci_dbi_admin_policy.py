@@ -374,11 +374,22 @@ def validate_self_change_rules() -> None:
         membership_active=False,
         organization_scopes=frozenset({ORG_A}),
     )
-    _assert_denied(
+    reactivated = _snapshot(
+        principal_ref="principal-actor",
+        organization_scopes=frozenset({ORG_A}),
+    )
+    _assert_conflict(
         lambda: DBIAdminPolicy.require_membership_change(
             actor,
             inactive_before,
-            before,
+            reactivated,
+        )
+    )
+    _assert_denied(
+        lambda: DBIAdminPolicy.require_membership_change(
+            inactive_before,
+            inactive_before,
+            reactivated,
         )
     )
 
