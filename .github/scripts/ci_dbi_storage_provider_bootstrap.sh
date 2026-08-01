@@ -119,11 +119,6 @@ if ! grep -F 'sha256:d47c7ee99fcb951351d7194915f4e3a5ea604a8e8871183d713907dec4f
   exit 1
 fi
 
-mini_command="chown seaweedfs:seaweedfs /dbi-s3.json && chmod 600 /dbi-s3.json && exec /entrypoint.sh mini -dir=/data -s3.config=/dbi-s3.json"
-for argument in "${mini_extra_args[@]}"; do
-  mini_command+=" ${argument}"
-done
-
 docker create \
   --name "${CONTAINER_NAME}" \
   --publish 127.0.0.1:8333:8333 \
@@ -138,10 +133,14 @@ docker create \
   --pids-limit 256 \
   --memory "${memory_limit}" \
   --cpus 1 \
-  --entrypoint /bin/sh \
   "${APPROVED_PINNED_REF}" \
-  -c "${mini_command}" >/dev/null
+  mini -dir=/data -s3.config=/dbi-s3.json "${mini_extra_args[@]}" >/dev/null
 
+# La credencial es sintética y vive en un runner aislado. Se hace legible solo
+# para que el usuario interno elegido por el entrypoint pueda abrirla; el archivo
+# del host se elimina inmediatamente después de la copia y el contenedor es
+# destruido al finalizar el job.
+chmod 644 "${iam_config_file}"
 docker cp "${iam_config_file}" "${CONTAINER_NAME}:/dbi-s3.json"
 rm -f "${iam_config_file}"
 iam_config_file=""
@@ -234,6 +233,7 @@ if [[ -n "${GITHUB_STEP_SUMMARY:-}" ]]; then
     echo "- Acceso transversal: \`${FORBIDDEN_BUCKET}\` reservado para prueba negativa"
     echo "- Acceso anónimo: denegado con HTTP 403"
     echo "- Credenciales: ausentes del entorno y los logs del contenedor"
+    echo "- Configuración IAM: archivo sintético copiado y eliminado del runner antes del arranque"
     echo "- Datos: exclusivamente objetos sintéticos cuando se activa la integración"
     echo "- Persistencia: tmpfs; sin bind mounts ni volúmenes"
     echo "- Capacidad temporal de integración: \`${data_tmpfs_size}\`"
