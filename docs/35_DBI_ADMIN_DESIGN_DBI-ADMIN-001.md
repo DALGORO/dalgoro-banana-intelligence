@@ -1,4 +1,4 @@
-# 35 — Diseño administrativo DBI-ADMIN-001
+# 35 — Implementación y auditoría administrativa DBI-ADMIN-001
 
 ## Identificación
 
@@ -7,445 +7,427 @@
 - Pull request: #50.
 - Rama: `feat/DBI-ADMIN-001-administracion-identidades-organizaciones-permisos`.
 - Base inicial auditada: `main` en `8debfe41706360472f121b3f20b89f22b975bb75`.
-- Estado: política pura en implementación; persistencia y API pendientes.
+- Código funcional auditado: `babd2b76ec48b8dc47ff4a245be5c3e0875490c8`.
+- Estado: implementación funcional completa; documentación y revisión final del PR en curso.
 
-## Objetivo
+## Objetivo cumplido
 
-Definir una frontera administrativa DBI cerrada por defecto para registrar
-principales y gestionar membresías, permisos y ámbitos organizacionales sin
-convertir la autoridad heredada en acceso universal, sin borrar físicamente
-recursos y sin permitir autoelevación o acceso entre organizaciones.
+Se implementó una frontera administrativa DBI cerrada por defecto para:
 
-Ninguna ruta, modelo, migración o servicio se considera aprobado hasta que sus
-pruebas y la CI completa terminen en verde sobre el SHA correspondiente.
+- registrar y consultar principales DBI;
+- crear y consultar membresías;
+- sustituir permisos y ámbitos;
+- desactivar, reactivar y revocar membresías;
+- preservar el estado global de los principales;
+- impedir autoelevación y acceso transversal;
+- proteger al último administrador válido;
+- mantener evidencia administrativa append-only;
+- operar exclusivamente sobre sesión, modelos y autoridad DBI.
 
-## Componentes auditados
+La implementación no convierte el rol heredado `ADMIN`, una cabecera ni la
+ausencia de ámbitos en autoridad administrativa DBI.
 
-La revisión cubrió:
+## Límites arquitectónicos confirmados
 
-- `app/dbi/models/identity.py`;
-- `app/dbi/identity.py`;
-- `app/dbi/authorization.py`;
-- `app/dbi/repositories.py`;
-- `app/dbi/unit_of_work.py`;
-- `app/dbi/dependencies.py`;
-- `app/api/v1/dbi_writes.py`;
-- `dbi_alembic/versions/20260729_05_identity_memberships.py`;
-- contratos y barreras CI de identidad, autorización, repositorios y escritura.
+### Autoridad
 
-## Estado actual confirmado
+Toda operación administrativa exige simultáneamente:
 
-### Principales
+- principal DBI activo;
+- membresía DBI activa del actor;
+- permiso explícito `manage`;
+- cobertura organizacional explícita de todas las organizaciones afectadas;
+- coincidencia exacta del tenant persistido.
 
-`DBIPrincipal` representa una identidad DBI canónica y global vinculada mediante
-`legacy_identity_ref`. La referencia es opaca, única, no admite comodines y no
-tiene clave foránea hacia `User`.
+El actor administrativo se reconstruye nuevamente desde la base DBI antes de
+usar sus identificadores internos. Principal, membresía, permisos, ámbitos y
+versiones no se aceptan desde payloads o cabeceras administrativas.
 
-Estados persistidos:
+### Principal global
 
-- `active`;
-- `inactive`.
+`DBIPrincipal` continúa siendo una identidad global por
+`legacy_identity_ref`. La frontera organizacional puede:
 
-El estado pertenece al principal global, no a un tenant. Por esa razón, una
-administración limitada a una organización no puede activar o desactivar el
-principal sin afectar potencialmente otras membresías fuera de su cobertura.
+- registrar un principal nuevo en estado `active`;
+- consultar un principal activo o inactivo;
+- aceptar un registro repetido exactamente igual como no-op idempotente.
 
-### Membresías
+No puede:
 
-`DBIMembership` es única por `principal_id + tenant_ref`.
+- activar o desactivar el principal;
+- modificar `legacy_identity_ref`;
+- alterar `principal.updated_at`;
+- usar una mutación de membresía para cambiar `principal_active`.
 
-Estados:
+Un principal existente e inactivo genera conflicto al intentar registrarlo y
+no se reactiva por inferencia.
+
+### Membresía
+
+`DBIMembership` continúa siendo única por `principal_id + tenant_ref`.
+Estados admitidos:
 
 - `active`;
 - `inactive`;
 - `revoked`.
 
-La membresía es la frontera correcta para conceder, suspender o revocar acceso
-dentro de un tenant.
+La revocación es irreversible desde esta frontera. No existe borrado físico de
+principales, membresías o eventos de auditoría.
 
-### Permisos
+### Permisos y ámbitos
 
-Los permisos pertenecen a toda la membresía:
+Los permisos pertenecen a toda la membresía. Por ello, modificar permisos o el
+estado de una membresía multiorganización exige que el actor administre todas
+las organizaciones cubiertas antes y después del cambio.
 
-- `read`;
-- `write`;
-- `submit_analysis`;
-- `approve_agronomic`;
-- `manage`.
-
-No son permisos por organización. Cambiar uno puede afectar todos los ámbitos
-de una membresía multiorganización.
-
-### Ámbitos
-
-`DBIMembershipScope` representa ámbitos acumulativos de:
+Los ámbitos admitidos son:
 
 - organización;
 - finca;
 - lote.
 
-Toda finca exige organización y todo lote exige organización y finca.
+Un ámbito de finca o lote no concede administración total de su organización.
+La revisión `dbi_0008_scope_hierarchy` añade integridad referencial compuesta:
 
-### Organizaciones
+- finca + organización deben coincidir con `dbi_farms`;
+- lote + finca deben coincidir con `dbi_plots`;
+- las relaciones usan `ON DELETE RESTRICT`.
 
-No existe una tabla canónica `DBIOrganization`. `organization_ref` es una
-referencia opaca usada por fincas, ámbitos y autorización.
+## Componentes implementados
 
-Los repositorios agrícolas filtran por `organization_ref`, pero las tablas de
-finca no contienen `tenant_ref`. Introducir una entidad canónica de organización
-requeriría redefinir claves, migrar datos y revisar el aislamiento de fincas.
-Ese cambio no se hará implícitamente dentro de este ticket.
+### Política y estado
 
-### Resolución de acceso
+- `app/dbi/admin_policy.py`
+- `app/dbi/admin_state.py`
+- `app/dbi/admin_mutation_plan.py`
+- `app/dbi/admin_creation_plan.py`
 
-`DBIAccessContextResolver` acepta únicamente principal y membresía activos,
-permisos válidos y jerarquías consistentes. La resolución niega por defecto.
+Responsabilidades:
 
-La dependencia FastAPI transforma el identificador heredado autenticado en una
-referencia opaca y resuelve autoridad exclusivamente desde DBI.
-
-### Frontera administrativa ausente al iniciar
-
-No existían:
-
-- política administrativa;
-- repositorios administrativos de principal o membresía;
-- servicio administrativo;
-- contratos de comando administrativos;
-- rutas `/dbi/admin/...`;
-- auditoría persistente de operaciones;
+- autoridad cerrada por defecto;
+- anti-autoescalamiento;
 - protección del último administrador;
-- control optimista explícito para cambios de permisos y ámbitos.
+- transiciones válidas de estado;
+- planes puros e inmutables;
+- control optimista por `membership.updated_at`;
+- acciones de auditoría deterministas.
 
-## Decisiones de seguridad
+### Persistencia y servicio
 
-### Sin autoridad global implícita
+- `app/dbi/admin_repository.py`
+- `app/dbi/admin_persistence.py`
+- `app/dbi/admin_creation_persistence.py`
+- `app/dbi/admin_mutation.py`
+- `app/dbi/admin_service.py`
 
-No otorgan administración DBI:
+Responsabilidades:
 
-- el rol heredado `ADMIN`;
-- la ausencia de ámbitos;
-- una cabecera especial;
-- un permiso inferido;
-- una pertenencia a la base heredada.
+- advisory locks ordenados por tenant y organización;
+- bloqueo de la membresía raíz con `FOR UPDATE`;
+- lectura posterior de principal, permisos y ámbitos;
+- sustitución transaccional de filas hijas autorizadas;
+- altas idempotentes mediante restricciones canónicas;
+- eventos append-only en la misma transacción;
+- ausencia de `commit`, `rollback`, motores o sesiones internas.
 
-Toda operación exige una identidad DBI activa, una membresía activa,
-`DBIPermission.MANAGE` y cobertura explícita del ámbito afectado.
+### Resolución y lectura
 
-### Administración organizacional
+- `app/dbi/admin_actor.py`
+- `app/dbi/admin_dependencies.py`
+- `app/dbi/admin_membership_reader.py`
+- `app/dbi/admin_principal_reader.py`
 
-En `DBI-ADMIN-001`, administrar una organización significa administrar la
-autoridad asociada a un `organization_ref` ya reconocido por DBI.
+Responsabilidades:
 
-Quedan fuera:
+- reconstruir al actor autenticado desde DBI;
+- verificar coincidencia exacta con `DBIAccessContext`;
+- resolver membresías objetivo únicamente dentro del tenant del actor;
+- ejecutar autorización antes de consultar un principal global;
+- ocultar existencia fuera de cobertura mediante respuestas uniformes.
 
-- crear una tabla canónica de organizaciones;
-- renombrar organizaciones;
-- mover fincas entre tenants;
-- inferir tenant a partir de una finca;
-- crear automáticamente la primera autoridad administrativa.
+### Contratos HTTP
 
-### Principal global
+- `app/dbi/admin_schemas.py`
+- `app/dbi/admin_membership_schemas.py`
+- `app/dbi/admin_principal_schemas.py`
 
-La API administrativa organizacional podrá:
+Controles:
 
-- registrar un principal nuevo y activo;
-- consultar un principal por referencia opaca;
-- tratar un registro repetido idéntico como idempotente.
+- `extra="forbid"`;
+- referencias vacías, comodines `*`, `all` y `any` rechazados;
+- permisos y ámbitos duplicados rechazados;
+- `expected_updated_at` exige zona horaria y se normaliza a UTC;
+- el alta no permite controlar `principal_active`, estado global, actor, fechas
+  persistidas ni resultado de auditoría;
+- la creación de membresía produce siempre una membresía activa.
 
-No podrá:
+### API
 
-- activar un principal inactivo;
-- desactivar un principal activo;
-- cambiar su referencia global;
-- usar una mutación de membresía para alterar `principal_active`.
+- `app/api/v1/dbi_admin.py`
+- `app/api/v1/dbi_admin_principals.py`
 
-Un principal existente e inactivo producirá conflicto. La gestión global de su
-estado requiere una futura autoridad transversal explícita o un procedimiento
-de seguridad separado, no inferido desde una organización.
+Rutas montadas bajo `/api/v1/dbi/admin`:
 
-### Membresías multiorganización
+| Método | Ruta | Función |
+|---|---|---|
+| `POST` | `/principals` | Registro activo idempotente de principal |
+| `GET` | `/principals/{legacy_identity_ref}` | Consulta autorizada de principal |
+| `POST` | `/memberships` | Creación activa e idempotente de membresía |
+| `GET` | `/memberships/{membership_id}` | Consulta protegida de membresía |
+| `PATCH` | `/memberships/{membership_id}` | Sustitución completa de estado, permisos y ámbitos |
+| `POST` | `/memberships/{membership_id}/deactivate` | Desactivación lógica |
+| `POST` | `/memberships/{membership_id}/reactivate` | Reactivación de membresía inactiva |
+| `POST` | `/memberships/{membership_id}/revoke` | Revocación irreversible |
 
-Una membresía puede contener ámbitos de varias organizaciones, pero sus
-permisos son globales dentro del tenant.
+La consulta de principal exige uno o más parámetros
+`organization_ref`. La política se ejecuta antes del lector global para evitar
+que el endpoint se use como mecanismo de enumeración.
 
-Regla obligatoria:
+## Semántica HTTP
 
-> Para cambiar permisos o estado de una membresía, el actor debe administrar
-> todas las organizaciones cubiertas antes y después del cambio.
+- `200`: consulta, no-op idempotente o mutación aplicada;
+- `201`: principal o membresía creados por primera vez;
+- `403`: actor autenticado sin autoridad administrativa base;
+- `404`: recurso ausente o fuera de cobertura, sin revelar cuál condición ocurrió;
+- `409`: conflicto de unicidad, idempotencia, versión o estado;
+- `422`: contrato o parámetros inválidos;
+- `503`: runtime DBI no disponible mediante la dependencia existente.
 
-Un administrador parcial no puede modificar una membresía multiorganización.
+No se exponen detalles SQL, URLs, credenciales, JWT, payloads completos ni
+información de otro tenant.
 
-### Anti-autoescalamiento
+## Concurrencia e idempotencia
 
-El actor no puede:
+### Concurrencia
 
-- conceder un permiso que no posee;
-- asignar una organización que no administra;
-- usar un ámbito de finca o lote como administración total de la organización;
-- registrar su propio principal mediante la operación administrativa;
-- crear una membresía para sí mismo;
-- ampliar su propia autoridad mediante una mutación;
-- reactivar su propia membresía inactiva.
+Toda mutación recibe `expected_updated_at`. El servicio:
 
-La autoridad solicitada debe ser subconjunto de la autoridad efectiva del actor
-antes de iniciar la operación.
+1. adquiere locks organizacionales estables;
+2. bloquea la membresía raíz;
+3. reconstruye el estado persistido;
+4. compara la versión esperada;
+5. vuelve a validar autoridad y último administrador;
+6. persiste la mutación y auditoría en la misma transacción.
 
-### Último administrador
+Una versión divergente devuelve conflicto y no sobrescribe cambios recientes.
 
-Una organización debe conservar al menos otra membresía distinta, activa y
-resoluble que cumpla simultáneamente:
+### Principal
+
+Un alta repetida es idempotente únicamente cuando coinciden exactamente:
+
+- `principal_id`;
+- `legacy_identity_ref`;
+- estado activo persistido.
+
+Cualquier divergencia produce conflicto.
+
+### Membresía
+
+Una creación repetida es idempotente únicamente cuando coinciden exactamente:
+
+- `membership_id`;
+- principal;
+- tenant;
+- estado activo;
+- permisos;
+- ámbitos.
+
+No se fusionan autoridades ni se amplían permisos implícitamente.
+
+## Protección del último administrador
+
+Antes de degradar una membresía, la misma transacción verifica que cada
+organización afectada conserve otra membresía distinta que cumpla:
 
 - principal activo;
 - membresía activa;
 - permiso `manage`;
 - ámbito explícito de organización.
 
-Se bloquean:
+La protección cubre:
 
-- desactivación o revocación de membresía;
+- desactivación;
+- revocación;
 - retiro de `manage`;
-- retiro del último ámbito organizacional administrativo;
-- cambios indirectos que produzcan el mismo resultado.
-
-La comprobación debe ejecutarse en la misma transacción que aplica el cambio y
-excluir la membresía objetivo del conteo restante.
-
-### Concurrencia optimista
-
-Toda mutación de membresía recibirá `expected_updated_at` y lo comparará con
-`membership.updated_at` bajo bloqueo de fila.
-
-Cambiar permisos o ámbitos debe actualizar también `membership.updated_at`.
-Una divergencia devuelve conflicto y no sobrescribe el estado actual.
-
-El registro de principal se protege mediante su restricción única. No existe una
-mutación organizacional de `principal.updated_at` o `principal.status`.
-
-### Estados y revocación
-
-No habrá borrado físico administrativo.
-
-- la creación de membresía produce una membresía activa;
-- una membresía activa puede pasar a inactiva o revocada;
-- una membresía inactiva puede reactivarse con autoridad explícita;
-- una membresía revocada no se reactiva automáticamente;
-- el estado global del principal permanece inmutable desde esta frontera.
-
-### Idempotencia
-
-Registrar un principal ya existente es idempotente únicamente cuando permanece
-activo y representa la misma referencia solicitada. Un principal existente e
-inactivo genera conflicto; no se reactiva.
-
-Crear una membresía existente solo es idempotente cuando coinciden:
-
-- principal;
-- tenant;
-- estado activo;
-- permisos;
-- ámbitos solicitados.
-
-Toda divergencia se traduce en conflicto; no se fusionan autoridades.
+- retiro de ámbito organizacional;
+- cambios indirectos equivalentes.
 
 ## Auditoría administrativa
 
-Se añadirá un registro append-only separado de modelos heredados.
+Modelo y tabla:
 
-Evidencia mínima:
+```text
+app/dbi/models/admin_audit.py
+dbi.dbi_admin_audit_events
+```
 
-- identificador del evento;
+La evidencia contiene únicamente:
+
+- identificador;
 - fecha UTC;
-- actor DBI;
+- actor principal y membresía;
 - tenant;
-- organización afectada cuando corresponda;
+- organización;
 - acción;
-- tipo de recurso;
-- referencia opaca del recurso;
-- resultado controlado;
-- referencia de correlación no sensible.
+- tipo y referencia opaca del recurso;
+- resultado cerrado a `succeeded`;
+- correlación no sensible.
 
-No se almacenarán JWT, contraseñas, URLs de base, certificados, payload completo
-ni datos heredados innecesarios.
+No contiene JSON libre, descripción, JWT, contraseña, certificado, URL ni
+payload completo. Principal, membresía y auditoría usan relaciones `RESTRICT`.
+La unicidad por correlación, organización, acción y recurso evita duplicación de
+evidencia en reintentos exactos.
 
-Los eventos exitosos deben persistirse en la misma transacción que la mutación.
-Los rechazos previos se registrarán mediante una frontera no sensible sin
-convertir la denegación en acceso a información.
+## Migraciones
 
-## Contrato administrativo previsto
-
-### Lecturas
-
-- consultar principal por referencia opaca;
-- consultar membresía por tenant y principal;
-- listar permisos y ámbitos dentro de la cobertura del actor;
-- consultar eventos acotados por tenant y organización.
-
-### Escrituras
-
-- registrar principal activo de forma idempotente;
-- crear membresía activa;
-- activar, desactivar o revocar membresía;
-- reemplazar permisos;
-- reemplazar ámbitos;
-- reactivar una membresía inactiva con autoridad explícita.
-
-No se implementará `DELETE` ni mutación del estado global del principal.
-
-## Frontera API prevista
-
-Prefijo reservado:
+Historial lineal confirmado:
 
 ```text
-/dbi/admin
+dbi_0006_plot_boundaries
+  -> dbi_0007_admin_audit
+  -> dbi_0008_scope_hierarchy
 ```
 
-Las rutas exactas se incorporarán después de aprobar política, repositorio y
-servicio administrativos offline.
+La integración efímera valida:
 
-Reglas HTTP:
+- aplicación desde base vacía;
+- única cabeza Alembic;
+- metadata SQLAlchemy equivalente al esquema real;
+- segunda ejecución idempotente;
+- ausencia de tablas heredadas;
+- restricciones compuestas de jerarquía;
+- privilegios efectivos mínimos.
 
-- denegación o recurso fuera de ámbito: respuesta uniforme no enumerable;
-- conflicto de unicidad, versión o idempotencia: `409`;
-- contrato inválido: `422`;
-- DBI no disponible: `503`;
-- nunca se exponen detalles de SQL, URL o credenciales.
+## ACL del rol API efímero
 
-## Capas
+La integración real prueba `dbi_test_api` sin:
 
-### Política pura
+- `SUPERUSER`;
+- `CREATEDB`;
+- `CREATEROLE`;
+- `REPLICATION`;
+- `BYPASSRLS`;
+- `CREATE` sobre el esquema;
+- DDL funcional;
+- borrado de principales, membresías o auditoría;
+- actualización global de principales;
+- actualización de `tenant_ref` de membresías.
+
+Privilegios funcionales probados:
+
+- principales: `SELECT`, y `INSERT` durante la prueba combinada de altas;
+- membresías: `SELECT`, `INSERT`, `UPDATE(status, updated_at)`;
+- permisos y ámbitos: `SELECT`, `INSERT`, `DELETE`;
+- auditoría: `SELECT`, `INSERT`;
+- fincas y lotes: `SELECT` para validar jerarquía.
+
+Los privilegios combinados se aprovisionan únicamente dentro del fixture
+efímero. Producción y staging permanecen fuera de alcance.
+
+## Evidencia automatizada
+
+Código funcional auditado:
 
 ```text
-app/dbi/admin_policy.py
+babd2b76ec48b8dc47ff4a245be5c3e0875490c8
 ```
 
-Responsabilidades:
+Resultados:
 
-- cobertura completa de organizaciones;
-- subconjunto de permisos y ámbitos;
-- bloqueo de autoelevación;
-- detección de pérdida de administración;
-- rechazo de cambios globales del principal;
-- sin FastAPI, SQLAlchemy ni modelos heredados.
+- `CI modular #489`: 6/6 trabajos aprobados;
+- `DBI migrations integration #174`: aprobada;
+- backend completo hasta importación y healthcheck;
+- frontend lint/build y auditoría de dependencias aprobados;
+- WhatsApp smoke test aprobado;
+- densidad geoespacial aprobada;
+- higiene del repositorio aprobada;
+- Gitleaks sobre historial completo aprobado;
+- migraciones, ACL, mutación real y altas reales aprobadas.
 
-### Repositorio administrativo
+La integración de altas verifica:
 
-```text
-app/dbi/admin_repository.py
-```
+- principal nuevo;
+- no-op exacto;
+- colisión de ID o referencia;
+- rechazo de principal inactivo;
+- membresía nueva;
+- no-op exacto;
+- divergencia de permisos;
+- principal inactivo;
+- creación para el propio actor;
+- autoridad y auditoría persistidas exactamente.
 
-Responsabilidades:
+La integración de mutaciones verifica:
 
-- consultas acotadas por tenant y organización;
-- bloqueo de filas cuando corresponda;
-- conteo del administrador restante;
-- persistencia de permisos, ámbitos y auditoría;
-- sin commit, rollback o cierre propios.
+- sustitución real de permisos y ámbitos;
+- seis eventos append-only en el escenario multiorganización;
+- no-op sin nueva evidencia;
+- conflicto de versión;
+- protección del último administrador;
+- rechazo real de SQL y privilegios prohibidos.
 
-### Servicio administrativo
+### Incidencia auditada durante la implementación
 
-```text
-app/dbi/admin_service.py
-```
+El SHA `75e30b9ef95400f32445052a9aed6846db65690f` produjo un fallo en la prueba
+HTTP de reactivación de membresía revocada. La ruta productiva usaba el servicio
+real, pero el doble de prueba omitía ejecutar la política. Se corrigió
+únicamente el doble para llamar `DBIAdminPolicy.require_membership_change`.
+El SHA posterior `f896967e37fd28493c3b6dea550f100725fcc9df`
+terminó con `CI modular #482` e integración #167 en verde.
 
-Responsabilidades:
+## Auditoría de fronteras
 
-- coordinar autorización, concurrencia e idempotencia;
-- mantener una única transacción recibida;
-- actualizar `membership.updated_at` al cambiar hijos;
-- añadir eventos de auditoría;
-- no crear motores ni sesiones.
+El diff completo fue revisado para confirmar:
 
-### Contratos
+- sin importación productiva de `User` o `Company`;
+- sin `SessionLocal` o sesión heredada;
+- sin uso productivo de `DATABASE_URL`;
+- sin motores, fábricas o conexiones creados dentro de servicio/repositorios;
+- sin secretos o URLs completas en auditoría;
+- sin borrado físico de principales, membresías o auditoría;
+- sin cambios en WhatsApp, Green API, Google Sheets, Render o modelos de IA;
+- sin panel administrativo frontend;
+- sin bootstrap automático;
+- sin entidad canónica nueva de organización.
 
-```text
-app/dbi/admin_schemas.py
-```
-
-Serán estrictos, sin campos adicionales y sin valores vacíos o comodines.
-
-### API
-
-```text
-app/api/v1/dbi_admin.py
-```
-
-Usará la sesión y el contexto DBI existentes. No importará `User`, `Company`,
-`SessionLocal` ni configuración heredada.
-
-## Secuencia de implementación
-
-1. Política administrativa pura y pruebas offline.
-2. Repositorio y servicio con dobles de sesión.
-3. Modelo de auditoría y revisión Alembic lineal.
-4. Contratos y rutas administrativas.
-5. Integración PostgreSQL/PostGIS efímera desde base vacía.
-6. Documentación, auditoría de diff y cierre.
-
-Cada fase debe mantener la CI completa en verde antes de iniciar la siguiente.
-
-## Pruebas obligatorias
-
-### Política
-
-- actor sin `manage` rechazado;
-- tenant u organización ajenos rechazados;
-- ámbito de finca sin ámbito organizacional no administra;
-- permisos fuera del subconjunto rechazados;
-- administrador parcial frente a membresía multiorganización rechazado;
-- registro del propio principal rechazado;
-- creación de membresía propia rechazada;
-- membresía nueva inactiva o con principal inactivo rechazada;
-- cambio indirecto de `principal_active` produce conflicto;
-- reducción propia permitida sin ampliación.
-
-### Último administrador
-
-- dos administradores: degradación de uno permitida;
-- un administrador: degradación rechazada;
-- principal inactivo no cuenta;
-- membresía inactiva o revocada no cuenta;
-- `manage` sin ámbito de organización no cuenta;
-- ámbito sin `manage` no cuenta.
-
-### Concurrencia e idempotencia
-
-- versión coincidente permite mutación;
-- versión divergente devuelve conflicto;
-- registro repetido idéntico es idempotente;
-- principal inactivo no se reactiva;
-- membresía repetida divergente devuelve conflicto;
-- permisos o ámbitos actualizan `membership.updated_at`.
-
-### Fronteras
-
-- no se importa sesión heredada;
-- no se usa `DATABASE_URL`;
-- no existen motores o conexiones internas;
-- no existe borrado físico;
-- no se registran secretos;
-- todas las consultas conservan tenant y organización;
-- toda la CI modular termina sin pasos omitidos.
+Las referencias a `DATABASE_URL`, sesión heredada y modelos heredados dentro de
+scripts CI corresponden a aserciones de prohibición o configuración SQLite de
+smoke tests, no a la frontera productiva DBI.
 
 ## Recuperación ante fallo
 
-- la transacción se revierte completa;
-- no se intenta reparación automática;
-- no se reactiva principal o membresía por inferencia;
-- no se reduce la protección del último administrador;
-- un conflicto de versión exige releer el estado;
-- todo cambio de esquema requiere una revisión Alembic nueva;
-- no se edita manualmente la tabla de versión.
+- La frontera HTTP confirma la transacción únicamente después del resultado del
+  servicio.
+- Denegaciones, conflictos e integridad fallida ejecutan rollback.
+- Errores inesperados son revertidos por `get_dbi_session`.
+- No existe reparación automática.
+- No se reactiva principal o membresía por inferencia.
+- Un conflicto de versión exige releer el estado.
+- No se edita manualmente la tabla Alembic.
+- Todo cambio futuro de esquema requiere una revisión nueva.
 
-## Exclusiones
+## Exclusiones confirmadas
 
 - producción o staging remoto;
 - bootstrap automático del primer administrador;
 - autoridad transversal para mutar el principal global;
-- entidad canónica nueva de organización;
+- entidad canónica de organización;
 - panel frontend;
 - cambios en JWT, middleware o autenticación heredada;
 - migración masiva de usuarios heredados;
-- borrado físico;
-- administración de infraestructura o credenciales;
+- borrado físico de recursos canónicos;
+- rotación de credenciales;
 - WhatsApp, Green API, Google Sheets, Render o modelos de IA.
+
+## Condición de cierre
+
+El PR solo puede marcarse listo cuando:
+
+- la documentación final esté integrada;
+- CI modular y PostgreSQL/PostGIS estén verdes sobre el SHA final;
+- el diff completo no presente hallazgos críticos;
+- no existan hilos o revisiones pendientes;
+- Issue #49 y la descripción del PR reflejen evidencia actual.
+
+La fusión y cierre requieren una comprobación posterior en `main` antes de
+actualizar el Hito 9.
