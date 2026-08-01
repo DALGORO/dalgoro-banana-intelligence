@@ -169,7 +169,12 @@ jobs:
           PYTHONPATH: .
         run: python ../../../.github/scripts/ci_dbi_admin_audit.py
 
-      - name: Validar guardas administrativas DBI offline
+      - name: Validar persistencia administrativa DBI offline
+        env:
+          PYTHONPATH: .
+        run: python ../../../.github/scripts/ci_dbi_admin_persistence.py
+
+      - name: Validar guardas y mutaciones administrativas DBI offline
         env:
           PYTHONPATH: .
         run: python ../../../.github/scripts/ci_dbi_admin_service.py
