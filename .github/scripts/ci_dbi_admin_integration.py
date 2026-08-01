@@ -330,9 +330,11 @@ def _validate_role_capabilities() -> None:
         "audit_select",
         "audit_insert",
     }
-    if {name for name, enabled in results.items() if enabled} != expected_true:
+    enabled = {name for name, value in results.items() if value}
+    if enabled != expected_true:
         raise AssertionError(
-            "La matriz de privilegios del rol API DBI no es mínima y exacta."
+            "La matriz de privilegios del rol API DBI no es mínima y exacta. "
+            f"Habilitados={sorted(enabled)!r}; esperados={sorted(expected_true)!r}"
         )
 
 
