@@ -31,6 +31,7 @@ from app.dbi.admin_policy import (  # noqa: E402
     DBIAdminConflict,
     DBIAdminDenied,
     DBIAdminMembershipStatus,
+    DBIAdminPolicy,
 )
 from app.dbi.admin_service import (  # noqa: E402
     DBIAdminGuardEvidence,
@@ -80,6 +81,7 @@ class FakeMutationService:
             raise self.failure
         assert before == self.target.authority
         assert expected_updated_at == self.target.membership_updated_at
+        DBIAdminPolicy.require_membership_change(actor, before, after)
         self.last_expected_updated_at = expected_updated_at
         self.last_target_membership_id = target_membership_id
         plan = plan_membership_mutation(
