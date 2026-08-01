@@ -190,7 +190,6 @@ def build_admin_membership_state(
                 raise DBIAdminConflict()
             scope_keys.add(key)
             plot_scopes.add(plot_scope)
-            farm_scopes.add(farm_scope)
         except (TypeError, ValueError) as error:
             raise DBIAdminConflict() from error
 
