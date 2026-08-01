@@ -90,10 +90,12 @@ class _FakeRepository:
         *,
         remaining_counts: dict[str, int] | None = None,
         invalid_bundle: bool = False,
+        include_extra_states: bool = False,
     ) -> None:
         self.states = states
         self.remaining_counts = remaining_counts or {}
         self.invalid_bundle = invalid_bundle
+        self.include_extra_states = include_extra_states
         self.events: list[tuple[object, ...]] = []
 
     def lock_and_load_membership_states(
@@ -108,11 +110,15 @@ class _FakeRepository:
         self.events.append(("lock_and_load", tenant_ref, organizations, ids))
         if self.invalid_bundle:
             return object()  # type: ignore[return-value]
-        selected = {
-            membership_id: self.states[membership_id]
-            for membership_id in membership_ids
-            if membership_id in self.states
-        }
+        selected = (
+            dict(self.states)
+            if self.include_extra_states
+            else {
+                membership_id: self.states[membership_id]
+                for membership_id in membership_ids
+                if membership_id in self.states
+            }
+        )
         return DBIAdminLockedMembershipStates(
             lock_keys=tuple(range(101, 101 + len(organizations))),
             states=selected,
@@ -309,7 +315,7 @@ def validate_last_admin_order_and_result() -> None:
     ]
 
 
-def validate_stale_and_missing_states() -> None:
+def validate_stale_and_invalid_state_bundles() -> None:
     actor_id = uuid4()
     target_id = uuid4()
     actor = _actor()
@@ -344,6 +350,26 @@ def validate_stale_and_missing_states() -> None:
     )
     _assert_conflict(
         lambda: DBIAdminService(missing_repository).guard_membership_change(
+            actor,
+            before,
+            after,
+            actor_membership_id=actor_id,
+            target_membership_id=target_id,
+            expected_updated_at=NOW,
+        )
+    )
+
+    extra_id = uuid4()
+    extra_repository = _FakeRepository(
+        {
+            actor_id: _state(actor_id, actor),
+            target_id: _state(target_id, before),
+            extra_id: _state(extra_id, _snapshot(principal_ref="extra")),
+        },
+        include_extra_states=True,
+    )
+    _assert_conflict(
+        lambda: DBIAdminService(extra_repository).guard_membership_change(
             actor,
             before,
             after,
@@ -434,6 +460,7 @@ def validate_static_boundaries() -> None:
 
     for required in (
         "lock_and_load_membership_states",
+        "frozenset(value.states.keys()) != membership_ids",
         "_require_authority_match",
         "require_membership_version",
         "dbiadminpolicy.require_membership_change",
@@ -481,7 +508,7 @@ def main() -> None:
     validate_membership_create_guard()
     validate_membership_change_without_protection()
     validate_last_admin_order_and_result()
-    validate_stale_and_missing_states()
+    validate_stale_and_invalid_state_bundles()
     validate_version_barrier_and_self_change()
     validate_static_boundaries()
     print("Guardas administrativas DBI aprobadas offline.")
