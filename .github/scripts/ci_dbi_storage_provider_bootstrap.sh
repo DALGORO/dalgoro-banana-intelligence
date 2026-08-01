@@ -62,6 +62,9 @@ docker run --detach \
   --tmpfs /data:rw,nosuid,nodev,size=128m \
   --tmpfs /tmp:rw,nosuid,nodev,size=32m \
   --cap-drop ALL \
+  --cap-add CHOWN \
+  --cap-add SETGID \
+  --cap-add SETUID \
   --security-opt no-new-privileges:true \
   --pids-limit 256 \
   --memory 512m \
@@ -136,6 +139,7 @@ if [[ -n "${GITHUB_STEP_SUMMARY:-}" ]]; then
     echo
     echo "- Imagen: \`${APPROVED_PINNED_REF}\`"
     echo "- Puerto publicado: \`127.0.0.1:8333\`"
+    echo "- Capacidades efectivas: \`CHOWN\`, \`SETGID\`, \`SETUID\`"
     echo "- Acceso anónimo: denegado con HTTP 403"
     echo "- Credenciales: sintéticas, enmascaradas y no persistidas"
     echo "- Datos: ningún archivo ni activo real"
