@@ -15,6 +15,7 @@ from app.dbi.migration_control import (
     DBIMigrationControlError,
     DBIMigrationTarget,
     require_apply_confirmation,
+    require_authorized_github_actions_runtime,
     validate_migration_target,
 )
 from app.dbi.migration_lock import migration_lock
@@ -52,12 +53,13 @@ def _validate_apply_scope(
     *,
     running_in_ci: bool,
 ) -> DBIMigrationTarget:
-    """Restringe ``apply`` a CI, ambiente test y host local."""
+    """Restringe ``apply`` al job DBI autorizado, ambiente test y host local."""
 
     if not running_in_ci:
         raise DBIMigrationControlError(
             "Apply DBI solo está habilitado dentro de CI controlada."
         )
+    require_authorized_github_actions_runtime()
 
     target = validate_migration_target(config, running_in_ci=True)
     host = (config.url.host or "").strip().lower()
