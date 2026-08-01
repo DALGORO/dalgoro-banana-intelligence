@@ -1,4 +1,4 @@
-"""Valida las guardas administrativas DBI sin persistencia ni API."""
+"""Valida guardas y mutaciones administrativas DBI sin API ni commit."""
 
 from __future__ import annotations
 
@@ -11,6 +11,7 @@ ROOT = Path(__file__).resolve().parents[2]
 BACKEND = ROOT / "apps" / "platform-web" / "backend"
 sys.path.insert(0, str(BACKEND))
 
+from app.dbi.admin_mutation_plan import DBIAdminMembershipMutationPlan  # noqa: E402
 from app.dbi.admin_policy import (  # noqa: E402
     ADMIN_CONFLICT_MESSAGE,
     ADMIN_DENIED_MESSAGE,
@@ -30,6 +31,7 @@ TENANT = "tenant-a"
 ORG_A = "organization-a"
 ORG_B = "organization-b"
 NOW = datetime(2026, 8, 1, 12, 0, tzinfo=timezone.utc)
+NEXT = NOW + timedelta(microseconds=1)
 
 
 def _snapshot(
@@ -72,10 +74,11 @@ def _state(
     membership_id: UUID,
     authority: DBIAdminAuthoritySnapshot,
     *,
+    principal_id: UUID | None = None,
     membership_updated_at: datetime = NOW,
 ) -> DBIAdminPersistedMembershipState:
     return DBIAdminPersistedMembershipState(
-        principal_id=uuid4(),
+        principal_id=principal_id or uuid4(),
         membership_id=membership_id,
         principal_updated_at=NOW,
         membership_updated_at=membership_updated_at,
@@ -91,11 +94,13 @@ class _FakeRepository:
         remaining_counts: dict[str, int] | None = None,
         invalid_bundle: bool = False,
         include_extra_states: bool = False,
+        fail_apply: bool = False,
     ) -> None:
         self.states = states
         self.remaining_counts = remaining_counts or {}
         self.invalid_bundle = invalid_bundle
         self.include_extra_states = include_extra_states
+        self.fail_apply = fail_apply
         self.events: list[tuple[object, ...]] = []
 
     def lock_and_load_membership_states(
@@ -133,17 +138,32 @@ class _FakeRepository:
     ) -> dict[str, int]:
         organizations = tuple(sorted(organization_refs))
         self.events.append(
-            (
-                "count",
-                tenant_ref,
-                organizations,
-                excluded_membership_id,
-            )
+            ("count", tenant_ref, organizations, excluded_membership_id)
         )
         return {
             organization_ref: self.remaining_counts.get(organization_ref, 0)
             for organization_ref in organizations
         }
+
+    def apply_membership_mutation(
+        self,
+        *,
+        actor_principal_id: UUID,
+        actor_membership_id: UUID,
+        target_membership_id: UUID,
+        plan: DBIAdminMembershipMutationPlan,
+    ) -> None:
+        self.events.append(
+            (
+                "apply",
+                actor_principal_id,
+                actor_membership_id,
+                target_membership_id,
+                plan,
+            )
+        )
+        if self.fail_apply:
+            raise DBIAdminConflict()
 
 
 def _assert_denied(factory) -> None:
@@ -152,7 +172,7 @@ def _assert_denied(factory) -> None:
     except DBIAdminDenied as error:
         assert str(error) == ADMIN_DENIED_MESSAGE
         return
-    raise AssertionError("La guarda administrativa debía denegar la operación.")
+    raise AssertionError("La operación administrativa debía ser denegada.")
 
 
 def _assert_conflict(factory) -> None:
@@ -161,25 +181,40 @@ def _assert_conflict(factory) -> None:
     except DBIAdminConflict as error:
         assert str(error) == ADMIN_CONFLICT_MESSAGE
         return
-    raise AssertionError("La guarda administrativa debía producir conflicto.")
+    raise AssertionError("La operación administrativa debía producir conflicto.")
 
 
-def validate_principal_registration_guard() -> None:
+def validate_principal_and_membership_guards() -> None:
     actor_id = uuid4()
-    actor = _actor()
+    actor = _actor(organization_scopes=frozenset({ORG_A, ORG_B}))
     repository = _FakeRepository({actor_id: _state(actor_id, actor)})
-    evidence = DBIAdminService(repository).guard_principal_registration(
+    service = DBIAdminService(repository)
+
+    principal_evidence = service.guard_principal_registration(
         actor,
         actor_membership_id=actor_id,
         target_principal_ref="principal-new",
         tenant_ref=TENANT,
         organization_refs=frozenset({ORG_A}),
     )
-    assert evidence.tenant_ref == TENANT
-    assert evidence.organization_refs == frozenset({ORG_A})
-    assert evidence.lock_keys == (101,)
-    assert repository.events == [
-        ("lock_and_load", TENANT, (ORG_A,), (actor_id,))
+    assert principal_evidence.tenant_ref == TENANT
+    assert principal_evidence.organization_refs == frozenset({ORG_A})
+    assert principal_evidence.lock_keys == (101,)
+
+    requested = _snapshot(
+        permissions=frozenset({DBIPermission.READ}),
+        organization_scopes=frozenset({ORG_A, ORG_B}),
+    )
+    membership_evidence = service.guard_membership_create(
+        actor,
+        requested,
+        actor_membership_id=actor_id,
+    )
+    assert membership_evidence.organization_refs == frozenset({ORG_A, ORG_B})
+    assert membership_evidence.lock_keys == (101, 102)
+    assert [event[0] for event in repository.events] == [
+        "lock_and_load",
+        "lock_and_load",
     ]
 
     no_manage = _actor(permissions=frozenset({DBIPermission.READ}))
@@ -197,75 +232,12 @@ def validate_principal_registration_guard() -> None:
             organization_refs=frozenset({ORG_A}),
         )
     )
-    assert denied_repository.events[0][0] == "lock_and_load"
-
-    stale_repository = _FakeRepository({actor_id: _state(actor_id, actor)})
-    _assert_conflict(
-        lambda: DBIAdminService(
-            stale_repository
-        ).guard_principal_registration(
-            no_manage,
-            actor_membership_id=actor_id,
-            target_principal_ref="principal-new",
-            tenant_ref=TENANT,
-            organization_refs=frozenset({ORG_A}),
-        )
-    )
-
-
-def validate_membership_create_guard() -> None:
-    actor_id = uuid4()
-    actor = _actor(organization_scopes=frozenset({ORG_A, ORG_B}))
-    requested = _snapshot(
-        permissions=frozenset({DBIPermission.READ}),
-        organization_scopes=frozenset({ORG_A, ORG_B}),
-    )
-    repository = _FakeRepository({actor_id: _state(actor_id, actor)})
-    evidence = DBIAdminService(repository).guard_membership_create(
-        actor,
-        requested,
-        actor_membership_id=actor_id,
-    )
-    assert evidence.organization_refs == frozenset({ORG_A, ORG_B})
-    assert evidence.lock_keys == (101, 102)
-    assert repository.events == [
-        (
-            "lock_and_load",
-            TENANT,
-            (ORG_A, ORG_B),
-            (actor_id,),
-        )
+    assert [event[0] for event in denied_repository.events] == [
+        "lock_and_load"
     ]
 
 
-def validate_membership_change_without_protection() -> None:
-    actor_id = uuid4()
-    target_id = uuid4()
-    actor = _actor()
-    before = _snapshot(permissions=frozenset({DBIPermission.READ}))
-    after = _snapshot(
-        permissions=frozenset({DBIPermission.READ, DBIPermission.WRITE})
-    )
-    repository = _FakeRepository(
-        {
-            actor_id: _state(actor_id, actor),
-            target_id: _state(target_id, before),
-        }
-    )
-    evidence = DBIAdminService(repository).guard_membership_change(
-        actor,
-        before,
-        after,
-        actor_membership_id=actor_id,
-        target_membership_id=target_id,
-        expected_updated_at=NOW,
-    )
-    assert evidence.protected_organization_refs == frozenset()
-    assert repository.events[0][0] == "lock_and_load"
-    assert len(repository.events) == 1
-
-
-def validate_last_admin_order_and_result() -> None:
+def validate_membership_change_and_last_admin() -> None:
     actor_id = uuid4()
     target_id = uuid4()
     actor = _actor()
@@ -314,8 +286,35 @@ def validate_last_admin_order_and_result() -> None:
         "count",
     ]
 
+    no_protection_before = _snapshot(
+        permissions=frozenset({DBIPermission.READ})
+    )
+    no_protection_after = _snapshot(
+        permissions=frozenset({DBIPermission.READ, DBIPermission.WRITE})
+    )
+    no_protection_repository = _FakeRepository(
+        {
+            actor_id: _state(actor_id, actor),
+            target_id: _state(target_id, no_protection_before),
+        }
+    )
+    evidence = DBIAdminService(
+        no_protection_repository
+    ).guard_membership_change(
+        actor,
+        no_protection_before,
+        no_protection_after,
+        actor_membership_id=actor_id,
+        target_membership_id=target_id,
+        expected_updated_at=NOW,
+    )
+    assert evidence.protected_organization_refs == frozenset()
+    assert [event[0] for event in no_protection_repository.events] == [
+        "lock_and_load"
+    ]
 
-def validate_stale_and_invalid_state_bundles() -> None:
+
+def validate_invalid_state_bundles_and_versions() -> None:
     actor_id = uuid4()
     target_id = uuid4()
     actor = _actor()
@@ -324,13 +323,13 @@ def validate_stale_and_invalid_state_bundles() -> None:
         permissions=frozenset({DBIPermission.READ, DBIPermission.WRITE})
     )
 
-    stale_target = _snapshot(
+    stale_authority = _snapshot(
         permissions=frozenset({DBIPermission.READ, DBIPermission.MANAGE})
     )
     stale_repository = _FakeRepository(
         {
             actor_id: _state(actor_id, actor),
-            target_id: _state(target_id, stale_target),
+            target_id: _state(target_id, stale_authority),
         }
     )
     _assert_conflict(
@@ -343,7 +342,6 @@ def validate_stale_and_invalid_state_bundles() -> None:
             expected_updated_at=NOW,
         )
     )
-    assert len(stale_repository.events) == 1
 
     missing_repository = _FakeRepository(
         {actor_id: _state(actor_id, actor)}
@@ -397,37 +395,39 @@ def validate_stale_and_invalid_state_bundles() -> None:
         )
     )
 
-
-def validate_version_barrier_and_self_change() -> None:
-    actor_id = uuid4()
-    actor = _actor()
-    reduced = _actor(
-        permissions=frozenset({DBIPermission.READ, DBIPermission.MANAGE})
-    )
-
     version_repository = _FakeRepository(
         {
-            actor_id: _state(
-                actor_id,
-                actor,
+            actor_id: _state(actor_id, actor),
+            target_id: _state(
+                target_id,
+                before,
                 membership_updated_at=NOW + timedelta(microseconds=1),
-            )
+            ),
         }
     )
     _assert_conflict(
         lambda: DBIAdminService(version_repository).guard_membership_change(
             actor,
-            actor,
-            reduced,
+            before,
+            after,
             actor_membership_id=actor_id,
-            target_membership_id=actor_id,
+            target_membership_id=target_id,
             expected_updated_at=NOW,
         )
     )
-    assert len(version_repository.events) == 1
+    assert [event[0] for event in version_repository.events] == [
+        "lock_and_load"
+    ]
 
-    self_repository = _FakeRepository({actor_id: _state(actor_id, actor)})
-    evidence = DBIAdminService(self_repository).guard_membership_change(
+
+def validate_self_change() -> None:
+    actor_id = uuid4()
+    actor = _actor()
+    reduced = _actor(
+        permissions=frozenset({DBIPermission.READ, DBIPermission.MANAGE})
+    )
+    repository = _FakeRepository({actor_id: _state(actor_id, actor)})
+    evidence = DBIAdminService(repository).guard_membership_change(
         actor,
         actor,
         reduced,
@@ -436,9 +436,7 @@ def validate_version_barrier_and_self_change() -> None:
         expected_updated_at=NOW,
     )
     assert evidence.organization_refs == frozenset({ORG_A})
-    event = self_repository.events[0]
-    assert event[0] == "lock_and_load"
-    assert event[3] == (actor_id,)
+    assert repository.events[0][3] == (actor_id,)
 
     naive_repository = _FakeRepository({actor_id: _state(actor_id, actor)})
     _assert_conflict(
@@ -451,6 +449,134 @@ def validate_version_barrier_and_self_change() -> None:
             expected_updated_at=NOW.replace(tzinfo=None),
         )
     )
+
+
+def validate_mutation_order_and_evidence() -> None:
+    actor_id = uuid4()
+    actor_principal_id = uuid4()
+    target_id = uuid4()
+    actor = _actor()
+    before = _snapshot(
+        permissions=frozenset({DBIPermission.READ, DBIPermission.MANAGE})
+    )
+    after = _snapshot(permissions=frozenset({DBIPermission.READ}))
+    repository = _FakeRepository(
+        {
+            actor_id: _state(
+                actor_id,
+                actor,
+                principal_id=actor_principal_id,
+            ),
+            target_id: _state(target_id, before),
+        },
+        remaining_counts={ORG_A: 1},
+    )
+
+    evidence = DBIAdminService(repository).mutate_membership(
+        actor,
+        before,
+        after,
+        actor_membership_id=actor_id,
+        target_membership_id=target_id,
+        expected_updated_at=NOW,
+        next_updated_at=NEXT,
+        correlation_ref="request-001",
+    )
+    assert evidence.plan.applied is True
+    assert evidence.plan.next_updated_at == NEXT
+    assert evidence.guard.protected_organization_refs == frozenset({ORG_A})
+    assert [event[0] for event in repository.events] == [
+        "lock_and_load",
+        "count",
+        "apply",
+    ]
+    apply_event = repository.events[-1]
+    assert apply_event[1] == actor_principal_id
+    assert apply_event[2] == actor_id
+    assert apply_event[3] == target_id
+    assert apply_event[4] is evidence.plan
+
+    no_op_repository = _FakeRepository(
+        {
+            actor_id: _state(
+                actor_id,
+                actor,
+                principal_id=actor_principal_id,
+            ),
+            target_id: _state(target_id, before),
+        }
+    )
+    no_op = DBIAdminService(no_op_repository).mutate_membership(
+        actor,
+        before,
+        before,
+        actor_membership_id=actor_id,
+        target_membership_id=target_id,
+        expected_updated_at=NOW,
+        next_updated_at=NEXT,
+        correlation_ref="request-noop",
+    )
+    assert no_op.plan.applied is False
+    assert [event[0] for event in no_op_repository.events] == [
+        "lock_and_load",
+        "apply",
+    ]
+
+
+def validate_mutation_stops_before_apply() -> None:
+    actor_id = uuid4()
+    target_id = uuid4()
+    actor = _actor()
+    before = _snapshot(
+        permissions=frozenset({DBIPermission.READ, DBIPermission.MANAGE})
+    )
+    after = _snapshot(permissions=frozenset({DBIPermission.READ}))
+    states = {
+        actor_id: _state(actor_id, actor),
+        target_id: _state(target_id, before),
+    }
+
+    last_admin_repository = _FakeRepository(
+        states,
+        remaining_counts={ORG_A: 0},
+    )
+    _assert_conflict(
+        lambda: DBIAdminService(last_admin_repository).mutate_membership(
+            actor,
+            before,
+            after,
+            actor_membership_id=actor_id,
+            target_membership_id=target_id,
+            expected_updated_at=NOW,
+            next_updated_at=NEXT,
+            correlation_ref="request-last-admin",
+        )
+    )
+    assert [event[0] for event in last_admin_repository.events] == [
+        "lock_and_load",
+        "count",
+    ]
+
+    invalid_time_repository = _FakeRepository(
+        states,
+        remaining_counts={ORG_A: 1},
+    )
+    _assert_conflict(
+        lambda: DBIAdminService(invalid_time_repository).mutate_membership(
+            actor,
+            before,
+            after,
+            actor_membership_id=actor_id,
+            target_membership_id=target_id,
+            expected_updated_at=NOW,
+            next_updated_at=NOW,
+            correlation_ref="request-time",
+        )
+    )
+    assert [event[0] for event in invalid_time_repository.events] == [
+        "lock_and_load",
+        "count",
+    ]
 
 
 def validate_static_boundaries() -> None:
@@ -468,16 +594,23 @@ def validate_static_boundaries() -> None:
         "require_membership_version",
         "dbiadminpolicy.require_membership_change",
         "count_remaining_administrators",
+        "plan_membership_mutation",
+        "apply_membership_mutation",
         "advisory locks",
     ):
         assert required in source
 
-    method = source[source.index("def guard_membership_change") :]
-    lock_position = method.index("locked = self._lock_and_load")
-    match_position = method.index("_require_authority_match")
-    version_position = method.index("require_membership_version")
-    policy_position = method.index("dbiadminpolicy.require_membership_change")
-    count_position = method.index("count_remaining_administrators")
+    authorization = source[
+        source.index("def _authorize_membership_change") :
+        source.index("def guard_membership_change")
+    ]
+    lock_position = authorization.index("locked = self._lock_and_load")
+    match_position = authorization.index("_require_authority_match")
+    version_position = authorization.index("require_membership_version")
+    policy_position = authorization.index(
+        "dbiadminpolicy.require_membership_change"
+    )
+    count_position = authorization.index("count_remaining_administrators")
     assert (
         lock_position
         < match_position
@@ -485,6 +618,12 @@ def validate_static_boundaries() -> None:
         < policy_position
         < count_position
     )
+
+    mutation = source[source.index("def mutate_membership") :]
+    authorize_position = mutation.index("self._authorize_membership_change")
+    plan_position = mutation.index("plan = plan_membership_mutation")
+    apply_position = mutation.index("self._repository.apply_membership_mutation")
+    assert authorize_position < plan_position < apply_position
 
     assert "class dbiadminlockedmembershipstates" not in source
     assert "from app.dbi.admin_service" not in repository_source
@@ -510,14 +649,14 @@ def validate_static_boundaries() -> None:
 
 
 def main() -> None:
-    validate_principal_registration_guard()
-    validate_membership_create_guard()
-    validate_membership_change_without_protection()
-    validate_last_admin_order_and_result()
-    validate_stale_and_invalid_state_bundles()
-    validate_version_barrier_and_self_change()
+    validate_principal_and_membership_guards()
+    validate_membership_change_and_last_admin()
+    validate_invalid_state_bundles_and_versions()
+    validate_self_change()
+    validate_mutation_order_and_evidence()
+    validate_mutation_stops_before_apply()
     validate_static_boundaries()
-    print("Guardas administrativas DBI aprobadas offline.")
+    print("Guardas y mutaciones administrativas DBI aprobadas offline.")
 
 
 if __name__ == "__main__":
