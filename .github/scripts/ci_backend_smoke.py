@@ -14,6 +14,9 @@ from ci_dbi_admin_principal_routes import (
 from ci_dbi_admin_routes import main as validate_dbi_admin_routes
 from ci_dbi_admin_schemas import main as validate_dbi_admin_schemas
 from ci_dbi_asset_api import main as validate_dbi_asset_api
+from ci_dbi_asset_quarantine_cleanup_api import (
+    main as validate_dbi_asset_quarantine_cleanup_api,
+)
 from ci_dbi_asset_registration import main as validate_dbi_asset_registration
 from ci_dbi_asset_repository import main as validate_dbi_asset_repository
 from ci_dbi_asset_quarantine_cleanup import (
@@ -45,6 +48,7 @@ def main() -> None:
     validate_dbi_asset_registration()
     validate_dbi_asset_repository()
     validate_dbi_asset_quarantine_cleanup()
+    validate_dbi_asset_quarantine_cleanup_api()
     validate_dbi_asset_retirement_service()
     validate_dbi_asset_service()
     validate_dbi_asset_upload_service()
