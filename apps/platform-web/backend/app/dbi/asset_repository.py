@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from datetime import datetime, timezone
 from uuid import UUID
 
 from sqlalchemy import select
@@ -16,6 +17,7 @@ from app.dbi.asset_registration import (
     DBIAssetRegistrationSnapshot,
     build_asset_registration_plan,
 )
+from app.dbi.asset_verification import DBIAssetVerificationDecision
 from app.dbi.models.assets import AnalysisInputAsset
 
 
@@ -35,6 +37,12 @@ def _required_plan(value: object) -> DBIAssetRegistrationPlan:
     if not isinstance(value, DBIAssetRegistrationPlan):
         raise DBIAssetRegistrationConflict("plan inválido.")
     return value
+
+
+def _utc(value: object, *, field_name: str) -> datetime:
+    if not isinstance(value, datetime) or value.tzinfo is None or value.utcoffset() is None:
+        raise DBIAssetRegistrationConflict(f"{field_name} debe incluir zona horaria.")
+    return value.astimezone(timezone.utc)
 
 
 def _intent(plan: DBIAssetRegistrationPlan) -> DBIAssetRegistrationIntent:
@@ -168,3 +176,33 @@ class DBIAssetRepository:
         if checked.action is not DBIAssetRegistrationAction.REUSE:
             raise DBIAssetRegistrationConflict("registro concurrente divergente.")
         return False
+
+    def apply_verification(
+        self,
+        *,
+        row: AnalysisInputAsset,
+        decision: DBIAssetVerificationDecision,
+        verified_at: datetime,
+    ) -> bool:
+        """Aplica una transición bloqueada sin confirmar la transacción externa."""
+
+        if not isinstance(row, AnalysisInputAsset):
+            raise DBIAssetRegistrationConflict("registro de activo inválido.")
+        if not isinstance(decision, DBIAssetVerificationDecision):
+            raise DBIAssetRegistrationConflict("decisión de verificación inválida.")
+        timestamp = _utc(verified_at, field_name="verified_at")
+
+        if row.status == "verified":
+            if decision is not DBIAssetVerificationDecision.VERIFIED or row.verified_at is None:
+                raise DBIAssetRegistrationConflict("activo verificado no puede cambiar de estado.")
+            return False
+        if row.status != "registered":
+            raise DBIAssetRegistrationConflict("el activo no admite verificación.")
+
+        row.status = decision.value
+        row.verified_at = (
+            timestamp if decision is DBIAssetVerificationDecision.VERIFIED else None
+        )
+        row.updated_at = timestamp
+        self._session.flush()
+        return True
