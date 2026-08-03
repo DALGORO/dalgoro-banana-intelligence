@@ -15,12 +15,21 @@ os.environ.setdefault("DATABASE_URL", "sqlite+pysqlite:///:memory:")
 os.environ.setdefault("JWT_SECRET", "dbi-ci-placeholder")
 os.environ.setdefault("ENABLE_DOCS", "0")
 
-from app.api.v1.dbi_assets import confirm_asset_upload, register_asset_upload
-from app.dbi.asset_api_schemas import DBIAssetConfirmRequest, DBIAssetUploadRequest
+from app.api.v1.dbi_assets import (
+    confirm_asset_upload,
+    register_asset_upload,
+    retire_asset,
+)
+from app.dbi.asset_api_schemas import (
+    DBIAssetConfirmRequest,
+    DBIAssetRetireRequest,
+    DBIAssetUploadRequest,
+)
 from app.dbi.asset_registration import (
     DBIAssetRegistrationAction,
     DBIAssetRegistrationPlan,
 )
+from app.dbi.asset_retirement_service import DBIAssetRetirementEvidence
 from app.dbi.asset_service import DBIAssetRegistrationEvidence
 from app.dbi.asset_upload_service import DBIAssetUploadEvidence
 from app.dbi.asset_verification import (
@@ -31,6 +40,7 @@ from app.dbi.asset_verification_service import DBIAssetVerificationEvidence
 from app.dbi.authorization import DBIAccessContext, DBIAccessDenied
 from app.dbi.storage_contracts import (
     DBIStorageAccessMode,
+    DBIStorageError,
     DBIStorageNotFound,
     DBIStoragePurpose,
     DBIStorageTemporaryGrant,
@@ -71,6 +81,19 @@ class FakeVerificationService:
         self.calls = 0
 
     def confirm(self, *args, **kwargs):
+        self.calls += 1
+        if self.error is not None:
+            raise self.error
+        return self.evidence
+
+
+class FakeRetirementService:
+    def __init__(self, evidence=None, error=None) -> None:
+        self.evidence = evidence
+        self.error = error
+        self.calls = 0
+
+    def retire(self, *args, **kwargs):
         self.calls += 1
         if self.error is not None:
             raise self.error
@@ -273,6 +296,117 @@ def main() -> None:
     )
     assert not_found_session.commits == 0 and not_found_session.rollbacks == 1
 
+    retirement = DBIAssetRetirementEvidence(
+        object_changed=True,
+        state_changed=True,
+    )
+    retirement_session = FakeSession()
+
+    retirement_result = retire_asset(
+        asset_id=asset_id,
+        payload=DBIAssetRetireRequest(
+            organization_ref="org-1",
+            farm_id=farm_id,
+        ),
+        session=retirement_session,
+        context=_context(),
+        service=FakeRetirementService(
+            evidence=retirement,
+        ),
+    )
+
+    assert retirement_result.asset_id == asset_id
+    assert retirement_result.status == "retired"
+    assert retirement_result.changed is True
+    assert retirement_session.commits == 1
+    assert retirement_session.rollbacks == 0
+
+    retirement_dump = retirement_result.model_dump()
+    assert "object_changed" not in retirement_dump
+    assert "state_changed" not in retirement_dump
+    assert "object_key" not in retirement_dump
+
+    retry_session = FakeSession()
+    retry_result = retire_asset(
+        asset_id=asset_id,
+        payload=DBIAssetRetireRequest(
+            organization_ref="org-1",
+            farm_id=farm_id,
+        ),
+        session=retry_session,
+        context=_context(),
+        service=FakeRetirementService(
+            evidence=DBIAssetRetirementEvidence(
+                object_changed=False,
+                state_changed=False,
+            ),
+        ),
+    )
+
+    assert retry_result.status == "retired"
+    assert retry_result.changed is False
+    assert retry_session.commits == 1
+    assert retry_session.rollbacks == 0
+
+    retirement_denied_session = FakeSession()
+    _must_http_error(
+        lambda: retire_asset(
+            asset_id=asset_id,
+            payload=DBIAssetRetireRequest(
+                organization_ref="org-1",
+                farm_id=farm_id,
+            ),
+            session=retirement_denied_session,
+            context=_context(),
+            service=FakeRetirementService(
+                error=DBIAccessDenied(),
+            ),
+        ),
+        404,
+    )
+    assert retirement_denied_session.commits == 0
+    assert retirement_denied_session.rollbacks == 1
+
+    retirement_missing_object_session = FakeSession()
+    _must_http_error(
+        lambda: retire_asset(
+            asset_id=asset_id,
+            payload=DBIAssetRetireRequest(
+                organization_ref="org-1",
+                farm_id=farm_id,
+            ),
+            session=retirement_missing_object_session,
+            context=_context(),
+            service=FakeRetirementService(
+                error=DBIStorageNotFound(),
+            ),
+        ),
+        409,
+    )
+    assert retirement_missing_object_session.commits == 0
+    assert retirement_missing_object_session.rollbacks == 1
+
+    retirement_provider_session = FakeSession()
+    _must_http_error(
+        lambda: retire_asset(
+            asset_id=asset_id,
+            payload=DBIAssetRetireRequest(
+                organization_ref="org-1",
+                farm_id=farm_id,
+            ),
+            session=retirement_provider_session,
+            context=_context(),
+            service=FakeRetirementService(
+                error=DBIStorageError(
+                    "proveedor no disponible"
+                ),
+            ),
+        ),
+        503,
+    )
+    assert retirement_provider_session.commits == 0
+    assert retirement_provider_session.rollbacks == 1
+
     try:
         DBIAssetConfirmRequest(
             organization_ref="*",
@@ -294,6 +428,31 @@ def main() -> None:
         pass
     else:
         raise AssertionError("Los campos extra debían rechazarse.")
+
+    try:
+        DBIAssetRetireRequest(
+            organization_ref="*",
+            farm_id=farm_id,
+        )
+    except ValidationError:
+        pass
+    else:
+        raise AssertionError(
+            "El retiro debía rechazar el comodín organizacional."
+        )
+
+    try:
+        DBIAssetRetireRequest(
+            organization_ref="org-1",
+            farm_id=farm_id,
+            tenant_ref="tenant-inyectado",
+        )
+    except ValidationError:
+        pass
+    else:
+        raise AssertionError(
+            "El retiro debía rechazar campos extra."
+        )
 
     print("API transaccional de activos DBI aprobada offline.")
 
