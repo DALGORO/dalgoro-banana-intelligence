@@ -62,9 +62,4 @@ class DBIAssetConfirmResponse(_AssetAPIModel):
     asset_id: UUID
     status: Literal["verified", "quarantined"]
     changed: bool
-    reason: Literal[
-        "verified",
-        "content_type_mismatch",
-        "size_mismatch",
-        "sha256_mismatch",
-    ]
+    reason: Literal["verified", "integrity_mismatch"]
