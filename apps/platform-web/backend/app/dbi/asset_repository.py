@@ -206,3 +206,38 @@ class DBIAssetRepository:
         row.updated_at = timestamp
         self._session.flush()
         return True
+
+    def apply_retirement(
+        self,
+        *,
+        row: AnalysisInputAsset,
+        retired_at: datetime,
+    ) -> bool:
+        """Persiste un retiro lógico idempotente sin controlar la transacción."""
+
+        if not isinstance(row, AnalysisInputAsset):
+            raise DBIAssetRegistrationConflict(
+                "registro de activo inválido."
+            )
+
+        timestamp = _utc(
+            retired_at,
+            field_name="retired_at",
+        )
+
+        if row.status == "retired":
+            return False
+
+        if row.status not in {
+            "registered",
+            "verified",
+            "quarantined",
+        }:
+            raise DBIAssetRegistrationConflict(
+                "el activo no admite retiro."
+            )
+
+        row.status = "retired"
+        row.updated_at = timestamp
+        self._session.flush()
+        return True
