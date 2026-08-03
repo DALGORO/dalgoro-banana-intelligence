@@ -116,16 +116,6 @@ def _storage_unavailable() -> HTTPException:
     return HTTPException(status_code=503, detail=DBI_ASSET_STORAGE_DETAIL)
 
 
-def _verification_reason(result) -> str:
-    if result.decision is DBIAssetVerificationDecision.VERIFIED:
-        return "verified"
-    if not result.content_type_matches:
-        return "content_type_mismatch"
-    if result.observed_size_bytes != result.expected_size_bytes:
-        return "size_mismatch"
-    return "sha256_mismatch"
-
-
 @router.post("", response_model=DBIAssetUploadResponse)
 def register_asset_upload(
     payload: DBIAssetUploadRequest,
@@ -210,17 +200,13 @@ def confirm_asset_upload(
         raise _storage_unavailable() from error
 
     result = evidence.result
-    reason = "verified"
-    if result.decision is DBIAssetVerificationDecision.QUARANTINED:
-        if not result.content_type_matches:
-            reason = "content_type_mismatch"
-        elif result.observed_size_bytes != service.expected_size_bytes:
-            reason = "size_mismatch"
-        else:
-            reason = "sha256_mismatch"
     return DBIAssetConfirmResponse(
         asset_id=asset_id,
         status=result.decision.value,
         changed=evidence.changed,
-        reason=reason,
+        reason=(
+            "verified"
+            if result.decision is DBIAssetVerificationDecision.VERIFIED
+            else "integrity_mismatch"
+        ),
     )
