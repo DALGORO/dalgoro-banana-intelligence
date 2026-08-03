@@ -2,11 +2,18 @@
 
 from __future__ import annotations
 
+import os
 from datetime import datetime, timedelta, timezone
 from uuid import uuid4
 
 from fastapi import HTTPException, Response
 from pydantic import ValidationError
+
+# El módulo de configuración se construye durante los imports de la API.
+# Estas variables sintéticas deben existir antes de importar cualquier módulo app.
+os.environ.setdefault("DATABASE_URL", "sqlite+pysqlite:///:memory:")
+os.environ.setdefault("JWT_SECRET", "dbi-ci-placeholder")
+os.environ.setdefault("ENABLE_DOCS", "0")
 
 from app.api.v1.dbi_assets import confirm_asset_upload, register_asset_upload
 from app.dbi.asset_api_schemas import DBIAssetConfirmRequest, DBIAssetUploadRequest
