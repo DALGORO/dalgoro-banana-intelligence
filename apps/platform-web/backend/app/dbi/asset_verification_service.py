@@ -9,6 +9,7 @@ from uuid import UUID
 
 from app.dbi.asset_registration import DBIAssetRegistrationConflict
 from app.dbi.asset_verification import (
+    DBIAssetVerificationDecision,
     DBIAssetVerificationResult,
     verify_asset_content,
 )
@@ -132,12 +133,22 @@ class DBIAssetVerificationService:
         if record.metadata.address != expected.address:
             raise DBIAssetRegistrationConflict("dirección de objeto divergente.")
 
-        with self._store.open_read(expected.address) as content:
-            result = verify_asset_content(
-                expected=expected,
-                observed_content_type=record.metadata.content_type,
-                content=content,
+        if record.metadata != expected:
+            result = DBIAssetVerificationResult(
+                decision=DBIAssetVerificationDecision.QUARANTINED,
+                observed_size_bytes=record.metadata.size_bytes,
+                observed_sha256=record.metadata.sha256,
+                content_type_matches=(
+                    record.metadata.content_type == expected.content_type
+                ),
             )
+        else:
+            with self._store.open_read(expected.address) as content:
+                result = verify_asset_content(
+                    expected=expected,
+                    observed_content_type=record.metadata.content_type,
+                    content=content,
+                )
         changed = self._repository.apply_verification(
             row=row,
             decision=result.decision,

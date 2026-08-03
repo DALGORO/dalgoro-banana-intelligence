@@ -152,6 +152,37 @@ def main() -> None:
     assert row.verified_at == verified_at
     assert store.stat_calls == 1 and store.read_calls == 1
 
+    metadata_row, expected_metadata = _row(content)
+    divergent_metadata = DBIStoragePolicy.build_metadata(
+        address=expected_metadata.address,
+        content_type=expected_metadata.content_type,
+        size_bytes=expected_metadata.size_bytes,
+        sha256_hex="b" * 64,
+    )
+    metadata_repository = FakeRepository(metadata_row)
+    metadata_store = FakeStore(
+        metadata=divergent_metadata,
+        content=content,
+    )
+    metadata_evidence = DBIAssetVerificationService(
+        metadata_repository,
+        metadata_store,
+    ).confirm(
+        _context(metadata_row.farm_id),
+        organization_ref="org-1",
+        farm_id=metadata_row.farm_id,
+        asset_id=metadata_row.id,
+        verified_at=verified_at,
+    )
+    assert (
+        metadata_evidence.result.decision
+        is DBIAssetVerificationDecision.QUARANTINED
+    )
+    assert metadata_evidence.result.observed_sha256 == "b" * 64
+    assert metadata_row.status == "quarantined"
+    assert metadata_store.stat_calls == 1
+    assert metadata_store.read_calls == 0
+
     bad_row, bad_metadata = _row(content)
     bad_repository = FakeRepository(bad_row)
     bad_store = FakeStore(metadata=bad_metadata, content=b"tampered")

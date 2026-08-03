@@ -7,9 +7,8 @@
 - Hito: #30.
 - Rama: `feat/DBI-ASSET-002-registro-carga-verificacion-activos`.
 - Base: `main` en `623ca91d68f8136223ec81591034c58defc74c7c`.
-- Estado: implementación funcional en curso; pruebas offline activas e
-  integración conjunta PostgreSQL/PostGIS + S3 incorporada en CI; evidencia de
-  ejecución y revisión final pendientes.
+- Estado: implementación funcional y auditoría técnica completadas; PR Draft
+  a la espera de validación del SHA final y aprobación explícita para revisión.
 
 ## Objetivo
 
@@ -41,8 +40,9 @@ real de registro, carga, verificación, aislamiento, recuperación y retiro. La
 prueba registra métricas seguras de latencia, bytes, operaciones, conflictos y
 recuperaciones sin exponer URLs, claves o secretos.
 
-La evidencia de la primera ejecución verde y la revisión final continúan
-pendientes. Ninguna capacidad productiva queda autorizada por este avance.
+La integración conjunta y las pruebas offline ya cuentan con ejecuciones
+verdes registradas en la PR #54. Ninguna capacidad productiva queda autorizada
+por este avance.
 
 ## Dependencias confirmadas
 
@@ -376,6 +376,30 @@ visualización multirresolución:
 - Pix4D, exportación de teselas:
   https://support.pix4d.com/hc/en-us/articles/360048200292
 
+## Auditoría técnica de cierre
+
+La revisión final del alcance completo comprobó:
+
+- rama fast-forward respecto de la base, sin commits ajenos ni archivos fuera
+  del ticket;
+- ausencia de cambios en archivos de dependencias;
+- servicios de dominio sin `commit`, `rollback`, FastAPI, variables de
+  entorno, cola o worker;
+- respuestas públicas sin `object_key`, SHA-256 observado, creador o
+  referencias de grant;
+- URL y headers temporales excluidos de representaciones y logs;
+- diez trabajos de GitHub Actions revisados sin firmas presignadas, credenciales,
+  claves privadas, bearer tokens, `grant_ref` u `object_key`;
+- imágenes y Actions fijadas por digest o commit;
+- objeto canónico, metadata exacta y contenido real verificados antes de
+  persistir `verified`;
+- metadata válida pero divergente enviada directamente a `quarantined` sin
+  abrir el contenido;
+- límites de 64 MiB y derivación explícita hacia #55 conservados.
+
+La evidencia ejecutable y los enlaces de cada workflow se mantienen en la PR
+#54. El PR continúa Draft y no autoriza despliegue, producción o fusión.
+
 ## Fuera de alcance
 
 - `AnalysisArtifact`;
@@ -393,6 +417,6 @@ visualización multirresolución:
 
 ## Regla de avance
 
-El Draft PR debe existir antes del código funcional. Cada subhito tendrá diff,
-SHA y GitHub Actions auditados. El PR no se marcará listo hasta completar
-servicio, API, integración, documentación y revisión final.
+La implementación, integración, documentación y auditoría están completas.
+El PR permanecerá Draft hasta que el SHA final conserve todas las GitHub Actions
+verdes y exista aprobación explícita para marcarlo listo para revisión.
