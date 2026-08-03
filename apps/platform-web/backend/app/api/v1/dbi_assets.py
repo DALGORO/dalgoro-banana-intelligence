@@ -33,8 +33,8 @@ from app.dbi.storage_contracts import (
     DBIStorageError,
     DBIStorageIntegrityError,
     DBIStorageNotFound,
+    DBIStorageTemporaryGrant,
 )
-from app.dbi.storage_s3 import DBIS3ResolvedTemporaryAccess
 
 router = APIRouter(prefix="/dbi/assets", tags=["dbi-assets"])
 
@@ -46,13 +46,20 @@ SessionDependency = Annotated[Session, Depends(get_dbi_session)]
 AccessDependency = Annotated[DBIAccessContext, Depends(get_dbi_access_context)]
 
 
+class DBIResolvedUploadAccess(Protocol):
+    grant: DBIStorageTemporaryGrant
+    method: str
+    url: str
+    headers: tuple[tuple[str, str], ...]
+
+
 class DBIAssetAPIObjectStore(DBIPrivateObjectStore, Protocol):
     def resolve_temporary_access(
         self,
         grant_ref: str,
         *,
         now: datetime | None = None,
-    ) -> DBIS3ResolvedTemporaryAccess: ...
+    ) -> DBIResolvedUploadAccess: ...
 
 
 def get_dbi_asset_object_store(request: Request) -> DBIAssetAPIObjectStore:
