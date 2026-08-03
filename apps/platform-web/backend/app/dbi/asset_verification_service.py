@@ -113,12 +113,16 @@ class DBIAssetVerificationService:
                 permission=DBIPermission.WRITE,
             )
 
+        expected_address = DBIStoragePolicy.build_address(
+            tenant_ref=row.tenant_ref,
+            purpose=DBIStoragePurpose.ANALYSIS_INPUT,
+            object_id=row.id,
+        )
+        if row.object_key != expected_address.object_key:
+            raise DBIAssetRegistrationConflict("dirección de objeto divergente.")
+
         expected = DBIStoragePolicy.build_metadata(
-            address=DBIStoragePolicy.build_address(
-                tenant_ref=row.tenant_ref,
-                purpose=DBIStoragePurpose.ANALYSIS_INPUT,
-                object_id=row.id,
-            ),
+            address=expected_address,
             content_type=row.content_type,
             size_bytes=row.size_bytes,
             sha256_hex=row.sha256,

@@ -17,6 +17,7 @@ from app.dbi.authorization import (
 from app.dbi.models.assets import AnalysisInputAsset
 from app.dbi.storage_contracts import (
     DBIPrivateObjectStore,
+    DBIStorageNotFound,
     DBIStoragePurpose,
 )
 from app.dbi.storage_policy import DBIStoragePolicy
@@ -177,10 +178,14 @@ class DBIAssetRetirementService:
                 "dirección de objeto divergente."
             )
 
-        object_changed = self._store.retire(
-            address,
-            retired_at=timestamp,
-        )
+        try:
+            object_changed = self._store.retire(
+                address,
+                retired_at=timestamp,
+            )
+        except DBIStorageNotFound:
+            object_changed = False
+
         if not isinstance(object_changed, bool):
             raise TypeError(
                 "store.retire debe devolver bool."

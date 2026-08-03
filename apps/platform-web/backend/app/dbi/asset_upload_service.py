@@ -7,12 +7,14 @@ from datetime import datetime, timedelta, timezone
 from typing import Protocol
 from uuid import UUID
 
+from app.dbi.asset_registration import DBIAssetRegistrationConflict
 from app.dbi.asset_schemas import AnalysisInputAssetRegister
 from app.dbi.asset_service import DBIAssetRegistrationEvidence, DBIAssetService
 from app.dbi.authorization import DBIAccessContext
 from app.dbi.storage_contracts import (
     DBIPrivateObjectStore,
     DBIStorageAccessMode,
+    DBIStorageConflict,
     DBIStorageError,
     DBIStorageTemporaryGrant,
 )
@@ -91,6 +93,11 @@ class DBIAssetUploadService:
             farm_id=farm_id,
             request=request,
         )
+        if registration.plan.status != "registered":
+            raise DBIAssetRegistrationConflict(
+                "Solo un activo registrado admite un nuevo grant de carga."
+            )
+
         expires_at = issued_at + self._grant_ttl
         DBIStoragePolicy.validate_access_window(
             issued_at=issued_at,
@@ -103,10 +110,20 @@ class DBIAssetUploadService:
                 issued_at=issued_at,
                 expires_at=expires_at,
             )
-            DBIStoragePolicy.validate_grant(grant)
+        except DBIStorageConflict as error:
+            raise DBIAssetRegistrationConflict(
+                "La clave privada del activo no está disponible para carga."
+            ) from error
         except (DBIStorageError, TypeError, ValueError) as error:
             raise DBIAssetUploadGrantFailure(
                 "No fue posible emitir el grant; la unidad de trabajo debe revertirse."
+            ) from error
+
+        try:
+            DBIStoragePolicy.validate_grant(grant)
+        except (DBIStorageError, TypeError, ValueError) as error:
+            raise DBIAssetUploadGrantFailure(
+                "El proveedor devolvió un grant inválido."
             ) from error
 
         if (

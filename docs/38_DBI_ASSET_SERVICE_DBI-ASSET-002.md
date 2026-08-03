@@ -1,4 +1,4 @@
-# 38 — Diseño inicial DBI-ASSET-002
+# 38 — Diseño e implementación DBI-ASSET-002
 
 ## Identificación
 
@@ -7,7 +7,8 @@
 - Hito: #30.
 - Rama: `feat/DBI-ASSET-002-registro-carga-verificacion-activos`.
 - Base: `main` en `623ca91d68f8136223ec81591034c58defc74c7c`.
-- Estado: diseño inicial; código funcional no iniciado.
+- Estado: implementación funcional en curso; pruebas offline activas e
+  integración PostgreSQL/PostGIS + S3 pendiente.
 
 ## Objetivo
 
@@ -16,6 +17,26 @@ Coordinar el registro autorizado de `AnalysisInputAsset` con objetos privados de
 cuarentena, retiro lógico y recuperación compensatoria.
 
 No se modifican `AnalysisArtifact`, trabajos, cola, worker ni pipeline.
+
+## Avance funcional confirmado
+
+La rama ya contiene contratos estrictos, registro idempotente, repositorio con
+locking, servicio de carga temporal, verificación criptográfica, cuarentena,
+limpieza compensatoria, retiro lógico, endpoints autorizados y pruebas offline.
+
+El subhito de consistencia del 2026-08-03 refuerza tres invariantes:
+
+1. la clave persistida debe coincidir exactamente con la dirección canónica
+   derivada de tenant, propósito y UUID antes de leer un objeto;
+2. solo un activo `registered` puede recibir un nuevo grant de carga; los
+   estados `verified`, `quarantined` y `retired` generan conflicto sin
+   contactar al proveedor;
+3. retirar un activo cuyo objeto ya no existe es un no-op idempotente del
+   almacenamiento y aun permite completar el estado `retired` en DBI.
+
+La integración conjunta PostgreSQL/PostGIS + S3, métricas, documentación de
+evidencia y revisión final continúan pendientes. Ninguna capacidad productiva
+queda autorizada por este avance.
 
 ## Dependencias confirmadas
 
@@ -126,6 +147,10 @@ retired -> cualquier otro estado
 ### Grant de carga
 
 - exige activo `registered`;
+- un reintento exacto en `verified`, `quarantined` o `retired` produce
+  conflicto antes de contactar al almacenamiento;
+- una clave ya ocupada produce conflicto de estado y no se clasifica como caída
+  del proveedor;
 - bloquea la fila antes de decidir;
 - construye metadata desde la fila, nunca desde el payload;
 - solicita un grant `WRITE` al almacenamiento;
@@ -136,6 +161,8 @@ retired -> cualquier otro estado
 ### Verificación
 
 - bloquea la fila;
+- exige que `row.object_key` coincida con la dirección canónica derivada antes
+  de consultar el almacenamiento;
 - permite reintento;
 - consulta `stat` mediante la dirección canónica;
 - objeto ausente: conflicto reintentable, sin cambio de estado;
@@ -155,6 +182,10 @@ limpieza o retiro puede completar la compensación.
 ### Retiro
 
 El objeto se retira primero. Después se persiste el estado `retired`.
+
+Si el objeto ya no existe, el retiro del almacenamiento se considera un no-op
+idempotente y se completa el estado DBI. Una indisponibilidad real del proveedor
+continúa siendo un error y no modifica la fila.
 
 Si el commit falla después del retiro, el reintento observa que el objeto ya
 está retirado, acepta el no-op del almacenamiento y completa el estado DBI.

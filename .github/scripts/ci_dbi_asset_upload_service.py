@@ -2,11 +2,13 @@
 
 from __future__ import annotations
 
+from dataclasses import replace
 from datetime import datetime, timedelta, timezone
 from uuid import uuid4
 
 from app.dbi.asset_registration import (
     DBIAssetRegistrationAction,
+    DBIAssetRegistrationConflict,
     DBIAssetRegistrationPlan,
 )
 from app.dbi.asset_schemas import AnalysisInputAssetRegister
@@ -19,6 +21,7 @@ from app.dbi.authorization import DBIAccessContext, DBIAccessDenied
 from app.dbi.storage_contracts import (
     DBIStorageAccessMode,
     DBIStorageConflict,
+    DBIStorageError,
     DBIStoragePurpose,
     DBIStorageTemporaryGrant,
 )
@@ -163,6 +166,31 @@ def main() -> None:
     )
     assert untouched_store.calls == []
 
+    for existing_status in ("verified", "quarantined", "retired"):
+        existing_evidence = DBIAssetRegistrationEvidence(
+            plan=replace(
+                evidence.plan,
+                action=DBIAssetRegistrationAction.REUSE,
+                status=existing_status,
+            ),
+            created=False,
+        )
+        untouched_status_store = FakeStore()
+        _must_fail(
+            lambda existing_evidence=existing_evidence: DBIAssetUploadService(
+                FakeRegistrationService(evidence=existing_evidence),
+                untouched_status_store,
+            ).register_and_issue_upload(
+                _context(),
+                organization_ref="org-1",
+                farm_id=existing_evidence.plan.farm_id,
+                request=_request(existing_evidence.plan.asset_id),
+                issued_at=issued_at,
+            ),
+            DBIAssetRegistrationConflict,
+        )
+        assert untouched_status_store.calls == []
+
     persistence_failure = RuntimeError("persistencia fallida")
     failed_registration = FakeRegistrationService(error=persistence_failure)
     untouched_store_2 = FakeStore()
@@ -192,9 +220,28 @@ def main() -> None:
             request=_request(evidence.plan.asset_id),
             issued_at=issued_at,
         ),
-        DBIAssetUploadGrantFailure,
+        DBIAssetRegistrationConflict,
     )
     assert len(grant_failure_store.calls) == 1
+
+    provider_failure_store = FakeStore(
+        error=DBIStorageError("proveedor no disponible")
+    )
+    provider_failure_service = DBIAssetUploadService(
+        FakeRegistrationService(evidence=evidence),
+        provider_failure_store,
+    )
+    _must_fail(
+        lambda: provider_failure_service.register_and_issue_upload(
+            _context(),
+            organization_ref="org-1",
+            farm_id=evidence.plan.farm_id,
+            request=_request(evidence.plan.asset_id),
+            issued_at=issued_at,
+        ),
+        DBIAssetUploadGrantFailure,
+    )
+    assert len(provider_failure_store.calls) == 1
 
     divergent_service = DBIAssetUploadService(
         FakeRegistrationService(evidence=evidence),

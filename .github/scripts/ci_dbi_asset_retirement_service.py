@@ -245,6 +245,26 @@ def validate_success_and_retries() -> None:
     assert len(retired_repository.apply_calls) == 1
     assert len(retired_store.calls) == 1
 
+    missing_row = _row()
+    missing_repository = FakeRepository(missing_row)
+    missing_store = FakeStore(error=DBIStorageNotFound())
+    missing_evidence = DBIAssetRetirementService(
+        missing_repository,
+        missing_store,
+    ).retire(
+        _context(),
+        organization_ref="org-1",
+        farm_id=FARM_ID,
+        asset_id=ASSET_ID,
+        retired_at=RETIRED_AT,
+    )
+
+    assert missing_evidence.object_changed is False
+    assert missing_evidence.state_changed is True
+    assert missing_row.status == "retired"
+    assert len(missing_repository.apply_calls) == 1
+    assert len(missing_store.calls) == 1
+
 
 def validate_authorization_and_guards() -> None:
     denied_repository = FakeRepository(_row())
@@ -360,31 +380,29 @@ def validate_authorization_and_guards() -> None:
 
 
 def validate_storage_failures() -> None:
-    for error in (
-        DBIStorageNotFound(),
-        DBIStorageError("proveedor no disponible"),
-    ):
-        row = _row()
-        repository = FakeRepository(row)
-        store = FakeStore(error=error)
+    row = _row()
+    repository = FakeRepository(row)
+    store = FakeStore(
+        error=DBIStorageError("proveedor no disponible")
+    )
 
-        _must_raise(
-            type(error),
-            lambda: DBIAssetRetirementService(
-                repository,
-                store,
-            ).retire(
-                _context(),
-                organization_ref="org-1",
-                farm_id=FARM_ID,
-                asset_id=ASSET_ID,
-                retired_at=RETIRED_AT,
-            ),
-        )
+    _must_raise(
+        DBIStorageError,
+        lambda: DBIAssetRetirementService(
+            repository,
+            store,
+        ).retire(
+            _context(),
+            organization_ref="org-1",
+            farm_id=FARM_ID,
+            asset_id=ASSET_ID,
+            retired_at=RETIRED_AT,
+        ),
+    )
 
-        assert row.status == "registered"
-        assert repository.apply_calls == []
-        assert len(store.calls) == 1
+    assert row.status == "registered"
+    assert repository.apply_calls == []
+    assert len(store.calls) == 1
 
 
 def validate_static_boundaries() -> None:
@@ -432,6 +450,7 @@ def validate_static_boundaries() -> None:
     )
 
     assert retire_index < persistence_index
+    assert "except DBIStorageNotFound" in source
     assert "DBIPermission.WRITE" in source
     assert "require_farm(" in source
     assert "require_plot(" in source

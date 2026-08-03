@@ -8,6 +8,7 @@ from hashlib import sha256
 from io import BytesIO
 from uuid import uuid4
 
+from app.dbi.asset_registration import DBIAssetRegistrationConflict
 from app.dbi.asset_verification import DBIAssetVerificationDecision
 from app.dbi.asset_verification_service import DBIAssetVerificationService
 from app.dbi.authorization import (
@@ -120,6 +121,14 @@ def _must_deny(callable_) -> None:
     raise AssertionError("La operación debía ser denegada.")
 
 
+def _must_conflict(callable_) -> None:
+    try:
+        callable_()
+    except DBIAssetRegistrationConflict:
+        return
+    raise AssertionError("La operación debía detectar una clave divergente.")
+
+
 def main() -> None:
     content = b"synthetic-orthophoto-content"
     row, metadata = _row(content)
@@ -159,6 +168,26 @@ def main() -> None:
     assert bad_evidence.result.decision is DBIAssetVerificationDecision.QUARANTINED
     assert bad_row.status == "quarantined"
     assert bad_row.verified_at is None
+
+    forged_row, forged_metadata = _row(content)
+    forged_row.object_key = "tenants/forged/analysis-inputs/forged"
+    forged_repository = FakeRepository(forged_row)
+    forged_store = FakeStore(metadata=forged_metadata, content=content)
+    _must_conflict(
+        lambda: DBIAssetVerificationService(
+            forged_repository,
+            forged_store,
+        ).confirm(
+            _context(forged_row.farm_id),
+            organization_ref="org-1",
+            farm_id=forged_row.farm_id,
+            asset_id=forged_row.id,
+            verified_at=verified_at,
+        )
+    )
+    assert forged_repository.apply_calls == []
+    assert forged_store.stat_calls == 0
+    assert forged_store.read_calls == 0
 
     denied_repository = FakeRepository(row)
     denied_store = FakeStore(metadata=metadata, content=content)
