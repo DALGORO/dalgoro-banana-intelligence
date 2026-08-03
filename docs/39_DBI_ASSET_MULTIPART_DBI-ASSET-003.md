@@ -1,6 +1,6 @@
 # DBI-ASSET-003 — Ingesta multipartes y preservación de maestros grandes
 
-Estado: diseño inicial en implementación  
+Estado: implementación por bloques en PR Draft  
 Issue: #55  
 Hito: #30  
 Base: `main@122394f0450abc5f00700a94a8acc528550d3aaf`
@@ -169,6 +169,17 @@ La referencia del proveedor no se incluirá en `repr`, respuestas, logs,
 métricas o errores. No concede acceso por sí sola y permanece restringida a la
 capa de almacenamiento.
 
+La persistencia implementada usa `dbi_asset_multipart_sessions` y
+`dbi_asset_multipart_parts`. Las claves foráneas compuestas obligan a que activo,
+sesión y partes compartan el mismo tenant. Una restricción única parcial permite
+solo una sesión `initiated` o `uploading` por activo y tenant.
+
+La fila `initiated` puede existir antes de recibir la referencia del proveedor;
+esto evita cargas remotas sin rastro local. Si el inicio remoto no concluye, la
+sesión aún puede pasar de forma durable a `aborted` o `expired`. Toda sesión
+activa exige fecha de expiración y las huellas de idempotencia son SHA-256, nunca
+la clave original.
+
 ### 7.2 Partes
 
 Una tabla hija registra una fila por número de parte. La combinación
@@ -246,16 +257,16 @@ partes multipartes.
 
 ## 12. Orden de implementación
 
-1. Contratos puros y política multipartes.
-2. Pruebas offline de límites, estados e idempotencia.
-3. Migración y modelos de sesión/partes.
-4. Repositorio y servicio de aplicación.
-5. Puerto proveedor-neutral y adaptador S3-compatible no productivo.
-6. API autorizada sin binario.
-7. Aborto, expiración y limpieza.
-8. Manifiesto de fuentes del vuelo.
-9. Integración S3 efímera, métricas y documentación final.
-10. Auditoría de CI sobre el SHA final.
+1. [x] Contratos puros y política multipartes.
+2. [x] Pruebas offline de límites, estados e idempotencia.
+3. [x] Migración y modelos de sesión/partes.
+4. [ ] Repositorio y servicio de aplicación.
+5. [ ] Puerto proveedor-neutral y adaptador S3-compatible no productivo.
+6. [ ] API autorizada sin binario.
+7. [ ] Aborto, expiración y limpieza.
+8. [ ] Manifiesto de fuentes del vuelo.
+9. [ ] Integración S3 efímera, métricas y documentación final.
+10. [ ] Auditoría de CI sobre el SHA final.
 
 No se inicia DBI-JOB-003 hasta fusionar y cerrar este ticket.
 

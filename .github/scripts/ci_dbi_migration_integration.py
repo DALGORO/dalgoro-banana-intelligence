@@ -43,7 +43,7 @@ ADMIN_ROLE = "postgres"
 DBI_DATABASE = "dbi_test"
 DBI_OWNER_ROLE = "dbi_test_owner"
 DBI_MIGRATOR_ROLE = "dbi_test_migrator"
-EXPECTED_HEAD = "dbi_0009_object_key_check"
+EXPECTED_HEAD = "dbi_0010_asset_multipart_sessions"
 LEGACY_TABLES = frozenset({"documents", "users", "companies"})
 SPATIAL_CONSTRAINTS = frozenset(
     {
@@ -57,6 +57,25 @@ SCOPE_HIERARCHY_CONSTRAINTS = frozenset(
         "uq_dbi_plots_id_farm",
         "fk_dbi_membership_scopes_farm_organization",
         "fk_dbi_membership_scopes_plot_farm",
+    }
+)
+MULTIPART_CONSTRAINTS = frozenset(
+    {
+        "uq_dbi_analysis_input_assets_id_tenant",
+        "fk_dbi_multipart_sessions_asset_tenant",
+        "uq_dbi_multipart_sessions_id_tenant",
+        "uq_dbi_multipart_sessions_idempotency",
+        "ck_dbi_multipart_sessions_provider_context",
+        "ck_dbi_multipart_sessions_checksum_pair",
+        "ck_dbi_multipart_sessions_terminal_timestamps",
+        "ck_dbi_multipart_sessions_active_expiry",
+        "fk_dbi_multipart_parts_session_tenant",
+    }
+)
+MULTIPART_INDEXES = frozenset(
+    {
+        "ix_dbi_multipart_sessions_cleanup",
+        "uq_dbi_multipart_sessions_active_asset",
     }
 )
 
@@ -359,6 +378,57 @@ def _validate_postflight(connection, *, expected_head: str) -> set[str]:
         raise AssertionError(
             "Faltan restricciones jerárquicas DBI: "
             f"{sorted(SCOPE_HIERARCHY_CONSTRAINTS - hierarchy_constraints)}"
+        )
+
+    multipart_constraints = set(
+        connection.execute(
+            text(
+                """
+                SELECT constraint_name
+                FROM information_schema.table_constraints
+                WHERE table_schema = 'dbi'
+                  AND table_name IN (
+                    'dbi_analysis_input_assets',
+                    'dbi_asset_multipart_sessions',
+                    'dbi_asset_multipart_parts'
+                  )
+                """
+            )
+        ).scalars()
+    )
+    if not MULTIPART_CONSTRAINTS <= multipart_constraints:
+        raise AssertionError(
+            "Faltan restricciones multipartes DBI: "
+            f"{sorted(MULTIPART_CONSTRAINTS - multipart_constraints)}"
+        )
+
+    multipart_indexes = {
+        row["indexname"]: row["indexdef"]
+        for row in connection.execute(
+            text(
+                """
+                SELECT indexname, indexdef
+                FROM pg_indexes
+                WHERE schemaname = 'dbi'
+                  AND tablename = 'dbi_asset_multipart_sessions'
+                """
+            )
+        ).mappings()
+    }
+    if not MULTIPART_INDEXES <= multipart_indexes.keys():
+        raise AssertionError(
+            "Faltan índices multipartes DBI: "
+            f"{sorted(MULTIPART_INDEXES - multipart_indexes.keys())}"
+        )
+    active_index = multipart_indexes[
+        "uq_dbi_multipart_sessions_active_asset"
+    ].lower()
+    if not all(
+        marker in active_index
+        for marker in ("create unique index", "where", "initiated", "uploading")
+    ):
+        raise AssertionError(
+            "El índice único de sesión multipartes activa es inválido."
         )
 
     postgis_ok = connection.execute(

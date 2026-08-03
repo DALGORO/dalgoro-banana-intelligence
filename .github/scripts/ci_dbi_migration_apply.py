@@ -20,12 +20,13 @@ from app.dbi.migration_preflight import (  # noqa: E402
     FORBIDDEN_ROLE_CAPABILITIES,
 )
 
-HEAD = "dbi_0009_object_key_check"
+HEAD = "dbi_0010_asset_multipart_sessions"
 KNOWN = {
     "dbi_0001_baseline",
     "dbi_0006_plot_boundaries",
     "dbi_0007_admin_audit",
     "dbi_0008_scope_hierarchy",
+    "dbi_0009_object_key_check",
     HEAD,
 }
 AUTHORIZED_RUNTIME = {
