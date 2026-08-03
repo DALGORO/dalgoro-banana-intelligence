@@ -33,7 +33,7 @@ from app.dbi.migration_preflight import (  # noqa: E402
     run_migration_preflight,
 )
 
-HEAD = "dbi_0010_asset_multipart_sessions"
+HEAD = "dbi_0010_asset_multipart"
 KNOWN = {
     "dbi_0001_baseline",
     "dbi_0006_plot_boundaries",

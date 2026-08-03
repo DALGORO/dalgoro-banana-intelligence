@@ -27,7 +27,7 @@ from app.dbi.models import (  # noqa: E402
     AssetMultipartSession,
 )
 
-HEAD = "dbi_0010_asset_multipart_sessions"
+HEAD = "dbi_0010_asset_multipart"
 SESSION_TABLE = "dbi_asset_multipart_sessions"
 PART_TABLE = "dbi_asset_multipart_parts"
 SESSION_COLUMNS = {
@@ -247,6 +247,10 @@ def validate_migration_graph_and_sql() -> None:
 
     config = Config(str(BACKEND_ROOT / "dbi_alembic.ini"))
     scripts = ScriptDirectory.from_config(config)
+    assert len(HEAD) <= 32
+    assert all(
+        len(item.revision) <= 32 for item in scripts.walk_revisions()
+    )
     assert scripts.get_heads() == [HEAD]
     revision = scripts.get_revision(HEAD)
     assert revision is not None
@@ -299,7 +303,7 @@ def validate_static_boundaries() -> None:
     ).read_text(encoding="utf-8").lower()
     combined = model_source + migration_source
 
-    assert 'revision: str = "dbi_0010_asset_multipart_sessions"' in migration_source
+    assert 'revision: str = "dbi_0010_asset_multipart"' in migration_source
     assert 'down_revision: str | none = "dbi_0009_object_key_check"' in migration_source
     assert "op.create_unique_constraint" in migration_source
     assert "postgresql_where" in combined

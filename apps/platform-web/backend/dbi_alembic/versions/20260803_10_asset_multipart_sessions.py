@@ -1,6 +1,6 @@
 """Persist multipart asset sessions and exact part evidence.
 
-Revision ID: dbi_0010_asset_multipart_sessions
+Revision ID: dbi_0010_asset_multipart
 Revises: dbi_0009_object_key_check
 Create Date: 2026-08-03
 """
@@ -13,7 +13,7 @@ from alembic import op
 import sqlalchemy as sa
 
 
-revision: str = "dbi_0010_asset_multipart_sessions"
+revision: str = "dbi_0010_asset_multipart"
 down_revision: str | None = "dbi_0009_object_key_check"
 branch_labels: str | Sequence[str] | None = None
 depends_on: str | Sequence[str] | None = None
