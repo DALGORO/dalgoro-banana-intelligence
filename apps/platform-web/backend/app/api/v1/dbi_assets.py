@@ -13,11 +13,16 @@ from sqlalchemy.orm import Session
 from app.dbi.asset_api_schemas import (
     DBIAssetConfirmRequest,
     DBIAssetConfirmResponse,
+    DBIAssetQuarantineCleanupRequest,
+    DBIAssetQuarantineCleanupResponse,
     DBIAssetRetireRequest,
     DBIAssetRetireResponse,
     DBIAssetUploadAccessResponse,
     DBIAssetUploadRequest,
     DBIAssetUploadResponse,
+)
+from app.dbi.asset_quarantine_cleanup_service import (
+    DBIAssetQuarantineCleanupService,
 )
 from app.dbi.asset_registration import DBIAssetRegistrationConflict
 from app.dbi.asset_repository import DBIAssetRepository
@@ -105,6 +110,13 @@ def get_dbi_asset_verification_service(
     return DBIAssetVerificationService(DBIAssetRepository(session), store)
 
 
+def get_dbi_asset_quarantine_cleanup_service(
+    session: SessionDependency,
+    store: StoreDependency,
+) -> DBIAssetQuarantineCleanupService:
+    return DBIAssetQuarantineCleanupService(DBIAssetRepository(session), store)
+
+
 def get_dbi_asset_retirement_service(
     session: SessionDependency,
     store: StoreDependency,
@@ -119,6 +131,10 @@ UploadServiceDependency = Annotated[
 VerificationServiceDependency = Annotated[
     DBIAssetVerificationService,
     Depends(get_dbi_asset_verification_service),
+]
+QuarantineCleanupServiceDependency = Annotated[
+    DBIAssetQuarantineCleanupService,
+    Depends(get_dbi_asset_quarantine_cleanup_service),
 ]
 RetirementServiceDependency = Annotated[
     DBIAssetRetirementService,
@@ -231,6 +247,42 @@ def confirm_asset_upload(
             if result.decision is DBIAssetVerificationDecision.VERIFIED
             else "integrity_mismatch"
         ),
+    )
+
+
+@router.post(
+    "/{asset_id}/quarantine-cleanup",
+    response_model=DBIAssetQuarantineCleanupResponse,
+)
+def cleanup_quarantined_asset(
+    asset_id: UUID,
+    payload: DBIAssetQuarantineCleanupRequest,
+    session: SessionDependency,
+    context: AccessDependency,
+    service: QuarantineCleanupServiceDependency,
+) -> DBIAssetQuarantineCleanupResponse:
+    """Retira el objeto cuarentenado sin convertir el activo en retired."""
+
+    try:
+        evidence = service.cleanup(
+            context,
+            organization_ref=payload.organization_ref,
+            farm_id=payload.farm_id,
+            asset_id=asset_id,
+            cleaned_at=datetime.now(timezone.utc),
+        )
+        session.commit()
+    except (DBIAccessDenied, DBIAssetRegistrationConflict) as error:
+        session.rollback()
+        raise _not_found() from error
+    except (DBIStorageError, IntegrityError) as error:
+        session.rollback()
+        raise _storage_unavailable() from error
+
+    return DBIAssetQuarantineCleanupResponse(
+        asset_id=asset_id,
+        status="quarantined",
+        changed=evidence.object_changed,
     )
 
 
