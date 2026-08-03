@@ -13,12 +13,15 @@ from sqlalchemy.orm import Session
 from app.dbi.asset_api_schemas import (
     DBIAssetConfirmRequest,
     DBIAssetConfirmResponse,
+    DBIAssetRetireRequest,
+    DBIAssetRetireResponse,
     DBIAssetUploadAccessResponse,
     DBIAssetUploadRequest,
     DBIAssetUploadResponse,
 )
 from app.dbi.asset_registration import DBIAssetRegistrationConflict
 from app.dbi.asset_repository import DBIAssetRepository
+from app.dbi.asset_retirement_service import DBIAssetRetirementService
 from app.dbi.asset_service import DBIAssetService
 from app.dbi.asset_upload_service import (
     DBIAssetUploadGrantFailure,
@@ -71,6 +74,7 @@ def get_dbi_asset_object_store(request: Request) -> DBIAssetAPIObjectStore:
         "resolve_temporary_access",
         "stat",
         "open_read",
+        "retire",
     )
     if store is None or any(not hasattr(store, name) for name in required):
         raise HTTPException(
@@ -101,6 +105,13 @@ def get_dbi_asset_verification_service(
     return DBIAssetVerificationService(DBIAssetRepository(session), store)
 
 
+def get_dbi_asset_retirement_service(
+    session: SessionDependency,
+    store: StoreDependency,
+) -> DBIAssetRetirementService:
+    return DBIAssetRetirementService(DBIAssetRepository(session), store)
+
+
 UploadServiceDependency = Annotated[
     DBIAssetUploadService,
     Depends(get_dbi_asset_upload_service),
@@ -108,6 +119,10 @@ UploadServiceDependency = Annotated[
 VerificationServiceDependency = Annotated[
     DBIAssetVerificationService,
     Depends(get_dbi_asset_verification_service),
+]
+RetirementServiceDependency = Annotated[
+    DBIAssetRetirementService,
+    Depends(get_dbi_asset_retirement_service),
 ]
 
 
@@ -215,5 +230,47 @@ def confirm_asset_upload(
             "verified"
             if result.decision is DBIAssetVerificationDecision.VERIFIED
             else "integrity_mismatch"
+        ),
+    )
+
+
+@router.post(
+    "/{asset_id}/retire",
+    response_model=DBIAssetRetireResponse,
+)
+def retire_asset(
+    asset_id: UUID,
+    payload: DBIAssetRetireRequest,
+    session: SessionDependency,
+    context: AccessDependency,
+    service: RetirementServiceDependency,
+) -> DBIAssetRetireResponse:
+    """Retira primero el objeto privado y después confirma el estado DBI."""
+
+    try:
+        evidence = service.retire(
+            context,
+            organization_ref=payload.organization_ref,
+            farm_id=payload.farm_id,
+            asset_id=asset_id,
+            retired_at=datetime.now(timezone.utc),
+        )
+        session.commit()
+    except (DBIAccessDenied, DBIAssetRegistrationConflict) as error:
+        session.rollback()
+        raise _not_found() from error
+    except (DBIStorageNotFound, DBIStorageIntegrityError) as error:
+        session.rollback()
+        raise _conflict() from error
+    except (DBIStorageError, IntegrityError) as error:
+        session.rollback()
+        raise _storage_unavailable() from error
+
+    return DBIAssetRetireResponse(
+        asset_id=asset_id,
+        status="retired",
+        changed=(
+            evidence.object_changed
+            or evidence.state_changed
         ),
     )
