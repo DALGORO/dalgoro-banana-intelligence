@@ -1,0 +1,226 @@
+"""Frontera HTTP transaccional para activos privados DBI."""
+
+from __future__ import annotations
+
+from datetime import datetime, timezone
+from typing import Annotated, Protocol
+from uuid import UUID
+
+from fastapi import APIRouter, Depends, HTTPException, Request, Response, status
+from sqlalchemy.exc import IntegrityError
+from sqlalchemy.orm import Session
+
+from app.dbi.asset_api_schemas import (
+    DBIAssetConfirmRequest,
+    DBIAssetConfirmResponse,
+    DBIAssetUploadAccessResponse,
+    DBIAssetUploadRequest,
+    DBIAssetUploadResponse,
+)
+from app.dbi.asset_registration import DBIAssetRegistrationConflict
+from app.dbi.asset_repository import DBIAssetRepository
+from app.dbi.asset_service import DBIAssetService
+from app.dbi.asset_upload_service import (
+    DBIAssetUploadGrantFailure,
+    DBIAssetUploadService,
+)
+from app.dbi.asset_verification import DBIAssetVerificationDecision
+from app.dbi.asset_verification_service import DBIAssetVerificationService
+from app.dbi.authorization import DBIAccessContext, DBIAccessDenied
+from app.dbi.dependencies import get_dbi_access_context, get_dbi_session
+from app.dbi.storage_contracts import (
+    DBIPrivateObjectStore,
+    DBIStorageError,
+    DBIStorageIntegrityError,
+    DBIStorageNotFound,
+)
+from app.dbi.storage_s3 import DBIS3ResolvedTemporaryAccess
+
+router = APIRouter(prefix="/dbi/assets", tags=["dbi-assets"])
+
+DBI_ASSET_NOT_FOUND_DETAIL = "Activo DBI no disponible."
+DBI_ASSET_CONFLICT_DETAIL = "La operación del activo entra en conflicto con su estado actual."
+DBI_ASSET_STORAGE_DETAIL = "El almacenamiento privado DBI no está disponible."
+
+SessionDependency = Annotated[Session, Depends(get_dbi_session)]
+AccessDependency = Annotated[DBIAccessContext, Depends(get_dbi_access_context)]
+
+
+class DBIAssetAPIObjectStore(DBIPrivateObjectStore, Protocol):
+    def resolve_temporary_access(
+        self,
+        grant_ref: str,
+        *,
+        now: datetime | None = None,
+    ) -> DBIS3ResolvedTemporaryAccess: ...
+
+
+def get_dbi_asset_object_store(request: Request) -> DBIAssetAPIObjectStore:
+    """Obtiene el puerto privado configurado por el despliegue, nunca por el cliente."""
+
+    store = getattr(request.app.state, "dbi_object_store", None)
+    required = (
+        "issue_temporary_access",
+        "resolve_temporary_access",
+        "stat",
+        "open_read",
+    )
+    if store is None or any(not hasattr(store, name) for name in required):
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail=DBI_ASSET_STORAGE_DETAIL,
+        )
+    return store
+
+
+StoreDependency = Annotated[
+    DBIAssetAPIObjectStore,
+    Depends(get_dbi_asset_object_store),
+]
+
+
+def get_dbi_asset_upload_service(
+    session: SessionDependency,
+    store: StoreDependency,
+) -> DBIAssetUploadService:
+    repository = DBIAssetRepository(session)
+    return DBIAssetUploadService(DBIAssetService(repository), store)
+
+
+def get_dbi_asset_verification_service(
+    session: SessionDependency,
+    store: StoreDependency,
+) -> DBIAssetVerificationService:
+    return DBIAssetVerificationService(DBIAssetRepository(session), store)
+
+
+UploadServiceDependency = Annotated[
+    DBIAssetUploadService,
+    Depends(get_dbi_asset_upload_service),
+]
+VerificationServiceDependency = Annotated[
+    DBIAssetVerificationService,
+    Depends(get_dbi_asset_verification_service),
+]
+
+
+def _not_found() -> HTTPException:
+    return HTTPException(status_code=404, detail=DBI_ASSET_NOT_FOUND_DETAIL)
+
+
+def _conflict() -> HTTPException:
+    return HTTPException(status_code=409, detail=DBI_ASSET_CONFLICT_DETAIL)
+
+
+def _storage_unavailable() -> HTTPException:
+    return HTTPException(status_code=503, detail=DBI_ASSET_STORAGE_DETAIL)
+
+
+def _verification_reason(result) -> str:
+    if result.decision is DBIAssetVerificationDecision.VERIFIED:
+        return "verified"
+    if not result.content_type_matches:
+        return "content_type_mismatch"
+    if result.observed_size_bytes != result.expected_size_bytes:
+        return "size_mismatch"
+    return "sha256_mismatch"
+
+
+@router.post("", response_model=DBIAssetUploadResponse)
+def register_asset_upload(
+    payload: DBIAssetUploadRequest,
+    response: Response,
+    session: SessionDependency,
+    context: AccessDependency,
+    store: StoreDependency,
+    service: UploadServiceDependency,
+) -> DBIAssetUploadResponse:
+    """Registra metadata y emite una carga temporal dentro de una sola UoW."""
+
+    try:
+        evidence = service.register_and_issue_upload(
+            context,
+            organization_ref=payload.organization_ref,
+            farm_id=payload.farm_id,
+            request=payload.asset,
+            issued_at=datetime.now(timezone.utc),
+        )
+        resolved = store.resolve_temporary_access(evidence.grant.grant_ref)
+        if resolved.grant != evidence.grant or resolved.method != "PUT":
+            raise DBIAssetUploadGrantFailure("Grant temporal divergente.")
+        session.commit()
+    except DBIAccessDenied as error:
+        session.rollback()
+        raise _not_found() from error
+    except (DBIAssetRegistrationConflict, IntegrityError) as error:
+        session.rollback()
+        raise _conflict() from error
+    except DBIAssetUploadGrantFailure as error:
+        session.rollback()
+        raise _storage_unavailable() from error
+    except DBIStorageError as error:
+        session.rollback()
+        raise _storage_unavailable() from error
+
+    response.status_code = (
+        status.HTTP_201_CREATED
+        if evidence.registration.created
+        else status.HTTP_200_OK
+    )
+    return DBIAssetUploadResponse(
+        asset_id=evidence.registration.plan.asset_id,
+        status="registered",
+        created=evidence.registration.created,
+        upload=DBIAssetUploadAccessResponse(
+            method="PUT",
+            url=resolved.url,
+            headers=dict(resolved.headers),
+            expires_at=evidence.grant.expires_at,
+        ),
+    )
+
+
+@router.post("/{asset_id}/confirm", response_model=DBIAssetConfirmResponse)
+def confirm_asset_upload(
+    asset_id: UUID,
+    payload: DBIAssetConfirmRequest,
+    session: SessionDependency,
+    context: AccessDependency,
+    service: VerificationServiceDependency,
+) -> DBIAssetConfirmResponse:
+    """Lee y verifica el objeto completo antes de persistir su estado final."""
+
+    try:
+        evidence = service.confirm(
+            context,
+            organization_ref=payload.organization_ref,
+            farm_id=payload.farm_id,
+            asset_id=asset_id,
+            verified_at=datetime.now(timezone.utc),
+        )
+        session.commit()
+    except (DBIAccessDenied, DBIAssetRegistrationConflict) as error:
+        session.rollback()
+        raise _not_found() from error
+    except (DBIStorageNotFound, DBIStorageIntegrityError) as error:
+        session.rollback()
+        raise _conflict() from error
+    except (DBIStorageError, IntegrityError) as error:
+        session.rollback()
+        raise _storage_unavailable() from error
+
+    result = evidence.result
+    reason = "verified"
+    if result.decision is DBIAssetVerificationDecision.QUARANTINED:
+        if not result.content_type_matches:
+            reason = "content_type_mismatch"
+        elif result.observed_size_bytes != service.expected_size_bytes:
+            reason = "size_mismatch"
+        else:
+            reason = "sha256_mismatch"
+    return DBIAssetConfirmResponse(
+        asset_id=asset_id,
+        status=result.decision.value,
+        changed=evidence.changed,
+        reason=reason,
+    )
