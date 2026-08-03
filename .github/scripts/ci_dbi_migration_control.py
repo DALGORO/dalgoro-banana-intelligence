@@ -33,11 +33,12 @@ from app.dbi.migration_preflight import (  # noqa: E402
     run_migration_preflight,
 )
 
-HEAD = "dbi_0008_scope_hierarchy"
+HEAD = "dbi_0009_object_key_check"
 KNOWN = {
     "dbi_0001_baseline",
     "dbi_0006_plot_boundaries",
     "dbi_0007_admin_audit",
+    "dbi_0008_scope_hierarchy",
     HEAD,
 }
 AUTHORIZED_RUNTIME = {

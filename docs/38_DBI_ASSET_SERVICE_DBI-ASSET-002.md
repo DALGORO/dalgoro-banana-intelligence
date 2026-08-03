@@ -80,9 +80,31 @@ quarantined
 retired
 ```
 
-La primera implementación no requiere migración. Cualquier necesidad de nueva
-columna deberá demostrarse mediante una prueba o invariantes imposibles de
-representar con el esquema actual.
+La implementación funcional no requirió columnas nuevas. La integración real
+demostró, sin embargo, que la restricción heredada de claves de objeto no podía
+evaluarse en PostgreSQL y justificó una migración correctiva sin ampliar el
+modelo de datos.
+
+## Migración correctiva `dbi_0009_object_key_check`
+
+La primera ejecución conjunta alcanzó la inserción real de
+`AnalysisInputAsset` y PostgreSQL rechazó la evaluación de
+`{0,511}`: los límites numéricos de sus expresiones regulares admiten como
+máximo 255. El fallo afectaba las restricciones de claves de objeto de activos
+y artefactos, aunque la columna ya limita el valor a `VARCHAR(512)`.
+
+La revisión `dbi_0009_object_key_check`:
+
+- desciende linealmente de `dbi_0008_scope_hierarchy`;
+- no reescribe `dbi_0004_assets_artifacts`;
+- sustituye ambas restricciones conservando sus nombres;
+- usa `*` para validar los caracteres posteriores al primer carácter;
+- conserva el máximo de 512 mediante el tipo de columna existente;
+- no crea columnas, datos, extensiones ni acceso a servicios externos.
+
+La prueba offline bloquea la reaparición de `{0,511}` en el modelo y valida la
+nueva cabeza. La integración conjunta conserva una inserción real con una clave
+canónica sintética como prueba de regresión.
 
 ## Idempotencia
 

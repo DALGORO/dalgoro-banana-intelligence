@@ -33,7 +33,7 @@ def utc_now() -> datetime:
 
 
 OBJECT_KEY_CHECK = (
-    "object_key ~ '^[A-Za-z0-9][A-Za-z0-9._/-]{0,511}$' "
+    "object_key ~ '^[A-Za-z0-9][A-Za-z0-9._/-]*$' "
     "AND object_key !~ '(^|/)\\.{1,2}(/|$)' "
     "AND object_key NOT LIKE '%//%'"
 )

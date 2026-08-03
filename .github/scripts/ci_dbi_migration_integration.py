@@ -43,7 +43,7 @@ ADMIN_ROLE = "postgres"
 DBI_DATABASE = "dbi_test"
 DBI_OWNER_ROLE = "dbi_test_owner"
 DBI_MIGRATOR_ROLE = "dbi_test_migrator"
-EXPECTED_HEAD = "dbi_0008_scope_hierarchy"
+EXPECTED_HEAD = "dbi_0009_object_key_check"
 LEGACY_TABLES = frozenset({"documents", "users", "companies"})
 SPATIAL_CONSTRAINTS = frozenset(
     {
