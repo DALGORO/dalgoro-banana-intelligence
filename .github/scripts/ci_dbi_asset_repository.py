@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import ast
 import sys
+from datetime import datetime, timezone
 from pathlib import Path
 from types import MethodType
 from uuid import UUID
@@ -155,6 +156,106 @@ def validate_divergence_and_non_enumeration() -> None:
         session.close()
 
 
+def validate_retirement_transition() -> None:
+    plan = build_asset_registration_plan(
+        intent=_intent(),
+        existing=None,
+    )
+    retired_at = datetime(
+        2026,
+        8,
+        3,
+        2,
+        30,
+        tzinfo=timezone.utc,
+    )
+
+    for initial_status in (
+        "registered",
+        "verified",
+        "quarantined",
+    ):
+        row = _row(plan)
+        row.status = initial_status
+
+        if initial_status == "verified":
+            row.verified_at = datetime(
+                2026,
+                8,
+                3,
+                1,
+                tzinfo=timezone.utc,
+            )
+
+        previous_verified_at = row.verified_at
+        flush_calls: list[bool] = []
+        session = Session()
+
+        def flush(self) -> None:
+            flush_calls.append(True)
+
+        session.flush = MethodType(  # type: ignore[method-assign]
+            flush,
+            session,
+        )
+
+        repository = DBIAssetRepository(session)
+
+        assert repository.apply_retirement(
+            row=row,
+            retired_at=retired_at,
+        ) is True
+        assert row.status == "retired"
+        assert row.updated_at == retired_at
+        assert row.verified_at == previous_verified_at
+        assert len(flush_calls) == 1
+
+        assert repository.apply_retirement(
+            row=row,
+            retired_at=retired_at,
+        ) is False
+        assert len(flush_calls) == 1
+
+        session.close()
+
+    invalid_row = _row(plan)
+    invalid_row.status = "invalid"
+    invalid_session = Session()
+    invalid_repository = DBIAssetRepository(invalid_session)
+
+    try:
+        invalid_repository.apply_retirement(
+            row=invalid_row,
+            retired_at=retired_at,
+        )
+    except DBIAssetRegistrationConflict:
+        pass
+    else:
+        raise AssertionError(
+            "Un estado desconocido no debía admitir retiro."
+        )
+    finally:
+        invalid_session.close()
+
+    naive_row = _row(plan)
+    naive_session = Session()
+    naive_repository = DBIAssetRepository(naive_session)
+
+    try:
+        naive_repository.apply_retirement(
+            row=naive_row,
+            retired_at=datetime(2026, 8, 3, 2, 30),
+        )
+    except DBIAssetRegistrationConflict:
+        pass
+    else:
+        raise AssertionError(
+            "retired_at debía exigir zona horaria."
+        )
+    finally:
+        naive_session.close()
+
+
 def validate_static_boundaries() -> None:
     path = BACKEND_ROOT / "app" / "dbi" / "asset_repository.py"
     source = path.read_text(encoding="utf-8")
@@ -177,6 +278,7 @@ def main() -> None:
     validate_concurrent_exact_retry()
     validate_reuse_plan()
     validate_divergence_and_non_enumeration()
+    validate_retirement_transition()
     validate_static_boundaries()
     print("Repositorio idempotente de activos DBI validado offline.")
 
