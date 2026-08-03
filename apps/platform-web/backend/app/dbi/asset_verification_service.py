@@ -19,7 +19,7 @@ from app.dbi.authorization import (
     DBIPermission,
 )
 from app.dbi.models.assets import AnalysisInputAsset
-from app.dbi.storage_contracts import DBIPrivateObjectStore
+from app.dbi.storage_contracts import DBIPrivateObjectStore, DBIStoragePurpose
 from app.dbi.storage_policy import DBIStoragePolicy
 
 
@@ -116,10 +116,7 @@ class DBIAssetVerificationService:
         expected = DBIStoragePolicy.build_metadata(
             address=DBIStoragePolicy.build_address(
                 tenant_ref=row.tenant_ref,
-                purpose=__import__(
-                    "app.dbi.storage_contracts",
-                    fromlist=["DBIStoragePurpose"],
-                ).DBIStoragePurpose.ANALYSIS_INPUT,
+                purpose=DBIStoragePurpose.ANALYSIS_INPUT,
                 object_id=row.id,
             ),
             content_type=row.content_type,
