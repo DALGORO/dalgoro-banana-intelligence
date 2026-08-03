@@ -14,6 +14,8 @@ from app.dbi.authorization import (
     DBIPermission,
     DBIPlotScope,
 )
+from app.dbi.storage_contracts import DBIStoragePurpose
+from app.dbi.storage_policy import DBIStoragePolicy
 
 
 class FakeRepository:
@@ -69,19 +71,25 @@ def main() -> None:
     farm_id = uuid4()
     repository = FakeRepository()
     service = DBIAssetService(repository)
+    request = _request()
 
     evidence = service.register(
         _context(farm_id=farm_id),
         organization_ref="org-1",
         farm_id=farm_id,
-        request=_request(),
+        request=request,
     )
     assert evidence.created is True
     assert len(repository.calls) == 1
     assert evidence.plan.tenant_ref == "tenant-1"
     assert evidence.plan.farm_id == farm_id
     assert evidence.plan.created_by_ref == "principal-1"
-    assert evidence.plan.metadata.address.object_key.startswith("tenant-1/analysis-inputs/")
+    expected_address = DBIStoragePolicy.build_address(
+        tenant_ref="tenant-1",
+        purpose=DBIStoragePurpose.ANALYSIS_INPUT,
+        object_id=request.asset_id,
+    )
+    assert evidence.plan.metadata.address == expected_address
 
     plot_id = uuid4()
     plot_repository = FakeRepository(result=False)
