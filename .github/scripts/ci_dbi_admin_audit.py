@@ -126,10 +126,6 @@ def validate_migration_graph_and_sql() -> None:
     hierarchy_revision = scripts.get_revision(HIERARCHY_REVISION)
     assert hierarchy_revision is not None
     assert hierarchy_revision.down_revision == AUDIT_REVISION
-    head_revision = scripts.get_revision(HEAD)
-    assert head_revision is not None
-    assert head_revision.down_revision == HIERARCHY_REVISION
-
     lineage = {
         revision.revision
         for revision in scripts.iterate_revisions(HEAD, "base")

@@ -226,9 +226,11 @@ def validate_migration_contract() -> None:
     revision = scripts.get_revision(HIERARCHY_REVISION)
     assert revision is not None
     assert revision.down_revision == DOWN_REVISION
-    head_revision = scripts.get_revision(HEAD)
-    assert head_revision is not None
-    assert head_revision.down_revision == HIERARCHY_REVISION
+    lineage = {
+        item.revision
+        for item in scripts.iterate_revisions(HEAD, "base")
+    }
+    assert HIERARCHY_REVISION in lineage
 
     output = StringIO()
     environment = {
