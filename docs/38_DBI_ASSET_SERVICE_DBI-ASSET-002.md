@@ -8,7 +8,8 @@
 - Rama: `feat/DBI-ASSET-002-registro-carga-verificacion-activos`.
 - Base: `main` en `623ca91d68f8136223ec81591034c58defc74c7c`.
 - Estado: implementación funcional en curso; pruebas offline activas e
-  integración PostgreSQL/PostGIS + S3 pendiente.
+  integración conjunta PostgreSQL/PostGIS + S3 incorporada en CI; evidencia de
+  ejecución y revisión final pendientes.
 
 ## Objetivo
 
@@ -34,9 +35,14 @@ El subhito de consistencia del 2026-08-03 refuerza tres invariantes:
 3. retirar un activo cuyo objeto ya no existe es un no-op idempotente del
    almacenamiento y aun permite completar el estado `retired` en DBI.
 
-La integración conjunta PostgreSQL/PostGIS + S3, métricas, documentación de
-evidencia y revisión final continúan pendientes. Ninguna capacidad productiva
-queda autorizada por este avance.
+El subhito de integración incorpora un rol PostgreSQL mínimo exclusivo para
+activos, fixtures geoespaciales sintéticos, SeaweedFS efímero y un ciclo de API
+real de registro, carga, verificación, aislamiento, recuperación y retiro. La
+prueba registra métricas seguras de latencia, bytes, operaciones, conflictos y
+recuperaciones sin exponer URLs, claves o secretos.
+
+La evidencia de la primera ejecución verde y la revisión final continúan
+pendientes. Ninguna capacidad productiva queda autorizada por este avance.
 
 ## Dependencias confirmadas
 
@@ -89,7 +95,10 @@ La dirección se deriva así:
 tenant_ref + analysis-inputs + asset_id
 ```
 
-Un reintento exacto debe devolver el activo existente. El mismo `asset_id` con
+Un reintento exacto debe devolver el activo existente con su estado persistido
+real, no el estado tentativo del intento. Esta evidencia impide emitir un grant
+nuevo si el activo ya está `verified`, `quarantined` o `retired`. El mismo
+`asset_id` con
 finca, lote, tipo, MIME, tamaño, SHA-256 o CRS divergentes debe producir
 conflicto.
 
@@ -291,6 +300,9 @@ SHA-256 o referencias del creador.
 - compensación y retiro repetido.
 
 ### Integración
+
+La automatización `DBI asset integration` ejecuta y mide el ciclo conjunto sin
+infraestructura persistente ni datos reales.
 
 - PostgreSQL/PostGIS efímero con rol API mínimo;
 - SeaweedFS efímero y datos sintéticos;

@@ -112,8 +112,12 @@ class DBIAssetRepository:
             raise DBIAssetRegistrationConflict("resultado de activo inválido.")
         return row
 
-    def persist_registration(self, *, plan: DBIAssetRegistrationPlan) -> bool:
-        """Inserta un plan CREATE o acepta de forma segura un reintento exacto."""
+    def persist_registration(
+        self,
+        *,
+        plan: DBIAssetRegistrationPlan,
+    ) -> DBIAssetRegistrationPlan:
+        """Persiste y devuelve el plan efectivo, incluido su estado bloqueado."""
 
         registration = _required_plan(plan)
         canonical_intent = _intent(registration)
@@ -131,7 +135,7 @@ class DBIAssetRepository:
             )
             if checked.action is not DBIAssetRegistrationAction.REUSE:
                 raise DBIAssetRegistrationConflict("reintento divergente.")
-            return False
+            return checked
 
         if registration.action is not DBIAssetRegistrationAction.CREATE:
             raise DBIAssetRegistrationConflict("acción de registro inválida.")
@@ -160,7 +164,7 @@ class DBIAssetRepository:
         if inserted_id is not None:
             if inserted_id != registration.asset_id:
                 raise DBIAssetRegistrationConflict("identidad insertada divergente.")
-            return True
+            return registration
 
         row = self.get_for_update(
             tenant_ref=registration.tenant_ref,
@@ -175,7 +179,7 @@ class DBIAssetRepository:
         )
         if checked.action is not DBIAssetRegistrationAction.REUSE:
             raise DBIAssetRegistrationConflict("registro concurrente divergente.")
-        return False
+        return checked
 
     def apply_verification(
         self,

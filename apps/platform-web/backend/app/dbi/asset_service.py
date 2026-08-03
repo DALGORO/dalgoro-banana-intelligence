@@ -23,7 +23,11 @@ from app.dbi.authorization import (
 class DBIAssetRegistrationRepositoryPort(Protocol):
     """Persistencia sobre una transacción externa, sin commit interno."""
 
-    def persist_registration(self, *, plan: DBIAssetRegistrationPlan) -> bool: ...
+    def persist_registration(
+        self,
+        *,
+        plan: DBIAssetRegistrationPlan,
+    ) -> DBIAssetRegistrationPlan: ...
 
 
 @dataclass(frozen=True, slots=True)
@@ -107,7 +111,12 @@ class DBIAssetService:
             ),
             existing=None,
         )
-        created = self._repository.persist_registration(plan=plan)
-        if not isinstance(created, bool):
-            raise TypeError("persist_registration debe devolver bool.")
-        return DBIAssetRegistrationEvidence(plan=plan, created=created)
+        persisted_plan = self._repository.persist_registration(plan=plan)
+        if not isinstance(persisted_plan, DBIAssetRegistrationPlan):
+            raise TypeError(
+                "persist_registration debe devolver DBIAssetRegistrationPlan."
+            )
+        return DBIAssetRegistrationEvidence(
+            plan=persisted_plan,
+            created=persisted_plan.created,
+        )

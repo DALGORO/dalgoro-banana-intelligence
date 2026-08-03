@@ -2,9 +2,13 @@
 
 from __future__ import annotations
 
+from dataclasses import replace
 from uuid import uuid4
 
-from app.dbi.asset_registration import DBIAssetRegistrationPlan
+from app.dbi.asset_registration import (
+    DBIAssetRegistrationAction,
+    DBIAssetRegistrationPlan,
+)
 from app.dbi.asset_schemas import AnalysisInputAssetRegister
 from app.dbi.asset_service import DBIAssetService
 from app.dbi.authorization import (
@@ -19,13 +23,23 @@ from app.dbi.storage_policy import DBIStoragePolicy
 
 
 class FakeRepository:
-    def __init__(self, result: bool = True) -> None:
-        self.result = result
+    def __init__(self, *, reuse_status: str | None = None) -> None:
+        self.reuse_status = reuse_status
         self.calls: list[DBIAssetRegistrationPlan] = []
 
-    def persist_registration(self, *, plan: DBIAssetRegistrationPlan) -> bool:
+    def persist_registration(
+        self,
+        *,
+        plan: DBIAssetRegistrationPlan,
+    ) -> DBIAssetRegistrationPlan:
         self.calls.append(plan)
-        return self.result
+        if self.reuse_status is None:
+            return plan
+        return replace(
+            plan,
+            action=DBIAssetRegistrationAction.REUSE,
+            status=self.reuse_status,
+        )
 
 
 def _request(*, plot_id=None) -> AnalysisInputAssetRegister:
@@ -92,7 +106,7 @@ def main() -> None:
     assert evidence.plan.metadata.address == expected_address
 
     plot_id = uuid4()
-    plot_repository = FakeRepository(result=False)
+    plot_repository = FakeRepository(reuse_status="registered")
     plot_service = DBIAssetService(plot_repository)
     plot_evidence = plot_service.register(
         _context(farm_id=farm_id, plot_id=plot_id),
@@ -101,7 +115,19 @@ def main() -> None:
         request=_request(plot_id=plot_id),
     )
     assert plot_evidence.created is False
+    assert plot_evidence.plan.status == "registered"
     assert len(plot_repository.calls) == 1
+
+    verified_repository = FakeRepository(reuse_status="verified")
+    verified_evidence = DBIAssetService(verified_repository).register(
+        _context(farm_id=farm_id),
+        organization_ref="org-1",
+        farm_id=farm_id,
+        request=_request(),
+    )
+    assert verified_evidence.created is False
+    assert verified_evidence.plan.status == "verified"
+    assert len(verified_repository.calls) == 1
 
     denied_repository = FakeRepository()
     denied_service = DBIAssetService(denied_repository)

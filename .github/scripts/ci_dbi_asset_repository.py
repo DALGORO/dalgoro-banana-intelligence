@@ -17,6 +17,7 @@ BACKEND_ROOT = REPOSITORY_ROOT / "apps" / "platform-web" / "backend"
 sys.path.insert(0, str(BACKEND_ROOT))
 
 from app.dbi.asset_registration import (  # noqa: E402
+    DBIAssetRegistrationAction,
     DBIAssetRegistrationConflict,
     DBIAssetRegistrationIntent,
     build_asset_registration_plan,
@@ -97,7 +98,9 @@ def validate_insert() -> None:
     statements: list[object] = []
     session = _session([ASSET_ID], statements)
     repository = DBIAssetRepository(session)
-    assert repository.persist_registration(plan=plan) is True
+    persisted = repository.persist_registration(plan=plan)
+    assert persisted == plan
+    assert persisted.created is True
     assert len(statements) == 1
     sql = _sql(statements[0])
     assert "INSERT INTO dbi_analysis_input_assets" in sql
@@ -112,7 +115,10 @@ def validate_concurrent_exact_retry() -> None:
     statements: list[object] = []
     session = _session([None, _row(plan)], statements)
     repository = DBIAssetRepository(session)
-    assert repository.persist_registration(plan=plan) is False
+    persisted = repository.persist_registration(plan=plan)
+    assert persisted.action is DBIAssetRegistrationAction.REUSE
+    assert persisted.status == "registered"
+    assert persisted.created is False
     assert len(statements) == 2
     select_sql = _sql(statements[1])
     assert "FOR UPDATE" in select_sql
@@ -125,6 +131,14 @@ def validate_concurrent_exact_retry() -> None:
 def validate_reuse_plan() -> None:
     create = build_asset_registration_plan(intent=_intent(), existing=None)
     existing = _row(create)
+    existing.status = "verified"
+    existing.verified_at = datetime(
+        2026,
+        8,
+        3,
+        1,
+        tzinfo=timezone.utc,
+    )
     reuse = build_asset_registration_plan(
         intent=_intent(),
         existing=__import__(
@@ -133,7 +147,10 @@ def validate_reuse_plan() -> None:
     )
     statements: list[object] = []
     session = _session([existing], statements)
-    assert DBIAssetRepository(session).persist_registration(plan=reuse) is False
+    persisted = DBIAssetRepository(session).persist_registration(plan=reuse)
+    assert persisted.action is DBIAssetRegistrationAction.REUSE
+    assert persisted.status == "verified"
+    assert persisted.created is False
     assert len(statements) == 1
     assert "FOR UPDATE" in _sql(statements[0])
     session.close()
