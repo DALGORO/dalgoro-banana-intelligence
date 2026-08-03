@@ -18,6 +18,7 @@ from app.db.dbi_config import (  # noqa: E402
     DBIDatabaseConfig,
 )
 from app.dbi.migration_control import (  # noqa: E402
+    DBI_AUTHORIZED_GITHUB_WORKFLOWS,
     DBIMigrationControlError,
     advisory_lock_key,
     is_authorized_github_actions_runtime,
@@ -32,11 +33,12 @@ from app.dbi.migration_preflight import (  # noqa: E402
     run_migration_preflight,
 )
 
-HEAD = "dbi_0008_scope_hierarchy"
+HEAD = "dbi_0009_object_key_check"
 KNOWN = {
     "dbi_0001_baseline",
     "dbi_0006_plot_boundaries",
     "dbi_0007_admin_audit",
+    "dbi_0008_scope_hierarchy",
     HEAD,
 }
 AUTHORIZED_RUNTIME = {
@@ -52,6 +54,15 @@ AUTHORIZED_RUNTIME = {
     "GITHUB_JOB": "dbi-postgis-integration",
     "GITHUB_EVENT_NAME": "pull_request",
     "RUNNER_ENVIRONMENT": "github-hosted",
+}
+ASSET_AUTHORIZED_RUNTIME = {
+    **AUTHORIZED_RUNTIME,
+    "GITHUB_WORKFLOW": "DBI asset integration",
+    "GITHUB_WORKFLOW_REF": (
+        "dalgorosas/dalgoro-banana-intelligence/"
+        ".github/workflows/dbi-asset-integration.yml@refs/pull/54/merge"
+    ),
+    "GITHUB_JOB": "dbi-asset-integration",
 }
 
 
@@ -209,19 +220,42 @@ def validate_targets() -> None:
 
 
 def validate_authorized_runtime() -> None:
-    for event_name in ("pull_request", "push", "workflow_dispatch"):
-        runtime = dict(AUTHORIZED_RUNTIME)
-        runtime["GITHUB_EVENT_NAME"] = event_name
-        assert is_authorized_github_actions_runtime(runtime) is True
+    authorized_runtimes = (
+        AUTHORIZED_RUNTIME,
+        ASSET_AUTHORIZED_RUNTIME,
+    )
+    assert len(DBI_AUTHORIZED_GITHUB_WORKFLOWS) == 2
 
-    for field in AUTHORIZED_RUNTIME:
-        runtime = dict(AUTHORIZED_RUNTIME)
-        runtime[field] = "valor-no-autorizado"
-        assert is_authorized_github_actions_runtime(runtime) is False
+    for authorized in authorized_runtimes:
+        for event_name in ("pull_request", "push", "workflow_dispatch"):
+            runtime = dict(authorized)
+            runtime["GITHUB_EVENT_NAME"] = event_name
+            assert is_authorized_github_actions_runtime(runtime) is True
 
-    missing_workflow_ref = dict(AUTHORIZED_RUNTIME)
-    missing_workflow_ref.pop("GITHUB_WORKFLOW_REF")
-    assert is_authorized_github_actions_runtime(missing_workflow_ref) is False
+        for field in authorized:
+            runtime = dict(authorized)
+            runtime[field] = "valor-no-autorizado"
+            assert is_authorized_github_actions_runtime(runtime) is False
+
+        missing_workflow_ref = dict(authorized)
+        missing_workflow_ref.pop("GITHUB_WORKFLOW_REF")
+        assert (
+            is_authorized_github_actions_runtime(missing_workflow_ref)
+            is False
+        )
+
+    for original, other in (
+        (AUTHORIZED_RUNTIME, ASSET_AUTHORIZED_RUNTIME),
+        (ASSET_AUTHORIZED_RUNTIME, AUTHORIZED_RUNTIME),
+    ):
+        for field in (
+            "GITHUB_WORKFLOW",
+            "GITHUB_WORKFLOW_REF",
+            "GITHUB_JOB",
+        ):
+            mixed = dict(original)
+            mixed[field] = other[field]
+            assert is_authorized_github_actions_runtime(mixed) is False
 
 
 def validate_confirmation() -> None:

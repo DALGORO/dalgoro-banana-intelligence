@@ -23,6 +23,27 @@ DBI_GITHUB_WORKFLOW_PATH: Final[str] = (
     ".github/workflows/dbi-migration-integration.yml"
 )
 DBI_GITHUB_JOB: Final[str] = "dbi-postgis-integration"
+DBI_ASSET_GITHUB_WORKFLOW: Final[str] = "DBI asset integration"
+DBI_ASSET_GITHUB_WORKFLOW_PATH: Final[str] = (
+    ".github/workflows/dbi-asset-integration.yml"
+)
+DBI_ASSET_GITHUB_JOB: Final[str] = "dbi-asset-integration"
+DBI_AUTHORIZED_GITHUB_WORKFLOWS: Final[
+    frozenset[tuple[str, str, str]]
+] = frozenset(
+    {
+        (
+            DBI_GITHUB_WORKFLOW,
+            DBI_GITHUB_WORKFLOW_PATH,
+            DBI_GITHUB_JOB,
+        ),
+        (
+            DBI_ASSET_GITHUB_WORKFLOW,
+            DBI_ASSET_GITHUB_WORKFLOW_PATH,
+            DBI_ASSET_GITHUB_JOB,
+        ),
+    }
+)
 DBI_GITHUB_EVENTS: Final[frozenset[str]] = frozenset(
     {"pull_request", "push", "workflow_dispatch"}
 )
@@ -54,25 +75,35 @@ def expected_migrator_role(database_name: str) -> str:
     return f"{database_name}_migrator"
 
 
+def _is_authorized_workflow_identity(values: Mapping[str, str]) -> bool:
+    """Exige una combinación exacta e inseparable de nombre, ruta y job."""
+
+    workflow_ref = values.get("GITHUB_WORKFLOW_REF", "")
+    workflow = values.get("GITHUB_WORKFLOW")
+    job = values.get("GITHUB_JOB")
+    return any(
+        workflow == authorized_workflow
+        and job == authorized_job
+        and workflow_ref.startswith(
+            f"{DBI_GITHUB_REPOSITORY}/{authorized_path}@"
+        )
+        for authorized_workflow, authorized_path, authorized_job
+        in DBI_AUTHORIZED_GITHUB_WORKFLOWS
+    )
+
+
 def is_authorized_github_actions_runtime(
     environment: Mapping[str, str] | None = None,
 ) -> bool:
-    """Comprueba los marcadores inmutables del workflow DBI autorizado."""
+    """Comprueba los marcadores inmutables de un workflow DBI autorizado."""
 
     values = os.environ if environment is None else environment
-    expected_workflow_ref_prefix = (
-        f"{DBI_GITHUB_REPOSITORY}/{DBI_GITHUB_WORKFLOW_PATH}@"
-    )
-    workflow_ref = values.get("GITHUB_WORKFLOW_REF", "")
-
     return (
         values.get("GITHUB_ACTIONS") == "true"
         and values.get("CI") == "true"
         and values.get("GITHUB_SERVER_URL") == "https://github.com"
         and values.get("GITHUB_REPOSITORY") == DBI_GITHUB_REPOSITORY
-        and values.get("GITHUB_WORKFLOW") == DBI_GITHUB_WORKFLOW
-        and workflow_ref.startswith(expected_workflow_ref_prefix)
-        and values.get("GITHUB_JOB") == DBI_GITHUB_JOB
+        and _is_authorized_workflow_identity(values)
         and values.get("GITHUB_EVENT_NAME") in DBI_GITHUB_EVENTS
         and values.get("RUNNER_ENVIRONMENT") == "github-hosted"
     )

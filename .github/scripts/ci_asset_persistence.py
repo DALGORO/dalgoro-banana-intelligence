@@ -206,6 +206,8 @@ def validate_constraints() -> None:
         assert "object_key ~" in object_key_sql
         assert "object_key !~" in object_key_sql
         assert "object_key not like '%//%'" in object_key_sql.lower()
+        assert "{0,511}" not in object_key_sql
+        assert "[A-Za-z0-9._/-]*" in object_key_sql
 
 
 def validate_migration_graph() -> None:
@@ -215,7 +217,7 @@ def validate_migration_graph() -> None:
     scripts = ScriptDirectory.from_config(config)
     assert scripts.get_bases() == ["dbi_0001_baseline"]
     heads = scripts.get_heads()
-    assert len(heads) == 1
+    assert heads == ["dbi_0009_object_key_check"]
     lineage = {
         revision.revision
         for revision in scripts.iterate_revisions(heads[0], "base")
@@ -224,6 +226,9 @@ def validate_migration_graph() -> None:
     revision = scripts.get_revision("dbi_0004_assets_artifacts")
     assert revision is not None
     assert revision.down_revision == "dbi_0003_analysis_jobs"
+    repair = scripts.get_revision("dbi_0009_object_key_check")
+    assert repair is not None
+    assert repair.down_revision == "dbi_0008_scope_hierarchy"
 
 
 def validate_offline_sql() -> None:
@@ -250,6 +255,9 @@ def validate_offline_sql() -> None:
     assert "alembic_version_dbi" in sql
     assert "uq_dbi_analysis_job_attempts_id_job" in sql
     assert "artifact-manifest.v1" in sql
+    assert "dbi_0009_object_key_check" in sql
+    assert "drop constraint ck_dbi_analysis_input_assets_object_key" in sql
+    assert "drop constraint ck_dbi_analysis_artifacts_object_key" in sql
     for forbidden in (
         "create extension",
         "geography(",
@@ -274,6 +282,12 @@ def validate_sources() -> None:
         / "dbi_alembic"
         / "versions"
         / "20260729_04_assets_artifacts.py"
+    ).read_text(encoding="utf-8").lower()
+    repair_source = (
+        BACKEND_ROOT
+        / "dbi_alembic"
+        / "versions"
+        / "20260803_09_object_key_check.py"
     ).read_text(encoding="utf-8").lower()
 
     for forbidden in (
@@ -302,6 +316,11 @@ def validate_sources() -> None:
     assert "geometry" not in migration_source
     assert "geography" not in migration_source
     assert "postgis" not in migration_source
+    assert 'revision: str = "dbi_0009_object_key_check"' in repair_source
+    assert '"dbi_0008_scope_hierarchy"' in repair_source
+    assert "[a-za-z0-9._/-]*$" in repair_source
+    assert "op.create_check_constraint" in repair_source
+    assert "op.execute" not in repair_source
 
 
 def main() -> None:

@@ -13,7 +13,12 @@ if [[ "${provided_ref}" != "${APPROVED_PINNED_REF}" ]]; then
   exit 1
 fi
 
-integration_enabled="${DBI_STORAGE_RUN_S3_INTEGRATION:-0}"
+storage_integration_enabled="${DBI_STORAGE_RUN_S3_INTEGRATION:-0}"
+asset_integration_enabled="${DBI_ASSET_RUN_INTEGRATION:-0}"
+integration_enabled="0"
+if [[ "${storage_integration_enabled}" == "1" || "${asset_integration_enabled}" == "1" ]]; then
+  integration_enabled="1"
+fi
 data_tmpfs_size="128m"
 tmp_tmpfs_size="32m"
 memory_limit="512m"
@@ -197,8 +202,15 @@ if [[ "${version_output}" != *"4.29"* ]]; then
   exit 1
 fi
 
-if [[ "${integration_enabled}" == "1" ]]; then
+if [[ "${storage_integration_enabled}" == "1" ]]; then
   if ! python .github/scripts/ci_dbi_storage_s3_integration.py; then
+    diagnose_container
+    exit 1
+  fi
+fi
+
+if [[ "${asset_integration_enabled}" == "1" ]]; then
+  if ! python .github/scripts/ci_dbi_asset_integration.py; then
     diagnose_container
     exit 1
   fi
@@ -235,6 +247,7 @@ if [[ -n "${GITHUB_STEP_SUMMARY:-}" ]]; then
     echo "- Credenciales: ausentes del entorno y los logs del contenedor"
     echo "- Configuración IAM: archivo sintético copiado y eliminado del runner antes del arranque"
     echo "- Datos: exclusivamente objetos sintéticos cuando se activa la integración"
+    echo "- Integración de activos DBI: `${asset_integration_enabled}`"
     echo "- Persistencia: tmpfs; sin bind mounts ni volúmenes"
     echo "- Capacidad temporal de integración: \`${data_tmpfs_size}\`"
     echo "- Limpieza: contenedor eliminado al finalizar"

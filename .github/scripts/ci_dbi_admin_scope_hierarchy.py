@@ -28,7 +28,8 @@ from app.dbi.models.identity import DBIMembershipScope  # noqa: E402
 
 ORG_A = "organization-a"
 ORG_B = "organization-b"
-HEAD = "dbi_0008_scope_hierarchy"
+HEAD = "dbi_0009_object_key_check"
+HIERARCHY_REVISION = "dbi_0008_scope_hierarchy"
 DOWN_REVISION = "dbi_0007_admin_audit"
 EXPECTED_CONSTRAINTS = {
     "uq_dbi_farms_id_organization",
@@ -222,9 +223,12 @@ def validate_migration_contract() -> None:
     scripts = ScriptDirectory.from_config(config)
     assert scripts.get_bases() == ["dbi_0001_baseline"]
     assert scripts.get_heads() == [HEAD]
-    revision = scripts.get_revision(HEAD)
+    revision = scripts.get_revision(HIERARCHY_REVISION)
     assert revision is not None
     assert revision.down_revision == DOWN_REVISION
+    head_revision = scripts.get_revision(HEAD)
+    assert head_revision is not None
+    assert head_revision.down_revision == HIERARCHY_REVISION
 
     output = StringIO()
     environment = {

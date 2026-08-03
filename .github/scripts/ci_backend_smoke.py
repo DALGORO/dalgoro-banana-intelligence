@@ -13,6 +13,21 @@ from ci_dbi_admin_principal_routes import (
 )
 from ci_dbi_admin_routes import main as validate_dbi_admin_routes
 from ci_dbi_admin_schemas import main as validate_dbi_admin_schemas
+from ci_dbi_asset_api import main as validate_dbi_asset_api
+from ci_dbi_asset_quarantine_cleanup_api import (
+    main as validate_dbi_asset_quarantine_cleanup_api,
+)
+from ci_dbi_asset_registration import main as validate_dbi_asset_registration
+from ci_dbi_asset_repository import main as validate_dbi_asset_repository
+from ci_dbi_asset_quarantine_cleanup import (
+    main as validate_dbi_asset_quarantine_cleanup,
+)
+from ci_dbi_asset_retirement_service import (
+    main as validate_dbi_asset_retirement_service,
+)
+from ci_dbi_asset_service import main as validate_dbi_asset_service
+from ci_dbi_asset_upload_service import main as validate_dbi_asset_upload_service
+from ci_dbi_asset_verification import main as validate_dbi_asset_verification
 from ci_dbi_storage_contracts import main as validate_dbi_storage_contracts
 from ci_dbi_storage_memory import main as validate_dbi_storage_memory
 from ci_dbi_storage_metrics import main as validate_dbi_storage_metrics
@@ -23,13 +38,22 @@ from ci_dbi_storage_sdk_dependencies import (
 
 
 def main() -> None:
-    """Valida administración y almacenamiento DBI sin servicios externos."""
+    """Valida administración, activos y almacenamiento sin servicios externos."""
 
     validate_dbi_admin_actor()
     validate_dbi_admin_schemas()
     validate_dbi_admin_routes()
     validate_dbi_admin_mutation_routes()
     validate_dbi_admin_principal_routes()
+    validate_dbi_asset_registration()
+    validate_dbi_asset_repository()
+    validate_dbi_asset_quarantine_cleanup()
+    validate_dbi_asset_quarantine_cleanup_api()
+    validate_dbi_asset_retirement_service()
+    validate_dbi_asset_service()
+    validate_dbi_asset_upload_service()
+    validate_dbi_asset_verification()
+    validate_dbi_asset_api()
     validate_dbi_storage_contracts()
     validate_dbi_storage_memory()
     validate_dbi_storage_metrics()
