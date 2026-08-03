@@ -13,6 +13,7 @@ from ci_dbi_admin_principal_routes import (
 )
 from ci_dbi_admin_routes import main as validate_dbi_admin_routes
 from ci_dbi_admin_schemas import main as validate_dbi_admin_schemas
+from ci_dbi_asset_api import main as validate_dbi_asset_api
 from ci_dbi_asset_registration import main as validate_dbi_asset_registration
 from ci_dbi_asset_repository import main as validate_dbi_asset_repository
 from ci_dbi_asset_service import main as validate_dbi_asset_service
@@ -40,6 +41,7 @@ def main() -> None:
     validate_dbi_asset_service()
     validate_dbi_asset_upload_service()
     validate_dbi_asset_verification()
+    validate_dbi_asset_api()
     validate_dbi_storage_contracts()
     validate_dbi_storage_memory()
     validate_dbi_storage_metrics()
