@@ -31,7 +31,10 @@ from app.dbi.asset_registration import (
 )
 from app.dbi.asset_retirement_service import DBIAssetRetirementEvidence
 from app.dbi.asset_service import DBIAssetRegistrationEvidence
-from app.dbi.asset_upload_service import DBIAssetUploadEvidence
+from app.dbi.asset_upload_service import (
+    DBIAssetSynchronousLimitExceeded,
+    DBIAssetUploadEvidence,
+)
 from app.dbi.asset_verification import (
     DBIAssetVerificationDecision,
     DBIAssetVerificationResult,
@@ -173,12 +176,12 @@ def _upload_fixture():
     return asset_id, farm_id, payload, evidence, access
 
 
-def _must_http_error(callable_, status_code: int) -> None:
+def _must_http_error(callable_, status_code: int) -> HTTPException:
     try:
         callable_()
     except HTTPException as error:
         assert error.status_code == status_code
-        return
+        return error
     raise AssertionError(f"Se esperaba HTTP {status_code}.")
 
 
@@ -217,6 +220,35 @@ def main() -> None:
     )
     assert denied_session.commits == 0 and denied_session.rollbacks == 1
     assert denied_store.calls == 0
+
+    oversized_session = FakeSession()
+    oversized_store = FakeStore(access=access)
+    oversized_error = _must_http_error(
+        lambda: register_asset_upload(
+            payload=payload,
+            response=Response(),
+            session=oversized_session,
+            context=_context(),
+            store=oversized_store,
+            service=FakeUploadService(
+                error=DBIAssetSynchronousLimitExceeded(
+                    size_bytes=64 * 1024 * 1024 + 1,
+                    max_size_bytes=64 * 1024 * 1024,
+                )
+            ),
+        ),
+        413,
+    )
+    assert oversized_error.detail == {
+        "code": "asset_multipart_required",
+        "message": (
+            "El activo supera el límite síncrono y requiere carga multipartes."
+        ),
+        "max_synchronous_size_bytes": 64 * 1024 * 1024,
+        "required_flow": "multipart_upload",
+    }
+    assert oversized_session.commits == 0 and oversized_session.rollbacks == 1
+    assert oversized_store.calls == 0
 
     provider_session = FakeSession()
     _must_http_error(

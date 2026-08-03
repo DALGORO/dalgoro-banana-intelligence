@@ -14,6 +14,8 @@ from app.dbi.asset_registration import (
 from app.dbi.asset_schemas import AnalysisInputAssetRegister
 from app.dbi.asset_service import DBIAssetRegistrationEvidence
 from app.dbi.asset_upload_service import (
+    DBI_ASSET_SYNC_MAX_SIZE_BYTES,
+    DBIAssetSynchronousLimitExceeded,
     DBIAssetUploadGrantFailure,
     DBIAssetUploadService,
 )
@@ -135,6 +137,7 @@ def main() -> None:
         registration,
         store,
         grant_ttl=timedelta(minutes=10),
+        max_synchronous_size_bytes=128,
     )
     issued_at = datetime(2026, 8, 3, tzinfo=timezone.utc)
     result = service.register_and_issue_upload(
@@ -150,6 +153,30 @@ def main() -> None:
     assert result.grant.expires_at == issued_at + timedelta(minutes=10)
     assert registration.calls == 1
     assert len(store.calls) == 1
+    assert DBI_ASSET_SYNC_MAX_SIZE_BYTES == 64 * 1024 * 1024
+
+    oversized_registration = FakeRegistrationService(evidence=evidence)
+    untouched_oversized_store = FakeStore()
+    oversized_service = DBIAssetUploadService(
+        oversized_registration,
+        untouched_oversized_store,
+        max_synchronous_size_bytes=127,
+    )
+    try:
+        oversized_service.register_and_issue_upload(
+            _context(),
+            organization_ref="org-1",
+            farm_id=evidence.plan.farm_id,
+            request=_request(evidence.plan.asset_id),
+            issued_at=issued_at,
+        )
+    except DBIAssetSynchronousLimitExceeded as error:
+        assert error.size_bytes == 128
+        assert error.max_size_bytes == 127
+    else:
+        raise AssertionError("Se esperaba DBIAssetSynchronousLimitExceeded.")
+    assert oversized_registration.calls == 1
+    assert untouched_oversized_store.calls == []
 
     denied_registration = FakeRegistrationService(error=DBIAccessDenied())
     untouched_store = FakeStore()
@@ -265,6 +292,14 @@ def main() -> None:
             grant_ttl=timedelta(seconds=10),
         ),
         DBIStorageConflict,
+    )
+    _must_fail(
+        lambda: DBIAssetUploadService(
+            FakeRegistrationService(evidence=evidence),
+            FakeStore(),
+            max_synchronous_size_bytes=0,
+        ),
+        TypeError,
     )
 
     print("Registro y grant temporal de carga DBI aprobados offline.")

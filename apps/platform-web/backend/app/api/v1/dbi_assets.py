@@ -29,6 +29,7 @@ from app.dbi.asset_repository import DBIAssetRepository
 from app.dbi.asset_retirement_service import DBIAssetRetirementService
 from app.dbi.asset_service import DBIAssetService
 from app.dbi.asset_upload_service import (
+    DBIAssetSynchronousLimitExceeded,
     DBIAssetUploadGrantFailure,
     DBIAssetUploadService,
 )
@@ -49,6 +50,10 @@ router = APIRouter(prefix="/dbi/assets", tags=["dbi-assets"])
 DBI_ASSET_NOT_FOUND_DETAIL = "Activo DBI no disponible."
 DBI_ASSET_CONFLICT_DETAIL = "La operación del activo entra en conflicto con su estado actual."
 DBI_ASSET_STORAGE_DETAIL = "El almacenamiento privado DBI no está disponible."
+DBI_ASSET_MULTIPART_REQUIRED_CODE = "asset_multipart_required"
+DBI_ASSET_MULTIPART_REQUIRED_MESSAGE = (
+    "El activo supera el límite síncrono y requiere carga multipartes."
+)
 
 SessionDependency = Annotated[Session, Depends(get_dbi_session)]
 AccessDependency = Annotated[DBIAccessContext, Depends(get_dbi_access_context)]
@@ -154,6 +159,18 @@ def _storage_unavailable() -> HTTPException:
     return HTTPException(status_code=503, detail=DBI_ASSET_STORAGE_DETAIL)
 
 
+def _multipart_required(max_size_bytes: int) -> HTTPException:
+    return HTTPException(
+        status_code=413,
+        detail={
+            "code": DBI_ASSET_MULTIPART_REQUIRED_CODE,
+            "message": DBI_ASSET_MULTIPART_REQUIRED_MESSAGE,
+            "max_synchronous_size_bytes": max_size_bytes,
+            "required_flow": "multipart_upload",
+        },
+    )
+
+
 @router.post("", response_model=DBIAssetUploadResponse)
 def register_asset_upload(
     payload: DBIAssetUploadRequest,
@@ -180,6 +197,9 @@ def register_asset_upload(
     except DBIAccessDenied as error:
         session.rollback()
         raise _not_found() from error
+    except DBIAssetSynchronousLimitExceeded as error:
+        session.rollback()
+        raise _multipart_required(error.max_size_bytes) from error
     except (DBIAssetRegistrationConflict, IntegrityError) as error:
         session.rollback()
         raise _conflict() from error

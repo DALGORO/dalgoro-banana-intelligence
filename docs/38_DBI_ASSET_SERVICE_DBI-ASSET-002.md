@@ -335,9 +335,52 @@ infraestructura persistente ni datos reales.
 - ausencia de residuos persistentes;
 - métricas de latencia, operaciones, bytes, conflictos y recuperación.
 
+## Límite síncrono y continuidad para ortofotos grandes
+
+La entrega `DBI-ASSET-002` admite únicamente el flujo simple y síncrono para
+objetos de hasta `64 MiB` (`67 108 864` bytes). La puerta se evalúa después
+de autorizar y registrar dentro de la unidad de trabajo, pero antes de contactar
+al almacenamiento. Si el tamaño es mayor:
+
+- la transacción se revierte;
+- no se emite ni resuelve un grant;
+- no se carga ni se abre parcialmente el objeto;
+- la API responde `413` con código `asset_multipart_required`, el límite en
+  bytes y `required_flow=multipart_upload`;
+- el cliente debe continuar con `DBI-ASSET-003` (#55).
+
+Este límite protege el proceso web que hoy verifica el contenido completo en
+memoria. No es un límite del sistema, de la base de datos ni del formato
+GeoTIFF. Las ortofotos maestras esperadas de 1–10 GB se conservarán íntegras y
+privadas mediante carga multipartes. Las fotografías y archivos auxiliares del
+vuelo se conservarán como un conjunto separado con manifiesto verificable; no
+se obliga a convertirlos en un único ZIP.
+
+Después de disponer de trabajos, cola, worker y resultados, `DBI-RASTER-001`
+(#56) generará COG/BigTIFF de resolución completa, overviews y entrega de
+teselas autorizadas. El navegador consumirá solo las regiones y niveles de zoom
+necesarios; el archivo maestro no se abrirá completo. Los derivados visuales
+serán regenerables y nunca sustituirán al original o a los valores científicos.
+
+Referencias técnicas oficiales que respaldan la separación entre maestro y
+visualización multirresolución:
+
+- OGC Cloud Optimized GeoTIFF:
+  https://www.ogc.org/standards/ogc-cloud-optimized-geotiff/
+- GDAL COG:
+  https://gdal.org/en/stable/drivers/raster/cog.html
+- AWS S3 multipart upload:
+  https://docs.aws.amazon.com/AmazonS3/latest/userguide/mpuoverview.html
+- Agisoft Cloud:
+  https://agisoft.freshdesk.com/support/solutions/articles/31000155067-how-to-process-a-project-in-the-cloud
+- Pix4D, exportación de teselas:
+  https://support.pix4d.com/hc/en-us/articles/360048200292
+
 ## Fuera de alcance
 
 - `AnalysisArtifact`;
+- carga multipartes y sesiones reanudables (#55);
+- COG, overviews, teselas y caché web (#56);
 - trabajos y comandos;
 - cola y worker;
 - ejecución geoespacial;
