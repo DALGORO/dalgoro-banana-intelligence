@@ -1,4 +1,4 @@
-"""Contratos HTTP no sensibles para carga, confirmación y retiro de activos DBI."""
+"""Contratos HTTP no sensibles para carga, confirmación, limpieza y retiro DBI."""
 
 from __future__ import annotations
 
@@ -48,6 +48,16 @@ class DBIAssetConfirmRequest(_AssetAPIModel):
         return _canonical_organization_ref(value)
 
 
+class DBIAssetQuarantineCleanupRequest(_AssetAPIModel):
+    organization_ref: str = Field(min_length=1, max_length=128)
+    farm_id: UUID
+
+    @field_validator("organization_ref", mode="before")
+    @classmethod
+    def require_canonical_organization(cls, value: object) -> object:
+        return _canonical_organization_ref(value)
+
+
 class DBIAssetRetireRequest(_AssetAPIModel):
     organization_ref: str = Field(min_length=1, max_length=128)
     farm_id: UUID
@@ -77,6 +87,12 @@ class DBIAssetConfirmResponse(_AssetAPIModel):
     status: Literal["verified", "quarantined"]
     changed: bool
     reason: Literal["verified", "integrity_mismatch"]
+
+
+class DBIAssetQuarantineCleanupResponse(_AssetAPIModel):
+    asset_id: UUID
+    status: Literal["quarantined"]
+    changed: bool
 
 
 class DBIAssetRetireResponse(_AssetAPIModel):
