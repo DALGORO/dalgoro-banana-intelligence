@@ -15,6 +15,18 @@ class _AssetAPIModel(BaseModel):
     model_config = ConfigDict(extra="forbid", str_strip_whitespace=True)
 
 
+def _canonical_organization_ref(value: object) -> object:
+    if not isinstance(value, str):
+        return value
+    if (
+        value != value.strip()
+        or "*" in value
+        or any(ord(character) < 32 or ord(character) == 127 for character in value)
+    ):
+        raise ValueError("organization_ref debe ser canónica.")
+    return value
+
+
 class DBIAssetUploadRequest(_AssetAPIModel):
     organization_ref: str = Field(min_length=1, max_length=128)
     farm_id: UUID
@@ -23,15 +35,7 @@ class DBIAssetUploadRequest(_AssetAPIModel):
     @field_validator("organization_ref", mode="before")
     @classmethod
     def require_canonical_organization(cls, value: object) -> object:
-        if not isinstance(value, str):
-            return value
-        if (
-            value != value.strip()
-            or "*" in value
-            or any(ord(character) < 32 or ord(character) == 127 for character in value)
-        ):
-            raise ValueError("organization_ref debe ser canónica.")
-        return value
+        return _canonical_organization_ref(value)
 
 
 class DBIAssetConfirmRequest(_AssetAPIModel):
@@ -41,7 +45,7 @@ class DBIAssetConfirmRequest(_AssetAPIModel):
     @field_validator("organization_ref", mode="before")
     @classmethod
     def require_canonical_organization(cls, value: object) -> object:
-        return DBIAssetUploadRequest.require_canonical_organization(value)
+        return _canonical_organization_ref(value)
 
 
 class DBIAssetUploadAccessResponse(_AssetAPIModel):
