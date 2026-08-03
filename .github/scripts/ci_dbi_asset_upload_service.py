@@ -19,6 +19,7 @@ from app.dbi.authorization import DBIAccessContext, DBIAccessDenied
 from app.dbi.storage_contracts import (
     DBIStorageAccessMode,
     DBIStorageConflict,
+    DBIStoragePurpose,
     DBIStorageTemporaryGrant,
 )
 from app.dbi.storage_policy import DBIStoragePolicy
@@ -73,10 +74,7 @@ def _evidence() -> DBIAssetRegistrationEvidence:
     metadata = DBIStoragePolicy.build_metadata(
         address=DBIStoragePolicy.build_address(
             tenant_ref="tenant-1",
-            purpose=__import__(
-                "app.dbi.storage_contracts",
-                fromlist=["DBIStoragePurpose"],
-            ).DBIStoragePurpose.ANALYSIS_INPUT,
+            purpose=DBIStoragePurpose.ANALYSIS_INPUT,
             object_id=asset_id,
         ),
         content_type="image/tiff",
