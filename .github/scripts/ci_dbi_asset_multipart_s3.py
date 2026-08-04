@@ -314,6 +314,23 @@ def validate_complete_and_idempotent_inspection() -> None:
     assert inspected.created is False
     assert inspected.transport_checksum == OBJECT_CHECKSUM
 
+    stored = client.objects[upload.metadata.address.object_key]
+    stored.pop("ChecksumType")
+    compatible = adapter.inspect_completed(upload)
+    assert compatible.transport_checksum == OBJECT_CHECKSUM
+
+    stored["ChecksumSHA256"] = f"{PART_CHECKSUM}-3"
+    _must_raise(
+        DBIMultipartProviderIntegrityError,
+        lambda: adapter.inspect_completed(upload),
+    )
+    stored["ChecksumSHA256"] = OBJECT_CHECKSUM
+    stored["ChecksumType"] = "FULL_OBJECT"
+    _must_raise(
+        DBIMultipartProviderIntegrityError,
+        lambda: adapter.inspect_completed(upload),
+    )
+
 
 def validate_integrity_and_error_translation() -> None:
     adapter, client = _adapter()

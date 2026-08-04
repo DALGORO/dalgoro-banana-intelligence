@@ -153,6 +153,15 @@ def _opaque_provider_value(value: object, *, field_name: str) -> str:
     return value
 
 
+def _confirms_composite_shape(value: str, *, part_count: int) -> bool:
+    payload, separator, count = value.rpartition("-")
+    return (
+        separator == "-"
+        and count == str(part_count)
+        and re.fullmatch(r"[A-Za-z0-9+/]+={0,2}", payload) is not None
+    )
+
+
 class DBIS3MultipartAdapter:
     """Mapea el puerto a S3 usando solo endpoint loopback y cliente inyectable."""
 
@@ -337,7 +346,6 @@ class DBIS3MultipartAdapter:
             head.get("ContentLength") != canonical.metadata.size_bytes
             or head.get("ContentType") != canonical.metadata.content_type
             or raw_metadata != expected_metadata
-            or head.get("ChecksumType") != canonical.plan.checksum_type.value
         ):
             raise DBIMultipartProviderIntegrityError(
                 "el objeto completado no coincide con la metadata DBI."
@@ -346,6 +354,21 @@ class DBIS3MultipartAdapter:
             head.get(checksum_member),
             field_name=checksum_member,
         )
+        reported_checksum_type = head.get("ChecksumType")
+        expected_checksum_type = canonical.plan.checksum_type.value
+        checksum_type_confirmed = (
+            reported_checksum_type == expected_checksum_type
+            if reported_checksum_type is not None
+            else expected_checksum_type == "COMPOSITE"
+            and _confirms_composite_shape(
+                checksum,
+                part_count=canonical.plan.part_count,
+            )
+        )
+        if not checksum_type_confirmed:
+            raise DBIMultipartProviderIntegrityError(
+                "el proveedor no confirmó el tipo de checksum multipartes."
+            )
         etag = _opaque_provider_value(head.get("ETag"), field_name="ETag")
         completed_at = DBIMultipartProviderPolicy.utc(
             head.get("LastModified"),

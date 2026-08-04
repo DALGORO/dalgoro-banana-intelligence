@@ -314,6 +314,12 @@ S3 multipartes, emite dos grants, carga dos partes directamente al endpoint
 loopback, completa e inspecciona el objeto. Un segundo objeto sintético carga una
 parte y se aborta para demostrar que no queda una carga incompleta.
 
+Si un proveedor S3-compatible omite el campo explícito `ChecksumType`, DBI solo
+acepta la evidencia cuando devuelve el checksum criptográfico compuesto y su
+sufijo `-N` coincide con el número exacto de partes del plan. Un checksum ausente,
+mal formado, con otra cantidad de partes o con un tipo explícito divergente falla
+cerrado; nunca se interpreta como el SHA-256 canónico del original.
+
 SeaweedFS usa imagen fijada por digest, identidad mínima, puerto loopback,
 `tmpfs` y ninguna persistencia del runner. El objeto completado, las cargas
 incompletas, el contenedor y las credenciales sintéticas se eliminan al terminar.
@@ -512,4 +518,3 @@ sin descargarlos completos.
   https://docs.aws.amazon.com/AmazonS3/latest/userguide/checking-object-integrity-upload.html
 - CompleteMultipartUpload API:
   https://docs.aws.amazon.com/AmazonS3/latest/API/API_CompleteMultipartUpload.html
-
