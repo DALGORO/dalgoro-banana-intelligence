@@ -477,7 +477,7 @@ class DBIS3MultipartAdapter:
 
     def _bound_abort_confirmed(self, *, object_key: str, upload_ref: str) -> bool:
         try:
-            self._call(
+            response = self._call(
                 "list_parts",
                 Bucket=self._config.bucket,
                 Key=object_key,
@@ -486,7 +486,14 @@ class DBIS3MultipartAdapter:
             )
         except DBIMultipartProviderNotFound:
             return True
-        return False
+        parts = response.get("Parts", [])
+        if not isinstance(parts, list):
+            raise DBIMultipartProviderIntegrityError(
+                "el proveedor devolvió una lista de partes inválida."
+            )
+        if parts:
+            return False
+        return upload_ref not in self._list_exact_upload_refs(object_key)
 
     def _ensure_no_completed_object(
         self,

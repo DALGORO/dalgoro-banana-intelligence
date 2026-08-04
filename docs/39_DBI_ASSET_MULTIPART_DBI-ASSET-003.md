@@ -320,6 +320,12 @@ sufijo `-N` coincide con el número exacto de partes del plan. Un checksum ausen
 mal formado, con otra cantidad de partes o con un tipo explícito divergente falla
 cerrado; nunca se interpreta como el SHA-256 canónico del original.
 
+Para el aborto, algunos proveedores responden `ListParts` con una lista vacía en
+lugar de `NoSuchUpload`. Esa respuesta solo confirma limpieza si una segunda
+consulta paginada demuestra que el `UploadId` exacto tampoco aparece entre las
+cargas incompletas. Una lista vacía aislada falla cerrado y se registra como
+residuo para reintento; DBI nunca elimina el objeto completado.
+
 SeaweedFS usa imagen fijada por digest, identidad mínima, puerto loopback,
 `tmpfs` y ninguna persistencia del runner. El objeto completado, las cargas
 incompletas, el contenedor y las credenciales sintéticas se eliminan al terminar.

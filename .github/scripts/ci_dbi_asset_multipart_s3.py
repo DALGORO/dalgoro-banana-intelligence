@@ -135,6 +135,30 @@ class FakeS3MultipartClient:
         return {"Uploads": uploads, "IsTruncated": False}
 
 
+class EmptyListAfterAbortS3Client(FakeS3MultipartClient):
+    """Emula proveedores que no devuelven NoSuchUpload tras un aborto."""
+
+    def list_parts(self, **kwargs):
+        self._record("list_parts", kwargs)
+        if kwargs["UploadId"] not in self.uploads:
+            return {"Parts": [], "IsTruncated": False}
+        return {"Parts": [{"PartNumber": 1}], "IsTruncated": False}
+
+
+class EmptyButDiscoverableS3Client(EmptyListAfterAbortS3Client):
+    """Demuestra que una lista vacía aislada no confirma la limpieza."""
+
+    def abort_multipart_upload(self, **kwargs):
+        self._record("abort_multipart_upload", kwargs)
+        if kwargs["UploadId"] not in self.uploads:
+            raise _client_error("NoSuchUpload", 404, "AbortMultipartUpload")
+        return {}
+
+    def list_parts(self, **kwargs):
+        self._record("list_parts", kwargs)
+        return {"Parts": [], "IsTruncated": False}
+
+
 def _config(**overrides) -> DBIS3ObjectStoreConfig:
     values = {
         "endpoint_url": "http://127.0.0.1:8333",
@@ -453,6 +477,39 @@ def validate_abort_bound_unbound_and_original_safety() -> None:
     assert object_key in completed_client.objects
 
 
+def validate_s3_compatible_empty_list_abort_confirmation() -> None:
+    adapter, client = _adapter(EmptyListAfterAbortS3Client())
+    initiation = _initiation()
+    upload = adapter.initiate(initiation)
+    request = DBIMultipartProviderAbortRequest(
+        session_id=SESSION_ID,
+        metadata=initiation.metadata,
+        plan=initiation.plan,
+        initiated_at=NOW,
+        requested_at=NOW + timedelta(hours=5),
+        provider_upload_ref=upload.provider_upload_ref,
+    )
+    confirmation = adapter.abort(request)
+    assert confirmation.cleanup_confirmed is True
+    assert confirmation.provider_uploads_aborted == 1
+    assert upload.provider_upload_ref not in client.uploads
+
+    guarded_adapter, guarded_client = _adapter(EmptyButDiscoverableS3Client())
+    guarded_upload = guarded_adapter.initiate(initiation)
+    guarded_request = DBIMultipartProviderAbortRequest(
+        session_id=SESSION_ID,
+        metadata=initiation.metadata,
+        plan=initiation.plan,
+        initiated_at=NOW,
+        requested_at=NOW + timedelta(hours=6),
+        provider_upload_ref=guarded_upload.provider_upload_ref,
+    )
+    guarded_confirmation = guarded_adapter.abort(guarded_request)
+    assert guarded_confirmation.cleanup_confirmed is False
+    assert guarded_confirmation.provider_uploads_aborted == 1
+    assert guarded_upload.provider_upload_ref in guarded_client.uploads
+
+
 def validate_source_boundaries() -> None:
     source = (
         BACKEND / "app" / "dbi" / "asset_multipart_s3.py"
@@ -485,6 +542,7 @@ def main() -> None:
     validate_complete_and_idempotent_inspection()
     validate_integrity_and_error_translation()
     validate_abort_bound_unbound_and_original_safety()
+    validate_s3_compatible_empty_list_abort_confirmation()
     validate_source_boundaries()
     print("Adaptador multipartes S3-compatible DBI aprobado offline.")
 
