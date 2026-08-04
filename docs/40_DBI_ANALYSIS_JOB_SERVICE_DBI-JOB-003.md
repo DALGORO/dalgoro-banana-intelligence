@@ -201,16 +201,20 @@ Ausencia, ambigüedad o perfil no aprobado fallan antes de persistir el trabajo.
 
 ## 8. Intención canónica y comando v1
 
-La intención idempotente incluye todos los datos que cambian el significado del
-trabajo:
+La huella de solicitud idempotente representa únicamente la intención HTTP
+estable y los datos confiables del actor:
 
 - tenant;
 - `request_id`;
 - finca, lote y campaña;
 - UUID canónicos de entradas;
-- perfil de análisis resuelto;
 - actor solicitante;
 - versión del contrato.
+
+El perfil de análisis aprobado no forma parte de `request_fingerprint`. Un cambio
+posterior de política no debe convertir una repetición HTTP exacta en una
+intención divergente. El perfil sí forma parte del
+`analysis-job-command.v1` y, por tanto, de `command_sha256`.
 
 El servidor genera `job_id` y `correlation_id`. El comando
 `analysis-job-command.v1` se serializa con:
@@ -340,7 +344,7 @@ que introduzcan sus efectos.
 ## 15. Orden de implementación
 
 1. [x] Issue #58 y diseño de invariantes.
-2. [ ] Contratos HTTP, intención canónica y política de perfil.
+2. [x] Contratos HTTP, intención canónica y política de perfil..
 3. [ ] Pruebas offline de contratos e idempotencia pura.
 4. [ ] Decisión documentada sobre persistencia de referencias y fingerprint.
 5. [ ] Migración aditiva solo si la evidencia la exige.
@@ -354,6 +358,19 @@ que introduzcan sus efectos.
 
 Cada bloque requiere revisión antes de avanzar. El Draft PR no pasa a Ready for
 review ni se fusiona sin aprobación explícita.
+
+### Evidencia del bloque 2
+
+- `app/dbi/jobs/service_contracts.py` define la solicitud y respuesta HTTP.
+- La solicitud acepta únicamente referencias UUID y `request_id`.
+- `AnalysisJobRequestIntent` separa la intención HTTP estable.
+- `ApprovedAnalysisProfile` y `AnalysisProfilePolicy` impiden que el cliente
+  seleccione directamente el modelo o la configuración.
+- La serialización canónica usa UTF-8, claves ordenadas, separadores compactos y
+  representación explícita de valores opcionales.
+- `request_fingerprint` permanece separado de `command_sha256`.
+- No se modifican modelos SQLAlchemy, migraciones, repositorios, API, cola,
+  worker, almacenamiento, frontend o servicios productivos.
 
 ## 16. Fuera de alcance
 
