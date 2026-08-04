@@ -31,6 +31,10 @@ from app.dbi.asset_multipart_contracts import DBIMultipartPartEvidence
 from app.dbi.asset_multipart_lifecycle_service import (
     DBIMultipartLifecycleService,
 )
+from app.dbi.asset_multipart_metrics import (
+    DBIMeteredMultipartObjectStore,
+    DBIMultipartMetrics,
+)
 from app.dbi.asset_multipart_policy import DBIMultipartPolicyError
 from app.dbi.asset_multipart_provider import (
     DBIMultipartObjectStore,
@@ -63,6 +67,7 @@ DBI_MULTIPART_CONFLICT_DETAIL = (
 DBI_MULTIPART_PROVIDER_DETAIL = (
     "El almacenamiento multipartes DBI no está disponible."
 )
+DBI_MULTIPART_METRICS = DBIMultipartMetrics()
 
 SessionDependency = Annotated[Session, Depends(get_dbi_session)]
 AccessDependency = Annotated[DBIAccessContext, Depends(get_dbi_access_context)]
@@ -103,7 +108,9 @@ def get_dbi_multipart_object_store(
             status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
             detail=DBI_MULTIPART_PROVIDER_DETAIL,
         )
-    return store
+    if isinstance(store, DBIMeteredMultipartObjectStore):
+        return store
+    return DBIMeteredMultipartObjectStore(store, DBI_MULTIPART_METRICS)
 
 
 StoreDependency = Annotated[
@@ -474,3 +481,4 @@ def inspect_multipart_upload(
         session=_session_response(evidence.session),
         recorded_part_count=evidence.recorded_part_count,
     )
+

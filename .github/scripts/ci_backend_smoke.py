@@ -36,6 +36,9 @@ from ci_dbi_asset_multipart_repository import (
     main as validate_dbi_asset_multipart_repository,
 )
 from ci_dbi_asset_multipart_s3 import main as validate_dbi_asset_multipart_s3
+from ci_dbi_asset_multipart_metrics import (
+    main as validate_dbi_asset_multipart_metrics,
+)
 from ci_dbi_asset_multipart_upload_service import (
     main as validate_dbi_asset_multipart_upload_service,
 )
@@ -80,6 +83,7 @@ def main() -> None:
     validate_dbi_asset_multipart_application()
     validate_dbi_asset_multipart_provider()
     validate_dbi_asset_multipart_s3()
+    validate_dbi_asset_multipart_metrics()
     validate_dbi_asset_multipart_upload_service()
     validate_dbi_asset_multipart_lifecycle_service()
     validate_dbi_asset_multipart_api()
@@ -119,3 +123,4 @@ def main() -> None:
 
 if __name__ == "__main__":
     main()
+

@@ -239,7 +239,7 @@ La cantidad de grants simultáneos y la concurrencia del cliente se mantienen
 acotadas para evitar presión de memoria, conexiones y costos cuando muchas
 personas carguen ortofotos a la vez.
 
-## 11. Recuperación y costos
+## 11. Recuperación, capacidad y costos
 
 Las partes incompletas generan almacenamiento facturable hasta abortarse. Se
 requieren:
@@ -247,13 +247,78 @@ requieren:
 - expiración explícita de sesión;
 - limpieza periódica y reintentable;
 - política de ciclo de vida del bucket como defensa adicional;
-- métricas de sesiones, bytes, partes, reintentos, conflictos, expiraciones,
-  abortos y residuos;
+- métricas de bytes, partes, reintentos, duración, conflictos, abortos y
+  residuos;
 - alarma si existen cargas vencidas sin limpiar;
 - ninguna descarga completa desde la API.
 
 La limpieza automática de DBI-ASSET-002 continúa separada de la limpieza de
 partes multipartes.
+
+### 11.1 Modelo de costos
+
+El costo mensual no se fija a un proveedor concreto. Se calcula con sus tarifas
+vigentes a partir de cuatro componentes observables:
+
+1. almacenamiento de originales activos, por byte-mes;
+2. almacenamiento temporal de partes incompletas hasta su aborto o expiración;
+3. solicitudes de inicio, carga de partes, finalización, inspección y limpieza;
+4. egreso únicamente cuando un flujo autorizado entregue o visualice datos.
+
+Una ortofoto de 1 GiB produce 16 partes de 64 MiB y una de 10 GiB produce 160.
+La API DBI procesa solo metadata: el navegador o cliente transfiere cada parte
+directamente al almacenamiento privado mediante grants breves. Por ello la
+memoria y el ancho de banda de la API no crecen con el tamaño del GeoTIFF.
+
+Los originales y todas las fuentes de campo se conservan. La visualización
+multiusuario no debe abrir el GeoTIFF de 1–10 GiB completo en cada navegador:
+un trabajo posterior generará COG, pirámides o teselas como derivados
+reconstruibles, mientras el maestro original permanece privado e inmutable.
+
+### 11.2 Capacidad multiusuario
+
+La capacidad inicial queda acotada a cuatro transferencias concurrentes por
+cliente y ocho grants por ventana. La presión máxima de conexiones directas se
+estima como `clientes activos × 4`; el proveedor y el despliegue deberán aplicar
+cuotas y contrapresión según mediciones reales, sin ampliar estos límites desde
+el navegador.
+
+La sesión y sus partes se consultan paginadas o por ventana. La API nunca
+materializa el binario, no concatena partes y no crea un ZIP obligatorio. Esto
+mantiene predecible el uso de memoria aun cuando muchos usuarios registren
+vuelos simultáneamente.
+
+### 11.3 Métricas seguras
+
+`DBIMultipartMetrics` conserva contadores monotónicos, agregados y seguros entre
+hilos. La superficie incluye bytes autorizados y completados, partes, intentos,
+recuperaciones idempotentes, duración acumulada del proveedor, conflictos,
+errores, abortos confirmados y residuos observados.
+
+No existen etiquetas de tenant, organización, finca, lote, activo, sesión,
+object key, URL, checksum, ETag o credencial. El registro vive en memoria del
+proceso y expone una instantánea para el exportador de observabilidad que el
+despliegue seleccione. Reiniciar un proceso reinicia sus contadores; no sustituye
+la evidencia durable ni la auditoría.
+
+`retry_recovery_attempts` cuenta inspecciones de una finalización ya realizada
+y finalizaciones repetidas que el proveedor confirma sin crear otro objeto.
+`residual_uploads_observed` aumenta si un aborto no confirma limpieza. Un valor
+mayor que cero debe alertar; la política de bucket sigue siendo defensa
+adicional, no reemplazo del limpiador DBI.
+
+### 11.4 Integración S3 efímera
+
+El CI ejecuta un objeto sintético de 65 MiB para comprobar la ruta grande: inicia
+S3 multipartes, emite dos grants, carga dos partes directamente al endpoint
+loopback, completa e inspecciona el objeto. Un segundo objeto sintético carga una
+parte y se aborta para demostrar que no queda una carga incompleta.
+
+SeaweedFS usa imagen fijada por digest, identidad mínima, puerto loopback,
+`tmpfs` y ninguna persistencia del runner. El objeto completado, las cargas
+incompletas, el contenedor y las credenciales sintéticas se eliminan al terminar.
+El costo directo de proveedor externo del fixture es USD 0.00 y ningún binario
+atraviesa la API DBI.
 
 ## 12. Orden de implementación
 
@@ -265,7 +330,7 @@ partes multipartes.
 6. [x] API autorizada sin binario.
 7. [x] Aborto, expiración y limpieza.
 8. [x] Manifiesto de fuentes del vuelo.
-9. [ ] Integración S3 efímera, métricas y documentación final.
+9. [x] Integración S3 efímera, métricas y documentación final.
 10. [ ] Auditoría de CI sobre el SHA final.
 
 No se inicia DBI-JOB-003 hasta fusionar y cerrar este ticket.
@@ -417,6 +482,26 @@ No se crea un ZIP obligatorio. Un paquete de descarga futuro seguirá siendo un
 derivado adicional. Este bloque no incorpora frontend, entidad de vuelo, COG,
 teselas, cola, worker, proveedor productivo ni datos reales.
 
+
+### Bloque de integración S3 efímera, métricas y documentación final
+
+El adaptador no productivo queda cubierto por un ciclo real contra S3 efímero
+con datos exclusivamente sintéticos. El escenario completa un maestro de 65 MiB
+en dos partes, recupera su evidencia sin duplicarlo y aborta otra carga parcial.
+El fixture confirma cero residuos antes de destruir bucket lógico, contenedor,
+almacenamiento temporal y credenciales.
+
+La API inyecta un decorador de métricas agregado alrededor del proveedor
+configurado. El decorador preserva la capacidad efímera para resolver grants,
+pero nunca registra parámetros, contenido o identificadores. Los servicios y el
+adaptador continúan proveedor-neutrales; un worker futuro podrá inyectar el mismo
+decorador y conectar la instantánea al exportador del despliegue.
+
+Este bloque no habilita almacenamiento productivo, alarmas externas, scheduler,
+frontend ni procesamiento geoespacial. La creación de COG, pirámides y teselas
+sigue siendo un derivado posterior necesario para visualizar originales grandes
+sin descargarlos completos.
+
 ## 13. Referencias oficiales
 
 - Amazon S3 multipart upload limits:
@@ -427,3 +512,4 @@ teselas, cola, worker, proveedor productivo ni datos reales.
   https://docs.aws.amazon.com/AmazonS3/latest/userguide/checking-object-integrity-upload.html
 - CompleteMultipartUpload API:
   https://docs.aws.amazon.com/AmazonS3/latest/API/API_CompleteMultipartUpload.html
+
