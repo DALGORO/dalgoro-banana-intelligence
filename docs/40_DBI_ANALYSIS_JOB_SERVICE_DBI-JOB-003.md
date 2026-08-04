@@ -389,7 +389,7 @@ que introduzcan sus efectos.
 2. [x] Contratos HTTP, intención canónica y política de perfil.
 3. [x] Pruebas offline de contratos e idempotencia pura.
 4. [x] Decisión documentada sobre persistencia de referencias y fingerprint.
-5. [ ] Migración aditiva solo si la evidencia la exige.
+5. [x] Puerta de migración evaluada: no aplica según la evidencia.
 6. [ ] Repositorio con bloqueos e inserción idempotente.
 7. [ ] Servicio autorizado de creación.
 8. [ ] Consulta, cancelación y reintento autorizados.
@@ -456,6 +456,30 @@ review ni se fusiona sin aprobación explícita.
 - No se asume que las bases estén vacías y no se eliminan filas históricas.
 - No se modifican modelos SQLAlchemy, migraciones, repositorios, servicios,
   API, cola, worker, frontend, almacenamiento ni despliegues.
+
+### Evidencia del bloque 5
+
+- La puerta de migración fue evaluada después de revisar el modelo
+  `AnalysisJob`, la migración vigente y los contratos del servicio.
+- Las columnas textuales existentes permiten persistir UUID canónicos sin
+  alterar el esquema.
+- La intención histórica puede reconstruirse con los campos ya almacenados.
+- La restricción única `tenant_ref + request_id` continúa protegiendo la
+  idempotencia concurrente.
+- `command_sha256` conserva su semántica actual y no se reutiliza como
+  `request_fingerprint`.
+- No se requiere una columna adicional de fingerprint.
+- No se requiere convertir retrospectivamente las referencias textuales a UUID.
+- No se crea una revisión Alembic vacía ni una migración sin necesidad técnica.
+- Una referencia histórica no canónica deberá fallar de forma cerrada durante
+  la reconstrucción; no será corregida silenciosamente.
+- Esta decisión no presupone que las bases estén vacías ni afirma que se hayan
+  inspeccionado datos productivos.
+- Cualquier evidencia posterior de que la estrategia no puede preservar
+  integridad obliga a detener el repositorio y diseñar una migración aditiva
+  separada.
+- No se modifican modelos SQLAlchemy, migraciones, repositorios, servicios,
+  API, cola, worker, almacenamiento, frontend ni despliegues.
 
 ## 16. Fuera de alcance
 
