@@ -387,7 +387,8 @@ def validate_part_and_completion_persistence() -> None:
     assert result.recorded_part_count == 1
     assert result.evidence == evidence
     assert row.version == 3
-    assert "checksum" not in repr(result)
+    assert evidence.checksum not in repr(result)
+    assert evidence.etag not in repr(result)
     assert any("count" in _sql(statement).lower() for statement in statements)
     session.close()
 
