@@ -1,0 +1,317 @@
+"""Valida el repositorio multipartes DBI sin conexiones externas."""
+
+from __future__ import annotations
+
+import ast
+import sys
+from datetime import datetime, timedelta, timezone
+from pathlib import Path
+from types import MethodType
+from uuid import UUID
+
+from sqlalchemy.dialects import postgresql
+from sqlalchemy.orm import Session
+
+REPOSITORY_ROOT = Path(__file__).resolve().parents[2]
+BACKEND_ROOT = REPOSITORY_ROOT / "apps" / "platform-web" / "backend"
+sys.path.insert(0, str(BACKEND_ROOT))
+
+from app.dbi.asset_multipart_application import (  # noqa: E402
+    DBIMultipartAssetSnapshot,
+    DBIMultipartInitiationRecord,
+)
+from app.dbi.asset_multipart_contracts import (  # noqa: E402
+    DBIMultipartRoutingDecision,
+    DBIMultipartSessionState,
+)
+from app.dbi.asset_multipart_policy import (  # noqa: E402
+    GIB,
+    DBIMultipartConflict,
+    DBIMultipartPolicy,
+)
+from app.dbi.asset_multipart_repository import (  # noqa: E402
+    DBIMultipartRepository,
+)
+from app.dbi.models.asset_multipart import AssetMultipartSession  # noqa: E402
+from app.dbi.models.assets import AnalysisInputAsset  # noqa: E402
+
+ASSET_ID = UUID("11111111-1111-4111-8111-111111111111")
+SESSION_ID = UUID("22222222-2222-4222-8222-222222222222")
+EXISTING_SESSION_ID = UUID("33333333-3333-4333-8333-333333333333")
+FARM_ID = UUID("44444444-4444-4444-8444-444444444444")
+PLOT_ID = UUID("55555555-5555-4555-8555-555555555555")
+NOW = datetime(2026, 8, 3, 20, tzinfo=timezone.utc)
+
+
+class ScalarResult:
+    def __init__(self, value):
+        self.value = value
+
+    def scalar_one_or_none(self):
+        return self.value
+
+
+def _session(results: list[object], statements: list[object]) -> Session:
+    session = Session()
+
+    def execute(self, statement):
+        statements.append(statement)
+        if not results:
+            raise AssertionError("No había resultado preparado para execute().")
+        return ScalarResult(results.pop(0))
+
+    session.execute = MethodType(execute, session)  # type: ignore[method-assign]
+    return session
+
+
+def _sql(statement) -> str:
+    return str(
+        statement.compile(
+            dialect=postgresql.dialect(),
+            compile_kwargs={"literal_binds": False},
+        )
+    )
+
+
+def _asset_row(*, size_bytes: int = 10 * GIB) -> AnalysisInputAsset:
+    return AnalysisInputAsset(
+        id=ASSET_ID,
+        tenant_ref="tenant-a",
+        farm_id=FARM_ID,
+        plot_id=PLOT_ID,
+        asset_kind="orthophoto",
+        status="registered",
+        object_key=f"tenants/tenant-a/analysis-input/{ASSET_ID}",
+        content_type="image/tiff",
+        size_bytes=size_bytes,
+        sha256="a" * 64,
+        crs="EPSG:32717",
+        created_by_ref="principal-a",
+        verified_at=None,
+    )
+
+
+def _asset_snapshot(*, size_bytes: int = 10 * GIB) -> DBIMultipartAssetSnapshot:
+    return DBIMultipartAssetSnapshot(
+        asset_id=ASSET_ID,
+        tenant_ref="tenant-a",
+        farm_id=FARM_ID,
+        plot_id=PLOT_ID,
+        status="registered",
+        content_type="image/tiff",
+        size_bytes=size_bytes,
+        sha256="a" * 64,
+    )
+
+
+def _record(
+    *,
+    size_bytes: int = 10 * GIB,
+    idempotency_key: str = "upload-request-0001",
+) -> DBIMultipartInitiationRecord:
+    asset = _asset_snapshot(size_bytes=size_bytes)
+    plan = DBIMultipartPolicy.build_upload_plan(size_bytes=size_bytes)
+    identity = DBIMultipartPolicy.build_idempotency_identity(
+        idempotency_key=idempotency_key,
+        asset_id=asset.asset_id,
+        content_type=asset.content_type,
+        size_bytes=asset.size_bytes,
+        sha256_hex=asset.sha256,
+    )
+    return DBIMultipartInitiationRecord(
+        session_id=SESSION_ID,
+        asset=asset,
+        plan=plan,
+        identity=identity,
+        created_by_ref="principal-a",
+        requested_at=NOW,
+        expires_at=(
+            NOW + timedelta(hours=24)
+            if plan.decision is DBIMultipartRoutingDecision.MULTIPART
+            else None
+        ),
+    )
+
+
+def _session_row(
+    record: DBIMultipartInitiationRecord,
+    *,
+    state: DBIMultipartSessionState = DBIMultipartSessionState.INITIATED,
+    request_fingerprint: str | None = None,
+) -> AssetMultipartSession:
+    blocked = record.plan.decision is DBIMultipartRoutingDecision.BLOCKED_BY_POLICY
+    return AssetMultipartSession(
+        id=EXISTING_SESSION_ID,
+        asset_id=record.asset.asset_id,
+        tenant_ref=record.asset.tenant_ref,
+        status=state.value,
+        reason_code=(record.plan.reason_code.value if record.plan.reason_code else None),
+        provider_upload_ref="provider-secret-reference",
+        size_bytes=record.plan.size_bytes,
+        part_size_bytes=record.plan.part_size_bytes,
+        part_count=(record.plan.part_count if not blocked else None),
+        max_grants_per_window=(
+            record.plan.max_grants_per_window if not blocked else None
+        ),
+        max_client_concurrency=(
+            record.plan.max_client_concurrency if not blocked else None
+        ),
+        checksum_algorithm=record.plan.checksum_algorithm.value,
+        checksum_type=record.plan.checksum_type.value,
+        idempotency_key_hash=record.identity.key_hash,
+        request_fingerprint=(
+            request_fingerprint or record.identity.request_fingerprint
+        ),
+        created_by_ref=record.created_by_ref,
+        version=2,
+        expires_at=record.expires_at,
+        last_activity_at=NOW,
+        completed_at=None,
+        aborted_at=None,
+        expired_at=None,
+        created_at=NOW,
+        updated_at=NOW,
+    )
+
+
+def _must_conflict(callable_) -> None:
+    try:
+        callable_()
+    except DBIMultipartConflict:
+        return
+    raise AssertionError("La operación debía fallar cerrada.")
+
+
+def validate_asset_scope_lock() -> None:
+    statements: list[object] = []
+    session = _session([_asset_row()], statements)
+    repository = DBIMultipartRepository(session)
+    snapshot = repository.get_asset_for_update(
+        tenant_ref="tenant-a",
+        farm_id=FARM_ID,
+        plot_id=PLOT_ID,
+        asset_id=ASSET_ID,
+    )
+    assert snapshot == _asset_snapshot()
+    assert len(statements) == 1
+    sql = _sql(statements[0])
+    for required in ("tenant_ref", "farm_id", "plot_id", "FOR UPDATE"):
+        assert required in sql
+    assert "dbi_analysis_input_assets.id" in sql
+    session.close()
+
+
+def validate_multipart_insert() -> None:
+    record = _record()
+    statements: list[object] = []
+    session = _session([SESSION_ID], statements)
+    result = DBIMultipartRepository(session).persist_initiation(record=record)
+    assert result.created is True
+    assert result.snapshot.session_id == SESSION_ID
+    assert result.snapshot.state is DBIMultipartSessionState.INITIATED
+    assert result.snapshot.part_count == 160
+    assert result.snapshot.expires_at == NOW + timedelta(hours=24)
+    assert "upload-request-0001" not in repr(result)
+    assert len(statements) == 1
+    sql = _sql(statements[0])
+    assert "INSERT INTO dbi_asset_multipart_sessions" in sql
+    assert "ON CONFLICT DO NOTHING" in sql
+    assert "RETURNING dbi_asset_multipart_sessions.id" in sql
+    assert "provider_upload_ref" in sql
+    assert "commit" not in sql.lower()
+    session.close()
+
+
+def validate_exact_retry_returns_current_state() -> None:
+    record = _record()
+    existing = _session_row(
+        record,
+        state=DBIMultipartSessionState.UPLOADING,
+    )
+    statements: list[object] = []
+    session = _session([None, existing], statements)
+    result = DBIMultipartRepository(session).persist_initiation(record=record)
+    assert result.created is False
+    assert result.snapshot.session_id == EXISTING_SESSION_ID
+    assert result.snapshot.state is DBIMultipartSessionState.UPLOADING
+    assert "provider-secret-reference" not in repr(result)
+    assert record.identity.key_hash not in repr(result)
+    assert len(statements) == 2
+    retry_sql = _sql(statements[1])
+    assert "idempotency_key_hash" in retry_sql
+    assert "tenant_ref" in retry_sql
+    assert "FOR UPDATE" in retry_sql
+    session.close()
+
+
+def validate_conflicts() -> None:
+    record = _record()
+    divergent = _session_row(record, request_fingerprint="b" * 64)
+    for existing in (divergent, None):
+        statements: list[object] = []
+        session = _session([None, existing], statements)
+        _must_conflict(
+            lambda: DBIMultipartRepository(session).persist_initiation(
+                record=record
+            )
+        )
+        assert len(statements) == 2
+        session.close()
+
+
+def validate_blocked_is_visible_and_provider_free() -> None:
+    record = _record(size_bytes=21 * GIB)
+    assert record.plan.decision is DBIMultipartRoutingDecision.BLOCKED_BY_POLICY
+    statements: list[object] = []
+    session = _session([SESSION_ID], statements)
+    result = DBIMultipartRepository(session).persist_initiation(record=record)
+    assert result.snapshot.state is DBIMultipartSessionState.BLOCKED_BY_POLICY
+    assert result.snapshot.reason_code == "asset_multipart_size_exceeds_policy"
+    assert result.snapshot.part_size_bytes is None
+    assert result.snapshot.part_count is None
+    assert result.snapshot.expires_at is None
+    session.close()
+
+
+def validate_static_boundaries() -> None:
+    path = BACKEND_ROOT / "app" / "dbi" / "asset_multipart_repository.py"
+    source = path.read_text(encoding="utf-8")
+    tree = ast.parse(source)
+    roots: set[str] = set()
+    for node in ast.walk(tree):
+        if isinstance(node, ast.Import):
+            roots.update(alias.name.partition(".")[0] for alias in node.names)
+        elif isinstance(node, ast.ImportFrom) and node.module:
+            roots.add(node.module.partition(".")[0])
+    assert {
+        "fastapi",
+        "boto3",
+        "botocore",
+        "requests",
+        "httpx",
+    }.isdisjoint(roots)
+    for forbidden in (
+        ".commit(",
+        ".rollback(",
+        "SessionLocal",
+        "DATABASE_URL",
+        "presigned",
+        "signed_url",
+    ):
+        assert forbidden not in source
+    assert ".with_for_update()" in source
+    assert ".on_conflict_do_nothing()" in source
+
+
+def main() -> None:
+    validate_asset_scope_lock()
+    validate_multipart_insert()
+    validate_exact_retry_returns_current_state()
+    validate_conflicts()
+    validate_blocked_is_visible_and_provider_free()
+    validate_static_boundaries()
+    print("Repositorio multipartes DBI-ASSET-003 aprobado offline.")
+
+
+if __name__ == "__main__":
+    main()

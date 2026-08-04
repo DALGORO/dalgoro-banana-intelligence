@@ -260,7 +260,7 @@ partes multipartes.
 1. [x] Contratos puros y política multipartes.
 2. [x] Pruebas offline de límites, estados e idempotencia.
 3. [x] Migración y modelos de sesión/partes.
-4. [ ] Repositorio y servicio de aplicación.
+4. [x] Repositorio y servicio de aplicación.
 5. [ ] Puerto proveedor-neutral y adaptador S3-compatible no productivo.
 6. [ ] API autorizada sin binario.
 7. [ ] Aborto, expiración y limpieza.
@@ -269,6 +269,26 @@ partes multipartes.
 10. [ ] Auditoría de CI sobre el SHA final.
 
 No se inicia DBI-JOB-003 hasta fusionar y cerrar este ticket.
+
+### Bloque de repositorio y servicio de aplicación
+
+El repositorio prepara la sesión dentro de la transacción externa y nunca hace
+`commit`, `rollback` o llamadas al almacenamiento. Primero bloquea el activo con
+el ámbito exacto de tenant, finca y lote; después inserta la sesión con
+`ON CONFLICT DO NOTHING`. Un reintento concurrente solo reutiliza la sesión si
+la huella idempotente, el activo, el plan, el actor y los parámetros persistidos
+coinciden exactamente.
+
+El servicio autoriza escritura antes de consultar el activo, usa exclusivamente
+la metadata durable para decidir entre flujo síncrono, multipartes o bloqueo por
+política, y crea sesiones activas con expiración inicial de 24 horas. Los activos
+de hasta 64 MiB continúan por DBI-ASSET-002 sin crear una sesión multipartes. Un
+exceso de 20 GiB sí conserva una sesión `blocked_by_policy` con motivo visible.
+
+Las vistas de aplicación excluyen la clave idempotente original, su huella
+persistida, la referencia interna del proveedor, URLs y credenciales. Este bloque
+no registra partes, no completa ni aborta cargas y no anticipa el puerto del
+proveedor o la API.
 
 ## 13. Referencias oficiales
 
