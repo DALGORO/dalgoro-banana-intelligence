@@ -43,7 +43,7 @@ ADMIN_ROLE = "postgres"
 DBI_DATABASE = "dbi_test"
 DBI_OWNER_ROLE = "dbi_test_owner"
 DBI_MIGRATOR_ROLE = "dbi_test_migrator"
-EXPECTED_HEAD = "dbi_0009_object_key_check"
+EXPECTED_HEAD = "dbi_0011_flight_manifest"
 LEGACY_TABLES = frozenset({"documents", "users", "companies"})
 SPATIAL_CONSTRAINTS = frozenset(
     {
@@ -57,6 +57,49 @@ SCOPE_HIERARCHY_CONSTRAINTS = frozenset(
         "uq_dbi_plots_id_farm",
         "fk_dbi_membership_scopes_farm_organization",
         "fk_dbi_membership_scopes_plot_farm",
+    }
+)
+MULTIPART_CONSTRAINTS = frozenset(
+    {
+        "uq_dbi_analysis_input_assets_id_tenant",
+        "fk_dbi_multipart_sessions_asset_tenant",
+        "uq_dbi_multipart_sessions_id_tenant",
+        "uq_dbi_multipart_sessions_idempotency",
+        "ck_dbi_multipart_sessions_provider_context",
+        "ck_dbi_multipart_sessions_checksum_pair",
+        "ck_dbi_multipart_sessions_terminal_timestamps",
+        "ck_dbi_multipart_sessions_active_expiry",
+        "fk_dbi_multipart_parts_session_tenant",
+    }
+)
+MULTIPART_INDEXES = frozenset(
+    {
+        "ix_dbi_multipart_sessions_cleanup",
+        "uq_dbi_multipart_sessions_active_asset",
+    }
+)
+FLIGHT_MANIFEST_CONSTRAINTS = frozenset(
+    {
+        "ck_dbi_analysis_input_assets_kind",
+        "uq_dbi_flight_source_bundles_id_tenant",
+        "uq_dbi_flight_source_bundles_flight",
+        "fk_dbi_flight_source_bundles_plot_farm",
+        "fk_dbi_flight_source_bundles_master_tenant",
+        "ck_dbi_flight_source_bundles_schema",
+        "ck_dbi_flight_source_bundles_sha256",
+        "fk_dbi_flight_source_entries_bundle_tenant",
+        "fk_dbi_flight_source_entries_asset_tenant",
+        "uq_dbi_flight_source_entries_logical_name",
+        "uq_dbi_flight_source_entries_ordinal",
+        "ck_dbi_flight_source_entries_role",
+        "ck_dbi_flight_source_entries_sha256",
+    }
+)
+FLIGHT_MANIFEST_INDEXES = frozenset(
+    {
+        "ix_dbi_flight_source_bundles_master",
+        "ix_dbi_flight_source_entries_asset",
+        "ix_dbi_flight_source_entries_capture",
     }
 )
 
@@ -360,6 +403,115 @@ def _validate_postflight(connection, *, expected_head: str) -> set[str]:
             "Faltan restricciones jerárquicas DBI: "
             f"{sorted(SCOPE_HIERARCHY_CONSTRAINTS - hierarchy_constraints)}"
         )
+
+    multipart_constraints = set(
+        connection.execute(
+            text(
+                """
+                SELECT constraint_name
+                FROM information_schema.table_constraints
+                WHERE table_schema = 'dbi'
+                  AND table_name IN (
+                    'dbi_analysis_input_assets',
+                    'dbi_asset_multipart_sessions',
+                    'dbi_asset_multipart_parts'
+                  )
+                """
+            )
+        ).scalars()
+    )
+    if not MULTIPART_CONSTRAINTS <= multipart_constraints:
+        raise AssertionError(
+            "Faltan restricciones multipartes DBI: "
+            f"{sorted(MULTIPART_CONSTRAINTS - multipart_constraints)}"
+        )
+
+    multipart_indexes = {
+        row["indexname"]: row["indexdef"]
+        for row in connection.execute(
+            text(
+                """
+                SELECT indexname, indexdef
+                FROM pg_indexes
+                WHERE schemaname = 'dbi'
+                  AND tablename = 'dbi_asset_multipart_sessions'
+                """
+            )
+        ).mappings()
+    }
+    if not MULTIPART_INDEXES <= multipart_indexes.keys():
+        raise AssertionError(
+            "Faltan índices multipartes DBI: "
+            f"{sorted(MULTIPART_INDEXES - multipart_indexes.keys())}"
+        )
+    active_index = multipart_indexes[
+        "uq_dbi_multipart_sessions_active_asset"
+    ].lower()
+    if not all(
+        marker in active_index
+        for marker in ("create unique index", "where", "initiated", "uploading")
+    ):
+        raise AssertionError(
+            "El índice único de sesión multipartes activa es inválido."
+        )
+
+    flight_manifest_constraints = set(
+        connection.execute(
+            text(
+                """
+                SELECT constraint_name
+                FROM information_schema.table_constraints
+                WHERE table_schema = 'dbi'
+                  AND table_name IN (
+                    'dbi_analysis_input_assets',
+                    'dbi_flight_source_bundles',
+                    'dbi_flight_source_entries'
+                  )
+                """
+            )
+        ).scalars()
+    )
+    if not FLIGHT_MANIFEST_CONSTRAINTS <= flight_manifest_constraints:
+        raise AssertionError(
+            "Faltan restricciones del manifiesto de vuelo DBI: "
+            f"{sorted(FLIGHT_MANIFEST_CONSTRAINTS - flight_manifest_constraints)}"
+        )
+
+    flight_manifest_indexes = set(
+        connection.execute(
+            text(
+                """
+                SELECT indexname
+                FROM pg_indexes
+                WHERE schemaname = 'dbi'
+                  AND tablename IN (
+                    'dbi_flight_source_bundles',
+                    'dbi_flight_source_entries'
+                  )
+                """
+            )
+        ).scalars()
+    )
+    if not FLIGHT_MANIFEST_INDEXES <= flight_manifest_indexes:
+        raise AssertionError(
+            "Faltan índices del manifiesto de vuelo DBI: "
+            f"{sorted(FLIGHT_MANIFEST_INDEXES - flight_manifest_indexes)}"
+        )
+
+    asset_kind_check = connection.execute(
+        text(
+            """
+            SELECT pg_get_constraintdef(oid)
+            FROM pg_constraint
+            WHERE conname = 'ck_dbi_analysis_input_assets_kind'
+            """
+        )
+    ).scalar_one().lower()
+    for asset_kind in ('orthophoto', 'flight_photo', 'flight_auxiliary'):
+        if asset_kind not in asset_kind_check:
+            raise AssertionError(
+                f"El tipo de activo {asset_kind!r} falta en el contrato durable."
+            )
 
     postgis_ok = connection.execute(
         text(

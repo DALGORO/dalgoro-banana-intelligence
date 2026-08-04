@@ -14,6 +14,34 @@ from ci_dbi_admin_principal_routes import (
 from ci_dbi_admin_routes import main as validate_dbi_admin_routes
 from ci_dbi_admin_schemas import main as validate_dbi_admin_schemas
 from ci_dbi_asset_api import main as validate_dbi_asset_api
+from ci_dbi_asset_multipart_persistence import (
+    main as validate_dbi_asset_multipart_persistence,
+)
+from ci_dbi_asset_multipart_application import (
+    main as validate_dbi_asset_multipart_application,
+)
+from ci_dbi_asset_multipart_lifecycle_service import (
+    main as validate_dbi_asset_multipart_lifecycle_service,
+)
+from ci_dbi_asset_multipart_api import (
+    main as validate_dbi_asset_multipart_api,
+)
+from ci_dbi_asset_multipart_policy import (
+    main as validate_dbi_asset_multipart_policy,
+)
+from ci_dbi_asset_multipart_provider import (
+    main as validate_dbi_asset_multipart_provider,
+)
+from ci_dbi_asset_multipart_repository import (
+    main as validate_dbi_asset_multipart_repository,
+)
+from ci_dbi_asset_multipart_s3 import main as validate_dbi_asset_multipart_s3
+from ci_dbi_asset_multipart_metrics import (
+    main as validate_dbi_asset_multipart_metrics,
+)
+from ci_dbi_asset_multipart_upload_service import (
+    main as validate_dbi_asset_multipart_upload_service,
+)
 from ci_dbi_asset_quarantine_cleanup_api import (
     main as validate_dbi_asset_quarantine_cleanup_api,
 )
@@ -28,6 +56,9 @@ from ci_dbi_asset_retirement_service import (
 from ci_dbi_asset_service import main as validate_dbi_asset_service
 from ci_dbi_asset_upload_service import main as validate_dbi_asset_upload_service
 from ci_dbi_asset_verification import main as validate_dbi_asset_verification
+from ci_dbi_flight_source_manifest import (
+    main as validate_dbi_flight_source_manifest,
+)
 from ci_dbi_storage_contracts import main as validate_dbi_storage_contracts
 from ci_dbi_storage_memory import main as validate_dbi_storage_memory
 from ci_dbi_storage_metrics import main as validate_dbi_storage_metrics
@@ -46,6 +77,16 @@ def main() -> None:
     validate_dbi_admin_mutation_routes()
     validate_dbi_admin_principal_routes()
     validate_dbi_asset_registration()
+    validate_dbi_asset_multipart_policy()
+    validate_dbi_asset_multipart_persistence()
+    validate_dbi_asset_multipart_repository()
+    validate_dbi_asset_multipart_application()
+    validate_dbi_asset_multipart_provider()
+    validate_dbi_asset_multipart_s3()
+    validate_dbi_asset_multipart_metrics()
+    validate_dbi_asset_multipart_upload_service()
+    validate_dbi_asset_multipart_lifecycle_service()
+    validate_dbi_asset_multipart_api()
     validate_dbi_asset_repository()
     validate_dbi_asset_quarantine_cleanup()
     validate_dbi_asset_quarantine_cleanup_api()
@@ -54,6 +95,7 @@ def main() -> None:
     validate_dbi_asset_upload_service()
     validate_dbi_asset_verification()
     validate_dbi_asset_api()
+    validate_dbi_flight_source_manifest()
     validate_dbi_storage_contracts()
     validate_dbi_storage_memory()
     validate_dbi_storage_metrics()
@@ -81,3 +123,4 @@ def main() -> None:
 
 if __name__ == "__main__":
     main()
+

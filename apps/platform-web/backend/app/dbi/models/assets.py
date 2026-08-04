@@ -49,12 +49,20 @@ class AnalysisInputAsset(DBIBase):
     __tablename__ = "dbi_analysis_input_assets"
     __table_args__ = (
         UniqueConstraint(
+            "id",
+            "tenant_ref",
+            name="uq_dbi_analysis_input_assets_id_tenant",
+        ),
+        UniqueConstraint(
             "tenant_ref",
             "object_key",
             name="uq_dbi_analysis_input_assets_tenant_object",
         ),
         CheckConstraint(
-            "asset_kind IN ('orthophoto', 'boundary', 'exclusions')",
+            "asset_kind IN ("
+            "'orthophoto', 'boundary', 'exclusions', "
+            "'flight_photo', 'flight_auxiliary'"
+            ")",
             name="ck_dbi_analysis_input_assets_kind",
         ),
         CheckConstraint(

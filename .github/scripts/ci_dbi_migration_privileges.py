@@ -24,12 +24,13 @@ from app.dbi.migration_preflight import (  # noqa: E402
     run_migration_preflight,
 )
 
-HEAD = "dbi_0009_object_key_check"
+HEAD = "dbi_0011_flight_manifest"
 KNOWN_REVISIONS = {
     "dbi_0001_baseline",
     "dbi_0006_plot_boundaries",
     "dbi_0007_admin_audit",
     "dbi_0008_scope_hierarchy",
+    "dbi_0009_object_key_check",
     HEAD,
 }
 

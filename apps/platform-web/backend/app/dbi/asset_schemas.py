@@ -8,7 +8,13 @@ from uuid import UUID
 from pydantic import BaseModel, ConfigDict, Field, field_validator
 
 
-AssetKind = Literal["orthophoto", "boundary", "exclusions"]
+AssetKind = Literal[
+    "orthophoto",
+    "boundary",
+    "exclusions",
+    "flight_photo",
+    "flight_auxiliary",
+]
 
 
 class _AssetWriteModel(BaseModel):

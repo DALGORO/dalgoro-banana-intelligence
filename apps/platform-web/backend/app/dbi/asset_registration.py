@@ -67,7 +67,15 @@ class DBIAssetRegistrationPlan:
         return self.action is DBIAssetRegistrationAction.CREATE
 
 
-_ALLOWED_ASSET_KINDS = frozenset({"orthophoto", "boundary", "exclusions"})
+_ALLOWED_ASSET_KINDS = frozenset(
+    {
+        "orthophoto",
+        "boundary",
+        "exclusions",
+        "flight_photo",
+        "flight_auxiliary",
+    }
+)
 _ALLOWED_EXISTING_STATUSES = frozenset({"registered", "verified", "quarantined", "retired"})
 
 

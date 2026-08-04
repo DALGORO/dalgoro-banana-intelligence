@@ -27,7 +27,7 @@ from app.dbi.models.admin_audit import (  # noqa: E402
     DBIAdminAuditResourceType,
 )
 
-HEAD = "dbi_0009_object_key_check"
+HEAD = "dbi_0011_flight_manifest"
 HIERARCHY_REVISION = "dbi_0008_scope_hierarchy"
 AUDIT_REVISION = "dbi_0007_admin_audit"
 TABLE = "dbi_admin_audit_events"
@@ -126,10 +126,6 @@ def validate_migration_graph_and_sql() -> None:
     hierarchy_revision = scripts.get_revision(HIERARCHY_REVISION)
     assert hierarchy_revision is not None
     assert hierarchy_revision.down_revision == AUDIT_REVISION
-    head_revision = scripts.get_revision(HEAD)
-    assert head_revision is not None
-    assert head_revision.down_revision == HIERARCHY_REVISION
-
     lineage = {
         revision.revision
         for revision in scripts.iterate_revisions(HEAD, "base")

@@ -214,6 +214,10 @@ if [[ "${asset_integration_enabled}" == "1" ]]; then
     diagnose_container
     exit 1
   fi
+  if ! python .github/scripts/ci_dbi_asset_multipart_s3_integration.py; then
+    diagnose_container
+    exit 1
+  fi
 fi
 
 container_logs="$(docker logs "${CONTAINER_NAME}" 2>&1 || true)"
@@ -248,8 +252,10 @@ if [[ -n "${GITHUB_STEP_SUMMARY:-}" ]]; then
     echo "- Configuración IAM: archivo sintético copiado y eliminado del runner antes del arranque"
     echo "- Datos: exclusivamente objetos sintéticos cuando se activa la integración"
     echo "- Integración de activos DBI: `${asset_integration_enabled}`"
+    echo "- Integración multipartes DBI-ASSET-003: `${asset_integration_enabled}`"
     echo "- Persistencia: tmpfs; sin bind mounts ni volúmenes"
     echo "- Capacidad temporal de integración: \`${data_tmpfs_size}\`"
     echo "- Limpieza: contenedor eliminado al finalizar"
   } >> "${GITHUB_STEP_SUMMARY}"
 fi
+
