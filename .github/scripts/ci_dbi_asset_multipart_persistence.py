@@ -28,6 +28,7 @@ from app.dbi.models import (  # noqa: E402
 )
 
 HEAD = "dbi_0011_flight_manifest"
+MULTIPART_REVISION = "dbi_0010_asset_multipart"
 SESSION_TABLE = "dbi_asset_multipart_sessions"
 PART_TABLE = "dbi_asset_multipart_parts"
 SESSION_COLUMNS = {
@@ -252,7 +253,7 @@ def validate_migration_graph_and_sql() -> None:
         len(item.revision) <= 32 for item in scripts.walk_revisions()
     )
     assert scripts.get_heads() == [HEAD]
-    revision = scripts.get_revision(HEAD)
+    revision = scripts.get_revision(MULTIPART_REVISION)
     assert revision is not None
     assert revision.down_revision == "dbi_0009_object_key_check"
 
