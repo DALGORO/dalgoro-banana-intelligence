@@ -345,7 +345,7 @@ que introduzcan sus efectos.
 
 1. [x] Issue #58 y diseño de invariantes.
 2. [x] Contratos HTTP, intención canónica y política de perfil.
-3. [ ] Pruebas offline de contratos e idempotencia pura.
+3. [x] Pruebas offline de contratos e idempotencia pura.
 4. [ ] Decisión documentada sobre persistencia de referencias y fingerprint.
 5. [ ] Migración aditiva solo si la evidencia la exige.
 6. [ ] Repositorio con bloqueos e inserción idempotente.
@@ -371,6 +371,30 @@ review ni se fusiona sin aprobación explícita.
 - `request_fingerprint` permanece separado de `command_sha256`.
 - No se modifican modelos SQLAlchemy, migraciones, repositorios, API, cola,
   worker, almacenamiento, frontend o servicios productivos.
+
+### Evidencia del bloque 3
+
+- `.github/scripts/ci_analysis_job_service_contracts.py` valida los contratos
+  sin base de datos, red, almacenamiento ni servicios externos.
+- La solicitud rechaza campos adicionales, UUID inválidos, referencias
+  obligatorias ausentes y versiones de contrato desconocidas.
+- La respuesta exige `accepted_at` consciente de zona horaria.
+- Los contratos permanecen inmutables después de ser validados.
+- La intención produce bytes canónicos UTF-8 con claves ordenadas,
+  separadores compactos y valores opcionales representados como `null`.
+- El mismo contenido produce el mismo `request_fingerprint`, aunque el orden
+  de entrada sea diferente.
+- Una modificación semántica de la intención produce una huella distinta.
+- La resolución de un perfil diferente no altera la huella estable de la
+  solicitud HTTP.
+- `AnalysisProfilePolicy` se valida como frontera estructural y falla cerrada
+  mediante `AnalysisProfileUnavailable`.
+- La barrera impide introducir SQLAlchemy, FastAPI, sesiones, bases de datos,
+  colas, broker, Redis, Celery o clientes externos en los contratos puros.
+- `.github/workflows/ci.yml` ejecuta la nueva validación antes de las pruebas
+  de persistencia.
+- No se modifican modelos, migraciones, repositorios, servicios, API, cola,
+  worker, almacenamiento, frontend o despliegues.
 
 ## 16. Fuera de alcance
 
