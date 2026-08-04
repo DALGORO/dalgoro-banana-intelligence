@@ -22,6 +22,8 @@ from app.dbi.asset_multipart_contracts import (  # noqa: E402
 from app.dbi.asset_multipart_policy import MIB, DBIMultipartPolicy  # noqa: E402
 from app.dbi.asset_multipart_provider import (  # noqa: E402
     DBIMultipartObjectStore,
+    DBIMultipartProviderAbortConfirmation,
+    DBIMultipartProviderAbortRequest,
     DBIMultipartProviderCompleteRequest,
     DBIMultipartProviderConflict,
     DBIMultipartProviderInitiateRequest,
@@ -195,6 +197,35 @@ def validate_completion_contracts() -> None:
     )
 
 
+def validate_abort_contracts() -> None:
+    initiation = _request()
+    request = DBIMultipartProviderAbortRequest(
+        session_id=SESSION_ID,
+        metadata=initiation.metadata,
+        plan=initiation.plan,
+        initiated_at=NOW,
+        requested_at=NOW + timedelta(hours=1),
+        provider_upload_ref="provider-upload-secret-001",
+    )
+    assert DBIMultipartProviderPolicy.validate_abort_request(request) is request
+    assert "provider-upload-secret-001" not in repr(request)
+    confirmation = DBIMultipartProviderAbortConfirmation(
+        session_id=SESSION_ID,
+        aborted_at=NOW + timedelta(hours=1),
+        provider_uploads_aborted=1,
+        cleanup_confirmed=True,
+    )
+    assert (
+        DBIMultipartProviderPolicy.validate_abort_confirmation(confirmation)
+        is confirmation
+    )
+    _must_conflict(
+        lambda: DBIMultipartProviderPolicy.validate_abort_request(
+            replace(request, requested_at=NOW - timedelta(seconds=1))
+        )
+    )
+
+
 def validate_contract_surface() -> None:
     methods = {
         name
@@ -206,6 +237,7 @@ def validate_contract_surface() -> None:
         "issue_part_access",
         "complete",
         "inspect_completed",
+        "abort",
     }
     forbidden_fields = {
         "url",
@@ -221,6 +253,7 @@ def validate_contract_surface() -> None:
         DBIMultipartProviderPartGrantRequest,
         DBIMultipartProviderPartGrant,
         DBIMultipartProviderCompleteRequest,
+        DBIMultipartProviderAbortRequest,
     ):
         assert not (
             forbidden_fields
@@ -251,6 +284,7 @@ def main() -> None:
     validate_initiation_and_safe_reference()
     validate_part_grant()
     validate_completion_contracts()
+    validate_abort_contracts()
     validate_contract_surface()
     print("Puerto proveedor-neutral multipartes DBI aprobado offline.")
 

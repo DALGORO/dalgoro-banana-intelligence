@@ -11,6 +11,8 @@ from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
 from app.dbi.asset_multipart_api_schemas import (
+    DBIMultipartAbortRequest,
+    DBIMultipartAbortResponse,
     DBIMultipartCompleteRequest,
     DBIMultipartCompleteResponse,
     DBIMultipartGrantPartsRequest,
@@ -26,6 +28,9 @@ from app.dbi.asset_multipart_api_schemas import (
 )
 from app.dbi.asset_multipart_application import DBIMultipartSessionSnapshot
 from app.dbi.asset_multipart_contracts import DBIMultipartPartEvidence
+from app.dbi.asset_multipart_lifecycle_service import (
+    DBIMultipartLifecycleService,
+)
 from app.dbi.asset_multipart_policy import DBIMultipartPolicyError
 from app.dbi.asset_multipart_provider import (
     DBIMultipartObjectStore,
@@ -91,6 +96,7 @@ def get_dbi_multipart_object_store(
         "resolve_part_access",
         "complete",
         "inspect_completed",
+        "abort",
     )
     if store is None or any(not hasattr(store, name) for name in required):
         raise HTTPException(
@@ -116,9 +122,23 @@ def get_dbi_multipart_upload_service(
     )
 
 
+def get_dbi_multipart_lifecycle_service(
+    session: SessionDependency,
+    store: StoreDependency,
+) -> DBIMultipartLifecycleService:
+    return DBIMultipartLifecycleService(
+        DBIMultipartRepository(session),
+        store,
+    )
+
+
 ServiceDependency = Annotated[
     DBIMultipartUploadService,
     Depends(get_dbi_multipart_upload_service),
+]
+LifecycleServiceDependency = Annotated[
+    DBIMultipartLifecycleService,
+    Depends(get_dbi_multipart_lifecycle_service),
 ]
 
 
@@ -162,6 +182,8 @@ def _session_response(
         expires_at=value.expires_at,
         last_activity_at=value.last_activity_at,
         completed_at=value.completed_at,
+        aborted_at=value.aborted_at,
+        expired_at=value.expired_at,
     )
 
 
@@ -378,6 +400,46 @@ def complete_multipart_upload(
         transport_integrity="confirmed",
         content_verification="pending",
         completed_at=evidence.completion.completed_at,
+    )
+
+
+@router.post(
+    "/{asset_id}/multipart/{session_id}/abort",
+    response_model=DBIMultipartAbortResponse,
+)
+def abort_multipart_upload(
+    asset_id: UUID,
+    session_id: UUID,
+    payload: DBIMultipartAbortRequest,
+    session: SessionDependency,
+    context: AccessDependency,
+    service: LifecycleServiceDependency,
+) -> DBIMultipartAbortResponse:
+    """Aborta partes incompletas sin eliminar un original completado."""
+
+    try:
+        evidence = service.abort(
+            context,
+            organization_ref=payload.organization_ref,
+            farm_id=payload.farm_id,
+            plot_id=payload.plot_id,
+            asset_id=asset_id,
+            session_id=session_id,
+        )
+        if evidence.session.aborted_at is None:
+            raise DBIMultipartPolicyError(
+                "la sesión abortada no contiene fecha durable."
+            )
+        session.commit()
+    except Exception as error:
+        _rollback_and_raise(session, error)
+        raise
+    return DBIMultipartAbortResponse(
+        session_id=evidence.session.session_id,
+        state=evidence.session.state,
+        changed=evidence.changed,
+        cleanup_confirmed=True,
+        aborted_at=evidence.session.aborted_at,
     )
 
 

@@ -90,6 +90,10 @@ class DBIMultipartInspectRequest(DBIMultipartScopeRequest):
     pass
 
 
+class DBIMultipartAbortRequest(DBIMultipartScopeRequest):
+    pass
+
+
 class DBIMultipartSessionResponse(_MultipartAPIModel):
     session_id: UUID
     asset_id: UUID
@@ -106,6 +110,8 @@ class DBIMultipartSessionResponse(_MultipartAPIModel):
     expires_at: datetime | None
     last_activity_at: datetime
     completed_at: datetime | None
+    aborted_at: datetime | None
+    expired_at: datetime | None
 
 
 class DBIMultipartInitiateResponse(_MultipartAPIModel):
@@ -154,3 +160,11 @@ class DBIMultipartCompleteResponse(_MultipartAPIModel):
 class DBIMultipartInspectResponse(_MultipartAPIModel):
     session: DBIMultipartSessionResponse
     recorded_part_count: int
+
+
+class DBIMultipartAbortResponse(_MultipartAPIModel):
+    session_id: UUID
+    state: Literal[DBIMultipartSessionState.ABORTED]
+    changed: bool
+    cleanup_confirmed: Literal[True]
+    aborted_at: datetime

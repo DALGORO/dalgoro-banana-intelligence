@@ -20,6 +20,9 @@ from ci_dbi_asset_multipart_persistence import (
 from ci_dbi_asset_multipart_application import (
     main as validate_dbi_asset_multipart_application,
 )
+from ci_dbi_asset_multipart_lifecycle_service import (
+    main as validate_dbi_asset_multipart_lifecycle_service,
+)
 from ci_dbi_asset_multipart_api import (
     main as validate_dbi_asset_multipart_api,
 )
@@ -75,6 +78,7 @@ def main() -> None:
     validate_dbi_asset_multipart_provider()
     validate_dbi_asset_multipart_s3()
     validate_dbi_asset_multipart_upload_service()
+    validate_dbi_asset_multipart_lifecycle_service()
     validate_dbi_asset_multipart_api()
     validate_dbi_asset_repository()
     validate_dbi_asset_quarantine_cleanup()

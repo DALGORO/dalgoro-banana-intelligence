@@ -415,6 +415,59 @@ def validate_part_and_completion_persistence() -> None:
     session.close()
 
 
+def validate_expiry_claim_and_terminal_persistence() -> None:
+    record = _record(size_bytes=128 * 1024 * 1024)
+    row = _session_row(record, state=DBIMultipartSessionState.UPLOADING)
+    row.expires_at = NOW - timedelta(minutes=1)
+    statements: list[object] = []
+    session = _session([[(row, _asset_row(size_bytes=row.size_bytes))]], statements)
+    repository = DBIMultipartRepository(session)
+    claimed = repository.claim_expired_for_cleanup(
+        expired_at_or_before=NOW,
+        batch_size=25,
+    )
+    assert len(claimed) == 1
+    assert claimed[0].snapshot.session_id == EXISTING_SESSION_ID
+    assert "provider-secret-reference" not in repr(claimed[0])
+    sql = _sql(statements[0])
+    assert "expires_at" in sql
+    assert "status IN" in sql
+    assert "FOR UPDATE SKIP LOCKED" in sql
+    assert "LIMIT" in sql
+    session.close()
+
+    context = _context(row)
+    statements = []
+    session = _session([row], statements)
+    terminated = DBIMultipartRepository(session).mark_terminated(
+        context=context,
+        requested_state=DBIMultipartSessionState.ABORTED,
+        changed_at=NOW + timedelta(minutes=1),
+    )
+    assert terminated.changed is True
+    assert terminated.snapshot.state is DBIMultipartSessionState.ABORTED
+    assert terminated.snapshot.aborted_at == NOW + timedelta(minutes=1)
+    assert row.provider_upload_ref is None
+    assert row.version == 3
+    session.close()
+
+    retry_context = DBIMultipartSessionContext(
+        snapshot=terminated.snapshot,
+        asset=context.asset,
+        provider_upload_ref=None,
+    )
+    statements = []
+    session = _session([row], statements)
+    retry = DBIMultipartRepository(session).mark_terminated(
+        context=retry_context,
+        requested_state=DBIMultipartSessionState.ABORTED,
+        changed_at=NOW + timedelta(minutes=2),
+    )
+    assert retry.changed is False
+    assert retry.snapshot.aborted_at == NOW + timedelta(minutes=1)
+    session.close()
+
+
 def validate_static_boundaries() -> None:
     path = BACKEND_ROOT / "app" / "dbi" / "asset_multipart_repository.py"
     source = path.read_text(encoding="utf-8")
@@ -442,6 +495,7 @@ def validate_static_boundaries() -> None:
     ):
         assert forbidden not in source
     assert ".with_for_update()" in source
+    assert ".with_for_update(skip_locked=True)" in source
     assert ".on_conflict_do_nothing()" in source
 
 
@@ -453,6 +507,7 @@ def main() -> None:
     validate_blocked_is_visible_and_provider_free()
     validate_session_scope_and_provider_binding()
     validate_part_and_completion_persistence()
+    validate_expiry_claim_and_terminal_persistence()
     validate_static_boundaries()
     print("Repositorio multipartes DBI-ASSET-003 aprobado offline.")
 

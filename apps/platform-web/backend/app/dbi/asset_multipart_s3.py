@@ -16,6 +16,8 @@ from app.dbi.asset_multipart_contracts import (
     DBIMultipartChecksumAlgorithm,
 )
 from app.dbi.asset_multipart_provider import (
+    DBIMultipartProviderAbortConfirmation,
+    DBIMultipartProviderAbortRequest,
     DBIMultipartProviderCompletion,
     DBIMultipartProviderCompleteRequest,
     DBIMultipartProviderConflict,
@@ -39,6 +41,8 @@ _META_SIZE = "dbi-size"
 _META_PURPOSE = "dbi-purpose"
 _META_OBJECT_ID = "dbi-object-id"
 _TAG_STATE = "dbi-state"
+_ABORT_DISCOVERY_PAGE_SIZE = 100
+_MAX_ABORT_DISCOVERY_PAGES = 10
 
 
 _CHECKSUM_MEMBERS = {
@@ -397,3 +401,136 @@ class DBIS3MultipartAdapter:
         except DBIMultipartProviderNotFound:
             return self._inspect_completed(upload, created=False)
         return self._inspect_completed(upload, created=True)
+
+    def _list_exact_upload_refs(self, object_key: str) -> tuple[str, ...]:
+        key_marker: str | None = None
+        upload_marker: str | None = None
+        references: list[str] = []
+        for _page in range(_MAX_ABORT_DISCOVERY_PAGES):
+            params: dict[str, Any] = {
+                "Bucket": self._config.bucket,
+                "Prefix": object_key,
+                "MaxUploads": _ABORT_DISCOVERY_PAGE_SIZE,
+            }
+            if key_marker is not None:
+                params["KeyMarker"] = key_marker
+            if upload_marker is not None:
+                params["UploadIdMarker"] = upload_marker
+            response = self._call("list_multipart_uploads", **params)
+            uploads = response.get("Uploads", [])
+            if not isinstance(uploads, list):
+                raise DBIMultipartProviderIntegrityError(
+                    "el proveedor devolvió una lista de cargas inválida."
+                )
+            for upload in uploads:
+                if not isinstance(upload, dict) or upload.get("Key") != object_key:
+                    continue
+                references.append(
+                    DBIMultipartProviderPolicy.provider_ref(upload.get("UploadId"))
+                )
+            if not response.get("IsTruncated", False):
+                return tuple(references)
+            key_marker = response.get("NextKeyMarker")
+            upload_marker = response.get("NextUploadIdMarker")
+            if not isinstance(key_marker, str) or not isinstance(upload_marker, str):
+                raise DBIMultipartProviderIntegrityError(
+                    "la paginación de cargas del proveedor es inválida."
+                )
+        raise DBIMultipartProviderConflict(
+            "la limpieza superó el lote máximo de cargas remotas."
+        )
+
+    def _abort_ref(self, *, object_key: str, upload_ref: str) -> bool:
+        try:
+            self._call(
+                "abort_multipart_upload",
+                Bucket=self._config.bucket,
+                Key=object_key,
+                UploadId=upload_ref,
+            )
+        except DBIMultipartProviderNotFound:
+            return False
+        return True
+
+    def _bound_abort_confirmed(self, *, object_key: str, upload_ref: str) -> bool:
+        try:
+            self._call(
+                "list_parts",
+                Bucket=self._config.bucket,
+                Key=object_key,
+                UploadId=upload_ref,
+                MaxParts=1,
+            )
+        except DBIMultipartProviderNotFound:
+            return True
+        return False
+
+    def _ensure_no_completed_object(
+        self,
+        request: DBIMultipartProviderAbortRequest,
+    ) -> None:
+        if request.provider_upload_ref is None:
+            raise DBIMultipartProviderIntegrityError(
+                "la inspección completada requiere referencia remota."
+            )
+        upload = DBIMultipartProviderUpload(
+            provider_upload_ref=request.provider_upload_ref,
+            session_id=request.session_id,
+            metadata=request.metadata,
+            plan=request.plan,
+            initiated_at=request.initiated_at,
+        )
+        try:
+            self._inspect_completed(upload, created=False)
+        except DBIMultipartProviderNotFound:
+            return
+        raise DBIMultipartProviderConflict(
+            "el objeto ya fue completado y no admite aborto."
+        )
+
+    def abort(
+        self,
+        request: DBIMultipartProviderAbortRequest,
+    ) -> DBIMultipartProviderAbortConfirmation:
+        """Aborta solo cargas incompletas; nunca elimina el objeto completado."""
+
+        canonical = DBIMultipartProviderPolicy.validate_abort_request(request)
+        object_key = canonical.metadata.address.object_key
+        aborted_count = 0
+        if canonical.provider_upload_ref is not None:
+            remote_changed = self._abort_ref(
+                object_key=object_key,
+                upload_ref=canonical.provider_upload_ref,
+            )
+            if remote_changed:
+                aborted_count = 1
+            else:
+                self._ensure_no_completed_object(canonical)
+            cleanup_confirmed = self._bound_abort_confirmed(
+                object_key=object_key,
+                upload_ref=canonical.provider_upload_ref,
+            )
+        else:
+            references = self._list_exact_upload_refs(object_key)
+            for reference in references:
+                if self._abort_ref(object_key=object_key, upload_ref=reference):
+                    aborted_count += 1
+            cleanup_confirmed = not self._list_exact_upload_refs(object_key)
+
+        if cleanup_confirmed:
+            with self._grant_lock:
+                stale_grants = tuple(
+                    grant_ref
+                    for grant_ref, stored in self._grants.items()
+                    if stored.access.grant.session_id == canonical.session_id
+                )
+                for grant_ref in stale_grants:
+                    self._grants.pop(grant_ref, None)
+
+        confirmation = DBIMultipartProviderAbortConfirmation(
+            session_id=canonical.session_id,
+            aborted_at=canonical.requested_at,
+            provider_uploads_aborted=aborted_count,
+            cleanup_confirmed=cleanup_confirmed,
+        )
+        return DBIMultipartProviderPolicy.validate_abort_confirmation(confirmation)

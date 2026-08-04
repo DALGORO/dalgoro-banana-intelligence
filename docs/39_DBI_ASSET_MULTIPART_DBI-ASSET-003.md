@@ -263,7 +263,7 @@ partes multipartes.
 4. [x] Repositorio y servicio de aplicación.
 5. [x] Puerto proveedor-neutral y adaptador S3-compatible no productivo.
 6. [x] API autorizada sin binario.
-7. [ ] Aborto, expiración y limpieza.
+7. [x] Aborto, expiración y limpieza.
 8. [ ] Manifiesto de fuentes del vuelo.
 9. [ ] Integración S3 efímera, métricas y documentación final.
 10. [ ] Auditoría de CI sobre el SHA final.
@@ -345,10 +345,38 @@ transacción HTTP hace `commit` o `rollback`; repositorio, servicio y adaptador
 continúan sin controlar la unidad de trabajo.
 
 El proveedor se inyecta desde la configuración del despliegue y, en este bloque,
-solo existe el adaptador S3-compatible loopback no productivo. Si el inicio remoto
-termina pero falla su confirmación durable, la carga residual será recuperada por
-el siguiente bloque de aborto, expiración y limpieza. Todavía no se habilitan
-proveedor productivo, datos reales, descarga, frontend, cola o worker.
+solo existe el adaptador S3-compatible loopback no productivo. Todavía no se
+habilitan proveedor productivo, datos reales, descarga, frontend, cola o worker.
+
+### Bloque de aborto, expiración y limpieza
+
+La API incorpora una sexta operación autorizada,
+`POST /api/v1/dbi/assets/{asset_id}/multipart/{session_id}/abort`. El servicio
+vuelve a autorizar tenant, organización, finca y lote antes de bloquear la
+sesión. Solo `initiated` y `uploading` pueden pasar a `aborted`; una repetición
+exacta sobre `aborted` devuelve la misma evidencia sin repetir el efecto remoto.
+Las sesiones completadas, expiradas o bloqueadas por política fallan cerradas.
+
+El puerto proveedor-neutral admite aborto con referencia remota vinculada y
+recuperación de una sesión `initiated` todavía no vinculada. Para el segundo
+caso, el adaptador no productivo descubre únicamente cargas incompletas de la
+clave privada exacta y las aborta en páginas acotadas. Después confirma la
+ausencia de la carga o de sus partes antes de permitir la transición durable.
+Nunca ejecuta `delete_object`, por lo que un original ya ensamblado no se borra.
+
+La limpieza automática reclama por defecto 25 sesiones activas vencidas y
+admite un máximo de 100 por lote. La consulta usa bloqueo con
+`SKIP LOCKED`, orden determinista por vencimiento e identidad, y permite varios
+limpiadores sin que reclamen la misma fila. Los fallos remotos dejan la sesión
+activa para reintento; solo una confirmación positiva cambia el estado a
+`expired`.
+
+Al cerrar una sesión se elimina la referencia remota interna, pero se conservan
+la sesión, el estado terminal, sus fechas y toda la evidencia durable de partes.
+Por tanto, la limpieza reduce el almacenamiento incompleto del proveedor sin
+ocultar los datos tomados en campo ni su trazabilidad. La activación periódica,
+las métricas y alarmas quedan para la integración final; este bloque continúa
+sin proveedor productivo, scheduler, frontend, cola o worker.
 
 ## 13. Referencias oficiales
 

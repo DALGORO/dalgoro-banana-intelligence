@@ -20,7 +20,9 @@ from app.dbi.asset_multipart_contracts import (  # noqa: E402
 )
 from app.dbi.asset_multipart_policy import MIB, DBIMultipartPolicy  # noqa: E402
 from app.dbi.asset_multipart_provider import (  # noqa: E402
+    DBIMultipartProviderAbortRequest,
     DBIMultipartProviderCompleteRequest,
+    DBIMultipartProviderConflict,
     DBIMultipartProviderDenied,
     DBIMultipartProviderInitiateRequest,
     DBIMultipartProviderIntegrityError,
@@ -110,6 +112,27 @@ class FakeS3MultipartClient:
         if stored is None:
             raise _client_error("NoSuchKey", 404, "HeadObject")
         return dict(stored)
+
+    def abort_multipart_upload(self, **kwargs):
+        self._record("abort_multipart_upload", kwargs)
+        if self.uploads.pop(kwargs["UploadId"], None) is None:
+            raise _client_error("NoSuchUpload", 404, "AbortMultipartUpload")
+        return {}
+
+    def list_parts(self, **kwargs):
+        self._record("list_parts", kwargs)
+        if kwargs["UploadId"] not in self.uploads:
+            raise _client_error("NoSuchUpload", 404, "ListParts")
+        return {"Parts": [{"PartNumber": 1}], "IsTruncated": False}
+
+    def list_multipart_uploads(self, **kwargs):
+        self._record("list_multipart_uploads", kwargs)
+        uploads = [
+            {"Key": upload["Key"], "UploadId": upload_id}
+            for upload_id, upload in self.uploads.items()
+            if upload["Key"].startswith(kwargs["Prefix"])
+        ]
+        return {"Uploads": uploads, "IsTruncated": False}
 
 
 def _config(**overrides) -> DBIS3ObjectStoreConfig:
@@ -320,13 +343,105 @@ def validate_integrity_and_error_translation() -> None:
     )
 
 
+def validate_abort_bound_unbound_and_original_safety() -> None:
+    adapter, client = _adapter()
+    initiation = _initiation()
+    upload = adapter.initiate(initiation)
+    grant = adapter.issue_part_access(
+        DBIMultipartProviderPartGrantRequest(
+            upload=upload,
+            part_number=1,
+            size_bytes=64 * MIB,
+            checksum=PART_CHECKSUM,
+            issued_at=NOW,
+            expires_at=NOW + timedelta(minutes=15),
+        )
+    )
+    request = DBIMultipartProviderAbortRequest(
+        session_id=SESSION_ID,
+        metadata=initiation.metadata,
+        plan=initiation.plan,
+        initiated_at=NOW,
+        requested_at=NOW + timedelta(hours=1),
+        provider_upload_ref=upload.provider_upload_ref,
+    )
+    confirmation = adapter.abort(request)
+    assert confirmation.cleanup_confirmed is True
+    assert confirmation.provider_uploads_aborted == 1
+    assert upload.provider_upload_ref not in client.uploads
+    _must_raise(
+        DBIMultipartProviderNotFound,
+        lambda: adapter.resolve_part_access(grant.grant_ref),
+    )
+
+    repeated = adapter.abort(request)
+    assert repeated.cleanup_confirmed is True
+    assert repeated.provider_uploads_aborted == 0
+
+    object_key = initiation.metadata.address.object_key
+    client.uploads.update(
+        {
+            "orphan-upload-001": {"Key": object_key},
+            "orphan-upload-002": {"Key": object_key},
+            "other-upload-001": {"Key": f"{object_key}-other"},
+        }
+    )
+    unbound = adapter.abort(
+        DBIMultipartProviderAbortRequest(
+            session_id=SESSION_ID,
+            metadata=initiation.metadata,
+            plan=initiation.plan,
+            initiated_at=NOW,
+            requested_at=NOW + timedelta(hours=2),
+        )
+    )
+    assert unbound.cleanup_confirmed is True
+    assert unbound.provider_uploads_aborted == 2
+    assert "other-upload-001" in client.uploads
+
+    client.objects[object_key] = {"preserved": True}
+    final_retry = adapter.abort(
+        DBIMultipartProviderAbortRequest(
+            session_id=SESSION_ID,
+            metadata=initiation.metadata,
+            plan=initiation.plan,
+            initiated_at=NOW,
+            requested_at=NOW + timedelta(hours=3),
+        )
+    )
+    assert final_retry.cleanup_confirmed is True
+    assert client.objects[object_key] == {"preserved": True}
+
+    completed_adapter, completed_client = _adapter()
+    completed_upload = completed_adapter.initiate(initiation)
+    completed_adapter.complete(
+        DBIMultipartProviderCompleteRequest(
+            upload=completed_upload,
+            parts=_parts(completed_upload),
+        )
+    )
+    _must_raise(
+        DBIMultipartProviderConflict,
+        lambda: completed_adapter.abort(
+            DBIMultipartProviderAbortRequest(
+                session_id=SESSION_ID,
+                metadata=initiation.metadata,
+                plan=initiation.plan,
+                initiated_at=NOW,
+                requested_at=NOW + timedelta(hours=4),
+                provider_upload_ref=completed_upload.provider_upload_ref,
+            )
+        ),
+    )
+    assert object_key in completed_client.objects
+
+
 def validate_source_boundaries() -> None:
     source = (
         BACKEND / "app" / "dbi" / "asset_multipart_s3.py"
     ).read_text(encoding="utf-8")
     tree = ast.parse(source)
     for forbidden in (
-        "abort_multipart_upload",
         "delete_object",
         "public-read",
         "os.environ",
@@ -335,6 +450,9 @@ def validate_source_boundaries() -> None:
         "fastapi",
     ):
         assert forbidden not in source
+    assert '"abort_multipart_upload"' in source
+    assert '"list_multipart_uploads"' in source
+    assert '"list_parts"' in source
     roots: set[str] = set()
     for node in ast.walk(tree):
         if isinstance(node, ast.Import):
@@ -349,6 +467,7 @@ def main() -> None:
     validate_initiate_and_part_access()
     validate_complete_and_idempotent_inspection()
     validate_integrity_and_error_translation()
+    validate_abort_bound_unbound_and_original_safety()
     validate_source_boundaries()
     print("Adaptador multipartes S3-compatible DBI aprobado offline.")
 

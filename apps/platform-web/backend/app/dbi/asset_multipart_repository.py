@@ -28,6 +28,9 @@ from app.dbi.asset_multipart_policy import (
     DBIMultipartConflict,
     DBIMultipartPolicy,
 )
+from app.dbi.asset_multipart_lifecycle_service import (
+    DBIMultipartTerminationRecord,
+)
 from app.dbi.asset_multipart_upload_service import (
     DBIMultipartCompletionRecord,
     DBIMultipartPartRecord,
@@ -530,6 +533,105 @@ class DBIMultipartRepository:
                 "la sesión completada no tiene fecha durable."
             )
         return DBIMultipartCompletionRecord(
+            snapshot=_session_snapshot(row),
+            changed=transition.changed,
+        )
+
+    def claim_expired_for_cleanup(
+        self,
+        *,
+        expired_at_or_before: datetime,
+        batch_size: int,
+    ) -> tuple[DBIMultipartSessionContext, ...]:
+        """Reclama un lote activo vencido sin bloquear otros limpiadores."""
+
+        timestamp = _utc(
+            expired_at_or_before,
+            field_name="expired_at_or_before",
+        )
+        if (
+            not isinstance(batch_size, int)
+            or isinstance(batch_size, bool)
+            or not 1 <= batch_size <= 100
+        ):
+            raise DBIMultipartConflict("batch_size debe estar entre 1 y 100.")
+        rows = self._session.execute(
+            select(AssetMultipartSession, AnalysisInputAsset)
+            .join(
+                AnalysisInputAsset,
+                and_(
+                    AnalysisInputAsset.id == AssetMultipartSession.asset_id,
+                    AnalysisInputAsset.tenant_ref
+                    == AssetMultipartSession.tenant_ref,
+                ),
+            )
+            .where(
+                AssetMultipartSession.status.in_(
+                    (
+                        DBIMultipartSessionState.INITIATED.value,
+                        DBIMultipartSessionState.UPLOADING.value,
+                    )
+                ),
+                AssetMultipartSession.expires_at.is_not(None),
+                AssetMultipartSession.expires_at <= timestamp,
+            )
+            .order_by(
+                AssetMultipartSession.expires_at,
+                AssetMultipartSession.id,
+            )
+            .limit(batch_size)
+            .with_for_update(skip_locked=True)
+        ).all()
+        claimed: list[DBIMultipartSessionContext] = []
+        for session_row, asset_row in rows:
+            if (
+                not isinstance(session_row, AssetMultipartSession)
+                or not isinstance(asset_row, AnalysisInputAsset)
+            ):
+                raise DBIMultipartConflict("resultado de limpieza inválido.")
+            claimed.append(
+                DBIMultipartSessionContext(
+                    snapshot=_session_snapshot(session_row),
+                    asset=_asset_snapshot(asset_row),
+                    provider_upload_ref=session_row.provider_upload_ref,
+                )
+            )
+        return tuple(claimed)
+
+    def mark_terminated(
+        self,
+        *,
+        context: DBIMultipartSessionContext,
+        requested_state: DBIMultipartSessionState,
+        changed_at: datetime,
+    ) -> DBIMultipartTerminationRecord:
+        """Cierra la sesión solo después de confirmar la limpieza remota."""
+
+        canonical = _validate_session_context(context)
+        if requested_state not in {
+            DBIMultipartSessionState.ABORTED,
+            DBIMultipartSessionState.EXPIRED,
+        }:
+            raise DBIMultipartConflict("estado terminal de limpieza inválido.")
+        timestamp = _utc(changed_at, field_name="changed_at")
+        row = self._session_row_for_update(canonical)
+        transition = DBIMultipartPolicy.plan_transition(
+            DBIMultipartSessionState(row.status),
+            requested_state,
+        )
+        terminal_field = "aborted_at" if requested_state is (
+            DBIMultipartSessionState.ABORTED
+        ) else "expired_at"
+        if transition.changed:
+            row.status = requested_state.value
+            row.provider_upload_ref = None
+            setattr(row, terminal_field, timestamp)
+            row.version += 1
+            row.last_activity_at = timestamp
+            row.updated_at = timestamp
+        elif getattr(row, terminal_field) is None or row.provider_upload_ref is not None:
+            raise DBIMultipartConflict("la sesión terminal no es canónica.")
+        return DBIMultipartTerminationRecord(
             snapshot=_session_snapshot(row),
             changed=transition.changed,
         )

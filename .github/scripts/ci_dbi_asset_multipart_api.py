@@ -18,6 +18,7 @@ os.environ.setdefault("JWT_SECRET", "dbi-ci-placeholder")
 os.environ.setdefault("ENABLE_DOCS", "0")
 
 from app.api.v1.dbi_asset_multipart import (
+    abort_multipart_upload,
     complete_multipart_upload,
     grant_multipart_parts,
     initiate_multipart_upload,
@@ -26,6 +27,7 @@ from app.api.v1.dbi_asset_multipart import (
     router,
 )
 from app.dbi.asset_multipart_api_schemas import (
+    DBIMultipartAbortRequest,
     DBIMultipartCompleteRequest,
     DBIMultipartGrantPartsRequest,
     DBIMultipartInitiateRequest,
@@ -43,6 +45,9 @@ from app.dbi.asset_multipart_contracts import (
     DBIMultipartRoutingDecision,
     DBIMultipartSessionState,
     DBIMultipartUploadPlan,
+)
+from app.dbi.asset_multipart_lifecycle_service import (  # noqa: E402
+    DBIMultipartAbortEvidence,
 )
 from app.dbi.asset_multipart_policy import MIB, DBIMultipartConflict
 from app.dbi.asset_multipart_provider import (
@@ -110,6 +115,9 @@ class FakeService:
 
     def inspect(self, _context, **kwargs):
         return self._result("inspect", kwargs)
+
+    def abort(self, _context, **kwargs):
+        return self._result("abort", kwargs)
 
 
 @dataclass(frozen=True)
@@ -350,6 +358,33 @@ def validate_api_flow() -> None:
     assert "transport_checksum" not in completed.model_dump()
     assert "etag" not in completed.model_dump()
 
+    aborted_snapshot = replace(
+        snapshot,
+        state=DBIMultipartSessionState.ABORTED,
+        version=3,
+        aborted_at=NOW + timedelta(minutes=6),
+    )
+    abort_session = FakeSession()
+    aborted = abort_multipart_upload(
+        asset_id=ASSET_ID,
+        session_id=SESSION_ID,
+        payload=DBIMultipartAbortRequest(**_scope()),
+        session=abort_session,
+        context=_context(),
+        service=FakeService(
+            abort=DBIMultipartAbortEvidence(
+                session=aborted_snapshot,
+                changed=True,
+                provider_uploads_aborted=1,
+            )
+        ),
+    )
+    assert aborted.state is DBIMultipartSessionState.ABORTED
+    assert aborted.cleanup_confirmed is True
+    assert aborted.changed is True
+    assert abort_session.commits == 1 and abort_session.rollbacks == 0
+    assert "provider_uploads_aborted" not in aborted.model_dump()
+
     inspected = inspect_multipart_upload(
         asset_id=ASSET_ID,
         session_id=SESSION_ID,
@@ -412,6 +447,16 @@ def validate_errors_and_schemas() -> None:
         else:
             raise AssertionError("El esquema debía rechazar el campo inseguro.")
 
+    try:
+        DBIMultipartAbortRequest(
+            **_scope(),
+            provider_upload_ref="provider-secret-inyectado",
+        )
+    except ValidationError:
+        pass
+    else:
+        raise AssertionError("El aborto debía rechazar contexto del proveedor.")
+
 
 def validate_source_boundaries() -> None:
     path = BACKEND / "app" / "api" / "v1" / "dbi_asset_multipart.py"
@@ -423,8 +468,8 @@ def validate_source_boundaries() -> None:
     assert "object_key" not in source
     assert "bucket" not in source.casefold()
     assert "endpoint" not in source.casefold()
-    assert "abort" not in source.casefold()
     assert "delete" not in source.casefold()
+    assert "abort_multipart_upload" in source
     roots: set[str] = set()
     for node in ast.walk(tree):
         if isinstance(node, ast.Import):
@@ -443,6 +488,7 @@ def validate_source_boundaries() -> None:
         "/dbi/assets/{asset_id}/multipart/{session_id}/grants",
         "/dbi/assets/{asset_id}/multipart/{session_id}/parts",
         "/dbi/assets/{asset_id}/multipart/{session_id}/complete",
+        "/dbi/assets/{asset_id}/multipart/{session_id}/abort",
         "/dbi/assets/{asset_id}/multipart/{session_id}/inspect",
     }
 

@@ -112,8 +112,30 @@ class DBIMultipartProviderCompletion:
     created: bool
 
 
+@dataclass(frozen=True, slots=True)
+class DBIMultipartProviderAbortRequest:
+    """Solicitud de limpieza sin exponer la referencia remota."""
+
+    session_id: UUID
+    metadata: DBIStorageObjectMetadata
+    plan: DBIMultipartUploadPlan
+    initiated_at: datetime
+    requested_at: datetime
+    provider_upload_ref: str | None = field(default=None, repr=False)
+
+
+@dataclass(frozen=True, slots=True)
+class DBIMultipartProviderAbortConfirmation:
+    """Confirmación acotada de que no quedan cargas incompletas."""
+
+    session_id: UUID
+    aborted_at: datetime
+    provider_uploads_aborted: int
+    cleanup_confirmed: bool
+
+
 class DBIMultipartObjectStore(Protocol):
-    """Operaciones multipartes requeridas antes de aborto y limpieza."""
+    """Operaciones privadas de transporte y limpieza multipartes."""
 
     def initiate(
         self,
@@ -134,6 +156,11 @@ class DBIMultipartObjectStore(Protocol):
         self,
         upload: DBIMultipartProviderUpload,
     ) -> DBIMultipartProviderCompletion: ...
+
+    def abort(
+        self,
+        request: DBIMultipartProviderAbortRequest,
+    ) -> DBIMultipartProviderAbortConfirmation: ...
 
 
 def _utc(value: object, *, field_name: str) -> datetime:
@@ -290,6 +317,54 @@ def validate_complete_request(
     return value
 
 
+def validate_abort_request(
+    value: object,
+) -> DBIMultipartProviderAbortRequest:
+    if not isinstance(value, DBIMultipartProviderAbortRequest):
+        raise DBIMultipartProviderConflict(
+            "request debe ser DBIMultipartProviderAbortRequest."
+        )
+    validate_initiate_request(
+        DBIMultipartProviderInitiateRequest(
+            session_id=value.session_id,
+            metadata=value.metadata,
+            plan=value.plan,
+            initiated_at=value.initiated_at,
+        )
+    )
+    requested_at = _utc(value.requested_at, field_name="requested_at")
+    initiated_at = _utc(value.initiated_at, field_name="initiated_at")
+    if requested_at < initiated_at:
+        raise DBIMultipartProviderConflict(
+            "requested_at no puede preceder el inicio multipartes."
+        )
+    if value.provider_upload_ref is not None:
+        _provider_ref(value.provider_upload_ref)
+    return value
+
+
+def validate_abort_confirmation(
+    value: object,
+) -> DBIMultipartProviderAbortConfirmation:
+    if not isinstance(value, DBIMultipartProviderAbortConfirmation):
+        raise DBIMultipartProviderIntegrityError(
+            "el proveedor no devolvió una confirmación de aborto canónica."
+        )
+    if not isinstance(value.session_id, UUID):
+        raise DBIMultipartProviderIntegrityError("session_id debe ser UUID.")
+    _utc(value.aborted_at, field_name="aborted_at")
+    if (
+        not isinstance(value.provider_uploads_aborted, int)
+        or isinstance(value.provider_uploads_aborted, bool)
+        or value.provider_uploads_aborted < 0
+        or not isinstance(value.cleanup_confirmed, bool)
+    ):
+        raise DBIMultipartProviderIntegrityError(
+            "la evidencia de limpieza del proveedor no es canónica."
+        )
+    return value
+
+
 class DBIMultipartProviderPolicy:
     """Superficie explícita de validación para adaptadores."""
 
@@ -299,3 +374,5 @@ class DBIMultipartProviderPolicy:
     validate_upload = staticmethod(validate_upload)
     validate_part_grant_request = staticmethod(validate_part_grant_request)
     validate_complete_request = staticmethod(validate_complete_request)
+    validate_abort_request = staticmethod(validate_abort_request)
+    validate_abort_confirmation = staticmethod(validate_abort_confirmation)
