@@ -261,7 +261,7 @@ partes multipartes.
 2. [x] Pruebas offline de límites, estados e idempotencia.
 3. [x] Migración y modelos de sesión/partes.
 4. [x] Repositorio y servicio de aplicación.
-5. [ ] Puerto proveedor-neutral y adaptador S3-compatible no productivo.
+5. [x] Puerto proveedor-neutral y adaptador S3-compatible no productivo.
 6. [ ] API autorizada sin binario.
 7. [ ] Aborto, expiración y limpieza.
 8. [ ] Manifiesto de fuentes del vuelo.
@@ -289,6 +289,31 @@ Las vistas de aplicación excluyen la clave idempotente original, su huella
 persistida, la referencia interna del proveedor, URLs y credenciales. Este bloque
 no registra partes, no completa ni aborta cargas y no anticipa el puerto del
 proveedor o la API.
+
+### Bloque de puerto proveedor-neutral y adaptador S3-compatible
+
+El puerto puro define contratos para iniciar una carga, emitir acceso temporal a
+una parte exacta, completar el conjunto esperado e inspeccionar el objeto ya
+ensamblado. Sus tipos no conocen SDKs, endpoints, buckets, credenciales, base de
+datos ni HTTP. La política del puerto exige que metadata, plan, sesión, tamaños,
+checksums y ventana temporal coincidan antes de invocar al proveedor.
+
+El adaptador S3-compatible de este bloque solo acepta endpoints loopback y usa la
+configuración explícita del proveedor de DBI-STORAGE. Inicia la carga con metadata
+privada, genera acceso firmado para el `UploadId`, número, tamaño y checksum
+exactos de cada parte, y completa únicamente el manifiesto íntegro esperado. Una
+repetición posterior a una finalización exitosa inspecciona el objeto ensamblado
+en vez de duplicarlo.
+
+`UploadId`, URLs, cabeceras, ETags y checksums de transporte quedan fuera de
+representaciones públicas; los grants resueltos viven solo en memoria y expiran.
+La finalización confirma tamaño, tipo de contenido, metadata y checksum del
+transporte, pero no promueve el activo a `verified`: el SHA-256 canónico del
+archivo completo sigue pendiente del flujo autorizado de DBI-ASSET-002.
+
+Este bloque permanece offline y no incorpora API, descarga binaria, credenciales
+de entorno, persistencia adicional, aborto ni limpieza. Esas operaciones se
+implementan en los pasos posteriores del orden aprobado.
 
 ## 13. Referencias oficiales
 
