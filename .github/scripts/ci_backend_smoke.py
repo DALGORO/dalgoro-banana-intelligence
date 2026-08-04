@@ -53,6 +53,9 @@ from ci_dbi_asset_retirement_service import (
 from ci_dbi_asset_service import main as validate_dbi_asset_service
 from ci_dbi_asset_upload_service import main as validate_dbi_asset_upload_service
 from ci_dbi_asset_verification import main as validate_dbi_asset_verification
+from ci_dbi_flight_source_manifest import (
+    main as validate_dbi_flight_source_manifest,
+)
 from ci_dbi_storage_contracts import main as validate_dbi_storage_contracts
 from ci_dbi_storage_memory import main as validate_dbi_storage_memory
 from ci_dbi_storage_metrics import main as validate_dbi_storage_metrics
@@ -88,6 +91,7 @@ def main() -> None:
     validate_dbi_asset_upload_service()
     validate_dbi_asset_verification()
     validate_dbi_asset_api()
+    validate_dbi_flight_source_manifest()
     validate_dbi_storage_contracts()
     validate_dbi_storage_memory()
     validate_dbi_storage_metrics()

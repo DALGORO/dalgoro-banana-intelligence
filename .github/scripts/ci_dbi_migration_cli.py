@@ -21,7 +21,7 @@ sys.path.insert(0, str(BACKEND))
 from app.dbi import migration_cli  # noqa: E402
 from app.dbi.migration_control import validate_migration_target  # noqa: E402
 
-HEAD = "dbi_0010_asset_multipart"
+HEAD = "dbi_0011_flight_manifest"
 TEST_URL = (
     "postgresql+psycopg://dbi_test_migrator:placeholder@"
     "127.0.0.1:5432/dbi_test"

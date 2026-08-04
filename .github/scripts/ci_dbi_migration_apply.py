@@ -20,7 +20,7 @@ from app.dbi.migration_preflight import (  # noqa: E402
     FORBIDDEN_ROLE_CAPABILITIES,
 )
 
-HEAD = "dbi_0010_asset_multipart"
+HEAD = "dbi_0011_flight_manifest"
 KNOWN = {
     "dbi_0001_baseline",
     "dbi_0006_plot_boundaries",

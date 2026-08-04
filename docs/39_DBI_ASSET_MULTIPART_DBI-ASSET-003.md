@@ -264,7 +264,7 @@ partes multipartes.
 5. [x] Puerto proveedor-neutral y adaptador S3-compatible no productivo.
 6. [x] API autorizada sin binario.
 7. [x] Aborto, expiración y limpieza.
-8. [ ] Manifiesto de fuentes del vuelo.
+8. [x] Manifiesto de fuentes del vuelo.
 9. [ ] Integración S3 efímera, métricas y documentación final.
 10. [ ] Auditoría de CI sobre el SHA final.
 
@@ -377,6 +377,45 @@ Por tanto, la limpieza reduce el almacenamiento incompleto del proveedor sin
 ocultar los datos tomados en campo ni su trazabilidad. La activación periódica,
 las métricas y alarmas quedan para la integración final; este bloque continúa
 sin proveedor productivo, scheduler, frontend, cola o worker.
+
+### Bloque de manifiesto de fuentes del vuelo
+
+Las fotografías originales y los auxiliares se registran primero como activos
+individuales `flight_photo` o `flight_auxiliary`. Cada uno conserva su objeto
+privado e inmutable y puede usar el flujo síncrono o multipartes según su tamaño.
+El manifiesto no mueve, empaqueta, descarga ni abre esos binarios.
+
+`dbi_flight_source_bundles` relaciona una identidad estable de conjunto con el
+tenant, finca, lote opcional, `flight_ref` y ortofoto maestra. Mientras el dominio
+no incorpore una entidad `Flight` en su ticket correspondiente, `flight_ref` es
+una referencia canónica estable y no una clave foránea inventada. Las claves
+compuestas impiden enlazar una ortofoto o una fuente perteneciente a otro tenant.
+La capa autorizada exige además coincidencia exacta de finca y lote antes de
+consultar activos.
+
+`dbi_flight_source_entries` guarda una instantánea verificable por objeto:
+identificador de activo, orden determinista, rol, nombre lógico, MIME, tamaño,
+SHA-256, sensor/cámara y fecha de captura cuando existen. No admite duplicar un
+activo, nombre lógico u ordinal dentro del mismo conjunto. Solo activos
+`registered` o `verified` pueden incorporarse; activos `quarantined` o `retired`
+fallan cerrados.
+
+El contenido canónico ordenado produce `manifest_sha256`. Repetir la creación
+con los mismos datos devuelve el mismo conjunto sin duplicarlo; cualquier cambio
+bajo el mismo UUID o vuelo es conflicto. El manifiesto no expone `object_key`,
+URLs, referencias del proveedor, checksums multipartes ni credenciales.
+
+La API añade creación autorizada bajo
+`POST /api/v1/dbi/assets/{master_asset_id}/flight-source-manifests` y lectura
+paginada bajo
+`GET /api/v1/dbi/assets/{master_asset_id}/flight-source-manifests/{bundle_id}`.
+Una página contiene como máximo 500 entradas y usa el ordinal estable, de modo
+que el cliente puede recorrer y representar todos los datos sin cargar miles de
+filas o archivos originales simultáneamente en memoria.
+
+No se crea un ZIP obligatorio. Un paquete de descarga futuro seguirá siendo un
+derivado adicional. Este bloque no incorpora frontend, entidad de vuelo, COG,
+teselas, cola, worker, proveedor productivo ni datos reales.
 
 ## 13. Referencias oficiales
 

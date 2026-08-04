@@ -15,6 +15,10 @@ from app.dbi.models.asset_multipart import (
     AssetMultipartSession,
 )
 from app.dbi.models.assets import AnalysisArtifact, AnalysisInputAsset
+from app.dbi.models.flight_source_manifest import (
+    FlightSourceBundle,
+    FlightSourceEntry,
+)
 from app.dbi.models.identity import (
     DBIMembership,
     DBIMembershipPermission,
@@ -47,5 +51,7 @@ __all__ = [
     "DBIPrincipal",
     "DBIPrincipalStatus",
     "Farm",
+    "FlightSourceBundle",
+    "FlightSourceEntry",
     "Plot",
 ]
