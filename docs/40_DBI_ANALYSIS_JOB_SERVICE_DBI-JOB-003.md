@@ -59,16 +59,58 @@ Las referencias de activos están persistidas actualmente como texto opaco de
 hasta 128 caracteres, mientras `dbi_analysis_input_assets.id` usa UUID. No se
 cambiará ese tipo mediante una conversión ciega.
 
-Antes del bloque de persistencia se comprobará si existen referencias históricas
-no canónicas. La decisión deberá cumplir una de estas rutas:
+### 3.1 Decisión de persistencia del bloque 4
 
-1. conservar el tipo textual, escribir únicamente UUID canónicos y demostrar
-   integridad mediante bloqueos y validación exacta en la misma transacción; o
-2. introducir una migración no destructiva, con precondición verificable,
-   compatibilidad temporal y reversión explícita.
+La evidencia del modelo y de la migración vigente permite conservar las
+referencias de activos como texto opaco de hasta 128 caracteres. Este ticket no
+convierte esas columnas a UUID, no las renombra y no añade claves foráneas de
+forma retrospectiva.
 
-La selección se documentará con evidencia. No se asumirá que una base está vacía
-ni se eliminarán filas para facilitar la migración.
+Toda escritura nueva persiste exclusivamente la representación canónica
+`str(UUID)`, en minúsculas y con guiones. Antes de crear el trabajo, el
+repositorio consulta y bloquea el activo real mediante
+`dbi_analysis_input_assets.id`, y comprueba tenant, finca, lote, clase y estado
+`verified` dentro de la misma transacción.
+
+Una referencia histórica se considera canónica únicamente cuando:
+
+1. puede interpretarse como UUID;
+2. su texto almacenado coincide exactamente con `str(UUID)`; y
+3. corresponde al activo solicitado dentro del ámbito autorizado.
+
+Una referencia histórica vacía, inválida, no canónica o transversal falla de
+forma cerrada. La repetición no corrige, reemplaza ni elimina la fila existente,
+y la respuesta pública no revela qué dato histórico produjo el conflicto.
+
+No se añade una columna `request_fingerprint`. La intención HTTP estable puede
+reconstruirse de manera completa desde:
+
+- `tenant_ref`;
+- `request_id`;
+- `farm_id`;
+- `plot_id`;
+- `campaign_id`;
+- `orthophoto_asset_ref`;
+- `boundary_asset_ref`;
+- `exclusions_asset_ref`;
+- `requested_by_ref`; y
+- la versión fija del contrato de intención.
+
+El repositorio reconstruye `AnalysisJobRequestIntent`, calcula nuevamente
+`request_fingerprint` y compara la intención histórica con la intención
+entrante. La restricción única `tenant_ref + request_id` continúa siendo la
+defensa final ante carreras concurrentes.
+
+`command_sha256` permanece separado y representa únicamente los bytes canónicos
+de `analysis-job-command.v1`. No se reutiliza para comparar la intención HTTP,
+porque el comando también contiene el perfil resuelto y referencias generadas
+por el servidor.
+
+La evidencia actual no exige una migración. El bloque siguiente confirmará
+formalmente que la migración condicional no aplica antes de iniciar el
+repositorio transaccional. Una evidencia posterior contradictoria obligaría a
+detener la implementación y diseñar una migración aditiva, nunca una conversión
+destructiva.
 
 ## 4. Autoridad y ámbito
 
@@ -346,7 +388,7 @@ que introduzcan sus efectos.
 1. [x] Issue #58 y diseño de invariantes.
 2. [x] Contratos HTTP, intención canónica y política de perfil.
 3. [x] Pruebas offline de contratos e idempotencia pura.
-4. [ ] Decisión documentada sobre persistencia de referencias y fingerprint.
+4. [x] Decisión documentada sobre persistencia de referencias y fingerprint.
 5. [ ] Migración aditiva solo si la evidencia la exige.
 6. [ ] Repositorio con bloqueos e inserción idempotente.
 7. [ ] Servicio autorizado de creación.
@@ -395,6 +437,25 @@ review ni se fusiona sin aprobación explícita.
   de persistencia.
 - No se modifican modelos, migraciones, repositorios, servicios, API, cola,
   worker, almacenamiento, frontend o despliegues.
+
+### Evidencia del bloque 4
+
+- `AnalysisJob` conserva las referencias de ortofoto, límite y exclusiones en
+  columnas `String(128)`.
+- `AnalysisInputAsset.id` utiliza UUID como identidad primaria.
+- Las nuevas referencias se persistirán exclusivamente mediante `str(UUID)`.
+- Las referencias históricas no canónicas fallarán de forma cerrada y no serán
+  reescritas durante una repetición.
+- La tabla ya conserva todos los campos necesarios para reconstruir
+  `AnalysisJobRequestIntent`.
+- `tenant_ref + request_id` continúa siendo la clave idempotente única.
+- `request_fingerprint` se reconstruirá desde la intención histórica y no
+  requiere una columna nueva.
+- `command_sha256` permanece como evidencia independiente del comando exacto.
+- La evidencia actual no exige modificar el modelo ni crear una migración.
+- No se asume que las bases estén vacías y no se eliminan filas históricas.
+- No se modifican modelos SQLAlchemy, migraciones, repositorios, servicios,
+  API, cola, worker, frontend, almacenamiento ni despliegues.
 
 ## 16. Fuera de alcance
 
