@@ -27,7 +27,7 @@ from app.dbi.models import (  # noqa: E402
     AssetMultipartSession,
 )
 
-HEAD = "dbi_0010_asset_multipart"
+HEAD = "dbi_0011_flight_manifest"
 SESSION_TABLE = "dbi_asset_multipart_sessions"
 PART_TABLE = "dbi_asset_multipart_parts"
 SESSION_COLUMNS = {
