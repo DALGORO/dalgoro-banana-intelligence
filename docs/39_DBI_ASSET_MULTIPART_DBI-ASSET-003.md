@@ -262,7 +262,7 @@ partes multipartes.
 3. [x] Migración y modelos de sesión/partes.
 4. [x] Repositorio y servicio de aplicación.
 5. [x] Puerto proveedor-neutral y adaptador S3-compatible no productivo.
-6. [ ] API autorizada sin binario.
+6. [x] API autorizada sin binario.
 7. [ ] Aborto, expiración y limpieza.
 8. [ ] Manifiesto de fuentes del vuelo.
 9. [ ] Integración S3 efímera, métricas y documentación final.
@@ -314,6 +314,41 @@ archivo completo sigue pendiente del flujo autorizado de DBI-ASSET-002.
 Este bloque permanece offline y no incorpora API, descarga binaria, credenciales
 de entorno, persistencia adicional, aborto ni limpieza. Esas operaciones se
 implementan en los pasos posteriores del orden aprobado.
+
+### Bloque de API autorizada sin binario
+
+La API multipartes incorpora cinco operaciones de metadata bajo
+`/api/v1/dbi/assets/{asset_id}/multipart`: iniciar, emitir grants por ventana,
+registrar evidencia de una parte, completar e inspeccionar. Todas vuelven a
+autorizar tenant, organización, finca y lote antes de consultar la sesión. Un
+identificador de activo o sesión nunca concede autoridad ni permite enumeración
+transversal.
+
+El inicio reutiliza la preparación idempotente y solo llama al proveedor cuando
+la ruta durable es `multipart`. Los activos pequeños conservan la ruta síncrona y
+los excesos de política siguen visibles como `blocked_by_policy`. La referencia
+del proveedor se vincula internamente y la sesión transita a `uploading`; nunca se
+devuelve al cliente.
+
+Los grants aceptan únicamente número y checksum de partes dentro de la ventana
+durable. El tamaño se deriva del plan guardado, y la respuesta efímera contiene
+solo método `PUT`, URL, headers y expiración. Registrar una parte persiste tamaño,
+checksum y ETag exactos de forma idempotente. Completar exige el conjunto íntegro
+de partes, confirma metadata e integridad de transporte con el proveedor y deja
+el activo en `registered` con la sesión
+`completed_pending_content_verification`.
+
+La inspección devuelve estado, límites y progreso sin claves idempotentes,
+huellas, URLs, checksums, ETags o referencias remotas. Ningún endpoint acepta
+bucket, endpoint, object key, upload ID, archivo, stream o cuerpo binario. La
+transacción HTTP hace `commit` o `rollback`; repositorio, servicio y adaptador
+continúan sin controlar la unidad de trabajo.
+
+El proveedor se inyecta desde la configuración del despliegue y, en este bloque,
+solo existe el adaptador S3-compatible loopback no productivo. Si el inicio remoto
+termina pero falla su confirmación durable, la carga residual será recuperada por
+el siguiente bloque de aborto, expiración y limpieza. Todavía no se habilitan
+proveedor productivo, datos reales, descarga, frontend, cola o worker.
 
 ## 13. Referencias oficiales
 

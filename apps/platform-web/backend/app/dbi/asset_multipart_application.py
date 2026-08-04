@@ -87,6 +87,9 @@ class DBIMultipartSessionSnapshot:
     last_activity_at: datetime
     created_at: datetime
     updated_at: datetime
+    completed_at: datetime | None = None
+    aborted_at: datetime | None = None
+    expired_at: datetime | None = None
 
 
 @dataclass(frozen=True, slots=True)

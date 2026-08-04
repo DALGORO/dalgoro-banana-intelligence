@@ -21,6 +21,7 @@ from app.dbi.asset_multipart_application import (  # noqa: E402
     DBIMultipartInitiationRecord,
 )
 from app.dbi.asset_multipart_contracts import (  # noqa: E402
+    DBIMultipartPartEvidence,
     DBIMultipartRoutingDecision,
     DBIMultipartSessionState,
 )
@@ -31,8 +32,15 @@ from app.dbi.asset_multipart_policy import (  # noqa: E402
 )
 from app.dbi.asset_multipart_repository import (  # noqa: E402
     DBIMultipartRepository,
+    _session_snapshot,
 )
-from app.dbi.models.asset_multipart import AssetMultipartSession  # noqa: E402
+from app.dbi.asset_multipart_upload_service import (  # noqa: E402
+    DBIMultipartSessionContext,
+)
+from app.dbi.models.asset_multipart import (  # noqa: E402
+    AssetMultipartPart,
+    AssetMultipartSession,
+)
 from app.dbi.models.assets import AnalysisInputAsset  # noqa: E402
 
 ASSET_ID = UUID("11111111-1111-4111-8111-111111111111")
@@ -48,6 +56,18 @@ class ScalarResult:
         self.value = value
 
     def scalar_one_or_none(self):
+        return self.value
+
+    def scalar_one(self):
+        return self.value
+
+    def one_or_none(self):
+        return self.value
+
+    def scalars(self):
+        return self
+
+    def all(self):
         return self.value
 
 
@@ -174,6 +194,28 @@ def _session_row(
     )
 
 
+def _context(
+    row: AssetMultipartSession,
+) -> DBIMultipartSessionContext:
+    return DBIMultipartSessionContext(
+        snapshot=_session_snapshot(row),
+        asset=_asset_snapshot(size_bytes=row.size_bytes),
+        provider_upload_ref=row.provider_upload_ref,
+    )
+
+
+def _part(number: int) -> AssetMultipartPart:
+    return AssetMultipartPart(
+        session_id=EXISTING_SESSION_ID,
+        part_number=number,
+        tenant_ref="tenant-a",
+        size_bytes=64 * 1024 * 1024,
+        checksum="cGFydC1jaGVja3N1bS1zeW50aGV0aWM=",
+        etag=f"etag-{number}",
+        observed_at=NOW,
+    )
+
+
 def _must_conflict(callable_) -> None:
     try:
         callable_()
@@ -273,6 +315,105 @@ def validate_blocked_is_visible_and_provider_free() -> None:
     session.close()
 
 
+def validate_session_scope_and_provider_binding() -> None:
+    record = _record()
+    row = _session_row(record)
+    statements: list[object] = []
+    session = _session([(row, _asset_row())], statements)
+    repository = DBIMultipartRepository(session)
+    context = repository.get_session_for_update(
+        tenant_ref="tenant-a",
+        farm_id=FARM_ID,
+        plot_id=PLOT_ID,
+        asset_id=ASSET_ID,
+        session_id=EXISTING_SESSION_ID,
+    )
+    assert context.snapshot.session_id == EXISTING_SESSION_ID
+    assert "provider-secret-reference" not in repr(context)
+    sql = _sql(statements[0])
+    for required in (
+        "dbi_asset_multipart_sessions.id",
+        "dbi_analysis_input_assets.farm_id",
+        "dbi_analysis_input_assets.plot_id",
+        "FOR UPDATE",
+    ):
+        assert required in sql
+    session.close()
+
+    initiated = _session_row(
+        record,
+        state=DBIMultipartSessionState.INITIATED,
+    )
+    initiated.provider_upload_ref = None
+    statements = []
+    session = _session([initiated], statements)
+    bound = DBIMultipartRepository(session).bind_provider_upload(
+        context=DBIMultipartSessionContext(
+            snapshot=_context(initiated).snapshot,
+            asset=_asset_snapshot(),
+        ),
+        provider_upload_ref="provider-upload-secret-002",
+        changed_at=NOW + timedelta(minutes=1),
+    )
+    assert bound.snapshot.state is DBIMultipartSessionState.UPLOADING
+    assert bound.snapshot.version == 3
+    assert "provider-upload-secret-002" not in repr(bound)
+    assert "FOR UPDATE" in _sql(statements[0])
+    session.close()
+
+
+def validate_part_and_completion_persistence() -> None:
+    record = _record(size_bytes=128 * 1024 * 1024)
+    row = _session_row(
+        record,
+        state=DBIMultipartSessionState.UPLOADING,
+    )
+    context = _context(row)
+    evidence = DBIMultipartPartEvidence(
+        session_id=EXISTING_SESSION_ID,
+        part_number=1,
+        size_bytes=64 * 1024 * 1024,
+        checksum="cHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHA=",
+        etag="etag-1",
+    )
+    statements: list[object] = []
+    session = _session([row, None, 1], statements)
+    result = DBIMultipartRepository(session).record_part(
+        context=context,
+        evidence=evidence,
+        observed_at=NOW + timedelta(minutes=1),
+    )
+    assert result.created is True
+    assert result.recorded_part_count == 1
+    assert result.evidence == evidence
+    assert row.version == 3
+    assert "checksum" not in repr(result)
+    assert any("count" in _sql(statement).lower() for statement in statements)
+    session.close()
+
+    first = _part(1)
+    second = _part(2)
+    statements = []
+    session = _session([[first, second]], statements)
+    listed = DBIMultipartRepository(session).list_parts(context=context)
+    assert [part.part_number for part in listed] == [1, 2]
+    assert "ORDER BY" in _sql(statements[0])
+    session.close()
+
+    statements = []
+    session = _session([row], statements)
+    completed = DBIMultipartRepository(session).mark_completed(
+        context=context,
+        completed_at=NOW + timedelta(minutes=5),
+    )
+    assert completed.changed is True
+    assert completed.snapshot.state is (
+        DBIMultipartSessionState.COMPLETED_PENDING_CONTENT_VERIFICATION
+    )
+    assert completed.snapshot.completed_at == NOW + timedelta(minutes=5)
+    session.close()
+
+
 def validate_static_boundaries() -> None:
     path = BACKEND_ROOT / "app" / "dbi" / "asset_multipart_repository.py"
     source = path.read_text(encoding="utf-8")
@@ -309,6 +450,8 @@ def main() -> None:
     validate_exact_retry_returns_current_state()
     validate_conflicts()
     validate_blocked_is_visible_and_provider_free()
+    validate_session_scope_and_provider_binding()
+    validate_part_and_completion_persistence()
     validate_static_boundaries()
     print("Repositorio multipartes DBI-ASSET-003 aprobado offline.")
 

@@ -5,7 +5,7 @@ from __future__ import annotations
 from datetime import datetime, timezone
 from uuid import UUID
 
-from sqlalchemy import select
+from sqlalchemy import and_, func, select
 from sqlalchemy.dialects.postgresql import insert as postgresql_insert
 from sqlalchemy.orm import Session
 
@@ -19,6 +19,7 @@ from app.dbi.asset_multipart_contracts import (
     DBIMultipartChecksumAlgorithm,
     DBIMultipartChecksumType,
     DBIMultipartIdempotencyIdentity,
+    DBIMultipartPartEvidence,
     DBIMultipartRoutingDecision,
     DBIMultipartSessionState,
     DBIMultipartUploadPlan,
@@ -27,7 +28,15 @@ from app.dbi.asset_multipart_policy import (
     DBIMultipartConflict,
     DBIMultipartPolicy,
 )
-from app.dbi.models.asset_multipart import AssetMultipartSession
+from app.dbi.asset_multipart_upload_service import (
+    DBIMultipartCompletionRecord,
+    DBIMultipartPartRecord,
+    DBIMultipartSessionContext,
+)
+from app.dbi.models.asset_multipart import (
+    AssetMultipartPart,
+    AssetMultipartSession,
+)
 from app.dbi.models.assets import AnalysisInputAsset
 
 
@@ -41,6 +50,16 @@ def _required_ref(value: object, *, field_name: str) -> str:
     if not isinstance(value, str) or not value or value != value.strip():
         raise DBIMultipartConflict(f"{field_name} no es canónico.")
     return value
+
+
+def _provider_ref(value: object) -> str:
+    reference = _required_ref(value, field_name="provider_upload_ref")
+    if (
+        len(reference) > 1024
+        or any(ord(character) < 32 or ord(character) == 127 for character in reference)
+    ):
+        raise DBIMultipartConflict("provider_upload_ref no es canónica.")
+    return reference
 
 
 def _utc(value: object, *, field_name: str) -> datetime:
@@ -93,6 +112,54 @@ def _session_snapshot(row: AssetMultipartSession) -> DBIMultipartSessionSnapshot
         last_activity_at=row.last_activity_at,
         created_at=row.created_at,
         updated_at=row.updated_at,
+        completed_at=row.completed_at,
+        aborted_at=row.aborted_at,
+        expired_at=row.expired_at,
+    )
+
+
+def _part_evidence(row: AssetMultipartPart) -> DBIMultipartPartEvidence:
+    if not isinstance(row, AssetMultipartPart):
+        raise DBIMultipartConflict("registro de parte inválido.")
+    return DBIMultipartPartEvidence(
+        session_id=row.session_id,
+        part_number=row.part_number,
+        size_bytes=row.size_bytes,
+        checksum=row.checksum,
+        etag=row.etag,
+    )
+
+
+def _validate_session_context(value: object) -> DBIMultipartSessionContext:
+    if not isinstance(value, DBIMultipartSessionContext):
+        raise DBIMultipartConflict(
+            "context debe ser DBIMultipartSessionContext."
+        )
+    if (
+        value.snapshot.asset_id != value.asset.asset_id
+        or value.snapshot.tenant_ref != value.asset.tenant_ref
+    ):
+        raise DBIMultipartConflict("contexto multipartes divergente.")
+    return value
+
+
+def _upload_plan(snapshot: DBIMultipartSessionSnapshot) -> DBIMultipartUploadPlan:
+    if (
+        snapshot.part_size_bytes is None
+        or snapshot.part_count is None
+        or snapshot.max_grants_per_window is None
+        or snapshot.max_client_concurrency is None
+    ):
+        raise DBIMultipartConflict("la sesión no contiene un plan multipartes.")
+    return DBIMultipartUploadPlan(
+        decision=DBIMultipartRoutingDecision.MULTIPART,
+        size_bytes=snapshot.size_bytes,
+        part_size_bytes=snapshot.part_size_bytes,
+        part_count=snapshot.part_count,
+        max_grants_per_window=snapshot.max_grants_per_window,
+        max_client_concurrency=snapshot.max_client_concurrency,
+        checksum_algorithm=snapshot.checksum_algorithm,
+        checksum_type=snapshot.checksum_type,
     )
 
 
@@ -239,6 +306,233 @@ class DBIMultipartRepository:
             .with_for_update()
         ).scalar_one_or_none()
         return None if row is None else _asset_snapshot(row)
+
+    def get_session_for_update(
+        self,
+        *,
+        tenant_ref: str,
+        farm_id: UUID,
+        plot_id: UUID | None,
+        asset_id: UUID,
+        session_id: UUID,
+    ) -> DBIMultipartSessionContext | None:
+        """Bloquea sesión y activo bajo el ámbito exacto del solicitante."""
+
+        tenant = _required_ref(tenant_ref, field_name="tenant_ref")
+        farm = _required_uuid(farm_id, field_name="farm_id")
+        asset = _required_uuid(asset_id, field_name="asset_id")
+        multipart_session = _required_uuid(
+            session_id,
+            field_name="session_id",
+        )
+        plot_filter = (
+            AnalysisInputAsset.plot_id.is_(None)
+            if plot_id is None
+            else AnalysisInputAsset.plot_id
+            == _required_uuid(plot_id, field_name="plot_id")
+        )
+        result = self._session.execute(
+            select(AssetMultipartSession, AnalysisInputAsset)
+            .join(
+                AnalysisInputAsset,
+                and_(
+                    AnalysisInputAsset.id == AssetMultipartSession.asset_id,
+                    AnalysisInputAsset.tenant_ref
+                    == AssetMultipartSession.tenant_ref,
+                ),
+            )
+            .where(
+                AssetMultipartSession.id == multipart_session,
+                AssetMultipartSession.asset_id == asset,
+                AssetMultipartSession.tenant_ref == tenant,
+                AnalysisInputAsset.farm_id == farm,
+                plot_filter,
+            )
+            .with_for_update()
+        ).one_or_none()
+        if result is None:
+            return None
+        session_row, asset_row = result
+        if (
+            not isinstance(session_row, AssetMultipartSession)
+            or not isinstance(asset_row, AnalysisInputAsset)
+        ):
+            raise DBIMultipartConflict("resultado multipartes inválido.")
+        return DBIMultipartSessionContext(
+            snapshot=_session_snapshot(session_row),
+            asset=_asset_snapshot(asset_row),
+            provider_upload_ref=session_row.provider_upload_ref,
+        )
+
+    def _session_row_for_update(
+        self,
+        context: DBIMultipartSessionContext,
+    ) -> AssetMultipartSession:
+        canonical = _validate_session_context(context)
+        row = self._session.execute(
+            select(AssetMultipartSession)
+            .where(
+                AssetMultipartSession.id == canonical.snapshot.session_id,
+                AssetMultipartSession.asset_id == canonical.snapshot.asset_id,
+                AssetMultipartSession.tenant_ref
+                == canonical.snapshot.tenant_ref,
+            )
+            .with_for_update()
+        ).scalar_one_or_none()
+        if not isinstance(row, AssetMultipartSession):
+            raise DBIMultipartConflict("sesión multipartes no disponible.")
+        return row
+
+    def bind_provider_upload(
+        self,
+        *,
+        context: DBIMultipartSessionContext,
+        provider_upload_ref: str,
+        changed_at: datetime,
+    ) -> DBIMultipartSessionContext:
+        """Vincula una referencia remota exacta y transita a uploading."""
+
+        canonical = _validate_session_context(context)
+        reference = _provider_ref(provider_upload_ref)
+        timestamp = _utc(changed_at, field_name="changed_at")
+        row = self._session_row_for_update(canonical)
+        transition = DBIMultipartPolicy.plan_transition(
+            DBIMultipartSessionState(row.status),
+            DBIMultipartSessionState.UPLOADING,
+        )
+        if row.provider_upload_ref not in {None, reference}:
+            raise DBIMultipartConflict("la sesión ya usa otra carga remota.")
+        if transition.changed:
+            row.status = transition.next_state.value
+            row.provider_upload_ref = reference
+            row.version += 1
+            row.last_activity_at = timestamp
+            row.updated_at = timestamp
+        elif row.provider_upload_ref != reference:
+            raise DBIMultipartConflict("la carga remota no coincide.")
+        return DBIMultipartSessionContext(
+            snapshot=_session_snapshot(row),
+            asset=canonical.asset,
+            provider_upload_ref=row.provider_upload_ref,
+        )
+
+    def record_part(
+        self,
+        *,
+        context: DBIMultipartSessionContext,
+        evidence: DBIMultipartPartEvidence,
+        observed_at: datetime,
+    ) -> DBIMultipartPartRecord:
+        """Inserta evidencia exacta o reconoce un reintento equivalente."""
+
+        canonical = _validate_session_context(context)
+        timestamp = _utc(observed_at, field_name="observed_at")
+        row = self._session_row_for_update(canonical)
+        if DBIMultipartSessionState(row.status) is not DBIMultipartSessionState.UPLOADING:
+            raise DBIMultipartConflict("la sesión no admite nuevas partes.")
+        part = DBIMultipartPolicy.validate_part_evidence(
+            evidence,
+            plan=_upload_plan(_session_snapshot(row)),
+        )
+        if part.session_id != row.id:
+            raise DBIMultipartConflict("la parte pertenece a otra sesión.")
+        existing = self._session.execute(
+            select(AssetMultipartPart).where(
+                AssetMultipartPart.session_id == row.id,
+                AssetMultipartPart.part_number == part.part_number,
+                AssetMultipartPart.tenant_ref == row.tenant_ref,
+            )
+        ).scalar_one_or_none()
+        created = existing is None
+        if created:
+            stored = AssetMultipartPart(
+                session_id=row.id,
+                part_number=part.part_number,
+                tenant_ref=row.tenant_ref,
+                size_bytes=part.size_bytes,
+                checksum=part.checksum,
+                etag=part.etag,
+                observed_at=timestamp,
+            )
+            self._session.add(stored)
+            row.version += 1
+            row.last_activity_at = timestamp
+            row.updated_at = timestamp
+        else:
+            stored = existing
+            if (
+                not isinstance(stored, AssetMultipartPart)
+                or _part_evidence(stored) != part
+            ):
+                raise DBIMultipartConflict(
+                    "la parte registrada contradice el reintento."
+                )
+        recorded_count = self._session.execute(
+            select(func.count())
+            .select_from(AssetMultipartPart)
+            .where(
+                AssetMultipartPart.session_id == row.id,
+                AssetMultipartPart.tenant_ref == row.tenant_ref,
+            )
+        ).scalar_one()
+        if not isinstance(recorded_count, int) or recorded_count < 1:
+            raise DBIMultipartConflict("conteo durable de partes inválido.")
+        return DBIMultipartPartRecord(
+            snapshot=_session_snapshot(row),
+            evidence=_part_evidence(stored),
+            created=created,
+            recorded_part_count=recorded_count,
+        )
+
+    def list_parts(
+        self,
+        *,
+        context: DBIMultipartSessionContext,
+    ) -> tuple[DBIMultipartPartEvidence, ...]:
+        """Lista evidencia ordenada sin exponer el modelo persistente."""
+
+        canonical = _validate_session_context(context)
+        rows = self._session.execute(
+            select(AssetMultipartPart)
+            .where(
+                AssetMultipartPart.session_id
+                == canonical.snapshot.session_id,
+                AssetMultipartPart.tenant_ref
+                == canonical.snapshot.tenant_ref,
+            )
+            .order_by(AssetMultipartPart.part_number)
+        ).scalars().all()
+        return tuple(_part_evidence(row) for row in rows)
+
+    def mark_completed(
+        self,
+        *,
+        context: DBIMultipartSessionContext,
+        completed_at: datetime,
+    ) -> DBIMultipartCompletionRecord:
+        """Confirma la transición durable después del efecto del proveedor."""
+
+        canonical = _validate_session_context(context)
+        timestamp = _utc(completed_at, field_name="completed_at")
+        row = self._session_row_for_update(canonical)
+        transition = DBIMultipartPolicy.plan_transition(
+            DBIMultipartSessionState(row.status),
+            DBIMultipartSessionState.COMPLETED_PENDING_CONTENT_VERIFICATION,
+        )
+        if transition.changed:
+            row.status = transition.next_state.value
+            row.completed_at = timestamp
+            row.version += 1
+            row.last_activity_at = timestamp
+            row.updated_at = timestamp
+        elif row.completed_at is None:
+            raise DBIMultipartConflict(
+                "la sesión completada no tiene fecha durable."
+            )
+        return DBIMultipartCompletionRecord(
+            snapshot=_session_snapshot(row),
+            changed=transition.changed,
+        )
 
     def _get_by_idempotency_for_update(
         self,
