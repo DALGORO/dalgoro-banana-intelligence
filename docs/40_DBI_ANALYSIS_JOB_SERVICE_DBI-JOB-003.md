@@ -344,7 +344,7 @@ que introduzcan sus efectos.
 ## 15. Orden de implementación
 
 1. [x] Issue #58 y diseño de invariantes.
-2. [x] Contratos HTTP, intención canónica y política de perfil..
+2. [x] Contratos HTTP, intención canónica y política de perfil.
 3. [ ] Pruebas offline de contratos e idempotencia pura.
 4. [ ] Decisión documentada sobre persistencia de referencias y fingerprint.
 5. [ ] Migración aditiva solo si la evidencia la exige.
