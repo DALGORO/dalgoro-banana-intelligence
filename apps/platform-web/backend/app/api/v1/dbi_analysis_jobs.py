@@ -247,7 +247,7 @@ def cancel_analysis_job(
         IntegrityError,
     ) as error:
         session.rollback()
-        metrics.add(create_conflicts=1, rollbacks=1)
+        metrics.add(transition_conflicts=1, rollbacks=1)
         raise _conflict() from error
     finally:
         _observe_duration(metrics, started_at)
@@ -300,7 +300,7 @@ def retry_analysis_job(
         IntegrityError,
     ) as error:
         session.rollback()
-        metrics.add(create_conflicts=1, rollbacks=1)
+        metrics.add(transition_conflicts=1, rollbacks=1)
         raise _conflict() from error
     finally:
         _observe_duration(metrics, started_at)
