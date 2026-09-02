@@ -22,6 +22,7 @@ class DBIAnalysisJobMetricsSnapshot:
     retry_attempts: int = 0
     retry_changes: int = 0
     retry_noops: int = 0
+    transition_conflicts: int = 0
     rollbacks: int = 0
     service_duration_microseconds: int = 0
 
