@@ -19,6 +19,7 @@ from app.dbi.jobs.persistence_contracts import (
     AnalysisJobPersistenceConflict,
     AnalysisJobResourceUnavailable,
 )
+from app.dbi.jobs.profile_policy import load_configured_analysis_profile_policy
 from app.dbi.jobs.repository import DBIAnalysisJobRepository
 from app.dbi.jobs.service import DBIAnalysisJobService
 from app.dbi.jobs.service_contracts import (
@@ -50,7 +51,7 @@ _DEFAULT_ANALYSIS_JOB_METRICS = DBIAnalysisJobMetrics()
 
 
 class _UnavailableAnalysisProfilePolicy:
-    """Política cerrada usada mientras DBI-ML-001 no inyecte una aprobada."""
+    """Política cerrada usada si el servidor no tiene un perfil aprobado."""
 
     def resolve(
         self,
@@ -67,9 +68,17 @@ _UNAVAILABLE_ANALYSIS_PROFILE_POLICY = _UnavailableAnalysisProfilePolicy()
 
 
 def get_dbi_analysis_profile_policy(request: Request) -> AnalysisProfilePolicy:
-    """Obtiene la política confiable del servidor o una política fail-closed."""
+    """Resuelve política inyectada o configuración server-side; nunca del cliente."""
 
     policy = getattr(request.app.state, "dbi_analysis_profile_policy", None)
+    if policy is None:
+        try:
+            policy = load_configured_analysis_profile_policy()
+        except (TypeError, ValueError) as error:
+            raise HTTPException(
+                status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+                detail=DBI_ANALYSIS_PROFILE_UNAVAILABLE_DETAIL,
+            ) from error
     if policy is None:
         return _UNAVAILABLE_ANALYSIS_PROFILE_POLICY
     if not isinstance(policy, AnalysisProfilePolicy):
