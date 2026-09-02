@@ -153,20 +153,14 @@ def _provision_role_and_fixture() -> None:
                     "dbi.dbi_analysis_jobs TO {}"
                 ).format(sql.Identifier(API_ROLE))
             )
-            # PostgreSQL exige algún UPDATE para SELECT ... FOR UPDATE. Se limita
-            # a updated_at; el servicio de trabajos nunca escribe esas tablas.
-            for table_name in (
-                "dbi_farms",
-                "dbi_plots",
-                "dbi_campaigns",
-                "dbi_analysis_input_assets",
-            ):
-                cursor.execute(
-                    sql.SQL("GRANT UPDATE (updated_at) ON TABLE dbi.{} TO {}").format(
-                        sql.Identifier(table_name),
-                        sql.Identifier(API_ROLE),
-                    )
-                )
+            # FOR UPDATE exige algún UPDATE sobre la tabla seleccionada. Sólo el
+            # activo se bloquea; se concede una columna inocua, nunca status.
+            cursor.execute(
+                sql.SQL(
+                    "GRANT UPDATE (updated_at) ON TABLE "
+                    "dbi.dbi_analysis_input_assets TO {}"
+                ).format(sql.Identifier(API_ROLE))
+            )
 
             cursor.execute(
                 """
@@ -431,16 +425,16 @@ def main() -> None:
         finally:
             isolation_session.close()
 
-        admin_session = factory()
+        state_session = factory()
         try:
-            admin_session.execute(
+            state_session.execute(
                 update(AnalysisJob)
                 .where(AnalysisJob.id == job_id)
                 .values(status=AnalysisJobStatus.QUEUED.value)
             )
-            admin_session.commit()
+            state_session.commit()
         finally:
-            admin_session.close()
+            state_session.close()
 
         with ThreadPoolExecutor(max_workers=2) as executor:
             cancels = [
