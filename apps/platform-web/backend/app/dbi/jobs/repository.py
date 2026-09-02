@@ -133,6 +133,8 @@ class DBIAnalysisJobRepository:
         farm_id: UUID,
         plot_id: UUID,
     ) -> None:
+        """Valida pertenencia exacta de finca y lote sin elevar privilegios."""
+
         organization = _required_ref(organization_ref, field_name="organization_ref")
         farm = _required_uuid(farm_id, field_name="farm_id")
         plot = _required_uuid(plot_id, field_name="plot_id")
@@ -145,7 +147,6 @@ class DBIAnalysisJobRepository:
                 Plot.id == plot,
                 Plot.farm_id == farm,
             )
-            .with_for_update()
         ).scalar_one_or_none()
         if row is None:
             raise AnalysisJobResourceUnavailable("lote no disponible.")
@@ -157,6 +158,8 @@ class DBIAnalysisJobRepository:
         farm_id: UUID,
         campaign_id: UUID,
     ) -> None:
+        """Valida campaña y finca con lectura; las FK conservan la integridad."""
+
         organization = _required_ref(organization_ref, field_name="organization_ref")
         farm = _required_uuid(farm_id, field_name="farm_id")
         campaign = _required_uuid(campaign_id, field_name="campaign_id")
@@ -168,7 +171,6 @@ class DBIAnalysisJobRepository:
                 Campaign.id == campaign,
                 Campaign.farm_id == farm,
             )
-            .with_for_update()
         ).scalar_one_or_none()
         if row is None:
             raise AnalysisJobResourceUnavailable("campaña no disponible.")
@@ -182,6 +184,8 @@ class DBIAnalysisJobRepository:
         asset_id: UUID,
         asset_kind: str,
     ) -> None:
+        """Bloquea el activo verified para evitar retiro concurrente."""
+
         tenant = _required_ref(tenant_ref, field_name="tenant_ref")
         farm = _required_uuid(farm_id, field_name="farm_id")
         plot = _required_uuid(plot_id, field_name="plot_id")
