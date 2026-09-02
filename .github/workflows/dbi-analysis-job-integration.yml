@@ -1,0 +1,90 @@
+name: DBI analysis job integration
+
+"on":
+  pull_request:
+    branches:
+      - main
+    paths:
+      - ".github/scripts/ci_analysis_job_*.py"
+      - ".github/workflows/dbi-analysis-job-integration.yml"
+      - "apps/platform-web/backend/app/api/v1/dbi_analysis_jobs.py"
+      - "apps/platform-web/backend/app/api/v1/__init__.py"
+      - "apps/platform-web/backend/app/dbi/jobs/**"
+      - "apps/platform-web/backend/app/dbi/models/analysis_jobs.py"
+      - "apps/platform-web/backend/app/dbi/models/assets.py"
+      - "apps/platform-web/backend/app/schemas/dbi_analysis_jobs.py"
+      - "apps/platform-web/backend/dbi_alembic/**"
+      - "apps/platform-web/backend/requirements.txt"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: dbi-analysis-jobs-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  dbi-analysis-job-integration:
+    name: DBI · trabajos idempotentes en PostGIS
+    runs-on: ubuntu-latest
+    timeout-minutes: 35
+
+    services:
+      postgis:
+        image: postgis/postgis:16-3.5@sha256:4be58fcb1b50df187e73536e663149c2b3b2da2a541c2f518cfb6adebc65ed91
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_DB: postgres
+          POSTGRES_HOST_AUTH_METHOD: trust
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres -d postgres"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 20
+
+    steps:
+      - name: Descargar código
+        uses: actions/checkout@9f698171ed81b15d1823a05fc7211befd50c8ae0 # v6.0.3
+
+      - name: Configurar Python
+        uses: actions/setup-python@ece7cb06caefa5fff74198d8649806c4678c61a1 # v6.3.0
+        with:
+          python-version: "3.11"
+          cache: pip
+          cache-dependency-path: apps/platform-web/backend/requirements.txt
+
+      - name: Instalar dependencias
+        run: python -m pip install -r apps/platform-web/backend/requirements.txt
+
+      - name: Comprobar dependencias
+        run: python -m pip check
+
+      - name: Compilar implementación y pruebas
+        run: |
+          python -m compileall apps/platform-web/backend/app/dbi/jobs
+          python -m py_compile apps/platform-web/backend/app/api/v1/dbi_analysis_jobs.py
+          python -m py_compile .github/scripts/ci_analysis_job_application.py
+          python -m py_compile .github/scripts/ci_analysis_job_integration.py
+
+      - name: Validar servicio y API offline
+        env:
+          PYTHONPATH: apps/platform-web/backend
+        run: python .github/scripts/ci_analysis_job_application.py
+
+      - name: Aplicar migraciones en PostGIS efímero
+        env:
+          PYTHONPATH: apps/platform-web/backend
+          DBI_ENVIRONMENT: test
+          DBI_DATABASE_URL: postgresql+psycopg://dbi_test_migrator@127.0.0.1:5432/dbi_test
+        run: python .github/scripts/ci_dbi_migration_integration.py
+
+      - name: Validar idempotencia y concurrencia con rol mínimo
+        env:
+          PYTHONPATH: apps/platform-web/backend
+          DBI_ENVIRONMENT: test
+          DBI_DATABASE_URL: postgresql+psycopg://dbi_test_analysis_job_api@127.0.0.1:5432/dbi_test
+          DBI_ANALYSIS_JOB_RUN_INTEGRATION: "1"
+        run: python .github/scripts/ci_analysis_job_integration.py
