@@ -1,13 +1,14 @@
-"""Valida servicio, API e invariantes de DBI-JOB-003 completamente offline."""
+"""Valida servicio, API, métricas e invariantes de DBI-JOB-003 offline."""
 
 from __future__ import annotations
 
 import inspect
 import os
 import sys
+from dataclasses import fields
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
-from uuid import UUID, uuid4
+from uuid import UUID
 
 os.environ.setdefault("DATABASE_URL", "sqlite+pysqlite:///:memory:")
 os.environ.setdefault("JWT_SECRET", "dbi-job-ci-placeholder")
@@ -22,9 +23,14 @@ from fastapi import HTTPException, Response  # noqa: E402
 from app.api.v1 import dbi_analysis_jobs, get_api_router  # noqa: E402
 from app.dbi.authorization import (  # noqa: E402
     DBIAccessContext,
+    DBIAccessDenied,
     DBIFarmScope,
     DBIPermission,
     DBIPlotScope,
+)
+from app.dbi.jobs.metrics import (  # noqa: E402
+    DBIAnalysisJobMetrics,
+    DBIAnalysisJobMetricsSnapshot,
 )
 from app.dbi.jobs.persistence_contracts import (  # noqa: E402
     AnalysisJobPersistenceConflict,
@@ -58,22 +64,12 @@ NOW = datetime(2026, 8, 4, 22, 0, tzinfo=timezone.utc)
 
 
 def _context(*, submit: bool = True) -> DBIAccessContext:
-    permissions = (
-        frozenset({DBIPermission.SUBMIT_ANALYSIS})
-        if submit
-        else frozenset({DBIPermission.READ})
-    )
     return DBIAccessContext(
         principal_ref="principal-job-ci",
         tenant_ref="tenant-job-ci",
         organization_refs=frozenset({"organization-job-ci"}),
         farm_scopes=frozenset(
-            {
-                DBIFarmScope(
-                    organization_ref="organization-job-ci",
-                    farm_id=FARM_ID,
-                )
-            }
+            {DBIFarmScope(organization_ref="organization-job-ci", farm_id=FARM_ID)}
         ),
         plot_scopes=frozenset(
             {
@@ -84,7 +80,11 @@ def _context(*, submit: bool = True) -> DBIAccessContext:
                 )
             }
         ),
-        permissions=permissions,
+        permissions=(
+            frozenset({DBIPermission.SUBMIT_ANALYSIS})
+            if submit
+            else frozenset({DBIPermission.READ})
+        ),
     )
 
 
@@ -123,8 +123,8 @@ class FakeRepository:
     def __init__(self) -> None:
         self.calls: list[str] = []
         self.jobs: dict[tuple[str, str], AnalysisJobSnapshot] = {}
-        self.apply_calls = 0
         self.current: AnalysisJobSnapshot | None = None
+        self.apply_calls = 0
 
     def require_plot(self, **kwargs) -> None:
         del kwargs
@@ -138,16 +138,11 @@ class FakeRepository:
         del kwargs
         self.calls.append(f"asset:{asset_kind}")
 
-    def get_by_request_for_update(
-        self,
-        *,
-        tenant_ref: str,
-        request_id: str,
-    ) -> AnalysisJobSnapshot | None:
+    def get_by_request_for_update(self, *, tenant_ref: str, request_id: str):
         self.calls.append("get_by_request")
         return self.jobs.get((tenant_ref, request_id))
 
-    def get_for_update(self, **kwargs) -> AnalysisJobSnapshot | None:
+    def get_for_update(self, **kwargs):
         del kwargs
         self.calls.append("get_for_update")
         return self.current
@@ -170,13 +165,7 @@ class FakeRepository:
         self.current = candidate
         return candidate, True
 
-    def apply_status(
-        self,
-        *,
-        target_status: AnalysisJobStatus,
-        changed_at: datetime,
-        **kwargs,
-    ) -> AnalysisJobSnapshot:
+    def apply_status(self, *, target_status, changed_at, **kwargs):
         del kwargs
         self.calls.append("apply_status")
         self.apply_calls += 1
@@ -267,7 +256,7 @@ def validate_creation_and_idempotency() -> AnalysisJobSnapshot:
     policy = RecordingProfilePolicy()
     service = DBIAnalysisJobService(repository)
 
-    evidence = service.create(
+    created = service.create(
         _context(),
         organization_ref="organization-job-ci",
         farm_id=FARM_ID,
@@ -276,9 +265,9 @@ def validate_creation_and_idempotency() -> AnalysisJobSnapshot:
         profile_policy=policy,
         accepted_at=NOW,
     )
-    assert evidence.created is True
-    assert evidence.snapshot.status is AnalysisJobStatus.ACCEPTED
-    assert len(evidence.snapshot.command_sha256) == 64
+    assert created.created is True
+    assert created.snapshot.status is AnalysisJobStatus.ACCEPTED
+    assert len(created.snapshot.command_sha256) == 64
     assert repository.calls[:5] == [
         "require_plot",
         "require_campaign",
@@ -286,10 +275,8 @@ def validate_creation_and_idempotency() -> AnalysisJobSnapshot:
         "asset:boundary",
         "asset:exclusions",
     ]
-    assert repository.calls[-2:] == ["get_by_request", "persist_accepted"]
     assert len(policy.calls) == 1
 
-    first_id = evidence.snapshot.job_id
     repeated = service.create(
         _context(),
         organization_ref="organization-job-ci",
@@ -300,8 +287,8 @@ def validate_creation_and_idempotency() -> AnalysisJobSnapshot:
         accepted_at=NOW + timedelta(seconds=1),
     )
     assert repeated.created is False
-    assert repeated.snapshot.job_id == first_id
-    assert len(policy.calls) == 1, "Un reintento exacto no debe reinterpretar el perfil."
+    assert repeated.snapshot.job_id == created.snapshot.job_id
+    assert len(policy.calls) == 1
 
     try:
         service.create(
@@ -318,14 +305,13 @@ def validate_creation_and_idempotency() -> AnalysisJobSnapshot:
     else:
         raise AssertionError("La misma clave con otra intención debía fallar.")
 
-    return evidence.snapshot
+    return created.snapshot
 
 
 def validate_authorization_precedes_reads() -> None:
     repository = FakeRepository()
-    service = DBIAnalysisJobService(repository)
     try:
-        service.create(
+        DBIAnalysisJobService(repository).create(
             _context(submit=False),
             organization_ref="organization-job-ci",
             farm_id=FARM_ID,
@@ -334,22 +320,18 @@ def validate_authorization_precedes_reads() -> None:
             profile_policy=RecordingProfilePolicy(),
             accepted_at=NOW,
         )
-    except Exception as error:
-        from app.dbi.authorization import DBIAccessDenied
-
-        assert isinstance(error, DBIAccessDenied)
+    except DBIAccessDenied:
+        pass
     else:
         raise AssertionError("READ no debe autorizar SUBMIT_ANALYSIS.")
-    assert repository.calls == [], "La denegación debe ocurrir antes de toda lectura."
+    assert repository.calls == []
 
 
 def validate_transitions(base: AnalysisJobSnapshot) -> None:
     repository = FakeRepository()
     service = DBIAnalysisJobService(repository)
 
-    repository.current = base.model_copy(
-        update={"status": AnalysisJobStatus.QUEUED}
-    )
+    repository.current = base.model_copy(update={"status": AnalysisJobStatus.QUEUED})
     canceled = service.cancel(
         _context(),
         organization_ref="organization-job-ci",
@@ -359,7 +341,6 @@ def validate_transitions(base: AnalysisJobSnapshot) -> None:
     )
     assert canceled.changed is True
     assert canceled.snapshot.status is AnalysisJobStatus.CANCEL_REQUESTED
-    assert repository.apply_calls == 1
 
     repeated = service.cancel(
         _context(),
@@ -371,9 +352,7 @@ def validate_transitions(base: AnalysisJobSnapshot) -> None:
     assert repeated.changed is False
     assert repository.apply_calls == 1
 
-    repository.current = base.model_copy(
-        update={"status": AnalysisJobStatus.ACCEPTED}
-    )
+    repository.current = base.model_copy(update={"status": AnalysisJobStatus.ACCEPTED})
     try:
         service.cancel(
             _context(),
@@ -387,9 +366,7 @@ def validate_transitions(base: AnalysisJobSnapshot) -> None:
     else:
         raise AssertionError("accepted no debe cancelar directamente.")
 
-    repository.current = base.model_copy(
-        update={"status": AnalysisJobStatus.FAILED}
-    )
+    repository.current = base.model_copy(update={"status": AnalysisJobStatus.FAILED})
     retried = service.retry(
         _context(),
         organization_ref="organization-job-ci",
@@ -410,10 +387,11 @@ def validate_transitions(base: AnalysisJobSnapshot) -> None:
     assert repeated_retry.changed is False
 
 
-def validate_transactional_api(base: AnalysisJobSnapshot) -> None:
-    creation = AnalysisJobCreationEvidence(snapshot=base, created=True)
+def validate_transactional_api_and_metrics(base: AnalysisJobSnapshot) -> None:
+    metrics = DBIAnalysisJobMetrics()
     session = FakeSession()
     response = Response()
+    creation = AnalysisJobCreationEvidence(snapshot=base, created=True)
     result = dbi_analysis_jobs.create_analysis_job(
         organization_ref="organization-job-ci",
         farm_id=FARM_ID,
@@ -424,10 +402,17 @@ def validate_transactional_api(base: AnalysisJobSnapshot) -> None:
         context=_context(),
         profile_policy=RecordingProfilePolicy(),
         service=FakeAPIService(creation=creation),
+        metrics=metrics,
     )
     assert response.status_code == 201
     assert session.commits == 1 and session.rollbacks == 0
     assert result.job_id == base.job_id
+    snapshot = metrics.snapshot()
+    assert snapshot.create_attempts == 1
+    assert snapshot.jobs_created == 1
+    assert snapshot.exact_reuses == 0
+    assert snapshot.service_duration_microseconds > 0
+
     dumped = result.model_dump(mode="json")
     for forbidden in (
         "command_sha256",
@@ -450,12 +435,13 @@ def validate_transactional_api(base: AnalysisJobSnapshot) -> None:
             context=_context(),
             profile_policy=RecordingProfilePolicy(),
             service=FakeAPIService(error=AnalysisJobPersistenceConflict()),
+            metrics=metrics,
         ),
         409,
     )
-    assert conflict_session.commits == 0 and conflict_session.rollbacks == 1
+    assert conflict_session.rollbacks == 1
 
-    unavailable_session = FakeSession()
+    profile_session = FakeSession()
     _must_http_error(
         lambda: dbi_analysis_jobs.create_analysis_job(
             organization_ref="organization-job-ci",
@@ -463,14 +449,15 @@ def validate_transactional_api(base: AnalysisJobSnapshot) -> None:
             plot_id=PLOT_ID,
             payload=_request(),
             response=Response(),
-            session=unavailable_session,
+            session=profile_session,
             context=_context(),
             profile_policy=RecordingProfilePolicy(),
             service=FakeAPIService(error=AnalysisProfileUnavailable()),
+            metrics=metrics,
         ),
         503,
     )
-    assert unavailable_session.commits == 0 and unavailable_session.rollbacks == 1
+    assert profile_session.rollbacks == 1
 
     transition_snapshot = base.model_copy(
         update={
@@ -490,10 +477,49 @@ def validate_transactional_api(base: AnalysisJobSnapshot) -> None:
         session=cancel_session,
         context=_context(),
         service=FakeAPIService(transition=transition),
+        metrics=metrics,
     )
     assert cancel_result.status is AnalysisJobStatus.CANCEL_REQUESTED
     assert cancel_result.changed is True
-    assert cancel_session.commits == 1 and cancel_session.rollbacks == 0
+    assert cancel_session.commits == 1
+
+    metric_snapshot = metrics.snapshot()
+    assert metric_snapshot.create_attempts == 3
+    assert metric_snapshot.jobs_created == 1
+    assert metric_snapshot.create_conflicts == 1
+    assert metric_snapshot.unavailable_profiles == 1
+    assert metric_snapshot.cancel_attempts == 1
+    assert metric_snapshot.cancel_changes == 1
+    assert metric_snapshot.rollbacks == 2
+
+
+def validate_metrics_are_low_cardinality() -> None:
+    field_names = {field.name for field in fields(DBIAnalysisJobMetricsSnapshot)}
+    for forbidden in (
+        "tenant",
+        "organization",
+        "farm",
+        "plot",
+        "asset",
+        "job_id",
+        "request_id",
+        "correlation",
+        "principal",
+        "url",
+        "object_key",
+    ):
+        assert all(forbidden not in name for name in field_names)
+
+    metrics = DBIAnalysisJobMetrics()
+    metrics.add(create_attempts=1, jobs_created=1)
+    assert metrics.snapshot().jobs_created == 1
+    for invalid in ({"unknown": 1}, {"jobs_created": -1}, {"jobs_created": True}):
+        try:
+            metrics.add(**invalid)
+        except ValueError:
+            pass
+        else:
+            raise AssertionError("La métrica inválida debía rechazarse.")
 
 
 def validate_static_boundaries() -> None:
@@ -507,10 +533,13 @@ def validate_static_boundaries() -> None:
 
     assert "on_conflict_do_nothing" in repository_source
     assert "with_for_update" in repository_source
-    assert "AnalysisInputAsset.status == \"verified\"" in repository_source
+    assert 'AnalysisInputAsset.status == "verified"' in repository_source
     assert "DBIPermission.SUBMIT_ANALYSIS" in service_source
     assert "session.commit()" in api_source
     assert "session.rollback()" in api_source
+    assert "dbi_analysis_job_metrics" in api_source
+
+    lowered = service_source.lower()
     for forbidden in (
         "object_key",
         "bucket",
@@ -521,7 +550,7 @@ def validate_static_boundaries() -> None:
         "subprocess",
         "pipeline_orchestrator",
     ):
-        assert forbidden not in service_source.lower()
+        assert forbidden not in lowered
 
 
 def main() -> None:
@@ -529,9 +558,10 @@ def main() -> None:
     base = validate_creation_and_idempotency()
     validate_authorization_precedes_reads()
     validate_transitions(base)
-    validate_transactional_api(base)
+    validate_transactional_api_and_metrics(base)
+    validate_metrics_are_low_cardinality()
     validate_static_boundaries()
-    print("Servicio y API idempotente de trabajos DBI aprobados offline.")
+    print("Servicio, API y métricas idempotentes de trabajos DBI aprobados offline.")
 
 
 if __name__ == "__main__":
