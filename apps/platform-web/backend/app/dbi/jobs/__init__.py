@@ -4,6 +4,10 @@ from app.dbi.jobs.api_schemas import (
     ANALYSIS_JOB_TRANSITION_SCHEMA_VERSION,
     AnalysisJobTransitionResponse,
 )
+from app.dbi.jobs.metrics import (
+    DBIAnalysisJobMetrics,
+    DBIAnalysisJobMetricsSnapshot,
+)
 from app.dbi.jobs.persistence_contracts import (
     AnalysisJobPersistenceConflict,
     AnalysisJobResourceUnavailable,
@@ -61,6 +65,8 @@ __all__ = [
     "AnalysisProfileResolutionContext",
     "AnalysisProfileUnavailable",
     "ApprovedAnalysisProfile",
+    "DBIAnalysisJobMetrics",
+    "DBIAnalysisJobMetricsSnapshot",
     "DBIAnalysisJobRepository",
     "DBIAnalysisJobService",
     "InvalidAnalysisJobTransition",
