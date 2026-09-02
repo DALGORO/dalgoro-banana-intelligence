@@ -67,12 +67,18 @@ jobs:
           python -m compileall apps/platform-web/backend/app/dbi/jobs
           python -m py_compile apps/platform-web/backend/app/api/v1/dbi_analysis_jobs.py
           python -m py_compile .github/scripts/ci_analysis_job_application.py
+          python -m py_compile .github/scripts/ci_analysis_job_profile_policy.py
           python -m py_compile .github/scripts/ci_analysis_job_integration.py
 
-      - name: Validar servicio y API offline
+      - name: Validar servicio, API y métricas offline
         env:
           PYTHONPATH: apps/platform-web/backend
         run: python .github/scripts/ci_analysis_job_application.py
+
+      - name: Validar perfil aprobado controlado por servidor
+        env:
+          PYTHONPATH: apps/platform-web/backend
+        run: python .github/scripts/ci_analysis_job_profile_policy.py
 
       - name: Aplicar migraciones en PostGIS efímero
         env:
