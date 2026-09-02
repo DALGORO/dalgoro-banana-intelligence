@@ -177,16 +177,12 @@ class DBIAnalysisJobService:
             raise DBIAccessDenied()
         if not isinstance(request, AnalysisJobCreateRequest):
             raise TypeError("request debe ser AnalysisJobCreateRequest.")
-        if not isinstance(profile_policy, AnalysisProfilePolicy):
-            raise AnalysisProfileUnavailable(
-                "No existe una política de perfil aprobada."
-            )
 
         organization = _required_organization_ref(organization_ref)
         farm = _required_uuid(farm_id, field_name="farm_id")
         plot = _required_uuid(plot_id, field_name="plot_id")
 
-        # Autorizar antes de consultar cualquier recurso persistido.
+        # Regla crítica: autorizar el ámbito antes de cualquier lectura DBI.
         DBIAuthorizationPolicy.require_plot(
             context,
             tenant_ref=context.tenant_ref,
@@ -196,6 +192,41 @@ class DBIAnalysisJobService:
             permission=DBIPermission.SUBMIT_ANALYSIS,
         )
 
+        intent = AnalysisJobRequestIntent(
+            tenant_ref=context.tenant_ref,
+            request_id=request.request_id,
+            farm_id=farm,
+            plot_id=plot,
+            campaign_id=request.campaign_id,
+            orthophoto_asset_id=request.orthophoto_asset_id,
+            boundary_asset_id=request.boundary_asset_id,
+            exclusions_asset_id=request.exclusions_asset_id,
+            requested_by_ref=context.principal_ref,
+        )
+
+        # Un replay exacto devuelve la evidencia ya persistida y no vuelve a
+        # interpretar un perfil ni depende del estado actual de sus activos.
+        existing = self._repository.get_by_request_for_update(
+            tenant_ref=context.tenant_ref,
+            request_id=request.request_id,
+        )
+        if existing is not None:
+            self._repository.require_same_intent(
+                existing=existing,
+                incoming=intent,
+            )
+            return AnalysisJobCreationEvidence(
+                snapshot=existing,
+                created=False,
+            )
+
+        if not isinstance(profile_policy, AnalysisProfilePolicy):
+            raise AnalysisProfileUnavailable(
+                "No existe una política de perfil aprobada."
+            )
+
+        # Sólo una intención nueva debe demostrar que sus recursos siguen
+        # disponibles y que los activos están verified en el ámbito exacto.
         self._repository.require_plot(
             organization_ref=organization,
             farm_id=farm,
@@ -229,32 +260,6 @@ class DBIAnalysisJobService:
                 plot_id=plot,
                 asset_id=request.exclusions_asset_id,
                 asset_kind="exclusions",
-            )
-
-        intent = AnalysisJobRequestIntent(
-            tenant_ref=context.tenant_ref,
-            request_id=request.request_id,
-            farm_id=farm,
-            plot_id=plot,
-            campaign_id=request.campaign_id,
-            orthophoto_asset_id=request.orthophoto_asset_id,
-            boundary_asset_id=request.boundary_asset_id,
-            exclusions_asset_id=request.exclusions_asset_id,
-            requested_by_ref=context.principal_ref,
-        )
-
-        existing = self._repository.get_by_request_for_update(
-            tenant_ref=context.tenant_ref,
-            request_id=request.request_id,
-        )
-        if existing is not None:
-            self._repository.require_same_intent(
-                existing=existing,
-                incoming=intent,
-            )
-            return AnalysisJobCreationEvidence(
-                snapshot=existing,
-                created=False,
             )
 
         profile = profile_policy.resolve(
