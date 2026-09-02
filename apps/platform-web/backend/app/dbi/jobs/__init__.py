@@ -13,6 +13,13 @@ from app.dbi.jobs.persistence_contracts import (
     AnalysisJobResourceUnavailable,
     AnalysisJobSnapshot,
 )
+from app.dbi.jobs.profile_policy import (
+    DBI_ANALYSIS_MODEL_VERSION_ENV,
+    DBI_ANALYSIS_PIPELINE_CONFIG_ENV,
+    DBI_ANALYSIS_POLICY_REF_ENV,
+    DBIConfiguredAnalysisProfilePolicy,
+    load_configured_analysis_profile_policy,
+)
 from app.dbi.jobs.repository import DBIAnalysisJobRepository
 from app.dbi.jobs.service import (
     AnalysisJobCreationEvidence,
@@ -65,10 +72,14 @@ __all__ = [
     "AnalysisProfileResolutionContext",
     "AnalysisProfileUnavailable",
     "ApprovedAnalysisProfile",
+    "DBI_ANALYSIS_MODEL_VERSION_ENV",
+    "DBI_ANALYSIS_PIPELINE_CONFIG_ENV",
+    "DBI_ANALYSIS_POLICY_REF_ENV",
     "DBIAnalysisJobMetrics",
     "DBIAnalysisJobMetricsSnapshot",
     "DBIAnalysisJobRepository",
     "DBIAnalysisJobService",
+    "DBIConfiguredAnalysisProfilePolicy",
     "InvalidAnalysisJobTransition",
     "TransitionDecision",
     "analysis_job_request_fingerprint",
@@ -76,4 +87,5 @@ __all__ = [
     "contract_sha256",
     "evaluate_analysis_job_transition",
     "is_terminal_analysis_job_status",
+    "load_configured_analysis_profile_policy",
 ]
