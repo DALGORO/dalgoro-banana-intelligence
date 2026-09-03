@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import os
+import signal
 import subprocess
 import sys
 import time
@@ -59,6 +60,26 @@ _ALLOWED_CONFIG_KEYS = frozenset(
         "run_boundary_validation",
     }
 )
+_CHILD_DENY_PREFIXES = (
+    "DBI_",
+    "AWS_",
+    "GOOGLE_",
+    "AZURE_",
+    "S3_",
+    "MINIO_",
+    "GREEN_API_",
+)
+_CHILD_DENY_EXACT = frozenset(
+    {
+        "DATABASE_URL",
+        "JWT_SECRET",
+        "GITHUB_TOKEN",
+        "GH_TOKEN",
+        "OPENAI_API_KEY",
+    }
+)
+_CHILD_DENY_SUFFIXES = ("_API_KEY", "_SECRET", "_TOKEN", "_PASSWORD")
+_CHILD_TERMINATE_TIMEOUT_SECONDS = 10.0
 
 REPOSITORY_ROOT = Path(__file__).resolve().parents[6]
 BANANA_SERVICE_ROOT = REPOSITORY_ROOT / "services" / "banana-density"
@@ -74,6 +95,25 @@ def _runtime_parameter(payload: dict[str, object], canonical: str, alias: str | 
     if alias is not None and alias in payload:
         return payload[alias]
     return default
+
+
+def _build_child_environment(source: dict[str, str] | None = None) -> dict[str, str]:
+    """Hereda sólo variables no sensibles necesarias para el proceso geoespacial."""
+
+    values = dict(os.environ if source is None else source)
+    sanitized: dict[str, str] = {}
+    for key, value in values.items():
+        upper = key.upper()
+        if upper in _CHILD_DENY_EXACT:
+            continue
+        if any(upper.startswith(prefix) for prefix in _CHILD_DENY_PREFIXES):
+            continue
+        if any(upper.endswith(suffix) for suffix in _CHILD_DENY_SUFFIXES):
+            continue
+        sanitized[key] = value
+    sanitized["PYTHONUTF8"] = "1"
+    sanitized["PYTHONIOENCODING"] = "utf-8"
+    return sanitized
 
 
 def build_legacy_runtime_config(
@@ -189,6 +229,29 @@ def _find_run_directory(output_root: Path) -> Path:
     return candidates[0]
 
 
+def _terminate_child(process: subprocess.Popen) -> None:
+    """Detiene el proceso que perdió propiedad; sus salidas no serán oficiales."""
+
+    if process.poll() is not None:
+        return
+    try:
+        if os.name == "posix":
+            os.killpg(process.pid, signal.SIGTERM)
+        else:
+            process.terminate()
+        process.wait(timeout=_CHILD_TERMINATE_TIMEOUT_SECONDS)
+    except (ProcessLookupError, subprocess.TimeoutExpired):
+        if process.poll() is None:
+            if os.name == "posix":
+                try:
+                    os.killpg(process.pid, signal.SIGKILL)
+                except ProcessLookupError:
+                    pass
+            else:
+                process.kill()
+            process.wait()
+
+
 class DBILegacyPipelineAdapter:
     """Ejecuta una etapa por proceso para heartbeat y cancelación cooperativa."""
 
@@ -204,9 +267,7 @@ class DBILegacyPipelineAdapter:
         log_path: Path,
         heartbeat: Callable[[], object],
     ) -> int:
-        environment = os.environ.copy()
-        environment["PYTHONUTF8"] = "1"
-        environment["PYTHONIOENCODING"] = "utf-8"
+        environment = _build_child_environment()
         with log_path.open("a", encoding="utf-8", errors="replace") as log:
             process = subprocess.Popen(
                 command,
@@ -214,18 +275,16 @@ class DBILegacyPipelineAdapter:
                 stdout=log,
                 stderr=subprocess.STDOUT,
                 env=environment,
+                start_new_session=(os.name == "posix"),
             )
-            lease_error: BaseException | None = None
             while process.poll() is None:
                 try:
                     heartbeat()
-                except BaseException as error:  # el lease perdido no se oculta
-                    lease_error = error
+                except BaseException:
+                    _terminate_child(process)
+                    raise
                 time.sleep(self._poll_seconds)
-            return_code = int(process.wait())
-            if lease_error is not None:
-                raise lease_error
-            return return_code
+            return int(process.wait())
 
     def run(
         self,
