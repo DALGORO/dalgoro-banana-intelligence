@@ -1,0 +1,188 @@
+"""Persistencia gobernada de modelos y perfiles de análisis DBI."""
+
+from __future__ import annotations
+
+from datetime import datetime, timezone
+from uuid import UUID, uuid4
+
+from sqlalchemy import (
+    CheckConstraint,
+    DateTime,
+    ForeignKeyConstraint,
+    Index,
+    String,
+    Text,
+    UniqueConstraint,
+    Uuid,
+)
+from sqlalchemy.orm import Mapped, mapped_column
+
+from app.db.dbi_base import DBIBase
+
+
+def utc_now() -> datetime:
+    return datetime.now(timezone.utc)
+
+
+class DBIModelVersion(DBIBase):
+    """Versión científica inmutable con lineage; nunca contiene pesos binarios."""
+
+    __tablename__ = "dbi_model_versions"
+    __table_args__ = (
+        UniqueConstraint(
+            "model_family",
+            "model_version",
+            name="uq_dbi_model_versions_family_version",
+        ),
+        UniqueConstraint(
+            "id",
+            "model_family",
+            name="uq_dbi_model_versions_id_family",
+        ),
+        CheckConstraint(
+            "status IN ('draft', 'validated', 'approved', 'retired')",
+            name="ck_dbi_model_versions_status",
+        ),
+        CheckConstraint(
+            "model_family ~ '^[A-Za-z0-9][A-Za-z0-9_-]{0,63}$'",
+            name="ck_dbi_model_versions_family",
+        ),
+        CheckConstraint(
+            "model_version ~ '^[A-Za-z0-9][A-Za-z0-9_.-]{0,127}$'",
+            name="ck_dbi_model_versions_version",
+        ),
+        CheckConstraint(
+            "training_dataset_version ~ '^[A-Za-z0-9][A-Za-z0-9_.-]{0,127}$'",
+            name="ck_dbi_model_versions_training_dataset",
+        ),
+        CheckConstraint(
+            "validation_dataset_version ~ '^[A-Za-z0-9][A-Za-z0-9_.-]{0,127}$'",
+            name="ck_dbi_model_versions_validation_dataset",
+        ),
+        CheckConstraint(
+            "input_contract_version ~ '^[A-Za-z0-9][A-Za-z0-9_.-]{0,127}$'",
+            name="ck_dbi_model_versions_input_contract",
+        ),
+        CheckConstraint(
+            "output_contract_version ~ '^[A-Za-z0-9][A-Za-z0-9_.-]{0,127}$'",
+            name="ck_dbi_model_versions_output_contract",
+        ),
+        CheckConstraint(
+            "artifact_ref IS NULL OR artifact_ref ~ '^[A-Za-z0-9][A-Za-z0-9_-]{0,127}$'",
+            name="ck_dbi_model_versions_artifact_ref",
+        ),
+        CheckConstraint(
+            "(metrics_json IS NULL AND metrics_sha256 IS NULL) OR "
+            "(metrics_json IS NOT NULL AND metrics_sha256 ~ '^[0-9a-f]{64}$' "
+            "AND octet_length(metrics_json) BETWEEN 2 AND 65536)",
+            name="ck_dbi_model_versions_metrics",
+        ),
+        CheckConstraint(
+            "(status IN ('draft', 'validated') AND approved_at IS NULL "
+            "AND approved_by_ref IS NULL AND retired_at IS NULL) OR "
+            "(status = 'approved' AND approved_at IS NOT NULL "
+            "AND approved_by_ref IS NOT NULL AND retired_at IS NULL) OR "
+            "(status = 'retired' AND approved_at IS NOT NULL "
+            "AND approved_by_ref IS NOT NULL AND retired_at IS NOT NULL)",
+            name="ck_dbi_model_versions_lifecycle",
+        ),
+        Index("ix_dbi_model_versions_family_status", "model_family", "status"),
+    )
+
+    id: Mapped[UUID] = mapped_column(Uuid, primary_key=True, default=uuid4)
+    model_family: Mapped[str] = mapped_column(String(64), nullable=False)
+    model_version: Mapped[str] = mapped_column(String(128), nullable=False)
+    status: Mapped[str] = mapped_column(String(16), nullable=False, default="draft")
+    training_dataset_version: Mapped[str] = mapped_column(String(128), nullable=False)
+    validation_dataset_version: Mapped[str] = mapped_column(String(128), nullable=False)
+    input_contract_version: Mapped[str] = mapped_column(String(128), nullable=False)
+    output_contract_version: Mapped[str] = mapped_column(String(128), nullable=False)
+    artifact_ref: Mapped[str | None] = mapped_column(String(128), nullable=True)
+    metrics_json: Mapped[str | None] = mapped_column(Text, nullable=True)
+    metrics_sha256: Mapped[str | None] = mapped_column(String(64), nullable=True)
+    created_by_ref: Mapped[str] = mapped_column(String(128), nullable=False)
+    approved_by_ref: Mapped[str | None] = mapped_column(String(128), nullable=True)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), nullable=False, default=utc_now
+    )
+    approved_at: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True), nullable=True
+    )
+    retired_at: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True), nullable=True
+    )
+
+
+class DBIAnalysisProfile(DBIBase):
+    """Asignación operativa de un modelo aprobado a un tenant y familia."""
+
+    __tablename__ = "dbi_analysis_profiles"
+    __table_args__ = (
+        ForeignKeyConstraint(
+            ["model_version_id", "model_family"],
+            ["dbi_model_versions.id", "dbi_model_versions.model_family"],
+            name="fk_dbi_analysis_profiles_model_family",
+            ondelete="RESTRICT",
+        ),
+        UniqueConstraint(
+            "tenant_ref",
+            "policy_ref",
+            name="uq_dbi_analysis_profiles_tenant_policy",
+        ),
+        CheckConstraint(
+            "role IN ('champion', 'challenger')",
+            name="ck_dbi_analysis_profiles_role",
+        ),
+        CheckConstraint(
+            "status IN ('active', 'retired')",
+            name="ck_dbi_analysis_profiles_status",
+        ),
+        CheckConstraint(
+            "tenant_ref ~ '^[A-Za-z0-9][A-Za-z0-9_-]{0,127}$'",
+            name="ck_dbi_analysis_profiles_tenant",
+        ),
+        CheckConstraint(
+            "model_family ~ '^[A-Za-z0-9][A-Za-z0-9_-]{0,63}$'",
+            name="ck_dbi_analysis_profiles_family",
+        ),
+        CheckConstraint(
+            "pipeline_config_version ~ '^[A-Za-z0-9][A-Za-z0-9_.-]{0,127}$'",
+            name="ck_dbi_analysis_profiles_pipeline",
+        ),
+        CheckConstraint(
+            "policy_ref ~ '^[A-Za-z0-9][A-Za-z0-9_-]{0,127}$'",
+            name="ck_dbi_analysis_profiles_policy",
+        ),
+        CheckConstraint(
+            "(status = 'active' AND retired_at IS NULL AND retired_by_ref IS NULL) OR "
+            "(status = 'retired' AND retired_at IS NOT NULL AND retired_by_ref IS NOT NULL)",
+            name="ck_dbi_analysis_profiles_lifecycle",
+        ),
+        Index("ix_dbi_analysis_profiles_tenant_family", "tenant_ref", "model_family"),
+        Index(
+            "uq_dbi_analysis_profiles_active_champion",
+            "tenant_ref",
+            "model_family",
+            unique=True,
+            postgresql_where=(
+                "role = 'champion' AND status = 'active'"
+            ),
+        ),
+    )
+
+    id: Mapped[UUID] = mapped_column(Uuid, primary_key=True, default=uuid4)
+    tenant_ref: Mapped[str] = mapped_column(String(128), nullable=False)
+    model_family: Mapped[str] = mapped_column(String(64), nullable=False)
+    model_version_id: Mapped[UUID] = mapped_column(Uuid, nullable=False)
+    pipeline_config_version: Mapped[str] = mapped_column(String(128), nullable=False)
+    policy_ref: Mapped[str] = mapped_column(String(128), nullable=False)
+    role: Mapped[str] = mapped_column(String(16), nullable=False, default="challenger")
+    status: Mapped[str] = mapped_column(String(16), nullable=False, default="active")
+    created_by_ref: Mapped[str] = mapped_column(String(128), nullable=False)
+    retired_by_ref: Mapped[str | None] = mapped_column(String(128), nullable=True)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), nullable=False, default=utc_now
+    )
+    retired_at: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True), nullable=True
+    )
