@@ -9,12 +9,16 @@ from typing import BinaryIO, Callable, ContextManager, Protocol
 from uuid import UUID
 
 
+MAX_STORAGE_RANGE_BYTES = 8 * 1024 * 1024
+
+
 class DBIStoragePurpose(StrEnum):
     """Namespaces funcionales admitidos por la frontera de objetos."""
 
     ANALYSIS_INPUT = "analysis-inputs"
     ANALYSIS_ARTIFACT = "analysis-artifacts"
     MODEL_ARTIFACT = "model-artifacts"
+    RASTER_PRODUCT = "raster-products"
     TECHNICAL_SOURCE = "technical-sources"
 
 
@@ -104,6 +108,20 @@ class DBIStorageWriteResult:
 
 
 @dataclass(frozen=True, slots=True)
+class DBIStorageRangeRead:
+    """Rango exacto de un objeto activo sin exponer ubicación del proveedor."""
+
+    record: DBIStorageObjectRecord
+    start: int
+    end_exclusive: int
+    data: bytes = field(repr=False)
+
+    @property
+    def length(self) -> int:
+        return self.end_exclusive - self.start
+
+
+@dataclass(frozen=True, slots=True)
 class DBIStorageTemporaryGrant:
     """Autorización efímera vinculada a metadatos verificables completos."""
 
@@ -144,6 +162,17 @@ class DBIPrivateObjectStore(Protocol):
         progress: Callable[[int], None] | None = None,
     ) -> DBIStorageObjectRecord:
         """Copia un objeto activo por streaming y verifica tamaño + SHA-256."""
+
+        ...
+
+    def read_range(
+        self,
+        address: DBIStorageAddress,
+        *,
+        start: int,
+        end_exclusive: int,
+    ) -> DBIStorageRangeRead:
+        """Lee un rango pequeño y exacto sin materializar el objeto completo."""
 
         ...
 
