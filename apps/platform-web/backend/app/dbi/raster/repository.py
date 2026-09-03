@@ -17,7 +17,7 @@ from app.dbi.raster.contracts import (
 
 
 class DBIRasterProductRepository:
-    """Repository corto: no commit, rollback, red, archivos ni Rasterio."""
+    """Repository corto y puro; sólo opera sobre la sesión recibida."""
 
     def __init__(self, session: Session) -> None:
         if not isinstance(session, Session):
