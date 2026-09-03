@@ -115,7 +115,6 @@ class DBIAnalysisResultIngestionService:
                 AnalysisJobAttempt.id == attempt_id,
                 AnalysisJobAttempt.job_id == job_id,
             )
-            .with_for_update()
         ).one_or_none()
         if row is None:
             raise DBIResultIngestionUnavailable("job/attempt no disponible.")
