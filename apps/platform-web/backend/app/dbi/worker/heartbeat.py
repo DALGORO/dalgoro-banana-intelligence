@@ -6,6 +6,7 @@ from datetime import datetime, timedelta, timezone
 from typing import Callable
 from uuid import UUID
 
+from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.orm import Session
 
 from app.dbi.delivery.contracts import DeliveryPersistenceConflict
@@ -71,9 +72,14 @@ class DBIWorkerLeaseHeartbeat:
                 lease_seconds=self._lease_seconds,
             )
             session.commit()
-        except DeliveryPersistenceConflict as error:
-            session.rollback()
-            raise DBIWorkerLeaseLost("se perdió el lease activo del comando.") from error
+        except (DeliveryPersistenceConflict, SQLAlchemyError) as error:
+            try:
+                session.rollback()
+            except SQLAlchemyError:
+                pass
+            raise DBIWorkerLeaseLost(
+                "no se pudo confirmar la propiedad activa del comando."
+            ) from error
         except BaseException:
             session.rollback()
             raise
