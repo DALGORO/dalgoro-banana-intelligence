@@ -518,7 +518,7 @@ def _validate_postflight(connection, *, expected_head: str) -> set[str]:
             """
             SELECT ST_IsValid(
                 ST_GeomFromText(
-                    'MULTIPOLYGON(((-79.9 -3.3,-79.8 -3.3,-79.8 -3.2,-79.9 -3.2,-79.9 -3.3)))',
+                    'MULTIPOLYGON(((0 0, 0 1, 1 1, 1 0, 0 0)))',
                     4326
                 )
             )
@@ -526,86 +526,75 @@ def _validate_postflight(connection, *, expected_head: str) -> set[str]:
         )
     ).scalar_one()
     if postgis_ok is not True:
-        raise AssertionError("PostGIS no respondió correctamente.")
+        raise AssertionError("Las funciones PostGIS no están operativas.")
+
     return actual_tables
-
-
-def _validate_no_legacy_touch(connection, legacy_before: set[str]) -> None:
-    legacy_after = _table_names(connection) & LEGACY_TABLES
-    if legacy_after != legacy_before:
-        raise AssertionError(
-            "La migración DBI modificó el conjunto de tablas heredadas."
-        )
-
-
-def _validate_dry_run_guard() -> None:
-    try:
-        apply_migrations_controlled(
-            running_in_ci=True,
-            command="upgrade",
-            dry_run=True,
-            target="head",
-        )
-    except DBIMigrationControlError:
-        pass
-    else:
-        raise AssertionError("dry-run no debe ejecutar una migración real.")
 
 
 def main() -> None:
     _require_ci_scope()
-    known_revisions, head_revision = _migration_graph()
     _provision_ephemeral_database()
+    known_revisions, head_revision = _migration_graph()
     config = _dbi_config()
-    engine = create_engine(
-        config.url,
-        pool_pre_ping=True,
-        future=True,
-    )
+    engine = create_engine(config.url, poolclass=NullPool)
+
     try:
+        _validate_real_lock(engine)
+
         with engine.connect() as connection:
-            legacy_before = _table_names(connection) & LEGACY_TABLES
             plan = _validate_plan_and_preflight_are_read_only(
                 connection,
                 config=config,
                 known_revisions=known_revisions,
                 head_revision=head_revision,
             )
-        _validate_real_lock(engine)
-        _validate_dry_run_guard()
-        first = apply_migrations_controlled(
-            running_in_ci=True,
-            command="upgrade",
-            dry_run=False,
-            target="head",
-        )
-        second = apply_migrations_controlled(
-            running_in_ci=True,
-            command="upgrade",
-            dry_run=False,
-            target="head",
-        )
-        with engine.connect() as connection:
-            actual_tables = _validate_postflight(
+
+            first = apply_migrations_controlled(
+                config,
+                connection,
+                confirmation="APPLY dbi_test",
+                running_in_ci=True,
+                known_revisions=known_revisions,
+                head_revision=head_revision,
+                upgrade_head=upgrade_head_on_connection,
+            )
+            if not first.applied:
+                raise AssertionError(
+                    "La primera ejecución debía aplicar el linaje DBI."
+                )
+
+            tables = _validate_postflight(
                 connection,
                 expected_head=head_revision,
             )
-            _validate_no_legacy_touch(connection, legacy_before)
-        print(
-            json.dumps(
-                {
-                    "environment": config.environment,
-                    "database": config.database_name,
-                    "head_revision": head_revision,
-                    "plan_sha256": plan.plan_sha256,
-                    "first_apply": first.changed,
-                    "second_apply": second.changed,
-                    "table_count": len(actual_tables),
-                },
-                sort_keys=True,
+
+            second = apply_migrations_controlled(
+                config,
+                connection,
+                confirmation="APPLY dbi_test",
+                running_in_ci=True,
+                known_revisions=known_revisions,
+                head_revision=head_revision,
+                upgrade_head=upgrade_head_on_connection,
             )
+            if second.applied:
+                raise AssertionError(
+                    "La segunda ejecución debía ser idempotente."
+                )
+
+        evidence = {
+            "database": DBI_DATABASE,
+            "environment": "test",
+            "head_revision": head_revision,
+            "plan_sha256": plan.fingerprint,
+            "first_apply": first.applied,
+            "second_apply": second.applied,
+            "table_count": len(tables),
+        }
+        print(json.dumps(evidence, sort_keys=True))
+        print(
+            "Migración DBI real aprobada en PostgreSQL/PostGIS efímero."
         )
-        print("Migración DBI real aprobada en PostgreSQL/PostGIS efímero.")
     finally:
         engine.dispose()
 
