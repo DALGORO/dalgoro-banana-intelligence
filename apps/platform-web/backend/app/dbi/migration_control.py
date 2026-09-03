@@ -48,6 +48,11 @@ DBI_WORKER_GITHUB_WORKFLOW_PATH: Final[str] = (
     ".github/workflows/dbi-worker-integration.yml"
 )
 DBI_WORKER_GITHUB_JOB: Final[str] = "dbi-worker-integration"
+DBI_RESULT_GITHUB_WORKFLOW: Final[str] = "DBI result integration"
+DBI_RESULT_GITHUB_WORKFLOW_PATH: Final[str] = (
+    ".github/workflows/dbi-result-integration.yml"
+)
+DBI_RESULT_GITHUB_JOB: Final[str] = "dbi-result-integration"
 DBI_AUTHORIZED_GITHUB_WORKFLOWS: Final[
     frozenset[tuple[str, str, str]]
 ] = frozenset(
@@ -81,6 +86,11 @@ DBI_AUTHORIZED_GITHUB_WORKFLOWS: Final[
             DBI_WORKER_GITHUB_WORKFLOW,
             DBI_WORKER_GITHUB_WORKFLOW_PATH,
             DBI_WORKER_GITHUB_JOB,
+        ),
+        (
+            DBI_RESULT_GITHUB_WORKFLOW,
+            DBI_RESULT_GITHUB_WORKFLOW_PATH,
+            DBI_RESULT_GITHUB_JOB,
         ),
     }
 )

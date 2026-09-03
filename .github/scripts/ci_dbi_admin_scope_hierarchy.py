@@ -28,7 +28,7 @@ from app.dbi.models.identity import DBIMembershipScope  # noqa: E402
 
 ORG_A = "organization-a"
 ORG_B = "organization-b"
-HEAD = "dbi_0013_model_registry"
+HEAD = "dbi_0014_analysis_results"
 HIERARCHY_REVISION = "dbi_0008_scope_hierarchy"
 DOWN_REVISION = "dbi_0007_admin_audit"
 EXPECTED_CONSTRAINTS = {

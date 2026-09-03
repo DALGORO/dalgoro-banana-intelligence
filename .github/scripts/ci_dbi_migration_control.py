@@ -33,7 +33,7 @@ from app.dbi.migration_preflight import (  # noqa: E402
     run_migration_preflight,
 )
 
-HEAD = "dbi_0013_model_registry"
+HEAD = "dbi_0014_analysis_results"
 KNOWN = {
     "dbi_0001_baseline",
     "dbi_0006_plot_boundaries",
@@ -42,6 +42,7 @@ KNOWN = {
     "dbi_0009_object_key_check",
     "dbi_0011_flight_manifest",
     "dbi_0012_durable_delivery",
+    "dbi_0013_model_registry",
     HEAD,
 }
 AUTHORIZED_RUNTIME = {
@@ -102,6 +103,15 @@ WORKER_AUTHORIZED_RUNTIME = {
         ".github/workflows/dbi-worker-integration.yml@refs/pull/74/merge"
     ),
     "GITHUB_JOB": "dbi-worker-integration",
+}
+RESULT_AUTHORIZED_RUNTIME = {
+    **AUTHORIZED_RUNTIME,
+    "GITHUB_WORKFLOW": "DBI result integration",
+    "GITHUB_WORKFLOW_REF": (
+        "DALGORO/dalgoro-banana-intelligence/"
+        ".github/workflows/dbi-result-integration.yml@refs/pull/76/merge"
+    ),
+    "GITHUB_JOB": "dbi-result-integration",
 }
 
 
@@ -266,6 +276,7 @@ def validate_authorized_runtime() -> None:
         DELIVERY_AUTHORIZED_RUNTIME,
         MODEL_REGISTRY_AUTHORIZED_RUNTIME,
         WORKER_AUTHORIZED_RUNTIME,
+        RESULT_AUTHORIZED_RUNTIME,
     )
     assert len(DBI_AUTHORIZED_GITHUB_WORKFLOWS) == len(authorized_runtimes)
 
@@ -346,6 +357,7 @@ def validate_offline_plan() -> None:
     assert "dbi_pipeline_config_versions" in first.sql
     assert "dbi_analysis_profiles" in first.sql
     assert "dbi_model_governance_events" in first.sql
+    assert "dbi_analysis_results" in first.sql
     assert "uq_dbi_analysis_job_attempts_id_job" in first.sql
     assert "uq_dbi_delivery_messages_stream_attempt" in first.sql
     assert "ix_dbi_delivery_messages_claim" in first.sql

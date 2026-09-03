@@ -181,6 +181,18 @@ class DBIWorkerRepository:
                 if attempt.started_at is None
                 else _utc(attempt.started_at, field_name="attempt.started_at")
             )
+            if (
+                attempt.pipeline_build_ref is not None
+                and attempt.pipeline_build_ref != pipeline_build_ref
+            ):
+                raise DBIWorkerConflict(
+                    "un attempt cancelado no puede declarar otro pipeline build."
+                )
+            attempt.worker_ref = worker_ref
+            if attempt.pipeline_build_ref is None:
+                attempt.pipeline_build_ref = pipeline_build_ref
+            attempt.updated_at = started
+            self._session.flush()
             return WorkerStartDecision(
                 disposition=WorkerStartDisposition.CANCEL_BEFORE_START,
                 started_at=effective_started,
