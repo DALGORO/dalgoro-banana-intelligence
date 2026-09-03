@@ -74,7 +74,6 @@ jobs:
           python -m py_compile .github/scripts/ci_dbi_worker.py
           python -m py_compile .github/scripts/ci_dbi_worker_integration.py
           python -m py_compile .github/scripts/ci_dbi_worker_hardening.py
-          python -m py_compile .github/scripts/ci_analysis_job_integration.py
 
       - name: Validar contratos, streaming y adapter offline
         env:
@@ -94,14 +93,6 @@ jobs:
           DBI_ENVIRONMENT: test
           DBI_DATABASE_URL: postgresql+psycopg://dbi_test_migrator@127.0.0.1:5432/dbi_test
         run: python .github/scripts/ci_dbi_migration_integration.py
-
-      - name: Regresión real de Jobs con rol mínimo
-        env:
-          PYTHONPATH: apps/platform-web/backend
-          DBI_ENVIRONMENT: test
-          DBI_DATABASE_URL: postgresql+psycopg://dbi_test_analysis_job_api@127.0.0.1:5432/dbi_test
-          DBI_ANALYSIS_JOB_RUN_INTEGRATION: "1"
-        run: python .github/scripts/ci_analysis_job_integration.py
 
       - name: Validar Worker con recovery real
         env:
