@@ -1,0 +1,40 @@
+name: DBI raster COG integration
+
+on:
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  raster-cog:
+    name: DBI · COG sintético RGB y científico
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - name: Descargar código
+        uses: actions/checkout@9f698171ed81b15d1823a05fc7211befd50c8ae0
+
+      - name: Configurar Python
+        uses: actions/setup-python@ece7cb06caefa5fff74198d8649806c4678c61a1
+        with:
+          python-version: "3.11"
+          cache: pip
+          cache-dependency-path: services/banana-density/requirements.txt
+
+      - name: Instalar Rasterio controlado
+        run: python -m pip install rasterio==1.4.4
+
+      - name: Compilar frontera Raster
+        run: |
+          python -m py_compile services/banana-density/src/banana_analyzer/raster_cog.py
+          python -m py_compile services/banana-density/flight_test_cog.py
+          python -m py_compile .github/scripts/ci_dbi_raster_cog.py
+
+      - name: Validar COG sintético real
+        run: python .github/scripts/ci_dbi_raster_cog.py
+
+      - name: Validar CLI de primera ortofoto
+        run: python services/banana-density/flight_test_cog.py --help
