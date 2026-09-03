@@ -1,10 +1,11 @@
-"""Endurece ACL y recuperación de artefactos para DBI-WORKER-001."""
+"""Endurece ACL, proceso hijo y recuperación para DBI-WORKER-001."""
 
 from __future__ import annotations
 
 import os
 import sys
 import tempfile
+import time
 from datetime import timedelta
 from pathlib import Path
 from uuid import UUID
@@ -24,7 +25,14 @@ from app.dbi.storage_contracts import (  # noqa: E402
     DBIStorageIntegrityError,
     DBIStoragePurpose,
 )
-from app.dbi.worker.contracts import DBIWorkerFailureCode  # noqa: E402
+from app.dbi.worker.contracts import (  # noqa: E402
+    DBIWorkerFailureCode,
+    DBIWorkerLeaseLost,
+)
+from app.dbi.worker.pipeline_adapter import (  # noqa: E402
+    DBILegacyPipelineAdapter,
+    _build_child_environment,
+)
 from app.dbi.worker.service import DBIAnalysisWorkerService  # noqa: E402
 from app.schemas.dbi_analysis_jobs import AnalysisJobResult  # noqa: E402
 from ci_dbi_worker_integration import (  # noqa: E402
@@ -129,6 +137,55 @@ def validate_minimal_acl() -> None:
     )
 
 
+def validate_process_boundary() -> None:
+    source = {
+        "PATH": os.environ.get("PATH", ""),
+        "CUDA_VISIBLE_DEVICES": "0",
+        "DBI_DATABASE_URL": "postgresql://secret",
+        "AWS_SECRET_ACCESS_KEY": "secret",
+        "GOOGLE_APPLICATION_CREDENTIALS": "/secret/cloud.json",
+        "GREEN_API_TOKEN": "secret",
+        "CUSTOM_API_KEY": "secret",
+        "CUSTOM_PASSWORD": "secret",
+    }
+    child = _build_child_environment(source)
+    assert child["PATH"] == source["PATH"]
+    assert child["CUDA_VISIBLE_DEVICES"] == "0"
+    assert child["PYTHONUTF8"] == "1"
+    assert child["PYTHONIOENCODING"] == "utf-8"
+    for forbidden in (
+        "DBI_DATABASE_URL",
+        "AWS_SECRET_ACCESS_KEY",
+        "GOOGLE_APPLICATION_CREDENTIALS",
+        "GREEN_API_TOKEN",
+        "CUSTOM_API_KEY",
+        "CUSTOM_PASSWORD",
+    ):
+        assert forbidden not in child
+
+    adapter = DBILegacyPipelineAdapter(poll_seconds=0.01)
+    with tempfile.TemporaryDirectory() as temporary:
+        log_path = Path(temporary) / "lease-loss.log"
+        started = time.monotonic()
+        try:
+            adapter._run_child(
+                command=[
+                    sys.executable,
+                    "-c",
+                    "import time; time.sleep(30)",
+                ],
+                log_path=log_path,
+                heartbeat=lambda: (_ for _ in ()).throw(
+                    DBIWorkerLeaseLost("synthetic lease loss")
+                ),
+            )
+        except DBIWorkerLeaseLost:
+            pass
+        else:
+            raise AssertionError("pérdida de lease debía abandonar el proceso hijo.")
+        assert time.monotonic() - started < 5.0
+
+
 class FailingArtifactStore:
     """Falla durante el tercer artefacto y delega todo lo demás al store real."""
 
@@ -209,6 +266,7 @@ def validate_partial_artifact_failure(factory, temporary: str) -> None:
 
 def main() -> None:
     _require_scope()
+    validate_process_boundary()
     restrict_worker_role_to_operational_columns()
     validate_minimal_acl()
     engine, factory = _engine_and_factory()
@@ -218,7 +276,7 @@ def main() -> None:
     finally:
         engine.dispose()
     print(
-        "DBI-WORKER-001 hardening aprobado: ACL por columna y fallo de artefactos seguro."
+        "DBI-WORKER-001 hardening aprobado: proceso aislado, ACL por columna y artefactos seguros."
     )
 
 
