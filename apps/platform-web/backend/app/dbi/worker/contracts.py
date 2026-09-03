@@ -19,6 +19,10 @@ class DBIWorkerConflict(RuntimeError):
     """El estado o contrato recibido no permite una ejecución segura."""
 
 
+class DBIWorkerLeaseLost(DBIWorkerConflict):
+    """El proceso dejó de ser propietario del comando; debe abandonar sin ACK."""
+
+
 class DBIWorkerUnavailable(LookupError):
     """Un recurso congelado del comando no está disponible."""
 
