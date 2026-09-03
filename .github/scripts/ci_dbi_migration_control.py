@@ -46,10 +46,10 @@ AUTHORIZED_RUNTIME = {
     "GITHUB_ACTIONS": "true",
     "CI": "true",
     "GITHUB_SERVER_URL": "https://github.com",
-    "GITHUB_REPOSITORY": "dalgorosas/dalgoro-banana-intelligence",
+    "GITHUB_REPOSITORY": "DALGORO/dalgoro-banana-intelligence",
     "GITHUB_WORKFLOW": "DBI migrations integration",
     "GITHUB_WORKFLOW_REF": (
-        "dalgorosas/dalgoro-banana-intelligence/"
+        "DALGORO/dalgoro-banana-intelligence/"
         ".github/workflows/dbi-migration-integration.yml@refs/pull/48/merge"
     ),
     "GITHUB_JOB": "dbi-postgis-integration",
@@ -60,10 +60,19 @@ ASSET_AUTHORIZED_RUNTIME = {
     **AUTHORIZED_RUNTIME,
     "GITHUB_WORKFLOW": "DBI asset integration",
     "GITHUB_WORKFLOW_REF": (
-        "dalgorosas/dalgoro-banana-intelligence/"
+        "DALGORO/dalgoro-banana-intelligence/"
         ".github/workflows/dbi-asset-integration.yml@refs/pull/54/merge"
     ),
     "GITHUB_JOB": "dbi-asset-integration",
+}
+ANALYSIS_JOB_AUTHORIZED_RUNTIME = {
+    **AUTHORIZED_RUNTIME,
+    "GITHUB_WORKFLOW": "DBI analysis job integration",
+    "GITHUB_WORKFLOW_REF": (
+        "DALGORO/dalgoro-banana-intelligence/"
+        ".github/workflows/dbi-analysis-job-integration.yml@refs/pull/59/merge"
+    ),
+    "GITHUB_JOB": "dbi-analysis-job-integration",
 }
 
 
@@ -224,8 +233,9 @@ def validate_authorized_runtime() -> None:
     authorized_runtimes = (
         AUTHORIZED_RUNTIME,
         ASSET_AUTHORIZED_RUNTIME,
+        ANALYSIS_JOB_AUTHORIZED_RUNTIME,
     )
-    assert len(DBI_AUTHORIZED_GITHUB_WORKFLOWS) == 2
+    assert len(DBI_AUTHORIZED_GITHUB_WORKFLOWS) == len(authorized_runtimes)
 
     for authorized in authorized_runtimes:
         for event_name in ("pull_request", "push", "workflow_dispatch"):
@@ -245,18 +255,18 @@ def validate_authorized_runtime() -> None:
             is False
         )
 
-    for original, other in (
-        (AUTHORIZED_RUNTIME, ASSET_AUTHORIZED_RUNTIME),
-        (ASSET_AUTHORIZED_RUNTIME, AUTHORIZED_RUNTIME),
-    ):
-        for field in (
-            "GITHUB_WORKFLOW",
-            "GITHUB_WORKFLOW_REF",
-            "GITHUB_JOB",
-        ):
-            mixed = dict(original)
-            mixed[field] = other[field]
-            assert is_authorized_github_actions_runtime(mixed) is False
+    for original in authorized_runtimes:
+        for other in authorized_runtimes:
+            if original is other:
+                continue
+            for field in (
+                "GITHUB_WORKFLOW",
+                "GITHUB_WORKFLOW_REF",
+                "GITHUB_JOB",
+            ):
+                mixed = dict(original)
+                mixed[field] = other[field]
+                assert is_authorized_github_actions_runtime(mixed) is False
 
 
 def validate_confirmation() -> None:
