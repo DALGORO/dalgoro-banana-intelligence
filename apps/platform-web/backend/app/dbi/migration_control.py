@@ -17,7 +17,7 @@ from app.db.dbi_config import DBI_DATABASE_NAMES, DBIDatabaseConfig
 DBI_MIGRATION_LOCK_NAMESPACE: Final[str] = "dalgoro-dbi-migrations-v1"
 DBI_CI_ENVIRONMENT: Final[str] = "test"
 DBI_PRODUCTION_ENVIRONMENT: Final[str] = "production"
-DBI_GITHUB_REPOSITORY: Final[str] = "dalgorosas/dalgoro-banana-intelligence"
+DBI_GITHUB_REPOSITORY: Final[str] = "DALGORO/dalgoro-banana-intelligence"
 DBI_GITHUB_WORKFLOW: Final[str] = "DBI migrations integration"
 DBI_GITHUB_WORKFLOW_PATH: Final[str] = (
     ".github/workflows/dbi-migration-integration.yml"
@@ -28,6 +28,11 @@ DBI_ASSET_GITHUB_WORKFLOW_PATH: Final[str] = (
     ".github/workflows/dbi-asset-integration.yml"
 )
 DBI_ASSET_GITHUB_JOB: Final[str] = "dbi-asset-integration"
+DBI_ANALYSIS_JOB_GITHUB_WORKFLOW: Final[str] = "DBI analysis job integration"
+DBI_ANALYSIS_JOB_GITHUB_WORKFLOW_PATH: Final[str] = (
+    ".github/workflows/dbi-analysis-job-integration.yml"
+)
+DBI_ANALYSIS_JOB_GITHUB_JOB: Final[str] = "dbi-analysis-job-integration"
 DBI_AUTHORIZED_GITHUB_WORKFLOWS: Final[
     frozenset[tuple[str, str, str]]
 ] = frozenset(
@@ -41,6 +46,11 @@ DBI_AUTHORIZED_GITHUB_WORKFLOWS: Final[
             DBI_ASSET_GITHUB_WORKFLOW,
             DBI_ASSET_GITHUB_WORKFLOW_PATH,
             DBI_ASSET_GITHUB_JOB,
+        ),
+        (
+            DBI_ANALYSIS_JOB_GITHUB_WORKFLOW,
+            DBI_ANALYSIS_JOB_GITHUB_WORKFLOW_PATH,
+            DBI_ANALYSIS_JOB_GITHUB_JOB,
         ),
     }
 )

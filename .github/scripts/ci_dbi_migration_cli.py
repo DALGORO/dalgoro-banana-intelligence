@@ -72,10 +72,10 @@ def _ci_environment(url: str = TEST_URL):
         "GITHUB_ACTIONS": "true",
         "CI": "true",
         "GITHUB_SERVER_URL": "https://github.com",
-        "GITHUB_REPOSITORY": "dalgorosas/dalgoro-banana-intelligence",
+        "GITHUB_REPOSITORY": "DALGORO/dalgoro-banana-intelligence",
         "GITHUB_WORKFLOW": "DBI migrations integration",
         "GITHUB_WORKFLOW_REF": (
-            "dalgorosas/dalgoro-banana-intelligence/"
+            "DALGORO/dalgoro-banana-intelligence/"
             ".github/workflows/dbi-migration-integration.yml@refs/pull/48/merge"
         ),
         "GITHUB_JOB": "dbi-postgis-integration",
