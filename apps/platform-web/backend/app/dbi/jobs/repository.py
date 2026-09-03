@@ -133,13 +133,13 @@ class DBIAnalysisJobRepository:
         farm_id: UUID,
         plot_id: UUID,
     ) -> None:
-        """Valida pertenencia exacta de finca y lote sin elevar privilegios."""
+        """Valida pertenencia exacta de finca y lote sin cargar su geometría."""
 
         organization = _required_ref(organization_ref, field_name="organization_ref")
         farm = _required_uuid(farm_id, field_name="farm_id")
         plot = _required_uuid(plot_id, field_name="plot_id")
-        row = self._session.execute(
-            select(Plot)
+        row_id = self._session.execute(
+            select(Plot.id)
             .join(Farm, Plot.farm_id == Farm.id)
             .where(
                 Farm.organization_ref == organization,
@@ -148,7 +148,7 @@ class DBIAnalysisJobRepository:
                 Plot.farm_id == farm,
             )
         ).scalar_one_or_none()
-        if row is None:
+        if row_id is None:
             raise AnalysisJobResourceUnavailable("lote no disponible.")
 
     def require_campaign(
@@ -163,8 +163,8 @@ class DBIAnalysisJobRepository:
         organization = _required_ref(organization_ref, field_name="organization_ref")
         farm = _required_uuid(farm_id, field_name="farm_id")
         campaign = _required_uuid(campaign_id, field_name="campaign_id")
-        row = self._session.execute(
-            select(Campaign)
+        row_id = self._session.execute(
+            select(Campaign.id)
             .join(Farm, Campaign.farm_id == Farm.id)
             .where(
                 Farm.organization_ref == organization,
@@ -172,7 +172,7 @@ class DBIAnalysisJobRepository:
                 Campaign.farm_id == farm,
             )
         ).scalar_one_or_none()
-        if row is None:
+        if row_id is None:
             raise AnalysisJobResourceUnavailable("campaña no disponible.")
 
     def require_verified_asset(
@@ -191,8 +191,8 @@ class DBIAnalysisJobRepository:
         plot = _required_uuid(plot_id, field_name="plot_id")
         asset = _required_uuid(asset_id, field_name="asset_id")
         kind = _required_ref(asset_kind, field_name="asset_kind")
-        row = self._session.execute(
-            select(AnalysisInputAsset)
+        row_id = self._session.execute(
+            select(AnalysisInputAsset.id)
             .where(
                 AnalysisInputAsset.id == asset,
                 AnalysisInputAsset.tenant_ref == tenant,
@@ -203,7 +203,7 @@ class DBIAnalysisJobRepository:
             )
             .with_for_update()
         ).scalar_one_or_none()
-        if row is None:
+        if row_id is None:
             raise AnalysisJobResourceUnavailable("activo no disponible.")
 
     def get_by_request_for_update(
