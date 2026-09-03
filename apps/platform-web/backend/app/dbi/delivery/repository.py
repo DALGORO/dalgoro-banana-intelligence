@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import re
 from datetime import datetime, timedelta, timezone
 from uuid import UUID, uuid4
 
@@ -20,6 +21,8 @@ from app.dbi.delivery.contracts import (
     PreparedDeliveryPayload,
 )
 from app.dbi.models.delivery import DBIDeliveryMessage
+
+_ERROR_CODE_PATTERN = re.compile(r"^[A-Za-z0-9][A-Za-z0-9_-]{0,63}$")
 
 
 def _utc(value: datetime, *, field_name: str) -> datetime:
@@ -48,7 +51,7 @@ def _ref(value: str, *, field_name: str) -> str:
 
 def _error_code(value: str) -> str:
     normalized = _ref(value, field_name="error_code")
-    if len(normalized) > 64 or not normalized.replace("-", "_").replace("_", "a").isalnum():
+    if _ERROR_CODE_PATTERN.fullmatch(normalized) is None:
         raise DeliveryPersistenceConflict("error_code no es canónico.")
     return normalized
 
