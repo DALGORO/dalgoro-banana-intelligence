@@ -21,7 +21,7 @@ sys.path.insert(0, str(BACKEND))
 from app.dbi import migration_cli  # noqa: E402
 from app.dbi.migration_control import validate_migration_target  # noqa: E402
 
-HEAD = "dbi_0012_durable_delivery"
+HEAD = "dbi_0013_model_registry"
 TEST_URL = (
     "postgresql+psycopg://dbi_test_migrator:placeholder@"
     "127.0.0.1:5432/dbi_test"
@@ -156,6 +156,10 @@ def validate_plan_sql_output() -> None:
         assert "geometry(multipolygon,4326)" in "".join(sql_text.split())
         assert "dbi_admin_audit_events" in sql_text
         assert "dbi_delivery_messages" in sql_text
+        assert "dbi_model_versions" in sql_text
+        assert "dbi_pipeline_config_versions" in sql_text
+        assert "dbi_analysis_profiles" in sql_text
+        assert "dbi_model_governance_events" in sql_text
         for constraint_name in (
             "uq_dbi_farms_id_organization",
             "uq_dbi_plots_id_farm",
