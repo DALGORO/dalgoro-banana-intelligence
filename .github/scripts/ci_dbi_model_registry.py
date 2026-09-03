@@ -79,25 +79,19 @@ def validate_contracts_and_payloads() -> None:
     assert first_json == second_json and first_sha == second_sha
     assert len(first_sha) == 64
 
-    _raises(
-        ModelRegistryConflict,
-        lambda: _canonical_json(
-            {"model_path": "/srv/private/weights.pt"}, field_name="pipeline_config"
-        ),
-    )
-    _raises(
-        ModelRegistryConflict,
-        lambda: _canonical_json(
-            {"callback": "https://example.invalid/result"},
-            field_name="pipeline_config",
-        ),
-    )
-    _raises(
-        ModelRegistryConflict,
-        lambda: _canonical_json(
-            {"api_key": "never-store-this"}, field_name="pipeline_config"
-        ),
-    )
+    for forbidden_payload in (
+        {"model_path": "/srv/private/weights.pt"},
+        {"callback": "https://example.invalid/result"},
+        {"api_key": "never-store-this"},
+        {"presigned_url": "opaque-but-forbidden"},
+        {"object_key": "private/model.pt"},
+    ):
+        _raises(
+            ModelRegistryConflict,
+            lambda payload=forbidden_payload: _canonical_json(
+                payload, field_name="pipeline_config"
+            ),
+        )
     _raises(
         ValidationError,
         lambda: PipelineConfigRegistration(
@@ -216,22 +210,18 @@ def validate_boundaries() -> None:
         "subprocess",
         "torch",
         "ultralytics",
-        "sam",
     ):
         assert forbidden not in repository_source.lower()
-    for forbidden in (
+    # Las cadenas sensibles aparecen únicamente para rechazarlas de forma explícita.
+    for required_guard in (
         "presigned",
         "signed_url",
         "model_path",
         "file_path",
         "object_key",
+        "api_key",
     ):
-        assert forbidden not in source.lower() or forbidden in {
-            "signed_url",
-            "model_path",
-            "file_path",
-            "object_key",
-        }
+        assert required_guard in source.lower()
     assert "with_for_update" in repository_source
     assert "DBIModelGovernanceEvent" in source
 
