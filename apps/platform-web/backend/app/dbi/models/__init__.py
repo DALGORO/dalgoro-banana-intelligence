@@ -23,7 +23,12 @@ from app.dbi.models.identity import (
     DBIPrincipal,
     DBIPrincipalStatus,
 )
-from app.dbi.models.model_registry import DBIAnalysisProfile, DBIModelVersion
+from app.dbi.models.model_registry import (
+    DBIAnalysisProfile,
+    DBIModelGovernanceEvent,
+    DBIModelVersion,
+    DBIPipelineConfigVersion,
+)
 
 __all__ = [
     "AnalysisArtifact",
@@ -46,7 +51,9 @@ __all__ = [
     "DBIMembershipScope",
     "DBIMembershipScopeType",
     "DBIMembershipStatus",
+    "DBIModelGovernanceEvent",
     "DBIModelVersion",
+    "DBIPipelineConfigVersion",
     "DBIPrincipal",
     "DBIPrincipalStatus",
     "Farm",
