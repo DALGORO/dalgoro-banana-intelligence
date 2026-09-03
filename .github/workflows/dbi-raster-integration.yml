@@ -39,6 +39,7 @@ jobs:
           python -m py_compile apps/platform-web/backend/app/dbi/raster/manifest.py
           python -m py_compile apps/platform-web/backend/app/dbi/raster/repository.py
           python -m py_compile apps/platform-web/backend/app/dbi/raster/service.py
+          python -m py_compile apps/platform-web/backend/app/dbi/raster/reader.py
           python -m py_compile .github/scripts/ci_dbi_raster_cog.py
           python -m py_compile .github/scripts/ci_dbi_raster_contracts.py
 
@@ -94,6 +95,7 @@ jobs:
           python -m py_compile apps/platform-web/backend/app/dbi/models/raster_products.py
           python -m py_compile apps/platform-web/backend/dbi_alembic/versions/20260903_15_raster_products.py
           python -m py_compile .github/scripts/ci_dbi_raster_integration.py
+          python -m py_compile .github/scripts/ci_dbi_raster_range_integration.py
 
       - name: Aplicar migraciones en PostGIS efímero
         env:
@@ -109,3 +111,11 @@ jobs:
           DBI_DATABASE_URL: postgresql+psycopg://dbi_test_raster@127.0.0.1:5432/dbi_test
           DBI_RASTER_RUN_INTEGRATION: "1"
         run: python .github/scripts/ci_dbi_raster_integration.py
+
+      - name: Validar lectura parcial del COG registrado
+        env:
+          PYTHONPATH: apps/platform-web/backend:.github/scripts
+          DBI_ENVIRONMENT: test
+          DBI_DATABASE_URL: postgresql+psycopg://dbi_test_raster@127.0.0.1:5432/dbi_test
+          DBI_RASTER_RUN_INTEGRATION: "1"
+        run: python .github/scripts/ci_dbi_raster_range_integration.py
