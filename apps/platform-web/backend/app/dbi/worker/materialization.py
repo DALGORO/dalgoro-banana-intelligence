@@ -7,6 +7,7 @@ import shutil
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Callable
+from uuid import UUID
 
 from app.dbi.storage_contracts import DBIPrivateObjectStore
 from app.dbi.storage_policy import DBIStoragePolicy
@@ -79,9 +80,15 @@ class DBIWorkerWorkspaceManager:
             raise ValueError("root del worker debe ser absoluto.")
         self._root = candidate
 
+    def _attempt_root(self, *, tenant_ref: str, attempt_id: UUID) -> Path:
+        namespace = DBIStoragePolicy.tenant_namespace(tenant_ref)
+        return self._root / namespace / str(attempt_id)
+
     def prepare(self, plan: ResolvedAnalysisPlan) -> DBIWorkerWorkspace:
-        namespace = DBIStoragePolicy.tenant_namespace(plan.tenant_ref)
-        attempt_root = self._root / namespace / str(plan.attempt_id)
+        attempt_root = self._attempt_root(
+            tenant_ref=plan.tenant_ref,
+            attempt_id=plan.attempt_id,
+        )
         _safe_remove_tree(attempt_root)
         attempt_root.mkdir(parents=True, mode=0o700, exist_ok=False)
 
@@ -151,3 +158,10 @@ class DBIWorkerWorkspaceManager:
 
     def cleanup(self, workspace: DBIWorkerWorkspace) -> None:
         _safe_remove_tree(workspace.root)
+
+    def cleanup_identity(self, *, tenant_ref: str, attempt_id: UUID) -> None:
+        """Elimina residuos de replay/crash sin requerir reconstruir un workspace."""
+
+        _safe_remove_tree(
+            self._attempt_root(tenant_ref=tenant_ref, attempt_id=attempt_id)
+        )
