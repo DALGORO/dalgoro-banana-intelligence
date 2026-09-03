@@ -73,6 +73,7 @@ jobs:
           python -m py_compile apps/platform-web/backend/app/dbi/storage_s3.py
           python -m py_compile .github/scripts/ci_dbi_worker.py
           python -m py_compile .github/scripts/ci_dbi_worker_integration.py
+          python -m py_compile .github/scripts/ci_dbi_worker_hardening.py
 
       - name: Validar contratos, streaming y adapter offline
         env:
@@ -93,10 +94,18 @@ jobs:
           DBI_DATABASE_URL: postgresql+psycopg://dbi_test_migrator@127.0.0.1:5432/dbi_test
         run: python .github/scripts/ci_dbi_migration_integration.py
 
-      - name: Validar Worker con rol mínimo y recovery real
+      - name: Validar Worker con recovery real
         env:
           PYTHONPATH: apps/platform-web/backend
           DBI_ENVIRONMENT: test
           DBI_DATABASE_URL: postgresql+psycopg://dbi_test_worker@127.0.0.1:5432/dbi_test
           DBI_WORKER_RUN_INTEGRATION: "1"
         run: python .github/scripts/ci_dbi_worker_integration.py
+
+      - name: Endurecer rol mínimo y fallo parcial de artefactos
+        env:
+          PYTHONPATH: apps/platform-web/backend
+          DBI_ENVIRONMENT: test
+          DBI_DATABASE_URL: postgresql+psycopg://dbi_test_worker@127.0.0.1:5432/dbi_test
+          DBI_WORKER_RUN_INTEGRATION: "1"
+        run: python .github/scripts/ci_dbi_worker_hardening.py
