@@ -8,6 +8,12 @@ from uuid import UUID, uuid4
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
+from app.dbi.authorization import (
+    DBIAccessContext,
+    DBIAccessDenied,
+    DBIAuthorizationPolicy,
+    DBIPermission,
+)
 from app.dbi.delivery.contracts import (
     AnalysisCommandEnqueueEvidence,
     DeliveryEnvelope,
@@ -17,6 +23,7 @@ from app.dbi.delivery.contracts import (
     prepare_delivery_payload,
 )
 from app.dbi.delivery.repository import DBIDeliveryRepository
+from app.dbi.jobs.persistence_contracts import AnalysisJobResourceUnavailable
 from app.dbi.jobs.service_contracts import contract_sha256
 from app.dbi.jobs.state_machine import (
     AnalysisJobStatus,
@@ -105,6 +112,62 @@ class DBIAnalysisDeliveryService:
             raise DeliveryPersistenceConflict("session debe ser Session.")
         self._session = session
         self._delivery = DBIDeliveryRepository(session)
+
+    def enqueue_authorized_analysis_command(
+        self,
+        context: DBIAccessContext,
+        *,
+        organization_ref: str,
+        farm_id: UUID,
+        job_id: UUID,
+        queued_at: datetime,
+        retry_authorized: bool = False,
+        max_deliveries: int = 5,
+    ) -> AnalysisCommandEnqueueEvidence:
+        """Autoriza finca/lote antes de materializar la entrega durable."""
+
+        if not isinstance(context, DBIAccessContext):
+            raise DBIAccessDenied()
+        organization = _ref(organization_ref, field_name="organization_ref")
+        farm = _uuid(farm_id, field_name="farm_id")
+        job = _uuid(job_id, field_name="job_id")
+
+        # Primera lectura sólo después de autorizar la finca del actor.
+        DBIAuthorizationPolicy.require_farm(
+            context,
+            tenant_ref=context.tenant_ref,
+            organization_ref=organization,
+            farm_id=farm,
+            permission=DBIPermission.SUBMIT_ANALYSIS,
+        )
+        plot_id = self._session.execute(
+            select(AnalysisJob.plot_id)
+            .where(
+                AnalysisJob.id == job,
+                AnalysisJob.tenant_ref == context.tenant_ref,
+                AnalysisJob.farm_id == farm,
+            )
+            .with_for_update()
+        ).scalar_one_or_none()
+        if plot_id is None:
+            raise AnalysisJobResourceUnavailable("trabajo no disponible.")
+
+        DBIAuthorizationPolicy.require_plot(
+            context,
+            tenant_ref=context.tenant_ref,
+            organization_ref=organization,
+            farm_id=farm,
+            plot_id=plot_id,
+            permission=DBIPermission.SUBMIT_ANALYSIS,
+        )
+        return self.enqueue_analysis_command(
+            tenant_ref=context.tenant_ref,
+            farm_id=farm,
+            job_id=job,
+            queued_at=queued_at,
+            retry_authorized=retry_authorized,
+            max_deliveries=max_deliveries,
+        )
 
     def enqueue_analysis_command(
         self,
