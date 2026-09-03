@@ -373,7 +373,6 @@ def validate_offline_plan() -> None:
     assert "example.invalid" not in first.sql
     assert "postgresql+psycopg://" not in first.sql
 
-    assert os.environ.get(DBI_ENVIRONMENT_URL_ENV_VAR) == previous_url if False else True
     assert os.environ.get(DBI_ENVIRONMENT_ENV_VAR) == previous_environment
     assert os.environ.get(DBI_DATABASE_URL_ENV_VAR) == previous_url
 
