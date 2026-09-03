@@ -11,6 +11,7 @@ from uuid import UUID
 from pydantic import AwareDatetime, BaseModel, ConfigDict, Field, model_validator
 
 from app.dbi.jobs.service_contracts import canonical_contract_bytes
+from app.dbi.jobs.state_machine import AnalysisJobStatus
 from app.schemas.dbi_analysis_jobs import (
     ANALYSIS_JOB_COMMAND_SCHEMA_VERSION,
     ANALYSIS_JOB_RESULT_SCHEMA_VERSION,
@@ -43,6 +44,14 @@ class DeliveryMessageStatus(StrEnum):
 
 class DeliveryContractError(ValueError):
     """El contrato de entrega no satisface sus invariantes."""
+
+
+class DeliveryPersistenceConflict(RuntimeError):
+    """El estado persistido no permite la operación solicitada."""
+
+
+class DeliveryMessageUnavailable(LookupError):
+    """El mensaje solicitado no existe o no está disponible."""
 
 
 class _StrictDeliveryModel(BaseModel):
@@ -151,6 +160,29 @@ class DeliveryTransitionEvidence(_StrictDeliveryModel):
     status: DeliveryMessageStatus
     changed: bool
     delivery_count: int = Field(ge=0, le=100)
+
+
+class AnalysisCommandEnqueueEvidence(_StrictDeliveryModel):
+    """Prueba atómica de intento, mensaje y transición global a queued."""
+
+    job_id: UUID
+    attempt_id: UUID
+    attempt_number: int = Field(gt=0)
+    job_status: AnalysisJobStatus
+    message: DeliveryEnvelope
+    created: bool
+
+    @model_validator(mode="after")
+    def validate_enqueue(self) -> "AnalysisCommandEnqueueEvidence":
+        if self.job_status is not AnalysisJobStatus.QUEUED:
+            raise ValueError("el trabajo encolado debe quedar queued.")
+        if self.message.stream is not DeliveryStream.ANALYSIS_COMMAND:
+            raise ValueError("el encolado de análisis exige stream de comando.")
+        if self.message.job_id != self.job_id:
+            raise ValueError("message.job_id no coincide con job_id.")
+        if self.message.attempt_id != self.attempt_id:
+            raise ValueError("message.attempt_id no coincide con attempt_id.")
+        return self
 
 
 def _schema_for_stream(stream: DeliveryStream) -> str:
