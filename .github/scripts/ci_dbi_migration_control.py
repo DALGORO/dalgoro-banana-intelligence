@@ -33,7 +33,7 @@ from app.dbi.migration_preflight import (  # noqa: E402
     run_migration_preflight,
 )
 
-HEAD = "dbi_0012_durable_delivery"
+HEAD = "dbi_0013_model_registry"
 KNOWN = {
     "dbi_0001_baseline",
     "dbi_0006_plot_boundaries",
@@ -41,6 +41,7 @@ KNOWN = {
     "dbi_0008_scope_hierarchy",
     "dbi_0009_object_key_check",
     "dbi_0011_flight_manifest",
+    "dbi_0012_durable_delivery",
     HEAD,
 }
 AUTHORIZED_RUNTIME = {
@@ -80,9 +81,18 @@ DELIVERY_AUTHORIZED_RUNTIME = {
     "GITHUB_WORKFLOW": "DBI durable delivery integration",
     "GITHUB_WORKFLOW_REF": (
         "DALGORO/dalgoro-banana-intelligence/"
-        ".github/workflows/dbi-delivery-integration.yml@refs/pull/69/merge"
+        ".github/workflows/dbi-delivery-integration.yml@refs/pull/70/merge"
     ),
     "GITHUB_JOB": "dbi-delivery-integration",
+}
+MODEL_REGISTRY_AUTHORIZED_RUNTIME = {
+    **AUTHORIZED_RUNTIME,
+    "GITHUB_WORKFLOW": "DBI model registry integration",
+    "GITHUB_WORKFLOW_REF": (
+        "DALGORO/dalgoro-banana-intelligence/"
+        ".github/workflows/dbi-model-registry-integration.yml@refs/pull/72/merge"
+    ),
+    "GITHUB_JOB": "dbi-model-registry-integration",
 }
 
 
@@ -245,6 +255,7 @@ def validate_authorized_runtime() -> None:
         ASSET_AUTHORIZED_RUNTIME,
         ANALYSIS_JOB_AUTHORIZED_RUNTIME,
         DELIVERY_AUTHORIZED_RUNTIME,
+        MODEL_REGISTRY_AUTHORIZED_RUNTIME,
     )
     assert len(DBI_AUTHORIZED_GITHUB_WORKFLOWS) == len(authorized_runtimes)
 
@@ -321,9 +332,14 @@ def validate_offline_plan() -> None:
     assert "ix_dbi_plots_boundary_gist" in first.sql
     assert "dbi_admin_audit_events" in first.sql
     assert "dbi_delivery_messages" in first.sql
+    assert "dbi_model_versions" in first.sql
+    assert "dbi_pipeline_config_versions" in first.sql
+    assert "dbi_analysis_profiles" in first.sql
+    assert "dbi_model_governance_events" in first.sql
     assert "uq_dbi_analysis_job_attempts_id_job" in first.sql
     assert "uq_dbi_delivery_messages_stream_attempt" in first.sql
     assert "ix_dbi_delivery_messages_claim" in first.sql
+    assert "uq_dbi_analysis_profiles_active_champion" in first.sql
     for constraint_name in (
         "uq_dbi_farms_id_organization",
         "uq_dbi_plots_id_farm",
