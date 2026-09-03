@@ -21,10 +21,26 @@ depends_on: str | Sequence[str] | None = None
 def upgrade() -> None:
     """Add an isolated durable transport table without storing binaries."""
 
-    op.create_unique_constraint(
-        "uq_dbi_analysis_job_attempts_id_job",
-        "dbi_analysis_job_attempts",
-        ["id", "job_id"],
+    # Algunos fixtures de verificación construyen el esquema final desde metadata
+    # antes de recorrer Alembic. La constraint es obligatoria, pero su creación debe
+    # converger tanto desde el linaje histórico como desde ese esquema final.
+    op.execute(
+        """
+        DO $dbi$
+        BEGIN
+            IF NOT EXISTS (
+                SELECT 1
+                FROM pg_constraint
+                WHERE conname = 'uq_dbi_analysis_job_attempts_id_job'
+                  AND conrelid = 'dbi_analysis_job_attempts'::regclass
+            ) THEN
+                ALTER TABLE dbi_analysis_job_attempts
+                ADD CONSTRAINT uq_dbi_analysis_job_attempts_id_job
+                UNIQUE (id, job_id);
+            END IF;
+        END
+        $dbi$;
+        """
     )
 
     op.create_table(
@@ -166,8 +182,9 @@ def downgrade() -> None:
     """Remove only delivery persistence and its supporting uniqueness."""
 
     op.drop_table("dbi_delivery_messages")
-    op.drop_constraint(
-        "uq_dbi_analysis_job_attempts_id_job",
-        "dbi_analysis_job_attempts",
-        type_="unique",
+    op.execute(
+        """
+        ALTER TABLE dbi_analysis_job_attempts
+        DROP CONSTRAINT IF EXISTS uq_dbi_analysis_job_attempts_id_job
+        """
     )
