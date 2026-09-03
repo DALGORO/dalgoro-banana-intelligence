@@ -11,6 +11,7 @@ from uuid import UUID
 
 from pydantic import BaseModel, ConfigDict
 
+from app.dbi.delivery.contracts import prepare_delivery_payload
 from app.schemas.dbi_analysis_jobs import AnalysisJobResult, ArtifactManifest
 
 
@@ -80,7 +81,12 @@ def canonical_uuid(value: str, *, field_name: str) -> UUID:
     return parsed
 
 
-def canonical_json(value: Any, *, field_name: str, max_bytes: int) -> CanonicalJsonPayload:
+def canonical_json(
+    value: Any,
+    *,
+    field_name: str,
+    max_bytes: int,
+) -> CanonicalJsonPayload:
     try:
         text = json.dumps(
             value,
@@ -112,16 +118,17 @@ def _artifact_id_set(artifacts: list[ArtifactManifest]) -> frozenset[UUID]:
             manifest.artifact_id,
             field_name="artifact.artifact_id",
         )
+        role = manifest.role.value
         if artifact_id in values:
             raise DBIResultIngestionConflict(
                 "artifact_id duplicado dentro del resultado."
             )
-        if manifest.role in roles:
+        if role in roles:
             raise DBIResultIngestionConflict(
                 "role de artifact duplicado dentro del resultado."
             )
         values.add(artifact_id)
-        roles.add(manifest.role)
+        roles.add(role)
     return frozenset(values)
 
 
@@ -176,17 +183,11 @@ def prepare_analysis_result(result: AnalysisJobResult) -> PreparedAnalysisResult
         field_name="errors",
         max_bytes=65_536,
     )
-    raw = result.model_dump_json(
-        by_alias=False,
-        exclude_none=False,
-    ).encode("utf-8")
-    # La huella contractual definitiva se recalcula en servicio con el helper
-    # compartido de Jobs; este valor evita dejar el contrato sin identidad local.
-    digest = hashlib.sha256(raw).hexdigest()
+    payload = prepare_delivery_payload(result)
 
     return PreparedAnalysisResult(
         result=result,
-        result_sha256=digest,
+        result_sha256=payload.payload_sha256,
         metrics=metrics,
         findings=findings,
         warnings=warnings,
