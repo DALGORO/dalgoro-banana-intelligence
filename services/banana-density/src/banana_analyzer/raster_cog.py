@@ -39,6 +39,7 @@ class RasterDescriptor:
     offsets: tuple[float, ...]
     tiled: bool
     block_shapes: tuple[tuple[int, int], ...]
+    compression: str
     overview_levels: tuple[int, ...]
 
 
@@ -84,6 +85,7 @@ def _descriptor(path: Path) -> RasterDescriptor:
                 raise RasterCOGError("La resolución geoespacial no puede ser cero.")
             bounds = dataset.bounds
             overviews = tuple(dataset.overviews(1)) if dataset.count else ()
+            compression = dataset.compression
             return RasterDescriptor(
                 width=int(dataset.width),
                 height=int(dataset.height),
@@ -114,6 +116,11 @@ def _descriptor(path: Path) -> RasterDescriptor:
                 block_shapes=tuple(
                     (int(rows), int(cols)) for rows, cols in dataset.block_shapes
                 ),
+                compression=(
+                    "none"
+                    if compression is None
+                    else str(getattr(compression, "value", compression)).lower()
+                ),
                 overview_levels=tuple(int(value) for value in overviews),
             )
     except RasterCOGError:
@@ -137,6 +144,10 @@ def _validate_cog(
 ) -> None:
     if not cog.tiled:
         raise RasterCOGError("El derivado no quedó organizado por bloques.")
+    if not cog.block_shapes or len(set(cog.block_shapes)) != 1:
+        raise RasterCOGError("El COG debe usar bloques homogéneos por banda.")
+    if cog.compression == "none":
+        raise RasterCOGError("El COG oficial debe declarar compresión.")
     if (
         cog.width != source.width
         or cog.height != source.height
@@ -207,7 +218,7 @@ def generate_validated_cog(
         schema_version=_SCHEMA_VERSION,
         product_kind=product_kind,
         profile_version=profile_version,
-        generator=f"rasterio-{rasterio.__version__}/gdal-{rasterio.__gdal_version__}",
+        generator=f"rasterio-{rasterio.__version__}:gdal-{rasterio.__gdal_version__}",
         source_name=source.name,
         source_size_bytes=source_size,
         source_sha256=source_sha,
