@@ -30,6 +30,7 @@ from app.dbi.models.model_registry import (
     DBIModelVersion,
     DBIPipelineConfigVersion,
 )
+from app.dbi.models.raster_products import DBIRasterProduct
 
 __all__ = [
     "AnalysisArtifact",
@@ -58,6 +59,7 @@ __all__ = [
     "DBIPipelineConfigVersion",
     "DBIPrincipal",
     "DBIPrincipalStatus",
+    "DBIRasterProduct",
     "Farm",
     "FlightSourceBundle",
     "FlightSourceEntry",
