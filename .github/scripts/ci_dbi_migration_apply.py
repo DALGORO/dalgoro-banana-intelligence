@@ -20,7 +20,7 @@ from app.dbi.migration_preflight import (  # noqa: E402
     FORBIDDEN_ROLE_CAPABILITIES,
 )
 
-HEAD = "dbi_0013_model_registry"
+HEAD = "dbi_0014_analysis_results"
 KNOWN = {
     "dbi_0001_baseline",
     "dbi_0006_plot_boundaries",
@@ -29,6 +29,7 @@ KNOWN = {
     "dbi_0009_object_key_check",
     "dbi_0011_flight_manifest",
     "dbi_0012_durable_delivery",
+    "dbi_0013_model_registry",
     HEAD,
 }
 AUTHORIZED_RUNTIME = {
