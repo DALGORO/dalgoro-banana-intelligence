@@ -10,7 +10,7 @@ from sqlalchemy.orm import Session
 
 from app.dbi.delivery.contracts import DeliveryPersistenceConflict
 from app.dbi.delivery.repository import DBIDeliveryRepository
-from app.dbi.worker.contracts import DBIWorkerConflict
+from app.dbi.worker.contracts import DBIWorkerLeaseLost
 
 
 def _utc_now() -> datetime:
@@ -73,7 +73,7 @@ class DBIWorkerLeaseHeartbeat:
             session.commit()
         except DeliveryPersistenceConflict as error:
             session.rollback()
-            raise DBIWorkerConflict("se perdió el lease activo del comando.") from error
+            raise DBIWorkerLeaseLost("se perdió el lease activo del comando.") from error
         except BaseException:
             session.rollback()
             raise
