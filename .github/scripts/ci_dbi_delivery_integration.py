@@ -197,6 +197,12 @@ def _provision_role_and_fixture() -> None:
             )
             cursor.execute(
                 sql.SQL(
+                    "GRANT UPDATE (status) ON TABLE "
+                    "dbi.dbi_analysis_job_attempts TO {}"
+                ).format(sql.Identifier(API_ROLE))
+            )
+            cursor.execute(
+                sql.SQL(
                     "GRANT INSERT, UPDATE ON TABLE dbi.dbi_delivery_messages TO {}"
                 ).format(sql.Identifier(API_ROLE))
             )
