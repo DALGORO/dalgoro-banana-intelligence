@@ -1,4 +1,4 @@
-"""Valida servicio, API, replay y métricas de DBI-JOB-003 offline."""
+"""Valida JOB-003 y su frontera HTTP integrada con DBI-QUEUE-001 offline."""
 
 from __future__ import annotations
 
@@ -8,6 +8,7 @@ import sys
 from dataclasses import fields
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
+from types import SimpleNamespace
 from uuid import UUID
 
 os.environ.setdefault("DATABASE_URL", "sqlite+pysqlite:///:memory:")
@@ -27,6 +28,7 @@ from app.dbi.authorization import (  # noqa: E402
     DBIPermission,
     DBIPlotScope,
 )
+from app.dbi.delivery.metrics import DBIDeliveryMetrics, DBIDeliveryMetricsSnapshot  # noqa: E402
 from app.dbi.jobs.metrics import (  # noqa: E402
     DBIAnalysisJobMetrics,
     DBIAnalysisJobMetricsSnapshot,
@@ -47,10 +49,7 @@ from app.dbi.jobs.service_contracts import (  # noqa: E402
     AnalysisProfileUnavailable,
     ApprovedAnalysisProfile,
 )
-from app.dbi.jobs.state_machine import (  # noqa: E402
-    AnalysisJobStatus,
-    InvalidAnalysisJobTransition,
-)
+from app.dbi.jobs.state_machine import AnalysisJobStatus, InvalidAnalysisJobTransition  # noqa: E402
 
 FARM_ID = UUID("10000000-0000-0000-0000-000000000001")
 PLOT_ID = UUID("20000000-0000-0000-0000-000000000001")
@@ -71,13 +70,7 @@ def _context(*, submit: bool = True) -> DBIAccessContext:
             {DBIFarmScope(organization_ref="organization-job-ci", farm_id=FARM_ID)}
         ),
         plot_scopes=frozenset(
-            {
-                DBIPlotScope(
-                    organization_ref="organization-job-ci",
-                    farm_id=FARM_ID,
-                    plot_id=PLOT_ID,
-                )
-            }
+            {DBIPlotScope(organization_ref="organization-job-ci", farm_id=FARM_ID, plot_id=PLOT_ID)}
         ),
         permissions=(
             frozenset({DBIPermission.SUBMIT_ANALYSIS})
@@ -195,11 +188,19 @@ class FakeAPIService:
             raise self.error
         return self.transition
 
-    def retry(self, *args, **kwargs):
+
+class FakeDeliveryService:
+    def __init__(self, *, created: bool = True, error: Exception | None = None) -> None:
+        self.created = created
+        self.error = error
+        self.calls = 0
+
+    def enqueue_authorized_analysis_command(self, *args, **kwargs):
         del args, kwargs
+        self.calls += 1
         if self.error is not None:
             raise self.error
-        return self.transition
+        return SimpleNamespace(created=self.created)
 
 
 def _must_http_error(callback, expected_status: int) -> None:
@@ -218,18 +219,12 @@ def validate_router() -> None:
         if route.path.startswith("/dbi/")
         for method in route.methods
     }
-    assert (
+    for path in (
         "/dbi/organizations/{organization_ref}/farms/{farm_id}/plots/{plot_id}/jobs",
-        "POST",
-    ) in methods
-    assert (
         "/dbi/organizations/{organization_ref}/farms/{farm_id}/jobs/{job_id}/cancel",
-        "POST",
-    ) in methods
-    assert (
         "/dbi/organizations/{organization_ref}/farms/{farm_id}/jobs/{job_id}/retry",
-        "POST",
-    ) in methods
+    ):
+        assert (path, "POST") in methods
     assert (
         "/dbi/organizations/{organization_ref}/farms/{farm_id}/jobs/{job_id}",
         "GET",
@@ -240,95 +235,66 @@ def validate_create_replay_and_authorization() -> AnalysisJobSnapshot:
     repository = FakeRepository()
     policy = ProfilePolicy()
     service = DBIAnalysisJobService(repository)
-
     created = service.create(
-        _context(),
-        organization_ref="organization-job-ci",
-        farm_id=FARM_ID,
-        plot_id=PLOT_ID,
-        request=_request(),
-        profile_policy=policy,
-        accepted_at=NOW,
+        _context(), organization_ref="organization-job-ci", farm_id=FARM_ID,
+        plot_id=PLOT_ID, request=_request(), profile_policy=policy, accepted_at=NOW,
     )
-    assert created.created is True
-    assert created.snapshot.status is AnalysisJobStatus.ACCEPTED
+    assert created.created is True and created.snapshot.status is AnalysisJobStatus.ACCEPTED
     assert len(created.snapshot.command_sha256) == 64
     assert repository.calls == [
-        "get_by_request",
-        "require_plot",
-        "require_campaign",
-        "asset:orthophoto",
-        "asset:boundary",
-        "asset:exclusions",
-        "persist_accepted",
+        "get_by_request", "require_plot", "require_campaign",
+        "asset:orthophoto", "asset:boundary", "asset:exclusions", "persist_accepted",
     ]
     assert policy.calls == 1
 
-    before_replay = len(repository.calls)
+    before = len(repository.calls)
     replay = service.create(
-        _context(),
-        organization_ref="organization-job-ci",
-        farm_id=FARM_ID,
-        plot_id=PLOT_ID,
-        request=_request(),
-        profile_policy=policy,
+        _context(), organization_ref="organization-job-ci", farm_id=FARM_ID,
+        plot_id=PLOT_ID, request=_request(), profile_policy=policy,
         accepted_at=NOW + timedelta(seconds=1),
     )
-    assert replay.created is False
-    assert replay.snapshot.job_id == created.snapshot.job_id
-    assert repository.calls[before_replay:] == [
-        "get_by_request",
-        "require_same_intent",
-    ]
-    assert policy.calls == 1, "El replay no debe reinterpretar el modelo."
+    assert replay.created is False and replay.snapshot.job_id == created.snapshot.job_id
+    assert repository.calls[before:] == ["get_by_request", "require_same_intent"]
+    assert policy.calls == 1
 
     try:
         service.create(
-            _context(),
-            organization_ref="organization-job-ci",
-            farm_id=FARM_ID,
-            plot_id=PLOT_ID,
-            request=_request(orthophoto_asset_id=ORTHO_ALT_ID),
-            profile_policy=policy,
-            accepted_at=NOW + timedelta(seconds=2),
+            _context(), organization_ref="organization-job-ci", farm_id=FARM_ID,
+            plot_id=PLOT_ID, request=_request(orthophoto_asset_id=ORTHO_ALT_ID),
+            profile_policy=policy, accepted_at=NOW + timedelta(seconds=2),
         )
     except AnalysisJobPersistenceConflict:
         pass
     else:
         raise AssertionError("La misma clave con otra intención debía fallar.")
 
-    denied_repository = FakeRepository()
+    denied = FakeRepository()
     try:
-        DBIAnalysisJobService(denied_repository).create(
-            _context(submit=False),
-            organization_ref="organization-job-ci",
-            farm_id=FARM_ID,
-            plot_id=PLOT_ID,
-            request=_request(),
-            profile_policy=ProfilePolicy(),
-            accepted_at=NOW,
+        DBIAnalysisJobService(denied).create(
+            _context(submit=False), organization_ref="organization-job-ci",
+            farm_id=FARM_ID, plot_id=PLOT_ID, request=_request(),
+            profile_policy=ProfilePolicy(), accepted_at=NOW,
         )
     except DBIAccessDenied:
         pass
     else:
         raise AssertionError("READ no debe autorizar SUBMIT_ANALYSIS.")
-    assert denied_repository.calls == []
+    assert denied.calls == []
     return created.snapshot
 
 
-def validate_transitions(base: AnalysisJobSnapshot) -> None:
+def validate_job_state_machine_compatibility(base: AnalysisJobSnapshot) -> None:
     repository = FakeRepository()
     service = DBIAnalysisJobService(repository)
-
     repository.current = base.model_copy(update={"status": AnalysisJobStatus.QUEUED})
     canceled = service.cancel(
         _context(), organization_ref="organization-job-ci", farm_id=FARM_ID,
-        job_id=base.job_id, changed_at=NOW + timedelta(minutes=1)
+        job_id=base.job_id, changed_at=NOW + timedelta(minutes=1),
     )
     assert canceled.changed and canceled.snapshot.status is AnalysisJobStatus.CANCEL_REQUESTED
     repeated = service.cancel(
         _context(), organization_ref="organization-job-ci", farm_id=FARM_ID,
-        job_id=base.job_id, changed_at=NOW + timedelta(minutes=2)
+        job_id=base.job_id, changed_at=NOW + timedelta(minutes=2),
     )
     assert repeated.changed is False and repository.apply_calls == 1
 
@@ -336,103 +302,121 @@ def validate_transitions(base: AnalysisJobSnapshot) -> None:
     try:
         service.cancel(
             _context(), organization_ref="organization-job-ci", farm_id=FARM_ID,
-            job_id=base.job_id, changed_at=NOW + timedelta(minutes=3)
+            job_id=base.job_id, changed_at=NOW + timedelta(minutes=3),
         )
     except InvalidAnalysisJobTransition:
         pass
     else:
         raise AssertionError("accepted no debe cancelar directamente.")
 
-    repository.current = base.model_copy(update={"status": AnalysisJobStatus.FAILED})
-    retried = service.retry(
-        _context(), organization_ref="organization-job-ci", farm_id=FARM_ID,
-        job_id=base.job_id, changed_at=NOW + timedelta(minutes=4)
-    )
-    assert retried.changed and retried.snapshot.status is AnalysisJobStatus.QUEUED
-    repeated_retry = service.retry(
-        _context(), organization_ref="organization-job-ci", farm_id=FARM_ID,
-        job_id=base.job_id, changed_at=NOW + timedelta(minutes=5)
-    )
-    assert repeated_retry.changed is False
 
-
-def validate_api_and_metrics(base: AnalysisJobSnapshot) -> None:
+def validate_api_queue_transaction(base: AnalysisJobSnapshot) -> None:
     metrics = DBIAnalysisJobMetrics()
-    session = FakeSession()
-    response = Response()
-    result = dbi_analysis_jobs.create_analysis_job(
-        organization_ref="organization-job-ci", farm_id=FARM_ID, plot_id=PLOT_ID,
-        payload=_request(), response=response, session=session, context=_context(),
-        profile_policy=ProfilePolicy(),
-        service=FakeAPIService(
-            creation=AnalysisJobCreationEvidence(snapshot=base, created=True)
-        ),
-        metrics=metrics,
+    delivery_metrics = DBIDeliveryMetrics()
+    queued_snapshot = base.model_copy(
+        update={"status": AnalysisJobStatus.QUEUED, "updated_at": NOW + timedelta(seconds=1)}
     )
-    assert response.status_code == 201 and session.commits == 1
-    assert result.job_id == base.job_id
-    public = result.model_dump(mode="json")
-    for forbidden in (
-        "command_sha256", "requested_by_ref", "orthophoto_asset_id",
-        "boundary_asset_id", "model_version_id",
-    ):
-        assert forbidden not in public
-
-    conflict_session = FakeSession()
-    _must_http_error(
-        lambda: dbi_analysis_jobs.create_analysis_job(
+    original_reload = dbi_analysis_jobs._reload_job
+    dbi_analysis_jobs._reload_job = lambda *args, **kwargs: queued_snapshot
+    try:
+        session = FakeSession()
+        response = Response()
+        delivery = FakeDeliveryService(created=True)
+        result = dbi_analysis_jobs.create_analysis_job(
             organization_ref="organization-job-ci", farm_id=FARM_ID, plot_id=PLOT_ID,
-            payload=_request(), response=Response(), session=conflict_session,
-            context=_context(), profile_policy=ProfilePolicy(),
-            service=FakeAPIService(error=AnalysisJobPersistenceConflict()), metrics=metrics,
-        ),
-        409,
-    )
-    profile_session = FakeSession()
-    _must_http_error(
-        lambda: dbi_analysis_jobs.create_analysis_job(
-            organization_ref="organization-job-ci", farm_id=FARM_ID, plot_id=PLOT_ID,
-            payload=_request(), response=Response(), session=profile_session,
-            context=_context(), profile_policy=ProfilePolicy(),
-            service=FakeAPIService(error=AnalysisProfileUnavailable()), metrics=metrics,
-        ),
-        503,
-    )
+            payload=_request(), response=response, session=session, context=_context(),
+            profile_policy=ProfilePolicy(),
+            service=FakeAPIService(
+                creation=AnalysisJobCreationEvidence(snapshot=base, created=True)
+            ),
+            delivery_service=delivery, metrics=metrics, delivery_metrics=delivery_metrics,
+        )
+        assert response.status_code == 201 and session.commits == 1
+        assert result.status is AnalysisJobStatus.QUEUED and delivery.calls == 1
+        for forbidden in (
+            "command_sha256", "requested_by_ref", "orthophoto_asset_id",
+            "boundary_asset_id", "model_version_id",
+        ):
+            assert forbidden not in result.model_dump(mode="json")
 
-    transition = AnalysisJobTransitionEvidence(
-        snapshot=base.model_copy(
-            update={
-                "status": AnalysisJobStatus.CANCEL_REQUESTED,
-                "updated_at": NOW + timedelta(minutes=1),
-            }
-        ),
-        changed=True,
-    )
-    cancel_session = FakeSession()
-    cancel = dbi_analysis_jobs.cancel_analysis_job(
-        organization_ref="organization-job-ci", farm_id=FARM_ID, job_id=base.job_id,
-        session=cancel_session, context=_context(),
-        service=FakeAPIService(transition=transition), metrics=metrics,
-    )
-    assert cancel.changed and cancel_session.commits == 1
+        conflict_session = FakeSession()
+        _must_http_error(
+            lambda: dbi_analysis_jobs.create_analysis_job(
+                organization_ref="organization-job-ci", farm_id=FARM_ID, plot_id=PLOT_ID,
+                payload=_request(), response=Response(), session=conflict_session,
+                context=_context(), profile_policy=ProfilePolicy(),
+                service=FakeAPIService(error=AnalysisJobPersistenceConflict()),
+                delivery_service=FakeDeliveryService(), metrics=metrics,
+                delivery_metrics=delivery_metrics,
+            ),
+            409,
+        )
+        assert conflict_session.rollbacks == 1
 
-    snapshot = metrics.snapshot()
-    assert snapshot.create_attempts == 3
-    assert snapshot.jobs_created == 1
-    assert snapshot.create_conflicts == 1
-    assert snapshot.unavailable_profiles == 1
-    assert snapshot.cancel_attempts == 1 and snapshot.cancel_changes == 1
-    assert snapshot.rollbacks == 2
-    assert snapshot.service_duration_microseconds > 0
+        profile_session = FakeSession()
+        _must_http_error(
+            lambda: dbi_analysis_jobs.create_analysis_job(
+                organization_ref="organization-job-ci", farm_id=FARM_ID, plot_id=PLOT_ID,
+                payload=_request(), response=Response(), session=profile_session,
+                context=_context(), profile_policy=ProfilePolicy(),
+                service=FakeAPIService(error=AnalysisProfileUnavailable()),
+                delivery_service=FakeDeliveryService(), metrics=metrics,
+                delivery_metrics=delivery_metrics,
+            ),
+            503,
+        )
+
+        transition = AnalysisJobTransitionEvidence(
+            snapshot=base.model_copy(
+                update={
+                    "status": AnalysisJobStatus.CANCEL_REQUESTED,
+                    "updated_at": NOW + timedelta(minutes=1),
+                }
+            ),
+            changed=True,
+        )
+        cancel_session = FakeSession()
+        cancel = dbi_analysis_jobs.cancel_analysis_job(
+            organization_ref="organization-job-ci", farm_id=FARM_ID, job_id=base.job_id,
+            session=cancel_session, context=_context(),
+            service=FakeAPIService(transition=transition), metrics=metrics,
+        )
+        assert cancel.changed and cancel_session.commits == 1
+
+        retry_session = FakeSession()
+        retry_delivery = FakeDeliveryService(created=True)
+        retry = dbi_analysis_jobs.retry_analysis_job(
+            organization_ref="organization-job-ci", farm_id=FARM_ID, job_id=base.job_id,
+            session=retry_session, context=_context(), delivery_service=retry_delivery,
+            metrics=metrics, delivery_metrics=delivery_metrics,
+        )
+        assert retry.changed and retry.status is AnalysisJobStatus.QUEUED
+        assert retry_session.commits == 1 and retry_delivery.calls == 1
+    finally:
+        dbi_analysis_jobs._reload_job = original_reload
+
+    job_snapshot = metrics.snapshot()
+    assert job_snapshot.create_attempts == 3
+    assert job_snapshot.jobs_created == 1
+    assert job_snapshot.create_conflicts == 1
+    assert job_snapshot.unavailable_profiles == 1
+    assert job_snapshot.cancel_attempts == 1 and job_snapshot.cancel_changes == 1
+    assert job_snapshot.retry_attempts == 1 and job_snapshot.retry_changes == 1
+    assert job_snapshot.rollbacks == 2
+    delivery_snapshot = delivery_metrics.snapshot()
+    assert delivery_snapshot.enqueue_attempts == 2
+    assert delivery_snapshot.messages_created == 2
+    assert delivery_snapshot.rollbacks == 1
 
 
 def validate_metrics_and_boundaries() -> None:
-    names = {field.name for field in fields(DBIAnalysisJobMetricsSnapshot)}
     forbidden_tokens = (
         "tenant", "organization", "farm", "plot", "asset", "job_id",
-        "request_id", "correlation", "principal", "url", "object_key",
+        "attempt_id", "request_id", "correlation", "principal", "url", "object_key",
     )
-    assert all(all(token not in name for token in forbidden_tokens) for name in names)
+    for snapshot_type in (DBIAnalysisJobMetricsSnapshot, DBIDeliveryMetricsSnapshot):
+        names = {field.name for field in fields(snapshot_type)}
+        assert all(all(token not in name for token in forbidden_tokens) for name in names)
 
     repository_source = inspect.getsource(DBIAnalysisJobRepository)
     service_source = inspect.getsource(DBIAnalysisJobService)
@@ -444,6 +428,9 @@ def validate_metrics_and_boundaries() -> None:
     assert 'AnalysisInputAsset.status == "verified"' in repository_source
     assert "DBIPermission.SUBMIT_ANALYSIS" in service_source
     assert "session.commit()" in api_source and "session.rollback()" in api_source
+    assert "enqueue_authorized_analysis_command" in api_source
+    retry_source = inspect.getsource(dbi_analysis_jobs.retry_analysis_job)
+    assert ".retry(" not in retry_source
     for forbidden in (
         "object_key", "bucket", "presigned", "boto3", "requests.",
         "httpx.", "subprocess", "pipeline_orchestrator",
@@ -454,10 +441,10 @@ def validate_metrics_and_boundaries() -> None:
 def main() -> None:
     validate_router()
     base = validate_create_replay_and_authorization()
-    validate_transitions(base)
-    validate_api_and_metrics(base)
+    validate_job_state_machine_compatibility(base)
+    validate_api_queue_transaction(base)
     validate_metrics_and_boundaries()
-    print("DBI-JOB-003 offline aprobado: replay, API, métricas y estados.")
+    print("DBI-JOB-003/QUEUE-001 offline aprobado: API atómica y fronteras seguras.")
 
 
 if __name__ == "__main__":
