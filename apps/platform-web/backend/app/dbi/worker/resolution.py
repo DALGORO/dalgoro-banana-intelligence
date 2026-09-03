@@ -12,7 +12,6 @@ from sqlalchemy.orm import Session
 
 from app.dbi.delivery.contracts import (
     DeliveryEnvelope,
-    DeliveryPersistenceConflict,
     DeliveryStream,
 )
 from app.dbi.jobs.service_contracts import contract_sha256
@@ -191,13 +190,13 @@ class DBIWorkerPlanResolver:
         if not exact_job:
             raise DBIWorkerConflict("Job persistido diverge del comando durable.")
 
-        farm = self._session.execute(
-            select(Farm).where(Farm.id == farm_id)
+        farm_name = self._session.execute(
+            select(Farm.name).where(Farm.id == farm_id)
         ).scalar_one_or_none()
-        plot = self._session.execute(
-            select(Plot).where(Plot.id == plot_id, Plot.farm_id == farm_id)
+        plot_name = self._session.execute(
+            select(Plot.name).where(Plot.id == plot_id, Plot.farm_id == farm_id)
         ).scalar_one_or_none()
-        if farm is None or plot is None:
+        if farm_name is None or plot_name is None:
             raise DBIWorkerUnavailable("finca/lote del trabajo no disponible.")
 
         orthophoto = self._resolve_asset(
@@ -284,8 +283,8 @@ class DBIWorkerPlanResolver:
             tenant_ref=command.tenant_id,
             farm_id=farm_id,
             plot_id=plot_id,
-            farm_name=farm.name,
-            plot_name=plot.name,
+            farm_name=farm_name,
+            plot_name=plot_name,
             orthophoto=orthophoto,
             boundary=boundary,
             exclusions=exclusions,
