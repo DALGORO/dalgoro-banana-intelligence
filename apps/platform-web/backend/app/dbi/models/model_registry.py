@@ -14,6 +14,7 @@ from sqlalchemy import (
     Text,
     UniqueConstraint,
     Uuid,
+    text,
 )
 from sqlalchemy.orm import Mapped, mapped_column
 
@@ -30,14 +31,10 @@ class DBIModelVersion(DBIBase):
     __tablename__ = "dbi_model_versions"
     __table_args__ = (
         UniqueConstraint(
-            "model_family",
-            "model_version",
-            name="uq_dbi_model_versions_family_version",
+            "model_family", "model_version", name="uq_dbi_model_versions_family_version"
         ),
         UniqueConstraint(
-            "id",
-            "model_family",
-            name="uq_dbi_model_versions_id_family",
+            "id", "model_family", name="uq_dbi_model_versions_id_family"
         ),
         CheckConstraint(
             "status IN ('draft', 'validated', 'approved', 'retired')",
@@ -48,23 +45,23 @@ class DBIModelVersion(DBIBase):
             name="ck_dbi_model_versions_family",
         ),
         CheckConstraint(
-            "model_version ~ '^[A-Za-z0-9][A-Za-z0-9_.-]{0,127}$'",
+            "model_version ~ '^[A-Za-z0-9][A-Za-z0-9_-]{0,127}$'",
             name="ck_dbi_model_versions_version",
         ),
         CheckConstraint(
-            "training_dataset_version ~ '^[A-Za-z0-9][A-Za-z0-9_.-]{0,127}$'",
+            "training_dataset_version ~ '^[A-Za-z0-9][A-Za-z0-9_-]{0,127}$'",
             name="ck_dbi_model_versions_training_dataset",
         ),
         CheckConstraint(
-            "validation_dataset_version ~ '^[A-Za-z0-9][A-Za-z0-9_.-]{0,127}$'",
+            "validation_dataset_version ~ '^[A-Za-z0-9][A-Za-z0-9_-]{0,127}$'",
             name="ck_dbi_model_versions_validation_dataset",
         ),
         CheckConstraint(
-            "input_contract_version ~ '^[A-Za-z0-9][A-Za-z0-9_.-]{0,127}$'",
+            "input_contract_version ~ '^[A-Za-z0-9][A-Za-z0-9_-]{0,127}$'",
             name="ck_dbi_model_versions_input_contract",
         ),
         CheckConstraint(
-            "output_contract_version ~ '^[A-Za-z0-9][A-Za-z0-9_.-]{0,127}$'",
+            "output_contract_version ~ '^[A-Za-z0-9][A-Za-z0-9_-]{0,127}$'",
             name="ck_dbi_model_versions_output_contract",
         ),
         CheckConstraint(
@@ -125,9 +122,7 @@ class DBIAnalysisProfile(DBIBase):
             ondelete="RESTRICT",
         ),
         UniqueConstraint(
-            "tenant_ref",
-            "policy_ref",
-            name="uq_dbi_analysis_profiles_tenant_policy",
+            "tenant_ref", "policy_ref", name="uq_dbi_analysis_profiles_tenant_policy"
         ),
         CheckConstraint(
             "role IN ('champion', 'challenger')",
@@ -146,7 +141,7 @@ class DBIAnalysisProfile(DBIBase):
             name="ck_dbi_analysis_profiles_family",
         ),
         CheckConstraint(
-            "pipeline_config_version ~ '^[A-Za-z0-9][A-Za-z0-9_.-]{0,127}$'",
+            "pipeline_config_version ~ '^[A-Za-z0-9][A-Za-z0-9_-]{0,127}$'",
             name="ck_dbi_analysis_profiles_pipeline",
         ),
         CheckConstraint(
@@ -158,15 +153,15 @@ class DBIAnalysisProfile(DBIBase):
             "(status = 'retired' AND retired_at IS NOT NULL AND retired_by_ref IS NOT NULL)",
             name="ck_dbi_analysis_profiles_lifecycle",
         ),
-        Index("ix_dbi_analysis_profiles_tenant_family", "tenant_ref", "model_family"),
+        Index(
+            "ix_dbi_analysis_profiles_tenant_family", "tenant_ref", "model_family"
+        ),
         Index(
             "uq_dbi_analysis_profiles_active_champion",
             "tenant_ref",
             "model_family",
             unique=True,
-            postgresql_where=(
-                "role = 'champion' AND status = 'active'"
-            ),
+            postgresql_where=text("role = 'champion' AND status = 'active'"),
         ),
     )
 
