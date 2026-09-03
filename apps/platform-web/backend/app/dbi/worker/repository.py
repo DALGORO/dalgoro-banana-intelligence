@@ -39,6 +39,7 @@ class WorkerStartDisposition(StrEnum):
 @dataclass(frozen=True, slots=True)
 class WorkerStartDecision:
     disposition: WorkerStartDisposition
+    started_at: datetime
     existing_result: AnalysisJobResult | None = None
 
 
@@ -167,6 +168,7 @@ class DBIWorkerRepository:
                 raise DBIWorkerConflict("result_sha256 terminal no coincide.")
             return WorkerStartDecision(
                 disposition=WorkerStartDisposition.REPLAY_TERMINAL,
+                started_at=result.started_at,
                 existing_result=result,
             )
 
@@ -174,8 +176,14 @@ class DBIWorkerRepository:
         if job_status is AnalysisJobStatus.CANCEL_REQUESTED:
             if attempt.status not in {"queued", "running"}:
                 raise DBIWorkerConflict("attempt cancelable en estado inválido.")
+            effective_started = (
+                started
+                if attempt.started_at is None
+                else _utc(attempt.started_at, field_name="attempt.started_at")
+            )
             return WorkerStartDecision(
-                disposition=WorkerStartDisposition.CANCEL_BEFORE_START
+                disposition=WorkerStartDisposition.CANCEL_BEFORE_START,
+                started_at=effective_started,
             )
 
         if job_status is AnalysisJobStatus.QUEUED and attempt.status == "queued":
@@ -194,11 +202,18 @@ class DBIWorkerRepository:
             attempt.started_at = started
             attempt.updated_at = started
             self._session.flush()
-            return WorkerStartDecision(disposition=WorkerStartDisposition.STARTED)
+            return WorkerStartDecision(
+                disposition=WorkerStartDisposition.STARTED,
+                started_at=started,
+            )
 
         if job_status is AnalysisJobStatus.RUNNING and attempt.status == "running":
             if attempt.started_at is None:
                 raise DBIWorkerConflict("attempt running carece de started_at.")
+            effective_started = _utc(
+                attempt.started_at,
+                field_name="attempt.started_at",
+            )
             if (
                 attempt.pipeline_build_ref is not None
                 and attempt.pipeline_build_ref != pipeline_build_ref
@@ -211,7 +226,10 @@ class DBIWorkerRepository:
                 attempt.pipeline_build_ref = pipeline_build_ref
             attempt.updated_at = started
             self._session.flush()
-            return WorkerStartDecision(disposition=WorkerStartDisposition.RESUMED)
+            return WorkerStartDecision(
+                disposition=WorkerStartDisposition.RESUMED,
+                started_at=effective_started,
+            )
 
         raise DBIWorkerConflict(
             "job/attempt no se encuentran en un estado ejecutable."
@@ -273,9 +291,15 @@ class DBIWorkerRepository:
                 raise DBIWorkerConflict("canceled exige Job cancel_requested.")
             if attempt.status not in {"queued", "running"}:
                 raise DBIWorkerConflict("attempt no admite cancelación terminal.")
+            if attempt.started_at is None:
+                attempt.started_at = finished
         else:
             if current_job is not AnalysisJobStatus.RUNNING or attempt.status != "running":
                 raise DBIWorkerConflict("resultado no cancelado exige ejecución running.")
+            if attempt.started_at is None:
+                raise DBIWorkerConflict("attempt running carece de started_at terminal.")
+            if _utc(attempt.started_at, field_name="attempt.started_at") != result.started_at:
+                raise DBIWorkerConflict("result.started_at diverge del attempt.")
             try:
                 evaluate_analysis_job_transition(current_job, expected_job)
             except InvalidAnalysisJobTransition as error:
