@@ -6,6 +6,7 @@ import inspect
 import sys
 import tempfile
 from dataclasses import replace
+from datetime import datetime, timezone
 from hashlib import sha256
 from io import BytesIO
 from pathlib import Path
@@ -22,7 +23,10 @@ from app.dbi.storage_contracts import (  # noqa: E402
 )
 from app.dbi.storage_memory import DBIInMemoryObjectStore  # noqa: E402
 from app.dbi.storage_policy import DBIStoragePolicy  # noqa: E402
-from app.dbi.storage_s3 import DBIS3ObjectStore  # noqa: E402
+from app.dbi.storage_s3 import (  # noqa: E402
+    DBIS3ObjectStore,
+    DBIS3ObjectStoreConfig,
+)
 from app.dbi.worker.contracts import (  # noqa: E402
     DBIWorkerConflict,
     MODEL_ARTIFACT_TENANT_REF,
@@ -46,6 +50,7 @@ FARM_ID = UUID("81000000-0000-4000-8000-000000000001")
 PLOT_ID = UUID("82000000-0000-4000-8000-000000000001")
 JOB_ID = UUID("83000000-0000-4000-8000-000000000001")
 ATTEMPT_ID = UUID("84000000-0000-4000-8000-000000000001")
+NOW = datetime(2026, 9, 3, 6, 0, tzinfo=timezone.utc)
 
 
 def _put(store, *, tenant: str, purpose: DBIStoragePurpose, payload: bytes, content_type: str):
@@ -203,6 +208,124 @@ def validate_partial_materialization_fails_closed() -> None:
         assert not workspace.orthophoto_path.with_suffix(".tif.partial").exists()
 
 
+class _TrackedBody(BytesIO):
+    def __init__(self, payload: bytes) -> None:
+        super().__init__(payload)
+        self.read_sizes: list[int] = []
+
+    def read(self, size: int = -1) -> bytes:
+        self.read_sizes.append(size)
+        return super().read(size)
+
+
+class _FakeS3ReadClient:
+    def __init__(self, *, metadata, payload: bytes) -> None:
+        self.metadata = metadata
+        self.payload = payload
+        self.last_body: _TrackedBody | None = None
+
+    def head_object(self, **_kwargs):
+        return {
+            "ContentLength": self.metadata.size_bytes,
+            "ContentType": self.metadata.content_type,
+            "Metadata": {
+                "dbi-sha256": self.metadata.sha256,
+                "dbi-size": str(self.metadata.size_bytes),
+                "dbi-purpose": self.metadata.address.purpose.value,
+                "dbi-object-id": str(self.metadata.address.object_id),
+            },
+            "LastModified": NOW,
+        }
+
+    def get_object_tagging(self, **_kwargs):
+        return {"TagSet": [{"Key": "dbi-state", "Value": "active"}]}
+
+    def get_object(self, **_kwargs):
+        self.last_body = _TrackedBody(self.payload)
+        return {"Body": self.last_body}
+
+
+def _s3_stream_fixture(payload: bytes):
+    object_id = uuid4()
+    metadata = DBIStoragePolicy.build_metadata(
+        address=DBIStoragePolicy.build_address(
+            tenant_ref=TENANT,
+            purpose=DBIStoragePurpose.ANALYSIS_INPUT,
+            object_id=object_id,
+        ),
+        content_type="image/tiff",
+        size_bytes=len(payload),
+        sha256_hex=sha256(payload).hexdigest(),
+    )
+    client = _FakeS3ReadClient(metadata=metadata, payload=payload)
+    store = DBIS3ObjectStore(
+        DBIS3ObjectStoreConfig(
+            endpoint_url="http://127.0.0.1:8333",
+            bucket="dbi-ci-worker",
+            region="us-east-1",
+            access_key_id="worker-ci-access",
+            secret_access_key="worker-ci-secret",
+            max_object_size_bytes=1,
+        ),
+        client=client,
+        clock=lambda: NOW,
+    )
+    return store, client, metadata
+
+
+def validate_s3_streaming_without_full_buffer() -> None:
+    payload = b"s" * (64 * 1024 * 3 + 313)
+    store, client, metadata = _s3_stream_fixture(payload)
+    destination = BytesIO()
+    progress: list[int] = []
+    record = store.copy_to(
+        metadata.address,
+        destination,
+        progress=progress.append,
+    )
+    assert record.metadata == metadata
+    assert destination.getvalue() == payload
+    assert len(progress) >= 4
+    assert progress[-1] == len(payload)
+    assert client.last_body is not None and client.last_body.closed is True
+    assert client.last_body.read_sizes.count(64 * 1024) >= 4
+
+    corrupted = bytearray(payload)
+    corrupted[-1] ^= 1
+    client.payload = bytes(corrupted)
+    try:
+        store.copy_to(metadata.address, BytesIO())
+    except DBIStorageIntegrityError:
+        pass
+    else:
+        raise AssertionError("S3 alterado debía fallar por SHA-256.")
+
+
+def validate_workspace_isolation() -> None:
+    store = DBIInMemoryObjectStore(max_object_size_bytes=1024 * 1024)
+    plan, _ = _plan(store)
+    second_attempt = replace(
+        plan,
+        attempt_id=UUID("84000000-0000-4000-8000-000000000002"),
+    )
+    second_tenant = replace(
+        plan,
+        tenant_ref="tenant-ci-worker-b",
+        attempt_id=UUID("84000000-0000-4000-8000-000000000003"),
+    )
+    with tempfile.TemporaryDirectory() as temporary:
+        manager = DBIWorkerWorkspaceManager(Path(temporary))
+        first = manager.prepare(plan)
+        second = manager.prepare(second_attempt)
+        third = manager.prepare(second_tenant)
+        assert len({first.root, second.root, third.root}) == 3
+        assert first.root.parent == second.root.parent
+        assert first.root.parent != third.root.parent
+        manager.cleanup(first)
+        manager.cleanup(second)
+        manager.cleanup(third)
+
+
 def validate_ephemeral_config_boundary() -> None:
     store = DBIInMemoryObjectStore(max_object_size_bytes=1024 * 1024)
     plan, _ = _plan(store)
@@ -239,6 +362,7 @@ def validate_static_boundaries() -> None:
     repository_source = (worker_dir / "repository.py").read_text(encoding="utf-8").lower()
     service_source = (worker_dir / "service.py").read_text(encoding="utf-8").lower()
     adapter_source = (worker_dir / "pipeline_adapter.py").read_text(encoding="utf-8").lower()
+    resolution_source = (worker_dir / "resolution.py").read_text(encoding="utf-8").lower()
 
     for forbidden in (".commit(", ".rollback(", "requests.", "boto3", "redis", "celery"):
         assert forbidden not in repository_source
@@ -247,6 +371,9 @@ def validate_static_boundaries() -> None:
     for required in ("run-full-analysis", "--resume-run", "--from-stage", "--stop-after"):
         assert required in adapter_source
     assert "interfaz_banano" not in adapter_source
+    assert "resolve_champion" not in resolution_source
+    assert "dbianalysisprofile" not in resolution_source
+    assert "dbimodelversion.model_version == command.model_version_id" in resolution_source
 
     streaming_source = inspect.getsource(DBIS3ObjectStore.copy_to).lower()
     assert "get_object" in streaming_source
@@ -260,6 +387,8 @@ def main() -> None:
     validate_contracts_are_private_and_strict()
     validate_streaming_materialization()
     validate_partial_materialization_fails_closed()
+    validate_s3_streaming_without_full_buffer()
+    validate_workspace_isolation()
     validate_ephemeral_config_boundary()
     validate_static_boundaries()
     print("DBI-WORKER-001 offline aprobado: aislamiento, streaming y adapter seguros.")
