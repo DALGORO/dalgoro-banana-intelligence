@@ -23,6 +23,10 @@ class DBIWorkerLeaseLost(DBIWorkerConflict):
     """El proceso dejó de ser propietario del comando; debe abandonar sin ACK."""
 
 
+class DBIWorkerAckPending(DBIWorkerConflict):
+    """El resultado ya es durable, pero el ACK del comando debe recuperarse."""
+
+
 class DBIWorkerUnavailable(LookupError):
     """Un recurso congelado del comando no está disponible."""
 
