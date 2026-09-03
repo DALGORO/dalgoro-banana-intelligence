@@ -71,6 +71,12 @@ class DBIStorageObjectMetadata:
     size_bytes: int
     sha256: str
 
+    @property
+    def object_key(self) -> str:
+        """Atajo interno; la autoridad de la clave sigue siendo ``address``."""
+
+        return self.address.object_key
+
 
 @dataclass(frozen=True, slots=True)
 class DBIStorageWriteRequest:
