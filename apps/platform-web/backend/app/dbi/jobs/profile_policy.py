@@ -1,4 +1,4 @@
-"""Política provisional de perfil DBI controlada exclusivamente por servidor."""
+"""Selección server-side de la única autoridad de perfiles de análisis DBI."""
 
 from __future__ import annotations
 
@@ -10,13 +10,21 @@ from app.dbi.jobs.service_contracts import (
     ApprovedAnalysisProfile,
 )
 
+DBI_ANALYSIS_PROFILE_SOURCE_ENV = "DBI_ANALYSIS_PROFILE_SOURCE"
+DBI_ANALYSIS_PROFILE_SOURCE_REGISTRY = "registry"
+DBI_ANALYSIS_PROFILE_SOURCE_ENVIRONMENT = "environment"
 DBI_ANALYSIS_MODEL_VERSION_ENV = "DBI_ANALYSIS_MODEL_VERSION_REF"
 DBI_ANALYSIS_PIPELINE_CONFIG_ENV = "DBI_ANALYSIS_PIPELINE_CONFIG_VERSION"
 DBI_ANALYSIS_POLICY_REF_ENV = "DBI_ANALYSIS_PROFILE_POLICY_REF"
+_LEGACY_PROFILE_ENV_VARS = (
+    DBI_ANALYSIS_MODEL_VERSION_ENV,
+    DBI_ANALYSIS_PIPELINE_CONFIG_ENV,
+    DBI_ANALYSIS_POLICY_REF_ENV,
+)
 
 
 class DBIConfiguredAnalysisProfilePolicy:
-    """Perfil global explícitamente aprobado por configuración del servidor."""
+    """Compatibilidad explícita con un perfil global controlado por servidor."""
 
     def __init__(self, profile: ApprovedAnalysisProfile) -> None:
         if not isinstance(profile, ApprovedAnalysisProfile):
@@ -33,14 +41,34 @@ class DBIConfiguredAnalysisProfilePolicy:
         return self._profile
 
 
+def load_analysis_profile_source(
+    environ: Mapping[str, str] | None = None,
+) -> str:
+    """Selecciona una sola autoridad; el registro persistente es el default."""
+
+    source = os.environ if environ is None else environ
+    authority = source.get(
+        DBI_ANALYSIS_PROFILE_SOURCE_ENV,
+        DBI_ANALYSIS_PROFILE_SOURCE_REGISTRY,
+    ).strip().lower()
+    if authority not in {
+        DBI_ANALYSIS_PROFILE_SOURCE_REGISTRY,
+        DBI_ANALYSIS_PROFILE_SOURCE_ENVIRONMENT,
+    }:
+        raise ValueError("DBI_ANALYSIS_PROFILE_SOURCE no es válido.")
+
+    legacy_present = any(source.get(name) is not None for name in _LEGACY_PROFILE_ENV_VARS)
+    if authority == DBI_ANALYSIS_PROFILE_SOURCE_REGISTRY and legacy_present:
+        raise ValueError(
+            "No se permiten variables de perfil legacy cuando la autoridad es registry."
+        )
+    return authority
+
+
 def load_configured_analysis_profile_policy(
     environ: Mapping[str, str] | None = None,
 ) -> DBIConfiguredAnalysisProfilePolicy | None:
-    """Carga un perfil sólo si los tres valores server-side son completos.
-
-    Cero variables significa que aún no hay perfil aprobado y el llamador debe
-    fallar cerrado. Una configuración parcial se considera error operativo.
-    """
+    """Carga el fallback environment sólo si sus tres valores son completos."""
 
     source = os.environ if environ is None else environ
     raw = {
