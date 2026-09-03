@@ -155,7 +155,7 @@ class DeliveryLease(_StrictDeliveryModel):
 
 
 class DeliveryLeaseRenewalEvidence(_StrictDeliveryModel):
-    """Evidencia exacta de una extensión del lease activo."""
+    """Evidencia exacta e idempotente de una renovación del lease activo."""
 
     schema_version: Literal["dbi-delivery-lease-renewal.v1"] = (
         DELIVERY_LEASE_RENEWAL_SCHEMA_VERSION
@@ -165,13 +165,17 @@ class DeliveryLeaseRenewalEvidence(_StrictDeliveryModel):
     renewed_at: AwareDatetime
     previous_expires_at: AwareDatetime
     lease_expires_at: AwareDatetime
+    changed: bool
 
     @model_validator(mode="after")
     def validate_renewal(self) -> "DeliveryLeaseRenewalEvidence":
         if self.previous_expires_at <= self.renewed_at:
             raise ValueError("sólo un lease todavía vigente puede renovarse.")
-        if self.lease_expires_at <= self.previous_expires_at:
-            raise ValueError("la renovación debe extender el vencimiento.")
+        if self.changed:
+            if self.lease_expires_at <= self.previous_expires_at:
+                raise ValueError("una renovación cambiada debe extender el vencimiento.")
+        elif self.lease_expires_at != self.previous_expires_at:
+            raise ValueError("un replay sin cambios debe conservar el vencimiento.")
         return self
 
 
