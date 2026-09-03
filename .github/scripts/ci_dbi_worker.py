@@ -5,6 +5,7 @@ from __future__ import annotations
 import inspect
 import sys
 import tempfile
+from dataclasses import replace
 from hashlib import sha256
 from io import BytesIO
 from pathlib import Path
@@ -224,12 +225,7 @@ def validate_ephemeral_config_boundary() -> None:
                 "model_path": "/forbidden/from/registry.pt",
             },
         )
-        bad_plan = ResolvedAnalysisPlan(
-            **{
-                **plan.__dict__,
-                "pipeline": divergent,
-            }
-        )
+        bad_plan = replace(plan, pipeline=divergent)
         try:
             build_legacy_runtime_config(bad_plan, workspace)
         except DBIWorkerConflict:
