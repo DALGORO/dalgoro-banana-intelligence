@@ -12,6 +12,9 @@ from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
 from app.dbi.authorization import DBIAccessContext, DBIAccessDenied
+from app.dbi.delivery.metrics import DBIDeliveryMetrics
+from app.dbi.delivery.contracts import DeliveryPersistenceConflict
+from app.dbi.delivery.service import DBIAnalysisDeliveryService
 from app.dbi.dependencies import get_dbi_access_context, get_dbi_session
 from app.dbi.jobs.api_schemas import AnalysisJobTransitionResponse
 from app.dbi.jobs.metrics import DBIAnalysisJobMetrics
@@ -30,7 +33,7 @@ from app.dbi.jobs.service_contracts import (
     AnalysisProfileUnavailable,
     ApprovedAnalysisProfile,
 )
-from app.dbi.jobs.state_machine import InvalidAnalysisJobTransition
+from app.dbi.jobs.state_machine import AnalysisJobStatus, InvalidAnalysisJobTransition
 
 router = APIRouter(prefix="/dbi", tags=["dbi-analysis-jobs"])
 
@@ -44,10 +47,14 @@ DBI_ANALYSIS_PROFILE_UNAVAILABLE_DETAIL = (
 DBI_ANALYSIS_JOB_METRICS_UNAVAILABLE_DETAIL = (
     "La instrumentación agregada de trabajos DBI no está disponible."
 )
+DBI_DELIVERY_METRICS_UNAVAILABLE_DETAIL = (
+    "La instrumentación agregada de entrega DBI no está disponible."
+)
 
 SessionDependency = Annotated[Session, Depends(get_dbi_session)]
 AccessDependency = Annotated[DBIAccessContext, Depends(get_dbi_access_context)]
 _DEFAULT_ANALYSIS_JOB_METRICS = DBIAnalysisJobMetrics()
+_DEFAULT_DELIVERY_METRICS = DBIDeliveryMetrics()
 
 
 class _UnavailableAnalysisProfilePolicy:
@@ -115,6 +122,26 @@ MetricsDependency = Annotated[
 ]
 
 
+def get_dbi_delivery_metrics(request: Request) -> DBIDeliveryMetrics:
+    """Obtiene contadores de cola sin etiquetas ni identificadores sensibles."""
+
+    metrics = getattr(request.app.state, "dbi_delivery_metrics", None)
+    if metrics is None:
+        return _DEFAULT_DELIVERY_METRICS
+    if not isinstance(metrics, DBIDeliveryMetrics):
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail=DBI_DELIVERY_METRICS_UNAVAILABLE_DETAIL,
+        )
+    return metrics
+
+
+DeliveryMetricsDependency = Annotated[
+    DBIDeliveryMetrics,
+    Depends(get_dbi_delivery_metrics),
+]
+
+
 def get_dbi_analysis_job_service(
     session: SessionDependency,
 ) -> DBIAnalysisJobService:
@@ -124,6 +151,18 @@ def get_dbi_analysis_job_service(
 AnalysisJobServiceDependency = Annotated[
     DBIAnalysisJobService,
     Depends(get_dbi_analysis_job_service),
+]
+
+
+def get_dbi_analysis_delivery_service(
+    session: SessionDependency,
+) -> DBIAnalysisDeliveryService:
+    return DBIAnalysisDeliveryService(session)
+
+
+AnalysisDeliveryServiceDependency = Annotated[
+    DBIAnalysisDeliveryService,
+    Depends(get_dbi_analysis_delivery_service),
 ]
 
 
@@ -153,6 +192,23 @@ def _observe_duration(metrics: DBIAnalysisJobMetrics, started_at: int) -> None:
     metrics.add(service_duration_microseconds=elapsed)
 
 
+def _reload_job(
+    session: Session,
+    *,
+    tenant_ref: str,
+    farm_id: UUID,
+    job_id: UUID,
+):
+    snapshot = DBIAnalysisJobRepository(session).get_for_update(
+        tenant_ref=tenant_ref,
+        farm_id=farm_id,
+        job_id=job_id,
+    )
+    if snapshot is None:
+        raise AnalysisJobResourceUnavailable("trabajo no disponible.")
+    return snapshot
+
+
 @router.post(
     "/organizations/{organization_ref}/farms/{farm_id}/plots/{plot_id}/jobs",
     response_model=AnalysisJobCreateResponse,
@@ -167,9 +223,11 @@ def create_analysis_job(
     context: AccessDependency,
     profile_policy: ProfilePolicyDependency,
     service: AnalysisJobServiceDependency,
+    delivery_service: AnalysisDeliveryServiceDependency,
     metrics: MetricsDependency,
+    delivery_metrics: DeliveryMetricsDependency,
 ) -> AnalysisJobCreateResponse:
-    """Crea un trabajo accepted sin binarios, cola, intento ni ejecución."""
+    """Crea accepted y materializa attempt+command+queued en una transacción."""
 
     metrics.add(create_attempts=1)
     started_at = perf_counter_ns()
@@ -183,18 +241,40 @@ def create_analysis_job(
             profile_policy=profile_policy,
             accepted_at=datetime.now(timezone.utc),
         )
+        snapshot = evidence.snapshot
+        if snapshot.status in {AnalysisJobStatus.ACCEPTED, AnalysisJobStatus.QUEUED}:
+            delivery_metrics.add(enqueue_attempts=1)
+            queued = delivery_service.enqueue_authorized_analysis_command(
+                context,
+                organization_ref=organization_ref,
+                farm_id=farm_id,
+                job_id=snapshot.job_id,
+                queued_at=datetime.now(timezone.utc),
+            )
+            delivery_metrics.add(
+                **({"messages_created": 1} if queued.created else {"exact_reuses": 1})
+            )
+            snapshot = _reload_job(
+                session,
+                tenant_ref=context.tenant_ref,
+                farm_id=farm_id,
+                job_id=snapshot.job_id,
+            )
         session.commit()
     except (DBIAccessDenied, AnalysisJobResourceUnavailable) as error:
         session.rollback()
         metrics.add(unavailable_resources=1, rollbacks=1)
+        delivery_metrics.add(rollbacks=1)
         raise _not_found() from error
     except (
         AnalysisJobPersistenceConflict,
+        DeliveryPersistenceConflict,
         InvalidAnalysisJobTransition,
         IntegrityError,
     ) as error:
         session.rollback()
         metrics.add(create_conflicts=1, rollbacks=1)
+        delivery_metrics.add(enqueue_conflicts=1, rollbacks=1)
         raise _conflict() from error
     except AnalysisProfileUnavailable as error:
         session.rollback()
@@ -213,9 +293,9 @@ def create_analysis_job(
         else status.HTTP_200_OK
     )
     return AnalysisJobCreateResponse(
-        job_id=evidence.snapshot.job_id,
-        status=evidence.snapshot.status,
-        accepted_at=evidence.snapshot.accepted_at,
+        job_id=snapshot.job_id,
+        status=snapshot.status,
+        accepted_at=snapshot.accepted_at,
         created=evidence.created,
     )
 
@@ -283,44 +363,59 @@ def retry_analysis_job(
     job_id: UUID,
     session: SessionDependency,
     context: AccessDependency,
-    service: AnalysisJobServiceDependency,
+    delivery_service: AnalysisDeliveryServiceDependency,
     metrics: MetricsDependency,
+    delivery_metrics: DeliveryMetricsDependency,
 ) -> AnalysisJobTransitionResponse:
-    """Reencola lógicamente un failed sin crear intento ni publicar mensajes."""
+    """Reintenta mediante attempt+command durable; nunca deja queued vacío."""
 
     metrics.add(retry_attempts=1)
+    delivery_metrics.add(enqueue_attempts=1)
     started_at = perf_counter_ns()
     try:
-        evidence = service.retry(
+        queued = delivery_service.enqueue_authorized_analysis_command(
             context,
             organization_ref=organization_ref,
             farm_id=farm_id,
             job_id=job_id,
-            changed_at=datetime.now(timezone.utc),
+            queued_at=datetime.now(timezone.utc),
+            retry_authorized=True,
+        )
+        snapshot = _reload_job(
+            session,
+            tenant_ref=context.tenant_ref,
+            farm_id=farm_id,
+            job_id=job_id,
         )
         session.commit()
     except (DBIAccessDenied, AnalysisJobResourceUnavailable) as error:
         session.rollback()
         metrics.add(unavailable_resources=1, rollbacks=1)
+        delivery_metrics.add(rollbacks=1)
         raise _not_found() from error
     except (
         AnalysisJobPersistenceConflict,
+        DeliveryPersistenceConflict,
         InvalidAnalysisJobTransition,
         IntegrityError,
     ) as error:
         session.rollback()
         metrics.add(transition_conflicts=1, rollbacks=1)
+        delivery_metrics.add(enqueue_conflicts=1, rollbacks=1)
         raise _conflict() from error
     finally:
         _observe_duration(metrics, started_at)
 
+    delivery_metrics.add(
+        **({"messages_created": 1} if queued.created else {"exact_reuses": 1})
+    )
     metrics.add(
-        **({"retry_changes": 1} if evidence.changed else {"retry_noops": 1})
+        **({"retry_changes": 1} if queued.created else {"retry_noops": 1})
     )
     return AnalysisJobTransitionResponse(
-        job_id=evidence.snapshot.job_id,
-        status=evidence.snapshot.status,
-        accepted_at=evidence.snapshot.accepted_at,
-        updated_at=evidence.snapshot.updated_at,
-        changed=evidence.changed,
+        job_id=snapshot.job_id,
+        status=snapshot.status,
+        accepted_at=snapshot.accepted_at,
+        updated_at=snapshot.updated_at,
+        changed=queued.created,
     )
