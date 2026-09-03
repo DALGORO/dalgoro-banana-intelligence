@@ -17,6 +17,7 @@ from app.dbi.storage_contracts import (
 )
 from app.dbi.worker.artifacts import publish_artifacts
 from app.dbi.worker.contracts import (
+    DBIWorkerAckPending,
     DBIWorkerConflict,
     DBIWorkerFailureCode,
     DBIWorkerLeaseLost,
@@ -243,10 +244,15 @@ class DBIAnalysisWorkerService:
         replayed: bool,
     ) -> WorkerProcessingEvidence:
         self._finish(result, failure_code=failure_code)
-        self._ack(
-            message_id=lease.envelope.message_id,
-            lease_ref=lease.lease_ref,
-        )
+        try:
+            self._ack(
+                message_id=lease.envelope.message_id,
+                lease_ref=lease.lease_ref,
+            )
+        except BaseException as error:
+            raise DBIWorkerAckPending(
+                "resultado durable confirmado; ACK pendiente de recuperación."
+            ) from error
         return WorkerProcessingEvidence(
             message_id=lease.envelope.message_id,
             job_id=lease.envelope.job_id,
@@ -461,6 +467,10 @@ class DBIAnalysisWorkerService:
             self._workspace.cleanup(workspace)
             return evidence
 
+        except DBIWorkerAckPending:
+            if workspace is not None:
+                self._workspace.cleanup(workspace)
+            raise
         except DBIWorkerLeaseLost:
             if workspace is not None:
                 self._workspace.cleanup(workspace)
@@ -496,10 +506,15 @@ class DBIAnalysisWorkerService:
 
             try:
                 heartbeat.beat(force=True)
+                if self._cancel_requested(job_id=lease.envelope.job_id):
+                    failure = DBIWorkerFailureCode.CANCELED
+                    status = "canceled"
+                else:
+                    status = "failed"
                 result = self._terminal_result(
                     lease=lease,
                     started_at=decision.started_at,
-                    status="failed",
+                    status=status,
                     failure_code=failure,
                 )
                 evidence = self._finalize_and_ack(
@@ -511,6 +526,10 @@ class DBIAnalysisWorkerService:
                 if workspace is not None:
                     self._workspace.cleanup(workspace)
                 return evidence
+            except DBIWorkerAckPending:
+                if workspace is not None:
+                    self._workspace.cleanup(workspace)
+                raise
             except DBIWorkerLeaseLost:
                 if workspace is not None:
                     self._workspace.cleanup(workspace)
