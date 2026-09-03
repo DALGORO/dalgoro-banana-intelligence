@@ -15,6 +15,7 @@ from app.dbi.models.asset_multipart import (
     AssetMultipartSession,
 )
 from app.dbi.models.assets import AnalysisArtifact, AnalysisInputAsset
+from app.dbi.models.delivery import DBIDeliveryMessage
 from app.dbi.models.flight_source_manifest import (
     FlightSourceBundle,
     FlightSourceEntry,
@@ -43,6 +44,7 @@ __all__ = [
     "DBIAdminAuditEvent",
     "DBIAdminAuditOutcome",
     "DBIAdminAuditResourceType",
+    "DBIDeliveryMessage",
     "DBIMembership",
     "DBIMembershipPermission",
     "DBIMembershipScope",
