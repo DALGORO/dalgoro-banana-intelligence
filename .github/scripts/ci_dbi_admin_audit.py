@@ -27,7 +27,7 @@ from app.dbi.models.admin_audit import (  # noqa: E402
     DBIAdminAuditResourceType,
 )
 
-HEAD = "dbi_0013_model_registry"
+HEAD = "dbi_0014_analysis_results"
 HIERARCHY_REVISION = "dbi_0008_scope_hierarchy"
 AUDIT_REVISION = "dbi_0007_admin_audit"
 TABLE = "dbi_admin_audit_events"
