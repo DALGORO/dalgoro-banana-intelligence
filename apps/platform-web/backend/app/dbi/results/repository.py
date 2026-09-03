@@ -82,9 +82,9 @@ class DBIResultRepository:
         ).scalar_one_or_none()
 
         row = self._session.execute(
-            select(DBIAnalysisResult)
-            .where(DBIAnalysisResult.attempt_id == attempt_id)
-            .with_for_update()
+            select(DBIAnalysisResult).where(
+                DBIAnalysisResult.attempt_id == attempt_id
+            )
         ).scalar_one_or_none()
         if row is None:
             raise DBIResultIngestionConflict("resultado persistido no recuperable.")
@@ -148,14 +148,12 @@ class DBIResultRepository:
         ).scalar_one_or_none()
 
         rows = self._session.execute(
-            select(AnalysisArtifact)
-            .where(
+            select(AnalysisArtifact).where(
                 or_(
                     AnalysisArtifact.id == artifact_id,
                     AnalysisArtifact.object_key == manifest.object_key,
                 )
             )
-            .with_for_update()
         ).scalars().all()
         if len(rows) != 1:
             raise DBIResultIngestionConflict(
