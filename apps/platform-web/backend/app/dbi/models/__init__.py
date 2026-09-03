@@ -10,6 +10,7 @@ from app.dbi.models.admin_audit import (
 )
 from app.dbi.models.agriculture import Campaign, Farm, Plot
 from app.dbi.models.analysis_jobs import AnalysisJob, AnalysisJobAttempt
+from app.dbi.models.analysis_results import DBIAnalysisResult
 from app.dbi.models.asset_multipart import AssetMultipartPart, AssetMultipartSession
 from app.dbi.models.assets import AnalysisArtifact, AnalysisInputAsset
 from app.dbi.models.delivery import DBIDeliveryMessage
@@ -45,6 +46,7 @@ __all__ = [
     "DBIAdminAuditOutcome",
     "DBIAdminAuditResourceType",
     "DBIAnalysisProfile",
+    "DBIAnalysisResult",
     "DBIDeliveryMessage",
     "DBIMembership",
     "DBIMembershipPermission",
