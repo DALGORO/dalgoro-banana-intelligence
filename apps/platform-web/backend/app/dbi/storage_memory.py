@@ -207,6 +207,42 @@ class DBIInMemoryObjectStore:
         finally:
             stream.close()
 
+    def copy_to(
+        self,
+        address: DBIStorageAddress,
+        destination: BinaryIO,
+        *,
+        progress: Callable[[int], None] | None = None,
+    ) -> DBIStorageObjectRecord:
+        """Copia por chunks y vuelve a comprobar tamaño y SHA del objeto activo."""
+
+        stored = self._active_object(address)
+        write = getattr(destination, "write", None)
+        if not callable(write):
+            raise DBIStorageIntegrityError("destination debe ser un flujo binario escribible.")
+        if progress is not None and not callable(progress):
+            raise DBIStorageIntegrityError("progress debe ser invocable o null.")
+
+        digest = sha256()
+        total = 0
+        payload = stored.content
+        for offset in range(0, len(payload), _READ_CHUNK_SIZE):
+            chunk = payload[offset : offset + _READ_CHUNK_SIZE]
+            written = write(chunk)
+            if written is not None and written != len(chunk):
+                raise DBIStorageIntegrityError("destination realizó una escritura parcial.")
+            digest.update(chunk)
+            total += len(chunk)
+            if progress is not None:
+                progress(total)
+
+        metadata = stored.record.metadata
+        if total != metadata.size_bytes or digest.hexdigest() != metadata.sha256:
+            raise DBIStorageIntegrityError(
+                "El objeto activo no coincide con tamaño o SHA-256 declarados."
+            )
+        return stored.record
+
     def retire(
         self,
         address: DBIStorageAddress,
