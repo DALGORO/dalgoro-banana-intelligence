@@ -24,6 +24,7 @@ from app.schemas.dbi_analysis_jobs import (
 MAX_DELIVERY_PAYLOAD_BYTES = 1024 * 1024
 DELIVERY_ENVELOPE_SCHEMA_VERSION = "dbi-delivery-envelope.v1"
 DELIVERY_LEASE_SCHEMA_VERSION = "dbi-delivery-lease.v1"
+DELIVERY_LEASE_RENEWAL_SCHEMA_VERSION = "dbi-delivery-lease-renewal.v1"
 
 
 class DeliveryStream(StrEnum):
@@ -150,6 +151,27 @@ class DeliveryLease(_StrictDeliveryModel):
             raise ValueError("un lease exige envelope en estado leased.")
         if self.lease_expires_at <= self.claimed_at:
             raise ValueError("lease_expires_at debe ser posterior a claimed_at.")
+        return self
+
+
+class DeliveryLeaseRenewalEvidence(_StrictDeliveryModel):
+    """Evidencia exacta de una extensión del lease activo."""
+
+    schema_version: Literal["dbi-delivery-lease-renewal.v1"] = (
+        DELIVERY_LEASE_RENEWAL_SCHEMA_VERSION
+    )
+    message_id: UUID
+    lease_ref: UUID
+    renewed_at: AwareDatetime
+    previous_expires_at: AwareDatetime
+    lease_expires_at: AwareDatetime
+
+    @model_validator(mode="after")
+    def validate_renewal(self) -> "DeliveryLeaseRenewalEvidence":
+        if self.previous_expires_at <= self.renewed_at:
+            raise ValueError("sólo un lease todavía vigente puede renovarse.")
+        if self.lease_expires_at <= self.previous_expires_at:
+            raise ValueError("la renovación debe extender el vencimiento.")
         return self
 
 
