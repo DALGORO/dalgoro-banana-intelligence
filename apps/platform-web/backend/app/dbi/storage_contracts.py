@@ -5,7 +5,7 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from datetime import datetime
 from enum import StrEnum
-from typing import BinaryIO, ContextManager, Protocol
+from typing import BinaryIO, Callable, ContextManager, Protocol
 from uuid import UUID
 
 
@@ -129,6 +129,17 @@ class DBIPrivateObjectStore(Protocol):
         self,
         address: DBIStorageAddress,
     ) -> ContextManager[BinaryIO]: ...
+
+    def copy_to(
+        self,
+        address: DBIStorageAddress,
+        destination: BinaryIO,
+        *,
+        progress: Callable[[int], None] | None = None,
+    ) -> DBIStorageObjectRecord:
+        """Copia un objeto activo por streaming y verifica tamaño + SHA-256."""
+
+        ...
 
     def retire(
         self,
