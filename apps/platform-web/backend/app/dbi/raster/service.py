@@ -42,7 +42,7 @@ class DBIRasterRegistrationEvidence:
 
 
 class DBIRasterProductService:
-    """Verifica source + Storage; no commit, rollback, upload ni Rasterio."""
+    """Verifica source + Storage sin ejecutar procesamiento geoespacial pesado."""
 
     def __init__(
         self,
