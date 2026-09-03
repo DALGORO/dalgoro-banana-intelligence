@@ -1,0 +1,8 @@
+title = "DALGORO Gitleaks policy"
+
+[extend]
+useDefault = true
+
+[[allowlists]]
+description = "Volcado histórico no canónico; su reaparición está prohibida por ci_repository_hygiene.py"
+paths = ['''^apps/platform-web/sistema_completo_para_revision\.txt$''']
