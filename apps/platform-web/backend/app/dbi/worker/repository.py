@@ -292,7 +292,9 @@ class DBIWorkerRepository:
             if attempt.status not in {"queued", "running"}:
                 raise DBIWorkerConflict("attempt no admite cancelación terminal.")
             if attempt.started_at is None:
-                attempt.started_at = finished
+                attempt.started_at = result.started_at
+            elif _utc(attempt.started_at, field_name="attempt.started_at") != result.started_at:
+                raise DBIWorkerConflict("result.started_at diverge del attempt cancelado.")
         else:
             if current_job is not AnalysisJobStatus.RUNNING or attempt.status != "running":
                 raise DBIWorkerConflict("resultado no cancelado exige ejecución running.")
