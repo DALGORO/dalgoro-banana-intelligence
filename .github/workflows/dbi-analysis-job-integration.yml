@@ -12,6 +12,7 @@ name: DBI analysis job integration
       - "apps/platform-web/backend/app/dbi/jobs/**"
       - "apps/platform-web/backend/app/dbi/models/analysis_jobs.py"
       - "apps/platform-web/backend/app/dbi/models/assets.py"
+      - "apps/platform-web/backend/app/dbi/worker/**"
       - "apps/platform-web/backend/app/schemas/dbi_analysis_jobs.py"
       - "apps/platform-web/backend/dbi_alembic/**"
       - "apps/platform-web/backend/requirements.txt"

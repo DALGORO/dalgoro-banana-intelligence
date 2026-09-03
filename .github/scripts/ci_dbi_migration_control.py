@@ -94,6 +94,15 @@ MODEL_REGISTRY_AUTHORIZED_RUNTIME = {
     ),
     "GITHUB_JOB": "dbi-model-registry-integration",
 }
+WORKER_AUTHORIZED_RUNTIME = {
+    **AUTHORIZED_RUNTIME,
+    "GITHUB_WORKFLOW": "DBI worker integration",
+    "GITHUB_WORKFLOW_REF": (
+        "DALGORO/dalgoro-banana-intelligence/"
+        ".github/workflows/dbi-worker-integration.yml@refs/pull/74/merge"
+    ),
+    "GITHUB_JOB": "dbi-worker-integration",
+}
 
 
 class _Mappings:
@@ -256,6 +265,7 @@ def validate_authorized_runtime() -> None:
         ANALYSIS_JOB_AUTHORIZED_RUNTIME,
         DELIVERY_AUTHORIZED_RUNTIME,
         MODEL_REGISTRY_AUTHORIZED_RUNTIME,
+        WORKER_AUTHORIZED_RUNTIME,
     )
     assert len(DBI_AUTHORIZED_GITHUB_WORKFLOWS) == len(authorized_runtimes)
 

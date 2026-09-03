@@ -460,6 +460,71 @@ class DBIS3ObjectStore:
         finally:
             stream.close()
 
+    def copy_to(
+        self,
+        address: DBIStorageAddress,
+        destination: BinaryIO,
+        *,
+        progress: Callable[[int], None] | None = None,
+    ) -> DBIStorageObjectRecord:
+        """Materializa un objeto activo sin acumularlo completo en memoria."""
+
+        record = self.stat(address)
+        write = getattr(destination, "write", None)
+        if not callable(write):
+            raise DBIStorageIntegrityError("destination debe ser un flujo binario escribible.")
+        if progress is not None and not callable(progress):
+            raise DBIStorageIntegrityError("progress debe ser invocable o null.")
+
+        response = self._call(
+            "get_object",
+            Bucket=self._config.bucket,
+            Key=record.metadata.address.object_key,
+        )
+        body = response.get("Body")
+        read = getattr(body, "read", None)
+        if not callable(read):
+            raise DBIStorageIntegrityError("El proveedor no devolvió un flujo binario.")
+
+        digest = sha256()
+        total = 0
+        try:
+            while True:
+                chunk = read(_READ_CHUNK_SIZE)
+                if chunk in (b"", None):
+                    break
+                if not isinstance(chunk, bytes):
+                    raise DBIStorageIntegrityError(
+                        "El flujo S3 debe devolver exclusivamente bytes."
+                    )
+                total += len(chunk)
+                if total > record.metadata.size_bytes:
+                    raise DBIStorageIntegrityError(
+                        "El objeto S3 excede el tamaño declarado."
+                    )
+                written = write(chunk)
+                if written is not None and written != len(chunk):
+                    raise DBIStorageIntegrityError(
+                        "destination realizó una escritura parcial."
+                    )
+                digest.update(chunk)
+                if progress is not None:
+                    progress(total)
+        finally:
+            close = getattr(body, "close", None)
+            if callable(close):
+                close()
+
+        if total != record.metadata.size_bytes:
+            raise DBIStorageIntegrityError(
+                "El objeto S3 no coincide con el tamaño declarado."
+            )
+        if digest.hexdigest() != record.metadata.sha256:
+            raise DBIStorageIntegrityError(
+                "El objeto S3 no coincide con la huella declarada."
+            )
+        return record
+
     def retire(
         self,
         address: DBIStorageAddress,
@@ -540,7 +605,7 @@ class DBIS3ObjectStore:
             tagging = _active_tagging()
             params = {
                 "Bucket": self._config.bucket,
-                "Key": canonical.address.object_key,
+                "Key": canonical.object_key,
                 "ContentLength": canonical.size_bytes,
                 "ContentType": canonical.content_type,
                 "Metadata": object_metadata,

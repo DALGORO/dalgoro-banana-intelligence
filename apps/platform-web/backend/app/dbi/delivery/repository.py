@@ -13,6 +13,7 @@ from sqlalchemy.orm import Session
 from app.dbi.delivery.contracts import (
     DeliveryEnvelope,
     DeliveryLease,
+    DeliveryLeaseRenewalEvidence,
     DeliveryMessageStatus,
     DeliveryMessageUnavailable,
     DeliveryPersistenceConflict,
@@ -68,6 +69,12 @@ def _status(value: object) -> DeliveryMessageStatus:
         return DeliveryMessageStatus(value)
     except (TypeError, ValueError) as error:
         raise DeliveryPersistenceConflict("estado persistido inválido.") from error
+
+
+def _lease_seconds(value: int) -> int:
+    if not isinstance(value, int) or isinstance(value, bool) or not 1 <= value <= 3600:
+        raise DeliveryPersistenceConflict("lease_seconds fuera de rango.")
+    return value
 
 
 def _envelope(row: DBIDeliveryMessage) -> DeliveryEnvelope:
@@ -196,8 +203,7 @@ class DBIDeliveryRepository:
         if not isinstance(stream, DeliveryStream):
             raise DeliveryPersistenceConflict("stream debe ser DeliveryStream.")
         claimed = _utc(claimed_at, field_name="claimed_at")
-        if not isinstance(lease_seconds, int) or not 1 <= lease_seconds <= 3600:
-            raise DeliveryPersistenceConflict("lease_seconds fuera de rango.")
+        duration = _lease_seconds(lease_seconds)
 
         row = self._session.execute(
             select(DBIDeliveryMessage)
@@ -227,7 +233,7 @@ class DBIDeliveryRepository:
             row.last_error_code = "LEASE_EXPIRED"
 
         lease_ref = uuid4()
-        expires = claimed + timedelta(seconds=lease_seconds)
+        expires = claimed + timedelta(seconds=duration)
         row.status = DeliveryMessageStatus.LEASED.value
         row.delivery_count += 1
         row.lease_ref = lease_ref
@@ -240,6 +246,51 @@ class DBIDeliveryRepository:
             claimed_at=claimed,
             lease_expires_at=expires,
             envelope=_envelope(row),
+        )
+
+    def renew_lease(
+        self,
+        *,
+        message_id: UUID,
+        lease_ref: UUID,
+        renewed_at: datetime,
+        lease_seconds: int,
+    ) -> DeliveryLeaseRenewalEvidence:
+        """Extiende el lease activo sin reentrega ni cambio de identidad."""
+
+        lease = _uuid(lease_ref, field_name="lease_ref")
+        renewed = _utc(renewed_at, field_name="renewed_at")
+        duration = _lease_seconds(lease_seconds)
+        row = self.get_for_update(message_id)
+
+        if (
+            _status(row.status) is not DeliveryMessageStatus.LEASED
+            or row.lease_ref != lease
+            or row.lease_expires_at is None
+        ):
+            raise DeliveryPersistenceConflict("lease de renovación no corresponde.")
+
+        previous = _utc(row.lease_expires_at, field_name="lease_expires_at")
+        if renewed >= previous:
+            raise DeliveryPersistenceConflict("lease de renovación ya expiró.")
+
+        candidate = renewed + timedelta(seconds=duration)
+        changed = candidate > previous
+        if changed:
+            row.lease_expires_at = candidate
+            row.updated_at = renewed
+            self._session.flush()
+            expires = candidate
+        else:
+            expires = previous
+
+        return DeliveryLeaseRenewalEvidence(
+            message_id=row.id,
+            lease_ref=lease,
+            renewed_at=renewed,
+            previous_expires_at=previous,
+            lease_expires_at=expires,
+            changed=changed,
         )
 
     def ack(

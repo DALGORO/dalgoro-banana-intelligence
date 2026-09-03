@@ -37,6 +37,8 @@ _ALLOWED_CONTENT_TYPES: dict[DBIStoragePurpose, frozenset[str]] = {
             "application/geopackage+sqlite3",
             "application/json",
             "application/octet-stream",
+            "application/vnd.ms-excel",
+            "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
             "application/zip",
             "image/tiff",
             "text/csv",

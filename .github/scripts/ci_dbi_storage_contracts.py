@@ -303,6 +303,7 @@ def validate_contract_surface() -> None:
         "put",
         "stat",
         "open_read",
+        "copy_to",
         "retire",
         "issue_temporary_access",
     }

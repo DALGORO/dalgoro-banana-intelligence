@@ -66,10 +66,11 @@ from ci_dbi_storage_s3 import main as validate_dbi_storage_s3
 from ci_dbi_storage_sdk_dependencies import (
     main as validate_dbi_storage_sdk_dependencies,
 )
+from ci_dbi_worker import main as validate_dbi_worker
 
 
 def main() -> None:
-    """Valida administración, activos y almacenamiento sin servicios externos."""
+    """Valida administración, activos, storage y worker sin servicios externos."""
 
     validate_dbi_admin_actor()
     validate_dbi_admin_schemas()
@@ -101,6 +102,7 @@ def main() -> None:
     validate_dbi_storage_metrics()
     validate_dbi_storage_sdk_dependencies()
     validate_dbi_storage_s3()
+    validate_dbi_worker()
 
     os.environ["DATABASE_URL"] = "sqlite+pysqlite:///:memory:"
     os.environ["JWT_SECRET"] = "dbi-ci-placeholder"
@@ -123,4 +125,3 @@ def main() -> None:
 
 if __name__ == "__main__":
     main()
-

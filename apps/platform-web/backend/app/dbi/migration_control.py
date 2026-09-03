@@ -43,6 +43,11 @@ DBI_MODEL_REGISTRY_GITHUB_WORKFLOW_PATH: Final[str] = (
     ".github/workflows/dbi-model-registry-integration.yml"
 )
 DBI_MODEL_REGISTRY_GITHUB_JOB: Final[str] = "dbi-model-registry-integration"
+DBI_WORKER_GITHUB_WORKFLOW: Final[str] = "DBI worker integration"
+DBI_WORKER_GITHUB_WORKFLOW_PATH: Final[str] = (
+    ".github/workflows/dbi-worker-integration.yml"
+)
+DBI_WORKER_GITHUB_JOB: Final[str] = "dbi-worker-integration"
 DBI_AUTHORIZED_GITHUB_WORKFLOWS: Final[
     frozenset[tuple[str, str, str]]
 ] = frozenset(
@@ -71,6 +76,11 @@ DBI_AUTHORIZED_GITHUB_WORKFLOWS: Final[
             DBI_MODEL_REGISTRY_GITHUB_WORKFLOW,
             DBI_MODEL_REGISTRY_GITHUB_WORKFLOW_PATH,
             DBI_MODEL_REGISTRY_GITHUB_JOB,
+        ),
+        (
+            DBI_WORKER_GITHUB_WORKFLOW,
+            DBI_WORKER_GITHUB_WORKFLOW_PATH,
+            DBI_WORKER_GITHUB_JOB,
         ),
     }
 )
@@ -155,7 +165,7 @@ def validate_migration_target(
     *,
     running_in_ci: bool,
 ) -> DBIMigrationTarget:
-    """Valida ambiente, base y rol antes de cualquier operación de migración."""
+    """Valida ambiente, base y rol antes de cualquier operación DBI."""
 
     if config.environment == DBI_PRODUCTION_ENVIRONMENT:
         raise DBIMigrationControlError(
