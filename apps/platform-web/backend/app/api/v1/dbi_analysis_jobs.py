@@ -22,7 +22,12 @@ from app.dbi.jobs.persistence_contracts import (
     AnalysisJobPersistenceConflict,
     AnalysisJobResourceUnavailable,
 )
-from app.dbi.jobs.profile_policy import load_configured_analysis_profile_policy
+from app.dbi.jobs.profile_policy import (
+    DBI_ANALYSIS_PROFILE_SOURCE_ENVIRONMENT,
+    DBI_ANALYSIS_PROFILE_SOURCE_REGISTRY,
+    load_analysis_profile_source,
+    load_configured_analysis_profile_policy,
+)
 from app.dbi.jobs.repository import DBIAnalysisJobRepository
 from app.dbi.jobs.service import DBIAnalysisJobService
 from app.dbi.jobs.service_contracts import (
@@ -34,6 +39,10 @@ from app.dbi.jobs.service_contracts import (
     ApprovedAnalysisProfile,
 )
 from app.dbi.jobs.state_machine import AnalysisJobStatus, InvalidAnalysisJobTransition
+from app.dbi.model_registry import (
+    DBIModelRegistryAnalysisProfilePolicy,
+    DBIModelRegistryRepository,
+)
 
 router = APIRouter(prefix="/dbi", tags=["dbi-analysis-jobs"])
 
@@ -74,13 +83,24 @@ class _UnavailableAnalysisProfilePolicy:
 _UNAVAILABLE_ANALYSIS_PROFILE_POLICY = _UnavailableAnalysisProfilePolicy()
 
 
-def get_dbi_analysis_profile_policy(request: Request) -> AnalysisProfilePolicy:
-    """Resuelve política inyectada o configuración server-side; nunca del cliente."""
+def get_dbi_analysis_profile_policy(
+    request: Request,
+    session: SessionDependency,
+) -> AnalysisProfilePolicy:
+    """Resuelve una sola autoridad server-side; nunca acepta selección del cliente."""
 
     policy = getattr(request.app.state, "dbi_analysis_profile_policy", None)
     if policy is None:
         try:
-            policy = load_configured_analysis_profile_policy()
+            source = load_analysis_profile_source()
+            if source == DBI_ANALYSIS_PROFILE_SOURCE_REGISTRY:
+                policy = DBIModelRegistryAnalysisProfilePolicy(
+                    DBIModelRegistryRepository(session)
+                )
+            elif source == DBI_ANALYSIS_PROFILE_SOURCE_ENVIRONMENT:
+                policy = load_configured_analysis_profile_policy()
+            else:
+                policy = None
         except (TypeError, ValueError) as error:
             raise HTTPException(
                 status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
