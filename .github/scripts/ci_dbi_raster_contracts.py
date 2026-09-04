@@ -11,6 +11,10 @@ ROOT = Path(__file__).resolve().parents[2]
 BACKEND = ROOT / "apps" / "platform-web" / "backend"
 sys.path.insert(0, str(BACKEND))
 
+from app.dbi.raster.budget import (  # noqa: E402
+    estimate_raster_budget,
+    overview_raw_pixel_fraction,
+)
 from app.dbi.raster.contracts import (  # noqa: E402
     DBIRasterConflict,
     DBIRasterProductKind,
@@ -115,6 +119,34 @@ def validate_manifest_and_identity() -> None:
     )
 
 
+def validate_budget_model() -> None:
+    fraction = overview_raw_pixel_fraction((2, 4, 8))
+    assert fraction == 0.328125
+    estimate = estimate_raster_budget(
+        master_bytes=10_000,
+        cog_bytes=8_000,
+        full_resolution_uncompressed_bytes=1_000_000,
+        overview_levels=(2, 4, 8),
+        range_egress_bytes=2_048,
+    )
+    assert estimate.persistent_storage_bytes == 18_000
+    assert estimate.overview_raw_pixel_fraction == 0.328125
+    assert estimate.overview_uncompressed_equivalent_bytes == 328_125
+    assert estimate.range_egress_bytes == 2_048
+
+    for invalid_levels in ((1,), (4, 2), (2, 2), (2, True)):
+        _raises(lambda invalid_levels=invalid_levels: overview_raw_pixel_fraction(invalid_levels))
+    _raises(
+        lambda: estimate_raster_budget(
+            master_bytes=0,
+            cog_bytes=8_000,
+            full_resolution_uncompressed_bytes=1_000_000,
+            overview_levels=(2,),
+            range_egress_bytes=0,
+        )
+    )
+
+
 def validate_boundaries() -> None:
     service = (BACKEND / "app" / "dbi" / "raster" / "service.py").read_text(
         encoding="utf-8"
@@ -142,8 +174,9 @@ def validate_boundaries() -> None:
 
 def main() -> None:
     validate_manifest_and_identity()
+    validate_budget_model()
     validate_boundaries()
-    print("DBI-RASTER-001 contratos aprobados: identidad, manifiesto y fronteras cerradas.")
+    print("DBI-RASTER-001 contratos aprobados: identidad, presupuesto y fronteras cerradas.")
 
 
 if __name__ == "__main__":
