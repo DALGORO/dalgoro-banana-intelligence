@@ -6,6 +6,7 @@ import inspect
 import os
 import sys
 from concurrent.futures import ThreadPoolExecutor
+from datetime import datetime, timezone
 from pathlib import Path
 from uuid import UUID
 
@@ -24,10 +25,13 @@ from app.dbi.models.sampling import (  # noqa: E402
     DBISamplingPointRecord,
 )
 from app.dbi.sampling import (  # noqa: E402
+    DBISamplingConflict,
     DBISamplingPlanService,
     DBISamplingProfile,
     DBISamplingUnavailable,
 )
+from app.dbi.sampling.field import DBISamplingFieldService  # noqa: E402
+from app.dbi.sampling.repository import point_coordinates  # noqa: E402
 from app.dbi.spatial import GeoJSONMultiPolygon  # noqa: E402
 
 HOST = "127.0.0.1"
@@ -148,6 +152,17 @@ def _provision_role_and_fixture() -> None:
                 )
             )
             cursor.execute(
+                sql.SQL(
+                    "GRANT UPDATE (status, updated_at) ON dbi.dbi_sampling_plans TO {}"
+                ).format(sql.Identifier(SAMPLING_ROLE))
+            )
+            cursor.execute(
+                sql.SQL(
+                    "GRANT UPDATE (status, rejection_reason, observed_point, observed_at, updated_at) "
+                    "ON dbi.dbi_sampling_points TO {}"
+                ).format(sql.Identifier(SAMPLING_ROLE))
+            )
+            cursor.execute(
                 sql.SQL("ALTER ROLE {} SET search_path = dbi, public").format(
                     sql.Identifier(SAMPLING_ROLE)
                 )
@@ -192,6 +207,7 @@ def _profile(version: str) -> DBISamplingProfile:
         fixed_overhead_minutes=0,
         edge_buffer_m=8.0,
         min_spacing_m=25.0,
+        search_radius_m=12.0,
         candidate_multiplier=24,
         reserve_ratio=0.35,
         min_primary_target=20,
@@ -331,6 +347,179 @@ def validate_exclusion_clipping(factory) -> None:
         session.close()
 
 
+def validate_field_lifecycle(factory) -> None:
+    evidence = _create(factory, version="sampling-field-v1", exclusions=())
+    observed_at = datetime.now(timezone.utc)
+
+    session = factory()
+    try:
+        points = session.execute(
+            select(DBISamplingPointRecord)
+            .where(DBISamplingPointRecord.plan_id == evidence.plan_id)
+            .order_by(DBISamplingPointRecord.role, DBISamplingPointRecord.sequence)
+        ).scalars().all()
+        primaries = [point for point in points if point.role == "primary"]
+        reserves = [point for point in points if point.role == "reserve"]
+        primary = primaries[0]
+        longitude, latitude = point_coordinates(primary.planned_point)
+        mutation = DBISamplingFieldService(session).validate_point(
+            plan_id=evidence.plan_id,
+            point_id=primary.id,
+            tenant_ref=TENANT,
+            farm_id=FARM_ID,
+            plot_id=PLOT_ID,
+            longitude=longitude,
+            latitude=latitude,
+            observed_at=observed_at,
+        )
+        assert mutation.changed is True and mutation.status == "validated"
+        session.commit()
+    finally:
+        session.close()
+
+    session = factory()
+    try:
+        replay = DBISamplingFieldService(session).validate_point(
+            plan_id=evidence.plan_id,
+            point_id=primary.id,
+            tenant_ref=TENANT,
+            farm_id=FARM_ID,
+            plot_id=PLOT_ID,
+            longitude=longitude,
+            latitude=latitude,
+            observed_at=observed_at,
+        )
+        assert replay.changed is False
+        session.commit()
+    finally:
+        session.close()
+
+    reserve = next(
+        item for item in reserves if item.reserve_for_sequence != primary.sequence
+    )
+    parent = next(
+        item for item in primaries if item.sequence == reserve.reserve_for_sequence
+    )
+    reserve_lon, reserve_lat = point_coordinates(reserve.planned_point)
+    substitution_at = datetime.now(timezone.utc)
+    session = factory()
+    try:
+        substitution = DBISamplingFieldService(session).substitute_point(
+            plan_id=evidence.plan_id,
+            primary_point_id=parent.id,
+            reserve_point_id=reserve.id,
+            tenant_ref=TENANT,
+            farm_id=FARM_ID,
+            plot_id=PLOT_ID,
+            rejection_reason="missing_plant",
+            longitude=reserve_lon,
+            latitude=reserve_lat,
+            observed_at=substitution_at,
+        )
+        assert substitution.changed is True
+        assert substitution.status == "substituted"
+        assert substitution.reserve_point_id == reserve.id
+        session.commit()
+    finally:
+        session.close()
+
+    session = factory()
+    try:
+        replay = DBISamplingFieldService(session).substitute_point(
+            plan_id=evidence.plan_id,
+            primary_point_id=parent.id,
+            reserve_point_id=reserve.id,
+            tenant_ref=TENANT,
+            farm_id=FARM_ID,
+            plot_id=PLOT_ID,
+            rejection_reason="missing_plant",
+            longitude=reserve_lon,
+            latitude=reserve_lat,
+            observed_at=substitution_at,
+        )
+        assert replay.changed is False
+        session.commit()
+    finally:
+        session.close()
+
+    rejected = next(
+        item
+        for item in primaries
+        if item.id not in {primary.id, parent.id}
+    )
+    reject_at = datetime.now(timezone.utc)
+    session = factory()
+    try:
+        rejection = DBISamplingFieldService(session).reject_point(
+            plan_id=evidence.plan_id,
+            point_id=rejected.id,
+            tenant_ref=TENANT,
+            farm_id=FARM_ID,
+            plot_id=PLOT_ID,
+            rejection_reason="unsafe",
+            observed_at=reject_at,
+        )
+        assert rejection.changed is True and rejection.status == "rejected"
+        session.commit()
+    finally:
+        session.close()
+
+    candidate = next(
+        item
+        for item in primaries
+        if item.id not in {primary.id, parent.id, rejected.id}
+    )
+    candidate_lon, candidate_lat = point_coordinates(candidate.planned_point)
+    session = factory()
+    try:
+        try:
+            DBISamplingFieldService(session).validate_point(
+                plan_id=evidence.plan_id,
+                point_id=candidate.id,
+                tenant_ref=TENANT,
+                farm_id=FARM_ID,
+                plot_id=PLOT_ID,
+                longitude=candidate_lon + 0.001,
+                latitude=candidate_lat,
+                observed_at=datetime.now(timezone.utc),
+            )
+        except DBISamplingConflict:
+            session.rollback()
+        else:
+            raise AssertionError("Una observación fuera del radio GPS debía fallar.")
+    finally:
+        session.close()
+
+    session = factory()
+    try:
+        try:
+            DBISamplingFieldService(session).complete_plan(
+                plan_id=evidence.plan_id,
+                tenant_ref=TENANT,
+                farm_id=FARM_ID,
+                plot_id=PLOT_ID,
+            )
+        except DBISamplingConflict:
+            session.rollback()
+        else:
+            raise AssertionError("No se debe completar un plan con primarias pendientes.")
+    finally:
+        session.close()
+
+    session = factory()
+    try:
+        plan = session.get(DBISamplingPlanRecord, evidence.plan_id)
+        assert plan is not None and plan.status == "in_field"
+        persisted_primary = session.get(DBISamplingPointRecord, primary.id)
+        persisted_parent = session.get(DBISamplingPointRecord, parent.id)
+        persisted_reserve = session.get(DBISamplingPointRecord, reserve.id)
+        assert persisted_primary is not None and persisted_primary.status == "validated"
+        assert persisted_parent is not None and persisted_parent.status == "substituted"
+        assert persisted_reserve is not None and persisted_reserve.status == "validated"
+    finally:
+        session.close()
+
+
 def _sampling_connect():
     return psycopg.connect(
         host=HOST,
@@ -356,6 +545,7 @@ def validate_acl() -> None:
     _assert_denied("UPDATE dbi.dbi_analysis_jobs SET status = status")
     _assert_denied("DELETE FROM dbi.dbi_sampling_plans")
     _assert_denied("UPDATE dbi.dbi_sampling_plans SET profile_json = profile_json")
+    _assert_denied("UPDATE dbi.dbi_sampling_points SET planned_point = planned_point")
     _assert_denied("UPDATE dbi.dbi_farms SET name = name")
 
 
@@ -367,11 +557,12 @@ def main() -> None:
         validate_authority_and_replay(factory)
         validate_concurrency(factory)
         validate_exclusion_clipping(factory)
+        validate_field_lifecycle(factory)
         validate_acl()
     finally:
         engine.dispose()
     print(
-        "DBI-SAMPLING-001 PostGIS aprobado: authority, replay, concurrencia, exclusiones y ACL."
+        "DBI-SAMPLING-001 PostGIS aprobado: authority, replay, concurrencia, campo, exclusiones y ACL."
     )
 
 
