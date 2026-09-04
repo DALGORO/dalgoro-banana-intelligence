@@ -225,6 +225,10 @@ class DBIRasterProductService:
         if row.status == "retired":
             if row.retired_at is None:
                 raise DBIRasterConflict("Producto retirado sin timestamp persistido.")
+            if row.retired_at != retired_at:
+                raise DBIRasterConflict(
+                    "El replay de retiro debe conservar el retired_at persistido."
+                )
             return DBIRasterRetirementEvidence(
                 product_id=row.id,
                 changed=False,
