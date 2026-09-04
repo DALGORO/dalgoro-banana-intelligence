@@ -20,6 +20,7 @@ sys.path.insert(0, str(BACKEND))
 from app.api.v1 import dbi_raster_products, get_api_router  # noqa: E402
 from app.dbi.authorization import (  # noqa: E402
     DBIAccessContext,
+    DBIFarmScope,
     DBIPermission,
     DBIPlotScope,
 )
@@ -42,7 +43,11 @@ def _context(*, authorized: bool = True) -> DBIAccessContext:
         principal_ref="principal-raster-http",
         tenant_ref=TENANT,
         organization_refs=frozenset({ORG}),
-        farm_scopes=frozenset(),
+        farm_scopes=(
+            frozenset({DBIFarmScope(ORG, FARM)})
+            if authorized
+            else frozenset()
+        ),
         plot_scopes=(
             frozenset({DBIPlotScope(ORG, FARM, PLOT)})
             if authorized
