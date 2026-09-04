@@ -1,8 +1,9 @@
-"""Servicio de autoridad y registro de productos COG privados DBI."""
+"""Servicio de autoridad, registro y retiro de productos COG privados DBI."""
 
 from __future__ import annotations
 
 from dataclasses import dataclass
+from datetime import datetime
 from uuid import UUID
 
 from sqlalchemy import select
@@ -28,7 +29,7 @@ from app.dbi.storage_policy import DBIStoragePolicy
 
 
 class DBIRasterUnavailable(DBIRasterConflict):
-    """La autoridad o el objeto privado no están disponibles para registrar."""
+    """La autoridad o el objeto privado no están disponibles para la operación."""
 
 
 @dataclass(frozen=True, slots=True)
@@ -41,8 +42,15 @@ class DBIRasterRegistrationEvidence:
     sha256: str
 
 
+@dataclass(frozen=True, slots=True)
+class DBIRasterRetirementEvidence:
+    product_id: UUID
+    changed: bool
+    retired_at: datetime
+
+
 class DBIRasterProductService:
-    """Verifica source + Storage sin ejecutar procesamiento geoespacial pesado."""
+    """Verifica autoridad + Storage sin ejecutar procesamiento geoespacial pesado."""
 
     def __init__(
         self,
@@ -180,4 +188,70 @@ class DBIRasterProductService:
             created=created,
             size_bytes=row.size_bytes,
             sha256=row.sha256,
+        )
+
+    def retire(
+        self,
+        *,
+        product_id: UUID,
+        tenant_ref: str,
+        farm_id: UUID,
+        plot_id: UUID,
+        retired_at: datetime,
+    ) -> DBIRasterRetirementEvidence:
+        """Retira Storage antes de DB; un fallo de commit queda recuperable por replay."""
+
+        if not isinstance(product_id, UUID):
+            raise DBIRasterConflict("product_id debe ser UUID.")
+        if not isinstance(farm_id, UUID) or not isinstance(plot_id, UUID):
+            raise DBIRasterConflict("farm_id y plot_id deben ser UUID.")
+        if not isinstance(tenant_ref, str) or not tenant_ref or tenant_ref.strip() != tenant_ref:
+            raise DBIRasterConflict("tenant_ref no es canónico.")
+        if (
+            not isinstance(retired_at, datetime)
+            or retired_at.tzinfo is None
+            or retired_at.utcoffset() is None
+        ):
+            raise DBIRasterConflict("retired_at debe incluir zona horaria.")
+
+        row = self._repository.get_for_update(
+            product_id=product_id,
+            tenant_ref=tenant_ref,
+            farm_id=farm_id,
+            plot_id=plot_id,
+        )
+        if row is None:
+            raise DBIRasterUnavailable("Producto Raster no disponible para retiro.")
+        if row.status == "retired":
+            if row.retired_at is None:
+                raise DBIRasterConflict("Producto retirado sin timestamp persistido.")
+            return DBIRasterRetirementEvidence(
+                product_id=row.id,
+                changed=False,
+                retired_at=row.retired_at,
+            )
+        if row.status != "ready" or row.retired_at is not None:
+            raise DBIRasterConflict("Estado Raster persistido inválido para retiro.")
+        if retired_at < row.created_at:
+            raise DBIRasterConflict("retired_at no puede preceder created_at.")
+
+        address = DBIStoragePolicy.build_address(
+            tenant_ref=row.tenant_ref,
+            purpose=DBIStoragePurpose.RASTER_PRODUCT,
+            object_id=row.id,
+        )
+        if row.object_key != address.object_key:
+            raise DBIRasterConflict("La clave persistida del producto no es canónica.")
+        try:
+            self._store.retire(address, retired_at=retired_at)
+        except DBIStorageError as error:
+            raise DBIRasterUnavailable(
+                "Storage no pudo retirar el producto Raster."
+            ) from error
+
+        changed = self._repository.retire_locked(row, retired_at=retired_at)
+        return DBIRasterRetirementEvidence(
+            product_id=row.id,
+            changed=changed,
+            retired_at=row.retired_at if row.retired_at is not None else retired_at,
         )
