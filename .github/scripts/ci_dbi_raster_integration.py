@@ -39,7 +39,7 @@ from app.dbi.raster.service import (  # noqa: E402
     DBIRasterUnavailable,
 )
 from app.dbi.storage_contracts import (  # noqa: E402
-    DBIStorageObjectState,
+    DBIStorageNotFound,
     DBIStoragePurpose,
     DBIStorageWriteRequest,
 )
@@ -152,6 +152,14 @@ def _assert_denied(statement: str) -> None:
             except psycopg.errors.InsufficientPrivilege:
                 return
     raise AssertionError("el rol Raster obtuvo una mutación no autorizada.")
+
+
+def _assert_storage_unavailable(store, address) -> None:
+    try:
+        store.stat(address)
+    except DBIStorageNotFound:
+        return
+    raise AssertionError("Un objeto Raster retirado siguió disponible en Storage.")
 
 
 def validate_acl() -> None:
@@ -368,7 +376,7 @@ def validate_retirement_and_recovery(factory) -> None:
         purpose=DBIStoragePurpose.RASTER_PRODUCT,
         object_id=candidate.object_id,
     )
-    assert store.stat(address).state is DBIStorageObjectState.RETIRED
+    _assert_storage_unavailable(store, address)
 
     session = factory()
     try:
@@ -408,13 +416,12 @@ def validate_retirement_and_recovery(factory) -> None:
     finally:
         session.close()
 
-    assert store.stat(
-        DBIStoragePolicy.build_address(
-            tenant_ref=TENANT,
-            purpose=DBIStoragePurpose.RASTER_PRODUCT,
-            object_id=recovery.object_id,
-        )
-    ).state is DBIStorageObjectState.RETIRED
+    recovery_address = DBIStoragePolicy.build_address(
+        tenant_ref=TENANT,
+        purpose=DBIStoragePurpose.RASTER_PRODUCT,
+        object_id=recovery.object_id,
+    )
+    _assert_storage_unavailable(store, recovery_address)
 
     repaired = _retire(
         factory,
