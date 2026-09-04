@@ -18,6 +18,7 @@ from app.dbi.storage_contracts import (
     DBIStorageNotFound,
     DBIStorageObjectMetadata,
     DBIStorageObjectRecord,
+    DBIStorageRangeRead,
     DBIStorageTemporaryGrant,
     DBIStorageWriteRequest,
     DBIStorageWriteResult,
@@ -33,6 +34,9 @@ class DBIStorageMetricsSnapshot:
     idempotent_writes: int
     stat_attempts: int
     read_attempts: int
+    range_attempts: int
+    range_reads: int
+    range_failures: int
     retire_attempts: int
     retired_objects: int
     idempotent_retires: int
@@ -41,6 +45,7 @@ class DBIStorageMetricsSnapshot:
     bytes_verified: int
     bytes_created: int
     bytes_opened: int
+    bytes_ranged: int
     denied_errors: int
     conflict_errors: int
     not_found_errors: int
@@ -54,6 +59,9 @@ class _MutableMetrics:
     idempotent_writes: int = 0
     stat_attempts: int = 0
     read_attempts: int = 0
+    range_attempts: int = 0
+    range_reads: int = 0
+    range_failures: int = 0
     retire_attempts: int = 0
     retired_objects: int = 0
     idempotent_retires: int = 0
@@ -62,6 +70,7 @@ class _MutableMetrics:
     bytes_verified: int = 0
     bytes_created: int = 0
     bytes_opened: int = 0
+    bytes_ranged: int = 0
     denied_errors: int = 0
     conflict_errors: int = 0
     not_found_errors: int = 0
@@ -156,6 +165,35 @@ class DBIMeteredObjectStore:
                 self._record_error(error)
             raise
 
+    def read_range(
+        self,
+        address: DBIStorageAddress,
+        *,
+        start: int,
+        end_exclusive: int,
+    ) -> DBIStorageRangeRead:
+        """Mide sólo rangos efectivamente solicitados y bytes devueltos."""
+
+        self._increment("range_attempts")
+        try:
+            result = self._delegate.read_range(
+                address,
+                start=start,
+                end_exclusive=end_exclusive,
+            )
+        except (
+            DBIStorageDenied,
+            DBIStorageIntegrityError,
+            DBIStorageNotFound,
+            DBIStorageConflict,
+        ) as error:
+            self._increment("range_failures")
+            self._record_error(error)
+            raise
+        self._increment("range_reads")
+        self._increment("bytes_ranged", result.length)
+        return result
+
     def retire(
         self,
         address: DBIStorageAddress,
@@ -221,6 +259,9 @@ class DBIMeteredObjectStore:
                 idempotent_writes=self._metrics.idempotent_writes,
                 stat_attempts=self._metrics.stat_attempts,
                 read_attempts=self._metrics.read_attempts,
+                range_attempts=self._metrics.range_attempts,
+                range_reads=self._metrics.range_reads,
+                range_failures=self._metrics.range_failures,
                 retire_attempts=self._metrics.retire_attempts,
                 retired_objects=self._metrics.retired_objects,
                 idempotent_retires=self._metrics.idempotent_retires,
@@ -231,6 +272,7 @@ class DBIMeteredObjectStore:
                 bytes_verified=self._metrics.bytes_verified,
                 bytes_created=self._metrics.bytes_created,
                 bytes_opened=self._metrics.bytes_opened,
+                bytes_ranged=self._metrics.bytes_ranged,
                 denied_errors=self._metrics.denied_errors,
                 conflict_errors=self._metrics.conflict_errors,
                 not_found_errors=self._metrics.not_found_errors,
