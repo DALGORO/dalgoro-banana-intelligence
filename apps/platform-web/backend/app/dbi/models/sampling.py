@@ -65,6 +65,15 @@ class DBISamplingPlanRecord(DBIBase):
             name="ck_dbi_sampling_plans_json_size",
         ),
         CheckConstraint(
+            "length(schema_version) BETWEEN 1 AND 64 "
+            "AND btrim(schema_version) = schema_version "
+            "AND length(profile_version) BETWEEN 1 AND 64 "
+            "AND btrim(profile_version) = profile_version "
+            "AND length(created_by_ref) BETWEEN 1 AND 128 "
+            "AND btrim(created_by_ref) = created_by_ref",
+            name="ck_dbi_sampling_plans_canonical_refs",
+        ),
+        CheckConstraint(
             "NOT ST_IsEmpty(boundary_snapshot) AND ST_IsValid(boundary_snapshot)",
             name="ck_dbi_sampling_plans_boundary",
         ),
@@ -74,7 +83,7 @@ class DBISamplingPlanRecord(DBIBase):
             name="ck_dbi_sampling_plans_exclusions",
         ),
         CheckConstraint(
-            "(status = 'retired' AND retired_at IS NOT NULL) OR "
+            "(status = 'retired' AND retired_at IS NOT NULL AND retired_at >= created_at) OR "
             "(status <> 'retired' AND retired_at IS NULL)",
             name="ck_dbi_sampling_plans_retirement",
         ),
@@ -160,6 +169,10 @@ class DBISamplingPointRecord(DBIBase):
             name="ck_dbi_sampling_points_rejection_reason",
         ),
         CheckConstraint(
+            "selection_reason IN ('balanced', 'nearby_reserve')",
+            name="ck_dbi_sampling_points_selection_reason",
+        ),
+        CheckConstraint(
             "sequence > 0 AND (route_order IS NULL OR route_order > 0) "
             "AND (reserve_for_sequence IS NULL OR reserve_for_sequence > 0)",
             name="ck_dbi_sampling_points_positive_order",
@@ -175,9 +188,9 @@ class DBISamplingPointRecord(DBIBase):
             name="ck_dbi_sampling_points_geometry",
         ),
         CheckConstraint(
-            "(status = 'planned' AND observed_point IS NULL AND rejection_reason IS NULL) "
-            "OR (status = 'validated' AND observed_point IS NOT NULL AND rejection_reason IS NULL) "
-            "OR (status IN ('rejected', 'substituted') AND rejection_reason IS NOT NULL)",
+            "(status = 'planned' AND observed_point IS NULL AND rejection_reason IS NULL AND observed_at IS NULL) "
+            "OR (status = 'validated' AND observed_point IS NOT NULL AND rejection_reason IS NULL AND observed_at IS NOT NULL) "
+            "OR (status IN ('rejected', 'substituted') AND rejection_reason IS NOT NULL AND observed_at IS NOT NULL)",
             name="ck_dbi_sampling_points_state_fields",
         ),
         Index("ix_dbi_sampling_points_plan", "plan_id"),
@@ -185,6 +198,11 @@ class DBISamplingPointRecord(DBIBase):
         Index(
             "ix_dbi_sampling_points_planned_gist",
             "planned_point",
+            postgresql_using="gist",
+        ),
+        Index(
+            "ix_dbi_sampling_points_observed_gist",
+            "observed_point",
             postgresql_using="gist",
         ),
     )
