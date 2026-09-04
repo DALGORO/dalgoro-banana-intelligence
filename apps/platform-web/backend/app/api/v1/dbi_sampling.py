@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from dataclasses import asdict
 from typing import Annotated
 from uuid import UUID
 
@@ -280,7 +281,7 @@ def validate_sampling_point(
             observed_at=payload.observed_at,
         ),
     )
-    return DBISamplingPointMutationResponse(**evidence.__dict__)
+    return DBISamplingPointMutationResponse(**asdict(evidence))
 
 
 @router.post(
@@ -316,7 +317,7 @@ def reject_sampling_point(
             observed_at=payload.observed_at,
         ),
     )
-    return DBISamplingPointMutationResponse(**evidence.__dict__)
+    return DBISamplingPointMutationResponse(**asdict(evidence))
 
 
 @router.post(
@@ -355,7 +356,7 @@ def substitute_sampling_point(
             observed_at=payload.observed_at,
         ),
     )
-    return DBISamplingPointMutationResponse(**evidence.__dict__)
+    return DBISamplingPointMutationResponse(**asdict(evidence))
 
 
 @router.post(
