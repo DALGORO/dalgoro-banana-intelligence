@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import json
 from dataclasses import dataclass, field
 from uuid import UUID
 
@@ -14,6 +15,7 @@ from app.dbi.storage_contracts import (
     DBIPrivateObjectStore,
     DBIStorageError,
     DBIStorageNotFound,
+    DBIStorageObjectState,
     DBIStoragePurpose,
     MAX_STORAGE_RANGE_BYTES,
 )
@@ -37,7 +39,15 @@ class DBIRasterProductMetadata:
     height: int
     band_count: int
     dtype: str
-    overview_levels_json: str
+    transform: tuple[float, float, float, float, float, float]
+    bounds: tuple[float, float, float, float]
+    nodata: tuple[float | None, ...]
+    scales: tuple[float, ...]
+    offsets: tuple[float, ...]
+    block_width: int
+    block_height: int
+    compression: str
+    overview_levels: tuple[int, ...]
 
 
 @dataclass(frozen=True, slots=True)
@@ -52,6 +62,61 @@ class DBIRasterRangeSlice:
     @property
     def length(self) -> int:
         return self.end_exclusive - self.start
+
+
+def _decoded_list(value: str, *, field_name: str) -> list[object]:
+    try:
+        decoded = json.loads(value)
+    except (TypeError, json.JSONDecodeError) as error:
+        raise DBIRasterConflict(
+            f"Metadata Raster persistida inválida: {field_name}."
+        ) from error
+    if not isinstance(decoded, list):
+        raise DBIRasterConflict(
+            f"Metadata Raster persistida inválida: {field_name}."
+        )
+    return decoded
+
+
+def _float_tuple(
+    value: str,
+    *,
+    field_name: str,
+    expected_length: int | None = None,
+    allow_none: bool = False,
+) -> tuple[float | None, ...]:
+    decoded = _decoded_list(value, field_name=field_name)
+    if expected_length is not None and len(decoded) != expected_length:
+        raise DBIRasterConflict(
+            f"Metadata Raster persistida inválida: {field_name}."
+        )
+    converted: list[float | None] = []
+    for item in decoded:
+        if item is None and allow_none:
+            converted.append(None)
+            continue
+        if isinstance(item, bool) or not isinstance(item, (int, float)):
+            raise DBIRasterConflict(
+                f"Metadata Raster persistida inválida: {field_name}."
+            )
+        converted.append(float(item))
+    return tuple(converted)
+
+
+def _overview_tuple(value: str) -> tuple[int, ...]:
+    decoded = _decoded_list(value, field_name="overview_levels")
+    result: list[int] = []
+    for item in decoded:
+        if isinstance(item, bool) or not isinstance(item, int) or item <= 1:
+            raise DBIRasterConflict(
+                "Metadata Raster persistida inválida: overview_levels."
+            )
+        result.append(item)
+    if result != sorted(set(result)):
+        raise DBIRasterConflict(
+            "Metadata Raster persistida inválida: overview_levels."
+        )
+    return tuple(result)
 
 
 class DBIRasterProductReader:
@@ -94,6 +159,43 @@ class DBIRasterProductReader:
             raise DBIRasterProductUnavailable("Producto Raster no disponible.")
         return row
 
+    def _verified_row(
+        self,
+        *,
+        product_id: UUID,
+        tenant_ref: str,
+        farm_id: UUID,
+        plot_id: UUID,
+    ) -> DBIRasterProduct:
+        row = self._ready_row(
+            product_id=product_id,
+            tenant_ref=tenant_ref,
+            farm_id=farm_id,
+            plot_id=plot_id,
+        )
+        address = DBIStoragePolicy.build_address(
+            tenant_ref=row.tenant_ref,
+            purpose=DBIStoragePurpose.RASTER_PRODUCT,
+            object_id=row.id,
+        )
+        if row.object_key != address.object_key:
+            raise DBIRasterConflict("La clave persistida del producto no es canónica.")
+        expected = DBIStoragePolicy.build_metadata(
+            address=address,
+            content_type=row.content_type,
+            size_bytes=row.size_bytes,
+            sha256_hex=row.sha256,
+        )
+        try:
+            record = self._store.stat(address)
+        except DBIStorageNotFound as error:
+            raise DBIRasterProductUnavailable("Producto Raster no disponible.") from error
+        except DBIStorageError as error:
+            raise DBIRasterConflict("Storage rechazó el producto Raster.") from error
+        if record.state is not DBIStorageObjectState.ACTIVE or record.metadata != expected:
+            raise DBIRasterProductUnavailable("Producto Raster no disponible.")
+        return row
+
     def metadata(
         self,
         *,
@@ -102,11 +204,37 @@ class DBIRasterProductReader:
         farm_id: UUID,
         plot_id: UUID,
     ) -> DBIRasterProductMetadata:
-        row = self._ready_row(
+        row = self._verified_row(
             product_id=product_id,
             tenant_ref=tenant_ref,
             farm_id=farm_id,
             plot_id=plot_id,
+        )
+        transform = _float_tuple(
+            row.transform_json,
+            field_name="transform",
+            expected_length=6,
+        )
+        bounds = _float_tuple(
+            row.bounds_json,
+            field_name="bounds",
+            expected_length=4,
+        )
+        nodata = _float_tuple(
+            row.nodata_json,
+            field_name="nodata",
+            expected_length=row.band_count,
+            allow_none=True,
+        )
+        scales = _float_tuple(
+            row.scales_json,
+            field_name="scales",
+            expected_length=row.band_count,
+        )
+        offsets = _float_tuple(
+            row.offsets_json,
+            field_name="offsets",
+            expected_length=row.band_count,
         )
         return DBIRasterProductMetadata(
             product_id=row.id,
@@ -120,7 +248,15 @@ class DBIRasterProductReader:
             height=row.height,
             band_count=row.band_count,
             dtype=row.dtype,
-            overview_levels_json=row.overview_levels_json,
+            transform=tuple(transform),  # type: ignore[arg-type]
+            bounds=tuple(bounds),  # type: ignore[arg-type]
+            nodata=nodata,
+            scales=tuple(scales),  # type: ignore[arg-type]
+            offsets=tuple(offsets),  # type: ignore[arg-type]
+            block_width=row.block_width,
+            block_height=row.block_height,
+            compression=row.compression,
+            overview_levels=_overview_tuple(row.overview_levels_json),
         )
 
     def read_range(
@@ -133,7 +269,7 @@ class DBIRasterProductReader:
         start: int,
         end_exclusive: int,
     ) -> DBIRasterRangeSlice:
-        row = self._ready_row(
+        row = self._verified_row(
             product_id=product_id,
             tenant_ref=tenant_ref,
             farm_id=farm_id,
@@ -156,8 +292,6 @@ class DBIRasterProductReader:
             purpose=DBIStoragePurpose.RASTER_PRODUCT,
             object_id=row.id,
         )
-        if row.object_key != address.object_key:
-            raise DBIRasterConflict("La clave persistida del producto no es canónica.")
         expected = DBIStoragePolicy.build_metadata(
             address=address,
             content_type=row.content_type,
