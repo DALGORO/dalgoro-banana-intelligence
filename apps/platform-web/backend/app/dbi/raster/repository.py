@@ -1,6 +1,9 @@
-"""Persistencia idempotente de productos COG DBI."""
+"""Persistencia idempotente y ciclo de vida de productos COG DBI."""
 
 from __future__ import annotations
+
+from datetime import datetime
+from uuid import UUID
 
 from sqlalchemy import or_, select
 from sqlalchemy.dialects.postgresql import insert as postgresql_insert
@@ -130,10 +133,50 @@ class DBIRasterProductRepository:
             raise DBIRasterConflict("La identidad insertada del producto diverge.")
         return row, inserted is not None
 
-    def get_ready(self, product_id):
+    def get_ready(self, product_id: UUID):
         return self._session.execute(
             select(DBIRasterProduct).where(
                 DBIRasterProduct.id == product_id,
                 DBIRasterProduct.status == "ready",
             )
         ).scalar_one_or_none()
+
+    def get_for_update(
+        self,
+        *,
+        product_id: UUID,
+        tenant_ref: str,
+        farm_id: UUID,
+        plot_id: UUID,
+    ) -> DBIRasterProduct | None:
+        return self._session.execute(
+            select(DBIRasterProduct)
+            .where(
+                DBIRasterProduct.id == product_id,
+                DBIRasterProduct.tenant_ref == tenant_ref,
+                DBIRasterProduct.farm_id == farm_id,
+                DBIRasterProduct.plot_id == plot_id,
+            )
+            .with_for_update()
+        ).scalar_one_or_none()
+
+    def retire_locked(
+        self,
+        row: DBIRasterProduct,
+        *,
+        retired_at: datetime,
+    ) -> bool:
+        """Marca retirada una fila ya bloqueada; replay exacto es no-op."""
+
+        if not isinstance(row, DBIRasterProduct):
+            raise DBIRasterConflict("row debe ser DBIRasterProduct.")
+        if row.status == "retired":
+            if row.retired_at is None:
+                raise DBIRasterConflict("Producto retirado sin timestamp persistido.")
+            return False
+        if row.status != "ready" or row.retired_at is not None:
+            raise DBIRasterConflict("Estado Raster persistido inválido para retiro.")
+        row.status = "retired"
+        row.retired_at = retired_at
+        self._session.flush()
+        return True
