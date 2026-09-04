@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from datetime import datetime
 from typing import Literal
 from uuid import UUID
 
@@ -33,6 +34,13 @@ class DBIRasterProductMetadataResponse(_RasterAPIModel):
     block_height: int = Field(gt=0)
     compression: str = Field(min_length=1, max_length=32)
     overview_levels: tuple[int, ...]
+
+
+class DBIRasterProductRetireResponse(_RasterAPIModel):
+    product_id: UUID
+    status: Literal["retired"]
+    changed: bool
+    retired_at: datetime
 
 
 class DBIRasterRangeErrorResponse(_RasterAPIModel):
