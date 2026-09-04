@@ -129,8 +129,7 @@ def _provision_raster_role() -> None:
             )
             cursor.execute(
                 sql.SQL("ALTER ROLE {} SET search_path = dbi, public").format(
-                    sql.Identifier(RASTER_ROLE)
-                )
+                    sql.Identifier(RASTER_ROLE))
             )
 
 
@@ -348,14 +347,21 @@ def validate_retirement_and_recovery(factory) -> None:
     retired_at = datetime.now(timezone.utc)
     first = _retire(factory, store, candidate, retired_at=retired_at)
     assert first.changed is True
-    replay = _retire(
-        factory,
-        store,
-        candidate,
-        retired_at=retired_at + timedelta(seconds=5),
-    )
+    replay = _retire(factory, store, candidate, retired_at=retired_at)
     assert replay.changed is False
     assert replay.retired_at == first.retired_at
+
+    try:
+        _retire(
+            factory,
+            store,
+            candidate,
+            retired_at=retired_at + timedelta(seconds=5),
+        )
+    except DBIRasterConflict:
+        pass
+    else:
+        raise AssertionError("Un replay con retired_at divergente debía fallar cerrado.")
 
     address = DBIStoragePolicy.build_address(
         tenant_ref=TENANT,
@@ -414,13 +420,14 @@ def validate_retirement_and_recovery(factory) -> None:
         factory,
         store,
         recovery,
-        retired_at=recovery_at + timedelta(seconds=10),
+        retired_at=recovery_at,
     )
     assert repaired.changed is True
     session = factory()
     try:
         row = session.get(DBIRasterProduct, recovery.object_id)
         assert row is not None and row.status == "retired"
+        assert row.retired_at == recovery_at
     finally:
         session.close()
 
