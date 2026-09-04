@@ -7,6 +7,7 @@ import os
 import sys
 from concurrent.futures import ThreadPoolExecutor
 from dataclasses import replace
+from datetime import datetime, timedelta, timezone
 from io import BytesIO
 from pathlib import Path
 from uuid import UUID
@@ -29,17 +30,21 @@ from app.dbi.raster.contracts import (  # noqa: E402
     DBIRasterSourceKind,
     raster_product_id,
 )
+from app.dbi.raster.reader import (  # noqa: E402
+    DBIRasterProductReader,
+    DBIRasterProductUnavailable,
+)
 from app.dbi.raster.service import (  # noqa: E402
     DBIRasterProductService,
     DBIRasterUnavailable,
 )
 from app.dbi.storage_contracts import (  # noqa: E402
+    DBIStorageObjectState,
     DBIStoragePurpose,
     DBIStorageWriteRequest,
 )
 from app.dbi.storage_policy import DBIStoragePolicy  # noqa: E402
 from ci_dbi_worker_integration import (  # noqa: E402
-    ADMIN_ROLE,
     DATABASE,
     FARM_ID,
     HOST,
@@ -118,6 +123,11 @@ def _provision_raster_role() -> None:
                 )
             )
             cursor.execute(
+                sql.SQL(
+                    "GRANT UPDATE (status, retired_at) ON dbi.dbi_raster_products TO {}"
+                ).format(sql.Identifier(RASTER_ROLE))
+            )
+            cursor.execute(
                 sql.SQL("ALTER ROLE {} SET search_path = dbi, public").format(
                     sql.Identifier(RASTER_ROLE)
                 )
@@ -149,7 +159,9 @@ def validate_acl() -> None:
     _assert_denied("UPDATE dbi.dbi_analysis_jobs SET status = status")
     _assert_denied("UPDATE dbi.dbi_analysis_results SET status = status")
     _assert_denied("UPDATE dbi.dbi_farms SET name = name")
-    _assert_denied("UPDATE dbi.dbi_raster_products SET status = status")
+    _assert_denied(
+        "UPDATE dbi.dbi_raster_products SET source_sha256 = source_sha256"
+    )
     _assert_denied("DELETE FROM dbi.dbi_raster_products")
 
 
@@ -209,6 +221,25 @@ def _register(factory, store, candidate: DBIRasterProductCandidate):
         evidence = DBIRasterProductService(session, store).register_ready(
             candidate,
             tenant_ref=TENANT,
+        )
+        session.commit()
+        return evidence
+    except BaseException:
+        session.rollback()
+        raise
+    finally:
+        session.close()
+
+
+def _retire(factory, store, candidate, *, retired_at: datetime):
+    session = factory()
+    try:
+        evidence = DBIRasterProductService(session, store).retire(
+            product_id=candidate.object_id,
+            tenant_ref=TENANT,
+            farm_id=FARM_ID,
+            plot_id=PLOT_ID,
+            retired_at=retired_at,
         )
         session.commit()
         return evidence
@@ -308,6 +339,92 @@ def validate_concurrency(factory) -> None:
         session.close()
 
 
+def validate_retirement_and_recovery(factory) -> None:
+    store = _object_store()
+    candidate = _candidate("cog_retire_v1")
+    _put_cog(store, candidate)
+    _register(factory, store, candidate)
+
+    retired_at = datetime.now(timezone.utc)
+    first = _retire(factory, store, candidate, retired_at=retired_at)
+    assert first.changed is True
+    replay = _retire(
+        factory,
+        store,
+        candidate,
+        retired_at=retired_at + timedelta(seconds=5),
+    )
+    assert replay.changed is False
+    assert replay.retired_at == first.retired_at
+
+    address = DBIStoragePolicy.build_address(
+        tenant_ref=TENANT,
+        purpose=DBIStoragePurpose.RASTER_PRODUCT,
+        object_id=candidate.object_id,
+    )
+    assert store.stat(address).state is DBIStorageObjectState.RETIRED
+
+    session = factory()
+    try:
+        row = session.get(DBIRasterProduct, candidate.object_id)
+        assert row is not None
+        assert row.status == "retired"
+        assert row.retired_at is not None
+        try:
+            DBIRasterProductReader(session, store).metadata(
+                product_id=candidate.object_id,
+                tenant_ref=TENANT,
+                farm_id=FARM_ID,
+                plot_id=PLOT_ID,
+            )
+        except DBIRasterProductUnavailable:
+            pass
+        else:
+            raise AssertionError("Un producto retirado siguió siendo legible.")
+    finally:
+        session.close()
+
+    recovery = _candidate("cog_retire_recovery_v1")
+    _put_cog(store, recovery)
+    _register(factory, store, recovery)
+    recovery_at = datetime.now(timezone.utc)
+    session = factory()
+    try:
+        evidence = DBIRasterProductService(session, store).retire(
+            product_id=recovery.object_id,
+            tenant_ref=TENANT,
+            farm_id=FARM_ID,
+            plot_id=PLOT_ID,
+            retired_at=recovery_at,
+        )
+        assert evidence.changed is True
+        session.rollback()
+    finally:
+        session.close()
+
+    assert store.stat(
+        DBIStoragePolicy.build_address(
+            tenant_ref=TENANT,
+            purpose=DBIStoragePurpose.RASTER_PRODUCT,
+            object_id=recovery.object_id,
+        )
+    ).state is DBIStorageObjectState.RETIRED
+
+    repaired = _retire(
+        factory,
+        store,
+        recovery,
+        retired_at=recovery_at + timedelta(seconds=10),
+    )
+    assert repaired.changed is True
+    session = factory()
+    try:
+        row = session.get(DBIRasterProduct, recovery.object_id)
+        assert row is not None and row.status == "retired"
+    finally:
+        session.close()
+
+
 def main() -> None:
     _require_scope()
     _provision_role_and_shared_fixture()
@@ -316,11 +433,12 @@ def main() -> None:
     try:
         validate_success_replay_and_conflicts(factory)
         validate_concurrency(factory)
+        validate_retirement_and_recovery(factory)
         validate_acl()
     finally:
         engine.dispose()
     print(
-        "DBI-RASTER-001 PostGIS aprobado: COG privado, replay, concurrencia, tenant y ACL."
+        "DBI-RASTER-001 PostGIS aprobado: COG privado, replay, concurrencia, retiro, tenant y ACL."
     )
 
 
