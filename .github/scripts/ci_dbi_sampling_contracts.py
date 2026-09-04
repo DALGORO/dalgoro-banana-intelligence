@@ -19,12 +19,19 @@ from app.dbi.sampling import (  # noqa: E402
     DBISamplingProfile,
     build_sampling_plan,
 )
+from app.dbi.sampling.association import (  # noqa: E402
+    DBIUPCandidate,
+    DBIUPMatchProfile,
+    associate_observation_to_up,
+)
 from app.dbi.spatial import GeoJSONMultiPolygon  # noqa: E402
 
 TENANT = "tenant-sampling-ci"
 ORG = "organization-sampling-ci"
 FARM = UUID("10000000-0000-4000-8000-000000000078")
 PLOT = UUID("20000000-0000-4000-8000-000000000078")
+UP_A = UUID("30000000-0000-4000-8000-000000000078")
+UP_B = UUID("30000000-0000-4000-8000-000000000079")
 
 
 def _multipolygon(min_lon, min_lat, max_lon, max_lat) -> GeoJSONMultiPolygon:
@@ -66,6 +73,7 @@ def _request(*, budget=120.0, seed=17, edge_buffer=8.0):
             fixed_overhead_minutes=0,
             edge_buffer_m=edge_buffer,
             min_spacing_m=25,
+            search_radius_m=12,
             candidate_multiplier=24,
             reserve_ratio=0.35,
             min_primary_target=20,
@@ -94,6 +102,7 @@ def validate_determinism_and_budget() -> None:
     assert first.budget.reserve_count == 10
     assert first.budget.target_status == "within_target"
     assert len(first.points) == 36
+    assert request.profile.search_radius_m == 12
 
     shorter = build_sampling_plan(_request(budget=60.0))
     assert shorter.budget.capacity_points == 13
@@ -148,6 +157,84 @@ def validate_first_visit_boundary() -> None:
         assert forbidden not in serialized
 
 
+def validate_up_association() -> None:
+    profile = DBIUPMatchProfile(
+        profile_version="up-match-v1",
+        tolerance_m=12,
+        ambiguity_margin_m=2,
+    )
+    one = associate_observation_to_up(
+        observed_longitude=-79.8050000,
+        observed_latitude=-3.2960000,
+        candidates=(
+            DBIUPCandidate(
+                up_id=UP_A,
+                longitude=-79.8050300,
+                latitude=-3.2960000,
+            ),
+        ),
+        profile=profile,
+    )
+    assert one.status == "matched"
+    assert one.matched_up_id == UP_A
+
+    ambiguous = associate_observation_to_up(
+        observed_longitude=-79.8050000,
+        observed_latitude=-3.2960000,
+        candidates=(
+            DBIUPCandidate(
+                up_id=UP_A,
+                longitude=-79.8050200,
+                latitude=-3.2960000,
+            ),
+            DBIUPCandidate(
+                up_id=UP_B,
+                longitude=-79.8049800,
+                latitude=-3.2960000,
+            ),
+        ),
+        profile=profile,
+    )
+    assert ambiguous.status == "ambiguous"
+    assert ambiguous.matched_up_id is None
+    assert {item.up_id for item in ambiguous.candidates} == {UP_A, UP_B}
+
+    clear = associate_observation_to_up(
+        observed_longitude=-79.8050000,
+        observed_latitude=-3.2960000,
+        candidates=(
+            DBIUPCandidate(
+                up_id=UP_A,
+                longitude=-79.8050050,
+                latitude=-3.2960000,
+            ),
+            DBIUPCandidate(
+                up_id=UP_B,
+                longitude=-79.8050800,
+                latitude=-3.2960000,
+            ),
+        ),
+        profile=profile,
+    )
+    assert clear.status == "matched"
+    assert clear.matched_up_id == UP_A
+
+    none = associate_observation_to_up(
+        observed_longitude=-79.8050000,
+        observed_latitude=-3.2960000,
+        candidates=(
+            DBIUPCandidate(
+                up_id=UP_A,
+                longitude=-79.8060000,
+                latitude=-3.2960000,
+            ),
+        ),
+        profile=profile,
+    )
+    assert none.status == "no_match"
+    assert none.candidates == ()
+
+
 def validate_fail_closed() -> None:
     tiny = _multipolygon(-79.80005, -3.30005, -79.80000, -3.30000)
     request = _request(edge_buffer=200.0).model_copy(update={"boundary": tiny})
@@ -163,9 +250,10 @@ def main() -> None:
     validate_determinism_and_budget()
     validate_geometry_and_spacing()
     validate_first_visit_boundary()
+    validate_up_association()
     validate_fail_closed()
     print(
-        "DBI-SAMPLING-001 aprobado: presupuesto, balance espacial, reservas y determinismo."
+        "DBI-SAMPLING-001 aprobado: presupuesto, balance, reservas, GPS y asociación UP."
     )
 
 
