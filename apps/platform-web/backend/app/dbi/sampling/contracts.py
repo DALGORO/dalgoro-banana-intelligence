@@ -26,6 +26,7 @@ class DBISamplingProfile(_SamplingModel):
     fixed_overhead_minutes: float = Field(ge=0, le=240, default=0)
     edge_buffer_m: float = Field(ge=0, le=200, default=8)
     min_spacing_m: float = Field(gt=0, le=500, default=25)
+    search_radius_m: float = Field(gt=0, le=100, default=12)
     candidate_multiplier: int = Field(ge=8, le=100, default=24)
     reserve_ratio: float = Field(ge=0, le=1, default=0.35)
     min_primary_target: int = Field(ge=1, le=100, default=20)
