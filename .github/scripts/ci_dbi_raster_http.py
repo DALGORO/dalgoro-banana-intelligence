@@ -2,10 +2,14 @@
 
 from __future__ import annotations
 
+import os
 import sys
 from pathlib import Path
 from unittest.mock import patch
 from uuid import UUID
+
+os.environ.setdefault("DATABASE_URL", "sqlite:///./ci_dbi_raster_http.db")
+os.environ.setdefault("JWT_SECRET", "ci-only-dbi-raster-http-secret")
 
 from fastapi import HTTPException
 
