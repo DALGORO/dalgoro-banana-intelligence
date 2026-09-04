@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import hashlib
 import json
+from collections.abc import Iterable
 from uuid import UUID
 
 from geoalchemy2.shape import from_shape, to_shape
@@ -55,7 +56,7 @@ def _exclusions_geometry(request: DBISamplingPlanRequest) -> MultiPolygon | None
     return merged
 
 
-def _point_coordinates(value) -> tuple[float, float]:
+def point_coordinates(value) -> tuple[float, float]:
     geometry = to_shape(value)
     if geometry.geom_type != "Point":
         raise DBISamplingConflict("La geometría persistida del punto no es POINT.")
@@ -63,12 +64,15 @@ def _point_coordinates(value) -> tuple[float, float]:
 
 
 class DBISamplingPlanRepository:
-    """Escribe un plan reproducible sin commit/rollback propios."""
+    """Escribe y bloquea Sampling sin commit/rollback propios."""
 
     def __init__(self, session: Session) -> None:
         if not isinstance(session, Session):
             raise DBISamplingConflict("session debe ser Session.")
         self._session = session
+
+    def flush(self) -> None:
+        self._session.flush()
 
     def persist_plan(
         self,
@@ -196,11 +200,7 @@ class DBISamplingPlanRepository:
                 "La identidad Sampling ya representa un snapshot divergente."
             )
 
-        persisted_points = self._session.execute(
-            select(DBISamplingPointRecord)
-            .where(DBISamplingPointRecord.plan_id == plan.plan_id)
-            .order_by(DBISamplingPointRecord.role, DBISamplingPointRecord.sequence)
-        ).scalars().all()
+        persisted_points = self.list_points(plan_id=plan.plan_id)
         expected = sorted(plan.points, key=lambda point: (point.role, point.sequence))
         if len(persisted_points) != len(expected):
             raise DBISamplingConflict("El conjunto persistido de puntos está incompleto.")
@@ -212,7 +212,7 @@ class DBISamplingPlanRepository:
                 or actual.route_order != planned.route_order
                 or actual.reserve_for_sequence != planned.reserve_for_sequence
                 or actual.selection_reason != planned.selection_reason
-                or _point_coordinates(actual.planned_point)
+                or point_coordinates(actual.planned_point)
                 != (round(planned.longitude, 7), round(planned.latitude, 7))
             ):
                 raise DBISamplingConflict(
@@ -238,3 +238,53 @@ class DBISamplingPlanRepository:
                 DBISamplingPlanRecord.status != "retired",
             )
         ).scalar_one_or_none()
+
+    def get_plan_for_update(
+        self,
+        *,
+        plan_id: UUID,
+        tenant_ref: str,
+        farm_id: UUID,
+        plot_id: UUID,
+    ) -> DBISamplingPlanRecord | None:
+        return self._session.execute(
+            select(DBISamplingPlanRecord)
+            .where(
+                DBISamplingPlanRecord.id == plan_id,
+                DBISamplingPlanRecord.tenant_ref == tenant_ref,
+                DBISamplingPlanRecord.farm_id == farm_id,
+                DBISamplingPlanRecord.plot_id == plot_id,
+                DBISamplingPlanRecord.status != "retired",
+            )
+            .with_for_update()
+        ).scalar_one_or_none()
+
+    def list_points(self, *, plan_id: UUID) -> list[DBISamplingPointRecord]:
+        return list(
+            self._session.execute(
+                select(DBISamplingPointRecord)
+                .where(DBISamplingPointRecord.plan_id == plan_id)
+                .order_by(DBISamplingPointRecord.role, DBISamplingPointRecord.sequence)
+            ).scalars().all()
+        )
+
+    def get_points_for_update(
+        self,
+        *,
+        plan_id: UUID,
+        point_ids: Iterable[UUID],
+    ) -> list[DBISamplingPointRecord]:
+        ids = sorted(set(point_ids), key=str)
+        if not ids:
+            return []
+        return list(
+            self._session.execute(
+                select(DBISamplingPointRecord)
+                .where(
+                    DBISamplingPointRecord.plan_id == plan_id,
+                    DBISamplingPointRecord.id.in_(ids),
+                )
+                .order_by(DBISamplingPointRecord.id)
+                .with_for_update()
+            ).scalars().all()
+        )
