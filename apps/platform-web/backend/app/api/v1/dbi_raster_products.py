@@ -1,12 +1,14 @@
-"""HTTP autorizado para metadata y rangos de productos COG DBI."""
+"""HTTP autorizado para metadata, rangos y retiro de productos COG DBI."""
 
 from __future__ import annotations
 
 from dataclasses import asdict
+from datetime import datetime, timezone
 from typing import Annotated
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, Header, HTTPException, Request, Response, status
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
 from app.dbi.authorization import (
@@ -16,12 +18,16 @@ from app.dbi.authorization import (
     DBIPermission,
 )
 from app.dbi.dependencies import get_dbi_access_context, get_dbi_session
-from app.dbi.raster.api_schemas import DBIRasterProductMetadataResponse
+from app.dbi.raster.api_schemas import (
+    DBIRasterProductMetadataResponse,
+    DBIRasterProductRetireResponse,
+)
 from app.dbi.raster.contracts import DBIRasterConflict
 from app.dbi.raster.reader import (
     DBIRasterProductReader,
     DBIRasterProductUnavailable,
 )
+from app.dbi.raster.service import DBIRasterProductService, DBIRasterUnavailable
 from app.dbi.storage_contracts import DBIPrivateObjectStore, MAX_STORAGE_RANGE_BYTES
 
 router = APIRouter(prefix="/dbi", tags=["dbi-raster"])
@@ -60,12 +66,13 @@ def _range_error(total_size: int) -> HTTPException:
     )
 
 
-def _require_plot_read(
+def _require_plot_permission(
     context: DBIAccessContext,
     *,
     organization_ref: str,
     farm_id: UUID,
     plot_id: UUID,
+    permission: DBIPermission,
 ) -> None:
     try:
         DBIAuthorizationPolicy.require_plot(
@@ -74,17 +81,49 @@ def _require_plot_read(
             organization_ref=organization_ref,
             farm_id=farm_id,
             plot_id=plot_id,
-            permission=DBIPermission.READ,
+            permission=permission,
         )
     except DBIAccessDenied as error:
         raise _not_found() from error
+
+
+def _require_plot_read(
+    context: DBIAccessContext,
+    *,
+    organization_ref: str,
+    farm_id: UUID,
+    plot_id: UUID,
+) -> None:
+    _require_plot_permission(
+        context,
+        organization_ref=organization_ref,
+        farm_id=farm_id,
+        plot_id=plot_id,
+        permission=DBIPermission.READ,
+    )
+
+
+def _require_plot_write(
+    context: DBIAccessContext,
+    *,
+    organization_ref: str,
+    farm_id: UUID,
+    plot_id: UUID,
+) -> None:
+    _require_plot_permission(
+        context,
+        organization_ref=organization_ref,
+        farm_id=farm_id,
+        plot_id=plot_id,
+        permission=DBIPermission.WRITE,
+    )
 
 
 def get_dbi_raster_object_store(request: Request) -> DBIPrivateObjectStore:
     """Obtiene el puerto privado configurado por despliegue, nunca por cliente."""
 
     store = getattr(request.app.state, "dbi_object_store", None)
-    required = ("stat", "read_range")
+    required = ("stat", "read_range", "retire")
     if store is None or any(not hasattr(store, name) for name in required):
         raise HTTPException(
             status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
@@ -276,4 +315,49 @@ def get_raster_product_range(
             "Cache-Control": "private, max-age=60",
             "X-Content-Type-Options": "nosniff",
         },
+    )
+
+
+@router.post(
+    "/organizations/{organization_ref}/farms/{farm_id}/plots/{plot_id}/raster-products/{product_id}/retire",
+    response_model=DBIRasterProductRetireResponse,
+)
+def retire_raster_product(
+    organization_ref: str,
+    farm_id: UUID,
+    plot_id: UUID,
+    product_id: UUID,
+    session: SessionDependency,
+    context: AccessDependency,
+    store: StoreDependency,
+) -> DBIRasterProductRetireResponse:
+    """Retira el objeto privado antes de confirmar su estado DBI; replay repara commit fallido."""
+
+    _require_plot_write(
+        context,
+        organization_ref=organization_ref,
+        farm_id=farm_id,
+        plot_id=plot_id,
+    )
+    try:
+        evidence = DBIRasterProductService(session, store).retire(
+            product_id=product_id,
+            tenant_ref=context.tenant_ref,
+            farm_id=farm_id,
+            plot_id=plot_id,
+            retired_at=datetime.now(timezone.utc),
+        )
+        session.commit()
+    except DBIRasterUnavailable as error:
+        session.rollback()
+        raise _not_found() from error
+    except (DBIRasterConflict, IntegrityError) as error:
+        session.rollback()
+        raise _conflict() from error
+
+    return DBIRasterProductRetireResponse(
+        product_id=evidence.product_id,
+        status="retired",
+        changed=evidence.changed,
+        retired_at=evidence.retired_at,
     )
