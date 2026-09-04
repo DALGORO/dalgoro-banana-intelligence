@@ -14,7 +14,7 @@ concurrency:
 
 jobs:
   sampling-contracts:
-    name: DBI · Sampling determinista y métrico
+    name: DBI · Sampling determinista, HTTP y asociación UP
     runs-on: ubuntu-24.04
     timeout-minutes: 10
 
@@ -39,15 +39,22 @@ jobs:
         run: |
           python -m compileall -q apps/platform-web/backend/app/dbi/sampling
           python -m py_compile apps/platform-web/backend/app/dbi/models/sampling.py
+          python -m py_compile apps/platform-web/backend/app/api/v1/dbi_sampling.py
           python -m py_compile .github/scripts/ci_dbi_sampling_contracts.py
+          python -m py_compile .github/scripts/ci_dbi_sampling_http.py
 
-      - name: Validar Sampling puro
+      - name: Validar Sampling puro y asociación UP
         env:
           PYTHONPATH: apps/platform-web/backend
         run: python .github/scripts/ci_dbi_sampling_contracts.py
 
+      - name: Validar HTTP autorizado y GeoJSON PWA
+        env:
+          PYTHONPATH: apps/platform-web/backend
+        run: python .github/scripts/ci_dbi_sampling_http.py
+
   sampling-postgis:
-    name: DBI · Sampling persistente en PostGIS
+    name: DBI · Sampling persistente y ciclo de campo en PostGIS
     runs-on: ubuntu-24.04
     timeout-minutes: 30
 
@@ -87,6 +94,7 @@ jobs:
         run: |
           python -m compileall -q apps/platform-web/backend/app/dbi/sampling
           python -m py_compile apps/platform-web/backend/app/dbi/models/sampling.py
+          python -m py_compile apps/platform-web/backend/app/api/v1/dbi_sampling.py
           python -m py_compile apps/platform-web/backend/dbi_alembic/versions/20260904_16_sampling_plans.py
           python -m py_compile .github/scripts/ci_dbi_sampling_integration.py
 
@@ -97,7 +105,7 @@ jobs:
           DBI_DATABASE_URL: postgresql+psycopg://dbi_test_migrator@127.0.0.1:5432/dbi_test
         run: python .github/scripts/ci_dbi_migration_integration.py
 
-      - name: Validar autoridad y persistencia Sampling
+      - name: Validar autoridad, replay, campo y ACL
         env:
           PYTHONPATH: apps/platform-web/backend:.github/scripts
           DBI_ENVIRONMENT: test
