@@ -72,6 +72,13 @@ def validate_success_metrics() -> None:
     assert store.stat(request.metadata.address).metadata == request.metadata
     with store.open_read(request.metadata.address) as stream:
         assert stream.read() == PAYLOAD
+    ranged = store.read_range(
+        request.metadata.address,
+        start=2,
+        end_exclusive=8,
+    )
+    assert ranged.data == PAYLOAD[2:8]
+    assert ranged.length == 6
     grant = store.issue_temporary_access(
         request.metadata,
         mode=DBIStorageAccessMode.READ,
@@ -96,6 +103,9 @@ def validate_success_metrics() -> None:
         idempotent_writes=1,
         stat_attempts=1,
         read_attempts=1,
+        range_attempts=1,
+        range_reads=1,
+        range_failures=0,
         retire_attempts=2,
         retired_objects=1,
         idempotent_retires=1,
@@ -104,6 +114,7 @@ def validate_success_metrics() -> None:
         bytes_verified=len(PAYLOAD) * 2,
         bytes_created=len(PAYLOAD),
         bytes_opened=len(PAYLOAD),
+        bytes_ranged=6,
         denied_errors=0,
         conflict_errors=0,
         not_found_errors=0,
@@ -134,6 +145,14 @@ def validate_error_metrics() -> None:
         lambda: store.open_read(request.metadata.address).__enter__(),
     )
     _assert_error(
+        DBIStorageNotFound,
+        lambda: store.read_range(
+            request.metadata.address,
+            start=0,
+            end_exclusive=1,
+        ),
+    )
+    _assert_error(
         DBIStorageConflict,
         lambda: store.put(request, BytesIO(PAYLOAD)),
     )
@@ -141,8 +160,12 @@ def validate_error_metrics() -> None:
     snapshot = store.metrics_snapshot()
     assert snapshot.put_attempts == 3
     assert snapshot.created_objects == 1
+    assert snapshot.range_attempts == 1
+    assert snapshot.range_reads == 0
+    assert snapshot.range_failures == 1
+    assert snapshot.bytes_ranged == 0
     assert snapshot.integrity_errors == 1
-    assert snapshot.not_found_errors == 2
+    assert snapshot.not_found_errors == 3
     assert snapshot.conflict_errors == 1
     assert snapshot.bytes_verified == len(PAYLOAD)
 

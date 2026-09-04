@@ -53,6 +53,11 @@ DBI_RESULT_GITHUB_WORKFLOW_PATH: Final[str] = (
     ".github/workflows/dbi-result-integration.yml"
 )
 DBI_RESULT_GITHUB_JOB: Final[str] = "dbi-result-integration"
+DBI_RASTER_GITHUB_WORKFLOW: Final[str] = "DBI raster integration"
+DBI_RASTER_GITHUB_WORKFLOW_PATH: Final[str] = (
+    ".github/workflows/dbi-raster-integration.yml"
+)
+DBI_RASTER_GITHUB_JOB: Final[str] = "raster-postgis"
 DBI_AUTHORIZED_GITHUB_WORKFLOWS: Final[
     frozenset[tuple[str, str, str]]
 ] = frozenset(
@@ -91,6 +96,11 @@ DBI_AUTHORIZED_GITHUB_WORKFLOWS: Final[
             DBI_RESULT_GITHUB_WORKFLOW,
             DBI_RESULT_GITHUB_WORKFLOW_PATH,
             DBI_RESULT_GITHUB_JOB,
+        ),
+        (
+            DBI_RASTER_GITHUB_WORKFLOW,
+            DBI_RASTER_GITHUB_WORKFLOW_PATH,
+            DBI_RASTER_GITHUB_JOB,
         ),
     }
 )

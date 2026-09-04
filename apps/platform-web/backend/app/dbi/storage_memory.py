@@ -12,6 +12,7 @@ from threading import RLock
 from typing import BinaryIO, Callable, Iterator
 
 from app.dbi.storage_contracts import (
+    MAX_STORAGE_RANGE_BYTES,
     DBIStorageAccessMode,
     DBIStorageAddress,
     DBIStorageConflict,
@@ -20,6 +21,7 @@ from app.dbi.storage_contracts import (
     DBIStorageObjectMetadata,
     DBIStorageObjectRecord,
     DBIStorageObjectState,
+    DBIStorageRangeRead,
     DBIStorageTemporaryGrant,
     DBIStorageWriteRequest,
     DBIStorageWriteResult,
@@ -54,12 +56,27 @@ def _normalized_timestamp(value: object, *, field_name: str) -> datetime:
     return value.astimezone(timezone.utc)
 
 
+def _validated_range(*, size_bytes: int, start: int, end_exclusive: int) -> tuple[int, int]:
+    if (
+        not isinstance(start, int)
+        or isinstance(start, bool)
+        or not isinstance(end_exclusive, int)
+        or isinstance(end_exclusive, bool)
+        or start < 0
+        or end_exclusive <= start
+        or end_exclusive > size_bytes
+        or end_exclusive - start > MAX_STORAGE_RANGE_BYTES
+    ):
+        raise DBIStorageIntegrityError("rango privado fuera de política.")
+    return start, end_exclusive
+
+
 class DBIInMemoryObjectStore:
     """Doble determinista sin red, disco, SDK o autoridad externa.
 
     Conserva objetos retirados internamente para reproducir borrado lógico, pero
-    ``stat``, ``open_read`` y acceso temporal de lectura los tratan como no
-    disponibles. No existe operación de reactivación o purga física.
+    ``stat``, ``open_read``, ``read_range`` y acceso temporal de lectura los tratan
+    como no disponibles. No existe operación de reactivación o purga física.
     """
 
     def __init__(
@@ -242,6 +259,31 @@ class DBIInMemoryObjectStore:
                 "El objeto activo no coincide con tamaño o SHA-256 declarados."
             )
         return stored.record
+
+    def read_range(
+        self,
+        address: DBIStorageAddress,
+        *,
+        start: int,
+        end_exclusive: int,
+    ) -> DBIStorageRangeRead:
+        """Lee sólo el tramo solicitado; no usa el límite de objeto completo."""
+
+        stored = self._active_object(address)
+        begin, end = _validated_range(
+            size_bytes=stored.record.metadata.size_bytes,
+            start=start,
+            end_exclusive=end_exclusive,
+        )
+        data = stored.content[begin:end]
+        if len(data) != end - begin:
+            raise DBIStorageIntegrityError("el rango en memoria quedó truncado.")
+        return DBIStorageRangeRead(
+            record=stored.record,
+            start=begin,
+            end_exclusive=end,
+            data=data,
+        )
 
     def retire(
         self,

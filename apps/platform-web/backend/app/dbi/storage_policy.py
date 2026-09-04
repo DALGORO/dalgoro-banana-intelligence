@@ -65,6 +65,7 @@ _ALLOWED_CONTENT_TYPES: dict[DBIStoragePurpose, frozenset[str]] = {
             "application/zip",
         }
     ),
+    DBIStoragePurpose.RASTER_PRODUCT: frozenset({"image/tiff"}),
     DBIStoragePurpose.TECHNICAL_SOURCE: frozenset(
         {
             "application/json",
