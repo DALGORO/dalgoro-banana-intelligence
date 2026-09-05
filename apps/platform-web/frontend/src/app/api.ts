@@ -1,11 +1,18 @@
 import axios from "axios";
 import type { AxiosRequestConfig } from "axios";
 
-/** Instancia base */
-const RAW_API_BASE = (import.meta.env.VITE_API_URL ?? "http://127.0.0.1:8000").replace(/\/+$/, "");
-const API_BASE = RAW_API_BASE.replace(/\/api\/v1$/, "");
+/**
+ * Base del backend.
+ *
+ * Sin VITE_API_URL dejamos la base vacía para usar el mismo origen y el proxy
+ * de Vite (/api -> backend) sin duplicar el prefijo. Cuando se configura una
+ * URL explícita, el contrato esperado es el origen del backend; toleramos por
+ * compatibilidad un sufijo /api o /api/v1 y lo normalizamos al origen.
+ */
+const RAW_API_BASE = (import.meta.env.VITE_API_URL ?? "").replace(/\/+$/, "");
+const API_BASE = RAW_API_BASE.replace(/\/api(?:\/v1)?$/, "");
 const client = axios.create({
-  baseURL: import.meta.env.VITE_API_URL ?? "/api",
+  baseURL: API_BASE || undefined,
   withCredentials: true,
 });
 
@@ -17,10 +24,10 @@ client.interceptors.request.use((config) => {
     (config.headers as any).Authorization = `Bearer ${token}`;
   }
 
-  // 🔵 Normaliza el path: si empieza con "/" y NO empieza con "/api/v1",
-  // lo convertimos en "/api/v1/<path>" para evitar 404 como "/documents/...".
+  // Normaliza paths heredados a /api/v1 sin duplicar llamadas ya normalizadas.
   if (typeof config.url === "string" && config.url.startsWith("/")) {
-    if (!config.url.startsWith("/api/v1/")) {
+    const alreadyApiV1 = config.url === "/api/v1" || config.url.startsWith("/api/v1/");
+    if (!alreadyApiV1) {
       config.url = `/api/v1${config.url}`;
     }
   }
@@ -143,7 +150,6 @@ export function updateIncidentCase(companyId: number, caseId: number, payload: R
 }
 
 export function streamDocumentUrl(documentId: number) {
-  // Usa SIEMPRE la base del client
   return `${API_BASE}/api/v1/documents/${documentId}/stream`;
 }
 

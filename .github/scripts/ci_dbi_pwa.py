@@ -80,6 +80,20 @@ def main() -> None:
     require(main_tsx, "serviceWorker.register('/dbi-sw.js')", source="main.tsx")
     require(main_tsx, "import.meta.env.PROD", source="main.tsx")
 
+    api_ts = read("apps/platform-web/frontend/src/app/api.ts")
+    require(
+        api_ts,
+        'const RAW_API_BASE = (import.meta.env.VITE_API_URL ?? "")',
+        source="api.ts",
+    )
+    require(api_ts, "baseURL: API_BASE || undefined", source="api.ts")
+    require(api_ts, 'config.url === "/api/v1"', source="api.ts")
+    forbid(
+        api_ts,
+        'baseURL: import.meta.env.VITE_API_URL ?? "/api"',
+        source="api.ts",
+    )
+
     routes = read("apps/platform-web/frontend/src/app/routes.tsx")
     require(routes, "SamplingFieldPage", source="routes.tsx")
     require(
@@ -95,6 +109,15 @@ def main() -> None:
     require(sampling, "/substitute", source="samplingField.ts")
     require(sampling, "planned_longitude", source="samplingField.ts")
     require(sampling, "observed_longitude", source="samplingField.ts")
+    require(sampling, 'TENANT_QUERY_PARAM = "tenant"', source="samplingField.ts")
+    require(sampling, '"X-DBI-Tenant"', source="samplingField.ts")
+    require(sampling, "tenantRef: string", source="samplingField.ts")
+    require(sampling, "MISSING_TENANT_CACHE_KEY", source="samplingField.ts")
+    require(
+        sampling,
+        "samplingPlanKey({ ...locator, tenantRef })",
+        source="samplingField.ts",
+    )
 
     offline = read("apps/platform-web/frontend/src/features/samplingOffline.ts")
     require(offline, 'DB_NAME = "dbi-field-pwa-v1"', source="samplingOffline.ts")
@@ -115,7 +138,7 @@ def main() -> None:
     for out_of_scope in ("Fouré", "YLS", "nematod", "pseudotallo", "lesión"):
         forbid(page, out_of_scope, source="SamplingFieldPage.tsx")
 
-    print("DBI-PWA-001: contrato estático PWA/offline verificado correctamente.")
+    print("DBI-PWA-001/DBI-INTEG-001: contrato PWA, API y tenant verificado correctamente.")
 
 
 if __name__ == "__main__":

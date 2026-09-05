@@ -59,6 +59,7 @@ export type SamplingPlan = {
 };
 
 export type SamplingPlanLocator = {
+  tenantRef?: string;
   organizationRef: string;
   farmId: string;
   plotId: string;
@@ -91,6 +92,7 @@ export type SamplingSubstitutePayload = SamplingValidatePayload & {
 type SamplingOutboxBase = {
   actionId: string;
   planKey: string;
+  tenantRef: string;
   locator: SamplingPlanLocator;
   pointId: string;
   state: SamplingOutboxState;
@@ -131,12 +133,46 @@ export type SamplingActionDraft =
       payload: SamplingSubstitutePayload;
     };
 
+const TENANT_QUERY_PARAM = "tenant";
+const MISSING_TENANT_CACHE_KEY = "__missing_tenant__";
+
 function encoded(value: string) {
   return encodeURIComponent(value);
 }
 
+/**
+ * El frontend transporta el tenant seleccionado; nunca lo usa como autoridad.
+ * La membresía y los scopes continúan siendo resueltos y validados por DBI.
+ */
+export function samplingTenantRef(locator?: SamplingPlanLocator): string | null {
+  const explicit = locator?.tenantRef?.trim();
+  if (explicit) return explicit;
+
+  if (typeof window === "undefined") return null;
+  const fromQuery = new URLSearchParams(window.location.search)
+    .get(TENANT_QUERY_PARAM)
+    ?.trim();
+  return fromQuery || null;
+}
+
+function requireSamplingTenantRef(locator: SamplingPlanLocator): string {
+  const tenantRef = samplingTenantRef(locator);
+  if (!tenantRef) {
+    throw new Error(
+      "La ruta Sampling requiere un tenant DBI explícito mediante ?tenant=<tenant_ref>.",
+    );
+  }
+  return tenantRef;
+}
+
+function samplingHeaders(tenantRef: string) {
+  return { "X-DBI-Tenant": tenantRef };
+}
+
 export function samplingPlanKey(locator: SamplingPlanLocator) {
+  const tenantRef = samplingTenantRef(locator) ?? MISSING_TENANT_CACHE_KEY;
   return [
+    tenantRef,
     locator.organizationRef,
     locator.farmId,
     locator.plotId,
@@ -162,7 +198,10 @@ function samplingPlanUrl(locator: SamplingPlanLocator) {
 export async function getSamplingPlan(
   locator: SamplingPlanLocator,
 ): Promise<SamplingPlan> {
-  const { data } = await api.get<SamplingPlan>(samplingPlanUrl(locator));
+  const tenantRef = requireSamplingTenantRef(locator);
+  const { data } = await api.get<SamplingPlan>(samplingPlanUrl(locator), {
+    headers: samplingHeaders(tenantRef),
+  });
   return data;
 }
 
@@ -171,10 +210,12 @@ export function createSamplingOutboxAction(
   draft: SamplingActionDraft,
 ): SamplingOutboxAction {
   const now = new Date().toISOString();
+  const tenantRef = requireSamplingTenantRef(locator);
   const common: SamplingOutboxBase = {
     actionId: crypto.randomUUID(),
-    planKey: samplingPlanKey(locator),
-    locator,
+    planKey: samplingPlanKey({ ...locator, tenantRef }),
+    tenantRef,
+    locator: { ...locator, tenantRef },
     pointId: draft.pointId,
     state: "pending",
     createdAt: now,
@@ -195,18 +236,24 @@ export function createSamplingOutboxAction(
 export async function sendSamplingOutboxAction(
   action: SamplingOutboxAction,
 ): Promise<void> {
+  const tenantRef = action.tenantRef?.trim();
+  if (!tenantRef) {
+    throw new Error("La acción offline no contiene un tenant DBI explícito.");
+  }
+
   const base = samplingPlanUrl(action.locator);
   const pointId = encoded(action.pointId);
+  const config = { headers: samplingHeaders(tenantRef) };
 
   if (action.kind === "validate") {
-    await api.post(`${base}/points/${pointId}/validate`, action.payload);
+    await api.post(`${base}/points/${pointId}/validate`, action.payload, config);
     return;
   }
   if (action.kind === "reject") {
-    await api.post(`${base}/points/${pointId}/reject`, action.payload);
+    await api.post(`${base}/points/${pointId}/reject`, action.payload, config);
     return;
   }
-  await api.post(`${base}/points/${pointId}/substitute`, action.payload);
+  await api.post(`${base}/points/${pointId}/substitute`, action.payload, config);
 }
 
 export type DevicePosition = {
