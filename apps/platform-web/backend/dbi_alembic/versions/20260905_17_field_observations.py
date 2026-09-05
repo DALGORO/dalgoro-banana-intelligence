@@ -18,8 +18,32 @@ down_revision: str | None = "dbi_0016_sampling_plans"
 branch_labels: str | Sequence[str] | None = None
 depends_on: str | Sequence[str] | None = None
 
+_ASSET_KIND_WITH_FIELD_PHOTO = (
+    "asset_kind IN ("
+    "'orthophoto', 'boundary', 'exclusions', "
+    "'flight_photo', 'flight_auxiliary', 'field_photo'"
+    ")"
+)
+_ASSET_KIND_BEFORE_INSPECT = (
+    "asset_kind IN ("
+    "'orthophoto', 'boundary', 'exclusions', "
+    "'flight_photo', 'flight_auxiliary'"
+    ")"
+)
+
 
 def upgrade() -> None:
+    op.drop_constraint(
+        "ck_dbi_analysis_input_assets_kind",
+        "dbi_analysis_input_assets",
+        type_="check",
+    )
+    op.create_check_constraint(
+        "ck_dbi_analysis_input_assets_kind",
+        "dbi_analysis_input_assets",
+        _ASSET_KIND_WITH_FIELD_PHOTO,
+    )
+
     op.create_table(
         "dbi_field_observations",
         sa.Column("id", sa.Uuid(), nullable=False),
@@ -219,3 +243,13 @@ def upgrade() -> None:
 def downgrade() -> None:
     op.drop_table("dbi_field_observation_versions")
     op.drop_table("dbi_field_observations")
+    op.drop_constraint(
+        "ck_dbi_analysis_input_assets_kind",
+        "dbi_analysis_input_assets",
+        type_="check",
+    )
+    op.create_check_constraint(
+        "ck_dbi_analysis_input_assets_kind",
+        "dbi_analysis_input_assets",
+        _ASSET_KIND_BEFORE_INSPECT,
+    )
