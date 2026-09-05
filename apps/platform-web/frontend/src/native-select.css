@@ -1,0 +1,7 @@
+/* Native select popup options must stay readable in dark mode.
+   This is especially important on touch devices where hover cannot reveal text. */
+html.dark select option,
+html.dark select optgroup {
+  background-color: #FFFFFF;
+  color: #1F2D33;
+}
