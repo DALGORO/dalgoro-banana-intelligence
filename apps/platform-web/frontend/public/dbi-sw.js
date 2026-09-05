@@ -1,5 +1,11 @@
-const SHELL_CACHE = "dbi-field-shell-v1";
-const SHELL_URLS = ["/", "/manifest.webmanifest", "/pwa-icon.svg"];
+const SHELL_CACHE = "dbi-field-shell-v2";
+const SHELL_URLS = [
+  "/",
+  "/manifest.webmanifest",
+  "/pwa-icon.svg",
+  "/pwa-icon-192.png",
+  "/pwa-icon-512.png",
+];
 
 self.addEventListener("install", (event) => {
   event.waitUntil(
@@ -31,7 +37,9 @@ function cacheableStaticRequest(request, url) {
   return (
     ["script", "style", "worker", "font", "image"].includes(request.destination) ||
     url.pathname === "/manifest.webmanifest" ||
-    url.pathname === "/pwa-icon.svg"
+    url.pathname === "/pwa-icon.svg" ||
+    url.pathname === "/pwa-icon-192.png" ||
+    url.pathname === "/pwa-icon-512.png"
   );
 }
 

@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import struct
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[2]
@@ -21,18 +22,45 @@ def forbid(text: str, needle: str, *, source: str) -> None:
         raise AssertionError(f"{source}: contenido prohibido {needle!r}")
 
 
+def assert_png(relative: str, *, width: int, height: int) -> None:
+    payload = (ROOT / relative).read_bytes()
+    if payload[:8] != b"\x89PNG\r\n\x1a\n":
+        raise AssertionError(f"{relative}: no es PNG válido")
+    actual_width, actual_height = struct.unpack(">II", payload[16:24])
+    if (actual_width, actual_height) != (width, height):
+        raise AssertionError(
+            f"{relative}: dimensiones {(actual_width, actual_height)} != {(width, height)}"
+        )
+
+
 def main() -> None:
     manifest_path = FRONTEND / "public" / "manifest.webmanifest"
     manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
     assert manifest["display"] == "standalone"
     assert manifest["start_url"] == "/"
     assert manifest["scope"] == "/"
-    assert manifest["icons"] and manifest["icons"][0]["src"] == "/pwa-icon.svg"
+    icons = {icon["src"]: icon for icon in manifest["icons"]}
+    assert icons["/pwa-icon-192.png"]["sizes"] == "192x192"
+    assert icons["/pwa-icon-192.png"]["type"] == "image/png"
+    assert icons["/pwa-icon-512.png"]["sizes"] == "512x512"
+    assert icons["/pwa-icon-512.png"]["type"] == "image/png"
+    assert_png(
+        "apps/platform-web/frontend/public/pwa-icon-192.png",
+        width=192,
+        height=192,
+    )
+    assert_png(
+        "apps/platform-web/frontend/public/pwa-icon-512.png",
+        width=512,
+        height=512,
+    )
 
     service_worker = read("apps/platform-web/frontend/public/dbi-sw.js")
     require(service_worker, 'url.pathname.startsWith("/api")', source="dbi-sw.js")
     require(service_worker, 'request.method !== "GET"', source="dbi-sw.js")
     require(service_worker, "SHELL_CACHE", source="dbi-sw.js")
+    require(service_worker, '"/pwa-icon-192.png"', source="dbi-sw.js")
+    require(service_worker, '"/pwa-icon-512.png"', source="dbi-sw.js")
     for forbidden in (
         "authorization",
         "bearer",
