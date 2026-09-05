@@ -179,8 +179,14 @@ class DBIFieldObservationService:
             plot_id=plot_id,
             observation=request.observation,
         )
+        create_request = DBIFieldObservationCreate(payload=payload)
+        if observation_id is None and version_id is None:
+            return self._repository.create_observation(
+                create_request,
+                recorded_by_ref=context.principal_ref,
+            )
         return self._repository.create_observation(
-            DBIFieldObservationCreate(payload=payload),
+            create_request,
             recorded_by_ref=context.principal_ref,
             observation_id=observation_id,
             version_id=version_id,
