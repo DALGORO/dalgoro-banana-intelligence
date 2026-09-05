@@ -132,6 +132,8 @@ class DBIFieldObservationService:
         farm_id: UUID,
         plot_id: UUID,
         request: DBIFieldObservationCreateRequest,
+        observation_id: UUID | None = None,
+        version_id: UUID | None = None,
     ) -> DBIFieldObservationVersion:
         self._require_plot(
             context,
@@ -140,12 +142,11 @@ class DBIFieldObservationService:
             plot_id=plot_id,
             permission=DBIPermission.WRITE,
         )
-        self._require_private_photo_assets(
-            context,
-            farm_id=farm_id,
-            plot_id=plot_id,
-            observation=request.observation,
-        )
+        if (observation_id is None) != (version_id is None):
+            raise DBIInspectionConflict(
+                "La creación idempotente requiere observation_id y version_id juntos."
+            )
+
         payload = self._payload(
             context,
             organization_ref=organization_ref,
@@ -153,9 +154,36 @@ class DBIFieldObservationService:
             plot_id=plot_id,
             observation=request.observation,
         )
+
+        if observation_id is not None and version_id is not None:
+            existing = self._repository.get_latest(
+                observation_id=observation_id,
+                tenant_ref=context.tenant_ref,
+                farm_id=farm_id,
+                plot_id=plot_id,
+            )
+            if existing is not None:
+                if (
+                    existing.version != 1
+                    or existing.version_id != version_id
+                    or existing.payload != payload
+                ):
+                    raise DBIInspectionConflict(
+                        "La identidad offline ya existe con contenido o versión divergente."
+                    )
+                return existing
+
+        self._require_private_photo_assets(
+            context,
+            farm_id=farm_id,
+            plot_id=plot_id,
+            observation=request.observation,
+        )
         return self._repository.create_observation(
             DBIFieldObservationCreate(payload=payload),
             recorded_by_ref=context.principal_ref,
+            observation_id=observation_id,
+            version_id=version_id,
         )
 
     def correct(
