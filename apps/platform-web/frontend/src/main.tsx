@@ -8,6 +8,12 @@ import './index.css'
 import 'react-toastify/ReactToastify.css'
 import { ToastContainer } from 'react-toastify'
 
+if ('serviceWorker' in navigator && import.meta.env.PROD) {
+  window.addEventListener('load', () => {
+    void navigator.serviceWorker.register('/dbi-sw.js')
+  })
+}
+
 ReactDOM.createRoot(document.getElementById('root')!).render(
   <React.StrictMode>
     <RouterProvider router={router} />
