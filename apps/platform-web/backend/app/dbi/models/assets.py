@@ -61,7 +61,7 @@ class AnalysisInputAsset(DBIBase):
         CheckConstraint(
             "asset_kind IN ("
             "'orthophoto', 'boundary', 'exclusions', "
-            "'flight_photo', 'flight_auxiliary'"
+            "'flight_photo', 'flight_auxiliary', 'field_photo'"
             ")",
             name="ck_dbi_analysis_input_assets_kind",
         ),

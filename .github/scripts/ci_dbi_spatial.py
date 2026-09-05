@@ -52,7 +52,7 @@ from app.dbi.spatial import (  # noqa: E402
 )
 from app.dbi.write_schemas import PlotCreate, PlotUpdate  # noqa: E402
 
-HEAD = "dbi_0016_sampling_plans"
+HEAD = "dbi_0017_field_observations"
 SPATIAL_REVISION = "dbi_0006_plot_boundaries"
 VALID_BOUNDARY = {
     "type": "MultiPolygon",
