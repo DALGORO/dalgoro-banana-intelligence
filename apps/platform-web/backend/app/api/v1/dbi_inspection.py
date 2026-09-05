@@ -5,7 +5,7 @@ from __future__ import annotations
 from typing import Annotated, Callable, TypeVar
 from uuid import UUID
 
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, Header, HTTPException, status
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
@@ -109,6 +109,14 @@ def create_field_observation(
     payload: DBIFieldObservationCreateRequest,
     session: SessionDependency,
     context: AccessDependency,
+    observation_id: Annotated[
+        UUID | None,
+        Header(alias="X-DBI-Observation-Id"),
+    ] = None,
+    version_id: Annotated[
+        UUID | None,
+        Header(alias="X-DBI-Version-Id"),
+    ] = None,
 ) -> DBIFieldObservationVersion:
     _require_plot(
         context,
@@ -125,6 +133,8 @@ def create_field_observation(
             farm_id=farm_id,
             plot_id=plot_id,
             request=payload,
+            observation_id=observation_id,
+            version_id=version_id,
         ),
     )
 
