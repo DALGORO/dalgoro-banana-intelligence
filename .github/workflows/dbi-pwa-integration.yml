@@ -14,7 +14,7 @@ concurrency:
 
 jobs:
   pwa-contracts:
-    name: DBI · PWA offline, Sampling y seguridad de caché
+    name: DBI · PWA offline, Sampling e INSPECT
     runs-on: ubuntu-24.04
     timeout-minutes: 20
     defaults:
@@ -33,9 +33,13 @@ jobs:
         with:
           python-version: "3.11"
 
-      - name: Validar contrato estático PWA
+      - name: Validar contrato estático PWA Sampling
         working-directory: .
         run: python .github/scripts/ci_dbi_pwa.py
+
+      - name: Validar contrato estático PWA INSPECT
+        working-directory: .
+        run: python .github/scripts/ci_dbi_inspection_pwa.py
 
       - name: Configurar Node
         uses: actions/setup-node@48b55a011bda9f5d6aeb4c2d9c7362e8dae4041e
