@@ -1,0 +1,8 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" role="img" aria-labelledby="title desc">
+  <title id="title">DALGORO Banana Intelligence</title>
+  <desc id="desc">Icono DBI para la aplicación de campo.</desc>
+  <rect width="512" height="512" rx="96" fill="#192b2f"/>
+  <path d="M114 326c42-123 126-181 257-174-23 31-38 61-47 91-37-17-72-18-105-4 36 0 71 14 103 42-23 44-56 80-100 108-41-8-77-29-108-63Z" fill="#8fc46a"/>
+  <circle cx="348" cy="159" r="34" fill="#f2c94c"/>
+  <text x="256" y="442" text-anchor="middle" font-family="Arial, Helvetica, sans-serif" font-size="76" font-weight="700" fill="#ffffff">DBI</text>
+</svg>

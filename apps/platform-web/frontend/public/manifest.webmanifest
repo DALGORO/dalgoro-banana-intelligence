@@ -1,0 +1,25 @@
+{
+  "name": "DALGORO Banana Intelligence",
+  "short_name": "DALGORO DBI",
+  "description": "Base móvil offline para navegación y operación de campo DALGORO Banana Intelligence.",
+  "start_url": "/",
+  "scope": "/",
+  "display": "standalone",
+  "background_color": "#dce8e2",
+  "theme_color": "#192b2f",
+  "lang": "es-EC",
+  "icons": [
+    {
+      "src": "/pwa-icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "/pwa-icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any maskable"
+    }
+  ]
+}
