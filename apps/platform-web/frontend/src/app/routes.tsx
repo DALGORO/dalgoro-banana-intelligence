@@ -20,6 +20,7 @@ import AdminPage from '../pages/AdminPage';
 const enableDocs = import.meta.env.VITE_ENABLE_DOCS === "1";
 const FarmMapTimeline = lazy(() => import('../pages/FarmMapTimeline'));
 const SamplingFieldPage = lazy(() => import('../pages/SamplingFieldPage'));
+const InspectionFieldPage = lazy(() => import('../pages/InspectionFieldPage'));
 
 function Protected({ element }: { element: ReactElement }) {
   return localStorage.getItem('token') ? element : <Navigate to="/login" replace />;
@@ -58,6 +59,18 @@ export const router = createBrowserRouter([
             element={(
               <Suspense fallback={<div className="card">Cargando PWA de muestreo…</div>}>
                 <SamplingFieldPage />
+              </Suspense>
+            )}
+          />
+        ),
+      },
+      {
+        path: 'dbi/organizations/:organizationRef/farms/:farmId/plots/:plotId/inspection/new',
+        element: (
+          <Protected
+            element={(
+              <Suspense fallback={<div className="card">Cargando captura INSPECT…</div>}>
+                <InspectionFieldPage />
               </Suspense>
             )}
           />
