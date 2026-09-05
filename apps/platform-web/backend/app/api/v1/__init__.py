@@ -21,6 +21,7 @@ from .dbi_assets import router as dbi_assets_router
 from .dbi_flight_source_manifests import (
     router as dbi_flight_source_manifests_router,
 )
+from .dbi_inspection import router as dbi_inspection_router
 from .dbi_map import router as dbi_map_router
 from .dbi_raster_products import router as dbi_raster_products_router
 from .dbi_reads import router as dbi_reads_router
@@ -48,6 +49,7 @@ def get_api_router() -> APIRouter:
     api.include_router(dbi_assets_router)
     api.include_router(dbi_asset_multipart_router)
     api.include_router(dbi_flight_source_manifests_router)
+    api.include_router(dbi_inspection_router)
     api.include_router(dbi_map_router)
     api.include_router(dbi_raster_products_router)
     api.include_router(dbi_reads_router)
