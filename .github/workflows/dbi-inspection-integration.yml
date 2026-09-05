@@ -1,0 +1,46 @@
+name: DBI inspection integration
+
+on:
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: dbi-inspection-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  inspection-contracts:
+    name: DBI · Contratos de observación de campo
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+
+    steps:
+      - name: Descargar código
+        uses: actions/checkout@9f698171ed81b15d1823a05fc7211befd50c8ae0
+
+      - name: Configurar Python
+        uses: actions/setup-python@ece7cb06caefa5fff74198d8649806c4678c61a1
+        with:
+          python-version: "3.11"
+          cache: pip
+          cache-dependency-path: apps/platform-web/backend/requirements.txt
+
+      - name: Instalar dependencias backend
+        run: python -m pip install -r apps/platform-web/backend/requirements.txt
+
+      - name: Comprobar dependencias
+        run: python -m pip check
+
+      - name: Compilar contratos INSPECT
+        run: |
+          python -m compileall -q apps/platform-web/backend/app/dbi/inspection
+          python -m py_compile .github/scripts/ci_dbi_inspection_contracts.py
+
+      - name: Validar CORE, ausencias explícitas, UP opcional y versionado
+        env:
+          PYTHONPATH: apps/platform-web/backend
+        run: python .github/scripts/ci_dbi_inspection_contracts.py
