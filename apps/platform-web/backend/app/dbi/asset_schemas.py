@@ -14,6 +14,7 @@ AssetKind = Literal[
     "exclusions",
     "flight_photo",
     "flight_auxiliary",
+    "field_photo",
 ]
 
 
