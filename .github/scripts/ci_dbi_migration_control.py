@@ -1,11 +1,15 @@
-"""Adaptador de linaje y runtime Alembic para DBI-RASTER-001."""
+"""Adaptador de linaje y runtime Alembic para DBI-SAMPLING-001."""
 
 from __future__ import annotations
 
 import ci_dbi_migration_control_base as base
 
-base.HEAD = "dbi_0015_raster_products"
-base.KNOWN = set(base.KNOWN) | {"dbi_0014_analysis_results", base.HEAD}
+base.HEAD = "dbi_0016_sampling_plans"
+base.KNOWN = set(base.KNOWN) | {
+    "dbi_0014_analysis_results",
+    "dbi_0015_raster_products",
+    base.HEAD,
+}
 
 RASTER_AUTHORIZED_RUNTIME = {
     **base.AUTHORIZED_RUNTIME,
@@ -16,9 +20,18 @@ RASTER_AUTHORIZED_RUNTIME = {
     ),
     "GITHUB_JOB": "raster-postgis",
 }
+SAMPLING_AUTHORIZED_RUNTIME = {
+    **base.AUTHORIZED_RUNTIME,
+    "GITHUB_WORKFLOW": "DBI sampling integration",
+    "GITHUB_WORKFLOW_REF": (
+        "DALGORO/dalgoro-banana-intelligence/"
+        ".github/workflows/dbi-sampling-integration.yml@refs/pull/83/merge"
+    ),
+    "GITHUB_JOB": "sampling-postgis",
+}
 
 
-def validate_authorized_runtime_with_raster() -> None:
+def validate_authorized_runtime_with_sampling() -> None:
     authorized_runtimes = (
         base.AUTHORIZED_RUNTIME,
         base.ASSET_AUTHORIZED_RUNTIME,
@@ -28,6 +41,7 @@ def validate_authorized_runtime_with_raster() -> None:
         base.WORKER_AUTHORIZED_RUNTIME,
         base.RESULT_AUTHORIZED_RUNTIME,
         RASTER_AUTHORIZED_RUNTIME,
+        SAMPLING_AUTHORIZED_RUNTIME,
     )
     assert len(base.DBI_AUTHORIZED_GITHUB_WORKFLOWS) == len(authorized_runtimes)
 
@@ -56,7 +70,7 @@ def validate_authorized_runtime_with_raster() -> None:
                 assert base.is_authorized_github_actions_runtime(mixed) is False
 
 
-base.validate_authorized_runtime = validate_authorized_runtime_with_raster
+base.validate_authorized_runtime = validate_authorized_runtime_with_sampling
 
 
 if __name__ == "__main__":

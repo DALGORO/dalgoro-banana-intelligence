@@ -190,7 +190,7 @@ def validate_models_and_migration() -> None:
     )
 
     scripts = ScriptDirectory.from_config(Config(str(BACKEND / "dbi_alembic.ini")))
-    assert scripts.get_heads() == ["dbi_0015_raster_products"]
+    assert scripts.get_heads() == ["dbi_0016_sampling_plans"]
     revision = scripts.get_revision("dbi_0013_model_registry")
     assert revision is not None
     assert revision.down_revision == "dbi_0012_durable_delivery"
@@ -200,6 +200,9 @@ def validate_models_and_migration() -> None:
     raster_revision = scripts.get_revision("dbi_0015_raster_products")
     assert raster_revision is not None
     assert raster_revision.down_revision == "dbi_0014_analysis_results"
+    sampling_revision = scripts.get_revision("dbi_0016_sampling_plans")
+    assert sampling_revision is not None
+    assert sampling_revision.down_revision == "dbi_0015_raster_products"
 
 
 def validate_boundaries() -> None:

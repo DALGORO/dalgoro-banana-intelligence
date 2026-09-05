@@ -31,6 +31,7 @@ from app.dbi.models.model_registry import (
     DBIPipelineConfigVersion,
 )
 from app.dbi.models.raster_products import DBIRasterProduct
+from app.dbi.models.sampling import DBISamplingPlanRecord, DBISamplingPointRecord
 
 __all__ = [
     "AnalysisArtifact",
@@ -60,6 +61,8 @@ __all__ = [
     "DBIPrincipal",
     "DBIPrincipalStatus",
     "DBIRasterProduct",
+    "DBISamplingPlanRecord",
+    "DBISamplingPointRecord",
     "Farm",
     "FlightSourceBundle",
     "FlightSourceEntry",
