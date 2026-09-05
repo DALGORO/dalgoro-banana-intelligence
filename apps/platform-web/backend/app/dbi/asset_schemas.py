@@ -5,7 +5,7 @@ from __future__ import annotations
 from typing import Literal
 from uuid import UUID
 
-from pydantic import BaseModel, ConfigDict, Field, field_validator
+from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 
 
 AssetKind = Literal[
@@ -59,3 +59,15 @@ class AnalysisInputAssetRegister(_AssetWriteModel):
         if value != value.strip() or any(ord(character) < 32 for character in value):
             raise ValueError("crs debe ser texto canónico.")
         return value
+
+    @model_validator(mode="after")
+    def validate_field_photo_metadata(self) -> "AnalysisInputAssetRegister":
+        if self.asset_kind != "field_photo":
+            return self
+        if self.plot_id is None:
+            raise ValueError("field_photo requiere plot_id explícito.")
+        if not self.content_type.startswith("image/"):
+            raise ValueError("field_photo requiere content_type de imagen.")
+        if self.crs is not None:
+            raise ValueError("field_photo no debe declarar CRS raster/vectorial.")
+        return self
