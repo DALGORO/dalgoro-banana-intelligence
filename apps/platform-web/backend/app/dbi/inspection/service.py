@@ -82,7 +82,7 @@ class DBIFieldObservationService:
         observation: DBIFieldObservationBody,
     ) -> None:
         for asset_id in self._photo_asset_ids(observation):
-            row = self._asset_repository.get_for_update(
+            row = self._asset_repository.get_scoped(
                 tenant_ref=context.tenant_ref,
                 farm_id=farm_id,
                 asset_id=asset_id,
