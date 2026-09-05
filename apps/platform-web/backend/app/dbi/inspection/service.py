@@ -6,6 +6,7 @@ from uuid import UUID
 
 from sqlalchemy.orm import Session
 
+from app.dbi.asset_repository import DBIAssetRepository
 from app.dbi.authorization import (
     DBIAccessContext,
     DBIAuthorizationPolicy,
@@ -29,7 +30,7 @@ from app.dbi.inspection.repository import (
 
 
 class DBIInspectionUnavailable(LookupError):
-    """La observación no existe dentro del alcance autorizado."""
+    """La observación o su evidencia privada no está disponible en el alcance."""
 
 
 class DBIFieldObservationService:
@@ -37,6 +38,7 @@ class DBIFieldObservationService:
 
     def __init__(self, session: Session) -> None:
         self._repository = DBIFieldObservationRepository(session)
+        self._asset_repository = DBIAssetRepository(session)
 
     @staticmethod
     def _require_plot(
@@ -55,6 +57,44 @@ class DBIFieldObservationService:
             plot_id=plot_id,
             permission=permission,
         )
+
+    @staticmethod
+    def _photo_asset_ids(observation: DBIFieldObservationBody) -> tuple[UUID, ...]:
+        evidence = [
+            observation.core.general_photo,
+            observation.core.lesion_photo,
+        ]
+        if observation.diagnostic is not None:
+            evidence.append(observation.diagnostic.evidence_photo)
+        values = {
+            item.asset_id
+            for item in evidence
+            if item.state == "observed" and item.asset_id is not None
+        }
+        return tuple(sorted(values, key=lambda value: value.hex))
+
+    def _require_private_photo_assets(
+        self,
+        context: DBIAccessContext,
+        *,
+        farm_id: UUID,
+        plot_id: UUID,
+        observation: DBIFieldObservationBody,
+    ) -> None:
+        for asset_id in self._photo_asset_ids(observation):
+            row = self._asset_repository.get_for_update(
+                tenant_ref=context.tenant_ref,
+                farm_id=farm_id,
+                asset_id=asset_id,
+            )
+            if (
+                row is None
+                or row.plot_id != plot_id
+                or row.asset_kind != "field_photo"
+                or row.status != "verified"
+                or not row.content_type.startswith("image/")
+            ):
+                raise DBIInspectionUnavailable()
 
     @staticmethod
     def _payload(
@@ -97,6 +137,12 @@ class DBIFieldObservationService:
             plot_id=plot_id,
             permission=DBIPermission.WRITE,
         )
+        self._require_private_photo_assets(
+            context,
+            farm_id=farm_id,
+            plot_id=plot_id,
+            observation=request.observation,
+        )
         payload = self._payload(
             context,
             organization_ref=organization_ref,
@@ -138,6 +184,12 @@ class DBIFieldObservationService:
             raise DBIInspectionConflict(
                 "base_version_id no es la versión vigente de la observación indicada."
             )
+        self._require_private_photo_assets(
+            context,
+            farm_id=farm_id,
+            plot_id=plot_id,
+            observation=request.observation,
+        )
         payload = self._payload(
             context,
             organization_ref=organization_ref,
