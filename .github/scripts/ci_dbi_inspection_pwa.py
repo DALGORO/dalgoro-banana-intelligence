@@ -26,12 +26,14 @@ def validate_stable_offline_identity() -> None:
     offline = _read("features/inspectionOffline.ts")
 
     assert field.count("crypto.randomUUID()") >= 3
+    assert "observationId" in field
+    assert "versionId" in field
     assert '"X-DBI-Tenant"' in field
     assert '"X-DBI-Observation-Id"' in field
     assert '"X-DBI-Version-Id"' in field
-    assert "observationId" in offline
-    assert "versionId" in offline
     assert "inspection_outbox" in offline
+    assert "put(action)" in offline
+    assert "sendInspectionOutboxAction(syncingAction)" in offline
     assert 'state: "conflict"' in offline
 
     combined = (field + "\n" + offline).lower()
@@ -63,7 +65,8 @@ def validate_truth_ground_ui() -> None:
 def validate_server_contract_transport() -> None:
     field = _read("features/inspectionField.ts")
     assert "field-observations" in field
-    assert "tenant_ref" not in field.split("export type InspectionCreateRequest", 1)[1].split("};", 1)[0]
+    request = field.split("export type InspectionCreateRequest", 1)[1].split("};", 1)[0]
+    assert "tenant_ref" not in request
     assert "operator_ref" not in field
     assert "recorded_by_ref" not in field
 
