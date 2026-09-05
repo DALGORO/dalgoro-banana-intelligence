@@ -81,8 +81,11 @@ class DBIFieldObservationService:
         plot_id: UUID,
         observation: DBIFieldObservationBody,
     ) -> None:
+        reader = getattr(self._asset_repository, "get_scoped", None)
+        if reader is None:
+            reader = self._asset_repository.get_for_update
         for asset_id in self._photo_asset_ids(observation):
-            row = self._asset_repository.get_scoped(
+            row = reader(
                 tenant_ref=context.tenant_ref,
                 farm_id=farm_id,
                 asset_id=asset_id,
