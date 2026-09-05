@@ -2,11 +2,11 @@ import axios from "axios";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useParams } from "react-router-dom";
 import {
-  GeoJSONSource,
   LngLatBounds,
   Map,
   NavigationControl,
   setWorkerUrl,
+  type GeoJSONSource,
   type StyleSpecification,
 } from "maplibre-gl";
 import "maplibre-gl/dist/maplibre-gl.css";
@@ -18,26 +18,23 @@ import {
   distanceMeters,
   type DevicePosition,
   type GeoJSONMultiPolygon,
+  type SamplingOutboxAction,
   type SamplingPlan,
   type SamplingPlanLocator,
   type SamplingPoint,
   type SamplingRejectionReason,
 } from "@/features/samplingField";
 import {
-  cacheSamplingPlan,
   enqueueSamplingAction,
   getCachedSamplingPlan,
   listSamplingOutbox,
   refreshAndCacheSamplingPlan,
   syncSamplingOutbox,
-  type SamplingSyncResult,
 } from "@/features/samplingOffline";
-import type { SamplingOutboxAction } from "@/features/samplingField";
 
 setWorkerUrl(mapWorkerUrl);
 
 type MapData = Parameters<GeoJSONSource["setData"]>[0];
-
 type PlanSource = "server" | "offline";
 
 const EMPTY_MAP_STYLE: StyleSpecification = {
@@ -67,9 +64,7 @@ function boundsForGeometry(geometry: GeoJSONMultiPolygon) {
   const bounds = new LngLatBounds();
   for (const polygon of geometry.coordinates) {
     for (const ring of polygon) {
-      for (const coordinate of ring) {
-        bounds.extend([coordinate[0], coordinate[1]]);
-      }
+      for (const coordinate of ring) bounds.extend([coordinate[0], coordinate[1]]);
     }
   }
   return bounds;
@@ -138,35 +133,22 @@ function pointLabel(point: SamplingPoint) {
   return `${point.role === "primary" ? "Principal" : "Reserva"} ${point.sequence}`;
 }
 
-function statusLabel(point: SamplingPoint) {
-  switch (point.status) {
-    case "validated":
-      return "Validado";
-    case "rejected":
-      return "Rechazado";
-    case "substituted":
-      return "Sustituido";
-    default:
-      return "Planificado";
-  }
+function pointStatusLabel(point: SamplingPoint) {
+  if (point.status === "validated") return "Validado";
+  if (point.status === "rejected") return "Rechazado";
+  if (point.status === "substituted") return "Sustituido";
+  return "Planificado";
 }
 
-function outboxStateLabel(action: SamplingOutboxAction) {
-  switch (action.state) {
-    case "syncing":
-      return "Sincronizando";
-    case "conflict":
-      return "Conflicto";
-    case "auth_required":
-      return "Requiere sesión";
-    case "failed":
-      return "Falló";
-    default:
-      return "Pendiente";
-  }
+function outboxStatusLabel(action: SamplingOutboxAction) {
+  if (action.state === "syncing") return "Sincronizando";
+  if (action.state === "conflict") return "Conflicto";
+  if (action.state === "auth_required") return "Requiere sesión";
+  if (action.state === "failed") return "Falló";
+  return "Pendiente";
 }
 
-function serverFallbackAllowed(error: unknown) {
+function canFallbackToOffline(error: unknown) {
   return !axios.isAxiosError(error) || !error.response;
 }
 
@@ -185,10 +167,11 @@ export default function SamplingFieldPage() {
 
   const mapContainerRef = useRef<HTMLDivElement | null>(null);
   const mapRef = useRef<Map | null>(null);
-  const mapClickAttachedRef = useRef(false);
+  const mapReadyRef = useRef(false);
   const fittedPlanRef = useRef<string | null>(null);
+  const syncingRef = useRef(false);
+  const previousOnlineRef = useRef(navigator.onLine);
 
-  const [mapReady, setMapReady] = useState(false);
   const [plan, setPlan] = useState<SamplingPlan | null>(null);
   const [planSource, setPlanSource] = useState<PlanSource | null>(null);
   const [selectedPointId, setSelectedPointId] = useState<string | null>(null);
@@ -211,6 +194,17 @@ export default function SamplingFieldPage() {
     setOutbox(await listSamplingOutbox(locator));
   }, [locator]);
 
+  const chooseInitialPoint = useCallback((nextPlan: SamplingPlan) => {
+    setSelectedPointId((current) => {
+      if (current && nextPlan.points.some((point) => point.point_id === current)) return current;
+      return (
+        nextPlan.points.find(
+          (point) => point.role === "primary" && point.status === "planned",
+        )?.point_id ?? nextPlan.points[0]?.point_id ?? null
+      );
+    });
+  }, []);
+
   const loadPlan = useCallback(async () => {
     if (!locator) {
       setLoading(false);
@@ -226,16 +220,10 @@ export default function SamplingFieldPage() {
           const serverPlan = await refreshAndCacheSamplingPlan(locator);
           setPlan(serverPlan);
           setPlanSource("server");
-          setSelectedPointId((current) =>
-            serverPlan.points.some((point) => point.point_id === current)
-              ? current
-              : serverPlan.points.find(
-                    (point) => point.role === "primary" && point.status === "planned",
-                  )?.point_id ?? serverPlan.points[0]?.point_id ?? null,
-          );
+          chooseInitialPoint(serverPlan);
           return;
         } catch (requestError) {
-          if (!serverFallbackAllowed(requestError)) throw requestError;
+          if (!canFallbackToOffline(requestError)) throw requestError;
         }
       }
 
@@ -247,13 +235,7 @@ export default function SamplingFieldPage() {
       }
       setPlan(cached.plan);
       setPlanSource("offline");
-      setSelectedPointId((current) =>
-        cached.plan.points.some((point) => point.point_id === current)
-          ? current
-          : cached.plan.points.find(
-                (point) => point.role === "primary" && point.status === "planned",
-              )?.point_id ?? cached.plan.points[0]?.point_id ?? null,
-      );
+      chooseInitialPoint(cached.plan);
     } catch (requestError) {
       const detail = axios.isAxiosError(requestError)
         ? requestError.response?.data?.detail
@@ -268,28 +250,30 @@ export default function SamplingFieldPage() {
     } finally {
       setLoading(false);
     }
-  }, [locator]);
+  }, [chooseInitialPoint, locator]);
 
   const runSync = useCallback(async () => {
-    if (!locator || !navigator.onLine || syncing) return;
+    if (!locator || !navigator.onLine || syncingRef.current) return;
+    syncingRef.current = true;
     setSyncing(true);
     setSyncMessage(null);
     try {
-      const result: SamplingSyncResult = await syncSamplingOutbox(locator);
+      const result = await syncSamplingOutbox(locator);
       await refreshOutbox();
       if (result.synced > 0) {
         const serverPlan = await refreshAndCacheSamplingPlan(locator);
         setPlan(serverPlan);
         setPlanSource("server");
+        chooseInitialPoint(serverPlan);
       }
       if (result.blockedState === "conflict") {
-        setSyncMessage("Sincronización detenida por conflicto; revise la cola antes de continuar.");
+        setSyncMessage("Sincronización detenida por conflicto; requiere revisión explícita.");
       } else if (result.blockedState === "auth_required") {
         setSyncMessage("La cola requiere una sesión autorizada antes de continuar.");
       } else if (result.blockedState === "pending") {
-        setSyncMessage("La red volvió a fallar; las acciones siguen pendientes.");
+        setSyncMessage("La red volvió a fallar; las acciones permanecen pendientes.");
       } else if (result.blockedState === "failed") {
-        setSyncMessage("Una acción falló y quedó conservada para revisión/reintento.");
+        setSyncMessage("Una acción falló y se conservó para reintento/revisión.");
       } else if (result.synced > 0) {
         setSyncMessage(`Se sincronizaron ${result.synced} acciones.`);
       }
@@ -300,9 +284,10 @@ export default function SamplingFieldPage() {
           : "No se pudo sincronizar la cola local.",
       );
     } finally {
+      syncingRef.current = false;
       setSyncing(false);
     }
-  }, [locator, refreshOutbox, syncing]);
+  }, [chooseInitialPoint, locator, refreshOutbox]);
 
   useEffect(() => {
     const online = () => setIsOnline(true);
@@ -321,7 +306,9 @@ export default function SamplingFieldPage() {
   }, [loadPlan, refreshOutbox]);
 
   useEffect(() => {
-    if (isOnline) void runSync();
+    const wasOnline = previousOnlineRef.current;
+    previousOnlineRef.current = isOnline;
+    if (isOnline && !wasOnline) void runSync();
   }, [isOnline, runSync]);
 
   useEffect(() => {
@@ -334,20 +321,22 @@ export default function SamplingFieldPage() {
       attributionControl: false,
     });
     map.addControl(new NavigationControl({ showCompass: true }), "top-right");
-    map.on("load", () => setMapReady(true));
+    map.on("load", () => {
+      mapReadyRef.current = true;
+      setPlan((current) => (current ? { ...current } : current));
+    });
     mapRef.current = map;
 
     return () => {
       map.remove();
       mapRef.current = null;
-      mapClickAttachedRef.current = false;
-      setMapReady(false);
+      mapReadyRef.current = false;
     };
   }, []);
 
   useEffect(() => {
     const map = mapRef.current;
-    if (!map || !mapReady || !plan) return;
+    if (!map || !mapReadyRef.current || !plan) return;
 
     const area = areaGeoJSON(plan) as unknown as MapData;
     const points = pointsGeoJSON(plan) as unknown as MapData;
@@ -362,18 +351,8 @@ export default function SamplingFieldPage() {
         type: "fill",
         source: "sampling-area",
         paint: {
-          "fill-color": [
-            "case",
-            ["==", ["get", "kind"], "exclusion"],
-            "#dc2626",
-            "#0f766e",
-          ],
-          "fill-opacity": [
-            "case",
-            ["==", ["get", "kind"], "exclusion"],
-            0.18,
-            0.08,
-          ],
+          "fill-color": ["case", ["==", ["get", "kind"], "exclusion"], "#dc2626", "#0f766e"],
+          "fill-opacity": ["case", ["==", ["get", "kind"], "exclusion"], 0.18, 0.08],
         },
       });
       map.addLayer({
@@ -381,12 +360,7 @@ export default function SamplingFieldPage() {
         type: "line",
         source: "sampling-area",
         paint: {
-          "line-color": [
-            "case",
-            ["==", ["get", "kind"], "exclusion"],
-            "#b91c1c",
-            "#0f766e",
-          ],
+          "line-color": ["case", ["==", ["get", "kind"], "exclusion"], "#b91c1c", "#0f766e"],
           "line-width": 2,
         },
       });
@@ -405,14 +379,10 @@ export default function SamplingFieldPage() {
           "circle-radius": ["case", ["==", ["get", "role"], "reserve"], 6, 8],
           "circle-color": [
             "case",
-            ["==", ["get", "status"], "validated"],
-            "#16a34a",
-            ["==", ["get", "status"], "rejected"],
-            "#dc2626",
-            ["==", ["get", "status"], "substituted"],
-            "#d97706",
-            ["==", ["get", "role"], "reserve"],
-            "#2563eb",
+            ["==", ["get", "status"], "validated"], "#16a34a",
+            ["==", ["get", "status"], "rejected"], "#dc2626",
+            ["==", ["get", "status"], "substituted"], "#d97706",
+            ["==", ["get", "role"], "reserve"], "#2563eb",
             "#111827",
           ],
           "circle-stroke-color": "#ffffff",
@@ -430,6 +400,10 @@ export default function SamplingFieldPage() {
           "circle-stroke-color": "#f59e0b",
           "circle-stroke-width": 3,
         },
+      });
+      map.on("click", "sampling-points", (event) => {
+        const pointIdValue = event.features?.[0]?.properties?.point_id;
+        if (typeof pointIdValue === "string") setSelectedPointId(pointIdValue);
       });
     }
 
@@ -451,39 +425,29 @@ export default function SamplingFieldPage() {
       });
     }
 
-    if (!mapClickAttachedRef.current) {
-      map.on("click", "sampling-points", (event) => {
-        const pointIdValue = event.features?.[0]?.properties?.point_id;
-        if (typeof pointIdValue === "string") setSelectedPointId(pointIdValue);
-      });
-      mapClickAttachedRef.current = true;
-    }
-
     if (fittedPlanRef.current !== plan.plan_id) {
       const bounds = boundsForGeometry(plan.boundary);
-      if (!bounds.isEmpty()) {
-        map.fitBounds(bounds, { padding: 36, duration: 0 });
-      }
+      if (!bounds.isEmpty()) map.fitBounds(bounds, { padding: 36, duration: 0 });
       fittedPlanRef.current = plan.plan_id;
     }
-  }, [mapReady, plan, position]);
+  }, [plan, position]);
 
   useEffect(() => {
     const map = mapRef.current;
-    if (!map || !mapReady) return;
+    if (!map || !mapReadyRef.current) return;
     const source = map.getSource("sampling-device") as GeoJSONSource | undefined;
     source?.setData(deviceGeoJSON(position) as unknown as MapData);
-  }, [mapReady, position]);
+  }, [position]);
 
   useEffect(() => {
     const map = mapRef.current;
-    if (!map || !mapReady || !map.getLayer("sampling-selected")) return;
+    if (!map || !mapReadyRef.current || !map.getLayer("sampling-selected")) return;
     map.setFilter("sampling-selected", [
       "==",
       ["get", "point_id"],
       selectedPointId ?? "__none__",
     ]);
-  }, [mapReady, selectedPointId]);
+  }, [selectedPointId, plan]);
 
   const selectedPoint = useMemo(
     () => plan?.points.find((point) => point.point_id === selectedPointId) ?? null,
@@ -532,10 +496,13 @@ export default function SamplingFieldPage() {
           capturedAt: new Date(gps.timestamp).toISOString(),
         };
         setPosition(nextPosition);
-        mapRef.current?.flyTo({
-          center: [nextPosition.longitude, nextPosition.latitude],
-          zoom: Math.max(mapRef.current.getZoom(), 17),
-        });
+        const map = mapRef.current;
+        if (map) {
+          map.flyTo({
+            center: [nextPosition.longitude, nextPosition.latitude],
+            zoom: Math.max(map.getZoom(), 17),
+          });
+        }
       },
       (gpsFailure) => {
         if (gpsFailure.code === gpsFailure.PERMISSION_DENIED) {
@@ -605,10 +572,13 @@ export default function SamplingFieldPage() {
 
   const focusPoint = (point: SamplingPoint) => {
     setSelectedPointId(point.point_id);
-    mapRef.current?.flyTo({
-      center: [point.planned_longitude, point.planned_latitude],
-      zoom: Math.max(mapRef.current.getZoom(), 17),
-    });
+    const map = mapRef.current;
+    if (map) {
+      map.flyTo({
+        center: [point.planned_longitude, point.planned_latitude],
+        zoom: Math.max(map.getZoom(), 17),
+      });
+    }
   };
 
   const primaryPoints = plan?.points.filter((point) => point.role === "primary") ?? [];
@@ -617,9 +587,7 @@ export default function SamplingFieldPage() {
 
   return (
     <div className="space-y-4">
-      <div
-        className={`status-banner ${isOnline ? "status-banner-info" : "status-banner-warning"}`}
-      >
+      <div className={`status-banner ${isOnline ? "status-banner-info" : "status-banner-warning"}`}>
         <div className="flex flex-wrap items-center justify-between gap-3">
           <div>
             <div className="font-medium">
@@ -628,7 +596,7 @@ export default function SamplingFieldPage() {
             <p className="mt-1 text-sm">
               {planSource === "offline"
                 ? "Mostrando el último snapshot local. La autoridad sigue siendo DBI server-side."
-                : "El plan se obtuvo de DBI y su snapshot local está disponible para una pérdida de red posterior."}
+                : "El plan online puede quedar disponible para una pérdida de red posterior."}
             </p>
           </div>
           <div className="flex flex-wrap gap-2">
@@ -664,16 +632,14 @@ export default function SamplingFieldPage() {
           </div>
 
           <div className="divider pt-4">
-            <div className="flex items-center justify-between gap-3">
+            <div className="flex items-start justify-between gap-3">
               <div>
                 <div className="text-sm font-medium">Ubicación del dispositivo</div>
                 <div className="muted mt-1 text-xs">
-                  El GPS se usa como evidencia de campo; nunca mueve el punto planificado ni una UP.
+                  El GPS nunca mueve el punto planificado ni la identidad de una UP.
                 </div>
               </div>
-              <button className="btn-secondary" onClick={capturePosition}>
-                Actualizar GPS
-              </button>
+              <button className="btn-secondary" onClick={capturePosition}>Actualizar GPS</button>
             </div>
             {position && (
               <div className="mt-3 rounded-xl border p-3 text-xs">
@@ -690,18 +656,14 @@ export default function SamplingFieldPage() {
               {primaryPoints.map((point) => (
                 <button
                   key={point.point_id}
-                  className={`w-full rounded-xl border p-3 text-left text-sm ${
-                    point.point_id === selectedPointId ? "ring-2 ring-amber-400" : ""
-                  }`}
+                  className={`w-full rounded-xl border p-3 text-left text-sm ${point.point_id === selectedPointId ? "ring-2 ring-amber-400" : ""}`}
                   onClick={() => focusPoint(point)}
                 >
                   <div className="flex items-center justify-between gap-3">
                     <span className="font-medium">{pointLabel(point)}</span>
-                    <span className="chip">{statusLabel(point)}</span>
+                    <span className="chip">{pointStatusLabel(point)}</span>
                   </div>
-                  <div className="muted mt-1 text-xs">
-                    Ruta: {point.route_order ?? "—"}
-                  </div>
+                  <div className="muted mt-1 text-xs">Ruta: {point.route_order ?? "—"}</div>
                 </button>
               ))}
             </div>
@@ -710,11 +672,7 @@ export default function SamplingFieldPage() {
 
         <section className="card overflow-hidden p-0">
           <div className="relative min-h-[560px]">
-            <div
-              ref={mapContainerRef}
-              className="absolute inset-0"
-              aria-label="Mapa operativo offline de puntos Sampling"
-            />
+            <div ref={mapContainerRef} className="absolute inset-0" aria-label="Mapa operativo offline de puntos Sampling" />
             {loading && (
               <div className="pointer-events-none absolute inset-x-4 bottom-4 status-banner bg-white/95 text-sm shadow-lg dark:bg-dal-petrol/95">
                 Cargando plan Sampling…
@@ -728,9 +686,7 @@ export default function SamplingFieldPage() {
         <section className="card space-y-4">
           <div>
             <div className="eyebrow">Punto seleccionado</div>
-            <h2 className="mt-1">
-              {selectedPoint ? pointLabel(selectedPoint) : "Seleccione un punto"}
-            </h2>
+            <h2 className="mt-1">{selectedPoint ? pointLabel(selectedPoint) : "Seleccione un punto"}</h2>
           </div>
 
           {selectedPoint && (
@@ -738,22 +694,18 @@ export default function SamplingFieldPage() {
               <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
                 <div className="rounded-xl border p-3 text-sm">
                   <div className="muted text-xs">Estado DBI</div>
-                  <div className="mt-1 font-medium">{statusLabel(selectedPoint)}</div>
+                  <div className="mt-1 font-medium">{pointStatusLabel(selectedPoint)}</div>
                 </div>
                 <div className="rounded-xl border p-3 text-sm">
                   <div className="muted text-xs">Coordenada planificada</div>
-                  <div className="mt-1 text-xs">
-                    {selectedPoint.planned_latitude.toFixed(7)}, {selectedPoint.planned_longitude.toFixed(7)}
-                  </div>
+                  <div className="mt-1 text-xs">{selectedPoint.planned_latitude.toFixed(7)}, {selectedPoint.planned_longitude.toFixed(7)}</div>
                 </div>
                 <div className="rounded-xl border p-3 text-sm">
                   <div className="muted text-xs">Distancia GPS</div>
-                  <div className="mt-1 font-medium">
-                    {distanceToSelected === null ? "Sin GPS" : `${distanceToSelected.toFixed(1)} m`}
-                  </div>
+                  <div className="mt-1 font-medium">{distanceToSelected === null ? "Sin GPS" : `${distanceToSelected.toFixed(1)} m`}</div>
                 </div>
                 <div className="rounded-xl border p-3 text-sm">
-                  <div className="muted text-xs">Cola local para este punto</div>
+                  <div className="muted text-xs">Cola local</div>
                   <div className="mt-1 font-medium">{pendingForSelected.length}</div>
                 </div>
               </div>
@@ -768,54 +720,32 @@ export default function SamplingFieldPage() {
                       id="sampling-rejection-reason"
                       className="mt-2 w-full max-w-md"
                       value={rejectionReason}
-                      onChange={(event) =>
-                        setRejectionReason(event.target.value as SamplingRejectionReason)
-                      }
+                      onChange={(event) => setRejectionReason(event.target.value as SamplingRejectionReason)}
                     >
                       {SAMPLING_REJECTION_REASONS.map((reason) => (
-                        <option key={reason} value={reason}>
-                          {REJECTION_LABELS[reason]}
-                        </option>
+                        <option key={reason} value={reason}>{REJECTION_LABELS[reason]}</option>
                       ))}
                     </select>
                   </div>
-
                   <div className="flex flex-wrap gap-2">
-                    <button
-                      className="btn-primary"
-                      disabled={!position || pendingForSelected.length > 0}
-                      onClick={() => void validateSelected()}
-                    >
+                    <button className="btn-primary" disabled={!position || pendingForSelected.length > 0} onClick={() => void validateSelected()}>
                       Validar en posición GPS
                     </button>
-                    <button
-                      className="btn-secondary"
-                      disabled={pendingForSelected.length > 0}
-                      onClick={() => void rejectSelected()}
-                    >
+                    <button className="btn-secondary" disabled={pendingForSelected.length > 0} onClick={() => void rejectSelected()}>
                       Rechazar punto
                     </button>
-                    <button
-                      className="btn-secondary"
-                      disabled={!position || !reserveCandidate || pendingForSelected.length > 0}
-                      onClick={() => void substituteSelected()}
-                    >
+                    <button className="btn-secondary" disabled={!position || !reserveCandidate || pendingForSelected.length > 0} onClick={() => void substituteSelected()}>
                       Sustituir por reserva
                     </button>
                   </div>
-
                   <p className="muted text-xs">
-                    `reject` conserva motivo + fecha/hora según el contrato Sampling actual; no se presenta una coordenada de rechazo como dato persistido porque ese contrato todavía no la admite.
+                    reject conserva motivo + fecha/hora según el contrato Sampling actual; no se presenta una coordenada de rechazo como dato persistido.
                   </p>
-                  {reserveCandidate && (
-                    <p className="muted text-xs">
-                      Reserva asociada disponible: {pointLabel(reserveCandidate)}.
-                    </p>
-                  )}
+                  {reserveCandidate && <p className="muted text-xs">Reserva asociada: {pointLabel(reserveCandidate)}.</p>}
                 </div>
               ) : (
                 <div className="status-banner text-sm">
-                  Las acciones de decisión se habilitan únicamente para un principal todavía planificado. Las reservas se validan mediante una sustitución explícita.
+                  Las decisiones se habilitan sólo para un principal todavía planificado. Las reservas se validan mediante sustitución explícita.
                 </div>
               )}
             </>
@@ -826,21 +756,15 @@ export default function SamplingFieldPage() {
           <div className="eyebrow">Cola offline</div>
           <div className="mt-1 text-sm font-medium">{outbox.length} acciones locales</div>
           <div className="mt-4 max-h-[340px] space-y-2 overflow-auto">
-            {outbox.length === 0 && (
-              <div className="muted text-sm">No hay acciones pendientes.</div>
-            )}
+            {outbox.length === 0 && <div className="muted text-sm">No hay acciones pendientes.</div>}
             {outbox.map((action) => (
               <div key={action.actionId} className="rounded-xl border p-3 text-xs">
                 <div className="flex items-center justify-between gap-2">
                   <span className="font-medium">{action.kind}</span>
-                  <span className="chip">{outboxStateLabel(action)}</span>
+                  <span className="chip">{outboxStatusLabel(action)}</span>
                 </div>
                 <div className="muted mt-1 break-all">Punto: {action.pointId}</div>
-                {action.lastError && (
-                  <div className="mt-2 text-amber-700 dark:text-amber-200">
-                    {action.lastError}
-                  </div>
-                )}
+                {action.lastError && <div className="mt-2 text-amber-700 dark:text-amber-200">{action.lastError}</div>}
               </div>
             ))}
           </div>
