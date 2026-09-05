@@ -44,6 +44,7 @@ jobs:
           python -m py_compile .github/scripts/ci_dbi_inspection_contracts.py
           python -m py_compile .github/scripts/ci_dbi_inspection_persistence.py
           python -m py_compile .github/scripts/ci_dbi_inspection_http.py
+          python -m py_compile .github/scripts/ci_dbi_inspection_offline_idempotency.py
 
       - name: Validar CORE, ausencias explícitas, UP opcional y versionado
         env:
@@ -54,3 +55,8 @@ jobs:
         env:
           PYTHONPATH: apps/platform-web/backend
         run: python .github/scripts/ci_dbi_inspection_http.py
+
+      - name: Validar identidad estable para reintentos offline
+        env:
+          PYTHONPATH: apps/platform-web/backend
+        run: python .github/scripts/ci_dbi_inspection_offline_idempotency.py
