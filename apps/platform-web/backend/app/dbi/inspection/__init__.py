@@ -18,6 +18,10 @@ from app.dbi.inspection.contracts import (
     DBIPhotoEvidence,
     DBIStructuralObservation,
 )
+from app.dbi.inspection.repository import (
+    DBIFieldObservationRepository,
+    DBIInspectionConflict,
+)
 
 __all__ = [
     "DBI_FIELD_OBSERVATION_SCHEMA_VERSION",
@@ -26,9 +30,11 @@ __all__ = [
     "DBIFieldObservationCorrection",
     "DBIFieldObservationCreate",
     "DBIFieldObservationPayload",
+    "DBIFieldObservationRepository",
     "DBIFieldObservationVersion",
     "DBIFoureObservation",
     "DBIGPSFix",
+    "DBIInspectionConflict",
     "DBILeafCountObservation",
     "DBIObservedBool",
     "DBIObservedFloat",
