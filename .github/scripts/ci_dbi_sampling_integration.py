@@ -130,6 +130,11 @@ def _provision_role_and_fixture() -> None:
                     sql.Identifier(SAMPLING_ROLE)
                 )
             )
+            cursor.execute(
+                sql.SQL("GRANT USAGE ON SCHEMA public TO {}").format(
+                    sql.Identifier(SAMPLING_ROLE)
+                )
+            )
             for table_name in (
                 "dbi_farms",
                 "dbi_plots",
@@ -542,6 +547,13 @@ def _assert_denied(statement: str) -> None:
 
 
 def validate_acl() -> None:
+    with _sampling_connect() as connection:
+        with connection.cursor() as cursor:
+            cursor.execute(
+                "SELECT has_schema_privilege(current_user, 'public', 'USAGE'), "
+                "has_schema_privilege(current_user, 'public', 'CREATE')"
+            )
+            assert cursor.fetchone() == (True, False)
     _assert_denied("UPDATE dbi.dbi_analysis_jobs SET status = status")
     _assert_denied("DELETE FROM dbi.dbi_sampling_plans")
     _assert_denied("UPDATE dbi.dbi_sampling_plans SET profile_json = profile_json")
