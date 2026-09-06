@@ -19,6 +19,7 @@ from app.dbi.dependencies import get_dbi_access_context, get_dbi_session
 from app.dbi.inspection.api_schemas import (
     DBIFieldObservationCorrectionRequest,
     DBIFieldObservationCreateRequest,
+    DBIFieldObservationUPAssociationRequest,
 )
 from app.dbi.inspection.contracts import DBIFieldObservationVersion
 from app.dbi.inspection.repository import DBIInspectionConflict
@@ -223,6 +224,39 @@ def correct_field_observation(
     return _write(
         session,
         lambda: DBIFieldObservationService(session).correct(
+            context,
+            organization_ref=organization_ref,
+            farm_id=farm_id,
+            plot_id=plot_id,
+            observation_id=observation_id,
+            request=payload,
+        ),
+    )
+
+
+@router.post(
+    "/organizations/{organization_ref}/farms/{farm_id}/plots/{plot_id}/field-observations/{observation_id}/up-associations",
+    response_model=DBIFieldObservationVersion,
+)
+def associate_field_observation_up(
+    organization_ref: str,
+    farm_id: UUID,
+    plot_id: UUID,
+    observation_id: UUID,
+    payload: DBIFieldObservationUPAssociationRequest,
+    session: SessionDependency,
+    context: AccessDependency,
+) -> DBIFieldObservationVersion:
+    _require_plot(
+        context,
+        organization_ref=organization_ref,
+        farm_id=farm_id,
+        plot_id=plot_id,
+        permission=DBIPermission.WRITE,
+    )
+    return _write(
+        session,
+        lambda: DBIFieldObservationService(session).associate_up(
             context,
             organization_ref=organization_ref,
             farm_id=farm_id,
