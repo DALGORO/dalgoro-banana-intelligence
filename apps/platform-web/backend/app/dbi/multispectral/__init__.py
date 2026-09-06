@@ -23,6 +23,14 @@ from app.dbi.multispectral.contracts import (
     DBISpectralVariableSummary,
     multispectral_extraction_id,
 )
+from app.dbi.multispectral.sigatoka_readiness import (
+    DBI_SIGATOKA_READINESS_SCHEMA_VERSION,
+    DBISigatokaReadinessDecision,
+    DBISigatokaReadinessPolicy,
+    DBISigatokaReadinessReason,
+    DBISigatokaValidationEvidence,
+    evaluate_sigatoka_early_readiness,
+)
 
 _LAZY_REPOSITORY_EXPORTS = frozenset(
     {
@@ -55,13 +63,19 @@ def __getattr__(name: str) -> Any:
 __all__ = [
     "DBI_MULTISPECTRAL_EXTRACTION_SCHEMA_VERSION",
     "DBI_SAMPLING_PRIORITY_SCHEMA_VERSION",
+    "DBI_SIGATOKA_READINESS_SCHEMA_VERSION",
     "DBIMultispectralExtractionCandidate",
     "DBIMultispectralExtractionRepository",
     "DBIMultispectralPersistenceConflict",
     "DBISamplingPriorityBatch",
     "DBISamplingPriorityCandidate",
     "DBISamplingPriorityReason",
+    "DBISigatokaReadinessDecision",
+    "DBISigatokaReadinessPolicy",
+    "DBISigatokaReadinessReason",
+    "DBISigatokaValidationEvidence",
     "DBISpectralVariableSummary",
+    "evaluate_sigatoka_early_readiness",
     "multispectral_extraction_id",
     "rank_sampling_priorities",
     "sampling_priority_fingerprint",
