@@ -62,6 +62,20 @@ def validate_truth_ground_ui() -> None:
     assert "structural: null" in page
 
 
+def validate_sampling_entry() -> None:
+    page = _read("pages/SamplingFieldPage.tsx")
+    assert "samplingTenantRef" in page
+    assert "sampling_point_id" in page
+    assert "/inspection/new?" in page
+    assert "Abrir INSPECT" in page
+    assert "No valida ni rechaza el punto" in page
+    assert "no mueve la coordenada planificada" in page
+    assert "no asigna una UP" in page
+    assert 'selectedPoint.status === "validated"' in page
+    assert 'selectedPoint.role === "primary"' in page
+    assert '<Link className="btn-secondary"' in page
+
+
 def validate_server_contract_transport() -> None:
     field = _read("features/inspectionField.ts")
     assert "field-observations" in field
@@ -75,9 +89,10 @@ def main() -> None:
     validate_route()
     validate_stable_offline_identity()
     validate_truth_ground_ui()
+    validate_sampling_entry()
     validate_server_contract_transport()
     print(
-        "DBI-INSPECT-001 PWA aprobada: captura offline, identidad estable y autoridad server-side."
+        "DBI-INSPECT-001 PWA aprobada: captura offline, entrada Sampling controlada, identidad estable y autoridad server-side."
     )
 
 
