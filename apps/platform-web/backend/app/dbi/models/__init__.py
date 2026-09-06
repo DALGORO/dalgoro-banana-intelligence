@@ -34,6 +34,7 @@ from app.dbi.models.model_registry import (
     DBIModelVersion,
     DBIPipelineConfigVersion,
 )
+from app.dbi.models.multispectral import DBIMultispectralExtractionRecord
 from app.dbi.models.raster_products import DBIRasterProduct
 from app.dbi.models.sampling import DBISamplingPlanRecord, DBISamplingPointRecord
 
@@ -63,6 +64,7 @@ __all__ = [
     "DBIMembershipStatus",
     "DBIModelGovernanceEvent",
     "DBIModelVersion",
+    "DBIMultispectralExtractionRecord",
     "DBIPipelineConfigVersion",
     "DBIPrincipal",
     "DBIPrincipalStatus",
