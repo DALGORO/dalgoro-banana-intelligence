@@ -8,7 +8,7 @@ from __future__ import annotations
 
 import ci_dbi_migration_integration_base as base
 
-base.EXPECTED_HEAD = "dbi_0018_multispectral_extractions"
+base.EXPECTED_HEAD = "dbi_0018_multi_extractions"
 
 
 if __name__ == "__main__":

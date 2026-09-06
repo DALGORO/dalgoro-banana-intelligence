@@ -1,6 +1,6 @@
 """Persist immutable multispectral extractions linked to INSPECT truth-ground.
 
-Revision ID: dbi_0018_multispectral_extractions
+Revision ID: dbi_0018_multi_extractions
 Revises: dbi_0017_field_observations
 Create Date: 2026-09-06
 """
@@ -12,7 +12,7 @@ from collections.abc import Sequence
 from alembic import op
 import sqlalchemy as sa
 
-revision: str = "dbi_0018_multispectral_extractions"
+revision: str = "dbi_0018_multi_extractions"
 down_revision: str | None = "dbi_0017_field_observations"
 branch_labels: str | Sequence[str] | None = None
 depends_on: str | Sequence[str] | None = None

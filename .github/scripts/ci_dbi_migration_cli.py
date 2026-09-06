@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import ci_dbi_migration_cli_base as base
 
-base.HEAD = "dbi_0018_multispectral_extractions"
+base.HEAD = "dbi_0018_multi_extractions"
 
 
 if __name__ == "__main__":
