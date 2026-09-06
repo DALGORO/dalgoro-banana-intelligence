@@ -3,6 +3,7 @@ import ReactDOM from 'react-dom/client'
 import { RouterProvider } from 'react-router-dom'
 import { router } from './app/routes'
 import './index.css'
+import './native-select.css'
 
 // CSS correcto para v10 (¡cambió la ruta respecto a v9!)
 import 'react-toastify/ReactToastify.css'

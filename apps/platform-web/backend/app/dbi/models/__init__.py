@@ -24,6 +24,10 @@ from app.dbi.models.identity import (
     DBIPrincipal,
     DBIPrincipalStatus,
 )
+from app.dbi.models.inspection import (
+    DBIFieldObservationRecord,
+    DBIFieldObservationVersionRecord,
+)
 from app.dbi.models.model_registry import (
     DBIAnalysisProfile,
     DBIModelGovernanceEvent,
@@ -50,6 +54,8 @@ __all__ = [
     "DBIAnalysisProfile",
     "DBIAnalysisResult",
     "DBIDeliveryMessage",
+    "DBIFieldObservationRecord",
+    "DBIFieldObservationVersionRecord",
     "DBIMembership",
     "DBIMembershipPermission",
     "DBIMembershipScope",

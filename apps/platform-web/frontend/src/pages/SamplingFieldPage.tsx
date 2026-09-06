@@ -1,6 +1,6 @@
 import axios from "axios";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { useParams } from "react-router-dom";
+import { Link, useParams } from "react-router-dom";
 import {
   LngLatBounds,
   Map,
@@ -16,6 +16,7 @@ import {
   SAMPLING_REJECTION_REASONS,
   createSamplingOutboxAction,
   distanceMeters,
+  samplingTenantRef,
   type DevicePosition,
   type GeoJSONMultiPolygon,
   type SamplingOutboxAction,
@@ -454,6 +455,22 @@ export default function SamplingFieldPage() {
     [plan, selectedPointId],
   );
 
+  const inspectionHref = useMemo(() => {
+    if (!locator || !selectedPoint) return null;
+    const tenantRef = samplingTenantRef(locator);
+    if (!tenantRef) return null;
+    const eligible =
+      selectedPoint.status === "validated" ||
+      (selectedPoint.role === "primary" && selectedPoint.status === "planned");
+    if (!eligible) return null;
+
+    const query = new URLSearchParams({
+      tenant: tenantRef,
+      sampling_point_id: selectedPoint.point_id,
+    });
+    return `/dbi/organizations/${encodeURIComponent(locator.organizationRef)}/farms/${encodeURIComponent(locator.farmId)}/plots/${encodeURIComponent(locator.plotId)}/inspection/new?${query.toString()}`;
+  }, [locator, selectedPoint]);
+
   const reserveCandidate = useMemo(() => {
     if (!plan || !selectedPoint || selectedPoint.role !== "primary") return null;
     return (
@@ -708,6 +725,24 @@ export default function SamplingFieldPage() {
                   <div className="muted text-xs">Cola local</div>
                   <div className="mt-1 font-medium">{pendingForSelected.length}</div>
                 </div>
+              </div>
+
+              <div className="divider flex flex-wrap items-center justify-between gap-3 pt-4">
+                <div>
+                  <div className="text-sm font-medium">Captura INSPECT vinculada</div>
+                  <p className="muted mt-1 text-xs">
+                    Abre INSPECT con este sampling_point_id como referencia. No valida ni rechaza el punto, no mueve la coordenada planificada y no asigna una UP.
+                  </p>
+                </div>
+                {inspectionHref ? (
+                  <Link className="btn-secondary" to={inspectionHref}>
+                    Abrir INSPECT
+                  </Link>
+                ) : (
+                  <span className="muted text-xs">
+                    Disponible para principal planificado o punto validado con tenant explícito.
+                  </span>
+                )}
               </div>
 
               {selectedPoint.role === "primary" && selectedPoint.status === "planned" ? (

@@ -87,6 +87,29 @@ class DBIAssetRepository:
             raise DBIAssetRegistrationConflict("session debe ser Session.")
         self._session = session
 
+    def get_scoped(
+        self,
+        *,
+        tenant_ref: str,
+        farm_id: UUID,
+        asset_id: UUID,
+    ) -> AnalysisInputAsset | None:
+        """Lee metadata de un activo dentro del tenant/finca sin bloqueo de escritura."""
+
+        tenant = _required_ref(tenant_ref, field_name="tenant_ref")
+        farm = _required_uuid(farm_id, field_name="farm_id")
+        asset = _required_uuid(asset_id, field_name="asset_id")
+        row = self._session.execute(
+            select(AnalysisInputAsset).where(
+                AnalysisInputAsset.tenant_ref == tenant,
+                AnalysisInputAsset.farm_id == farm,
+                AnalysisInputAsset.id == asset,
+            )
+        ).scalar_one_or_none()
+        if row is not None and not isinstance(row, AnalysisInputAsset):
+            raise DBIAssetRegistrationConflict("resultado de activo inválido.")
+        return row
+
     def get_for_update(
         self,
         *,
