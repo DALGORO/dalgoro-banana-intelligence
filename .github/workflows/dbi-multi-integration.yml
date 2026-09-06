@@ -42,11 +42,13 @@ jobs:
           python -m py_compile services/banana-density/src/banana_analyzer/multispectral_extraction.py
           python -m py_compile services/banana-density/src/banana_analyzer/multispectral_dataset.py
           python -m py_compile apps/platform-web/backend/app/dbi/multispectral/active_learning.py
+          python -m py_compile apps/platform-web/backend/app/dbi/multispectral/sigatoka_readiness.py
           python -m py_compile .github/scripts/ci_dbi_multi_indices.py
           python -m py_compile .github/scripts/ci_dbi_multi_stack.py
           python -m py_compile .github/scripts/ci_dbi_multi_extraction.py
           python -m py_compile .github/scripts/ci_dbi_multi_dataset.py
           python -m py_compile .github/scripts/ci_dbi_multi_active_learning.py
+          python -m py_compile .github/scripts/ci_dbi_multi_sigatoka_readiness.py
 
       - name: Validar fórmulas, nodata y reproducibilidad
         run: python .github/scripts/ci_dbi_multi_indices.py
@@ -62,3 +64,6 @@ jobs:
 
       - name: Validar prioridades advisory para Sampling
         run: python .github/scripts/ci_dbi_multi_active_learning.py
+
+      - name: Validar readiness de Sigatoka temprana
+        run: python .github/scripts/ci_dbi_multi_sigatoka_readiness.py
