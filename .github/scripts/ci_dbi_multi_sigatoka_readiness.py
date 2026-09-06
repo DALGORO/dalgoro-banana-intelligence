@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 import sys
-from dataclasses import replace
 from pathlib import Path
 from uuid import UUID
 
@@ -70,19 +69,20 @@ def validate_fail_closed() -> None:
     policy = _policy()
     base = _evidence()
     blocked = evaluate_sigatoka_early_readiness(
-        replace(
-            base,
-            model_status="validated",
-            positive_foure_stages=(2, 3),
-            truth_ground_evidence_kind="derived",
-            holdout_unit="random_record",
-            held_out_farms=1,
-            held_out_dates=1,
-            positive_examples=5,
-            negative_examples=10,
-            sensitivity_recall=0.70,
-            calibration_error=0.20,
-            uses_single_index_rule=True,
+        base.model_copy(
+            update={
+                "model_status": "validated",
+                "positive_foure_stages": (2, 3),
+                "truth_ground_evidence_kind": "derived",
+                "holdout_unit": "random_record",
+                "held_out_farms": 1,
+                "held_out_dates": 1,
+                "positive_examples": 5,
+                "negative_examples": 10,
+                "sensitivity_recall": 0.70,
+                "calibration_error": 0.20,
+                "uses_single_index_rule": True,
+            }
         ),
         policy,
     )
@@ -103,7 +103,7 @@ def validate_fail_closed() -> None:
     }
 
     metric_mismatch = evaluate_sigatoka_early_readiness(
-        replace(base, calibration_metric="brier_score"),
+        base.model_copy(update={"calibration_metric": "brier_score"}),
         policy,
     )
     assert metric_mismatch.reasons == ("calibration_metric_mismatch",)
@@ -112,10 +112,11 @@ def validate_fail_closed() -> None:
 
 def validate_thresholds_are_policy_driven() -> None:
     evidence = _evidence()
-    strict = replace(
-        _policy(),
-        policy_version="sigatoka-readiness-ci-strict-v1",
-        min_sensitivity_recall=0.95,
+    strict = _policy().model_copy(
+        update={
+            "policy_version": "sigatoka-readiness-ci-strict-v1",
+            "min_sensitivity_recall": 0.95,
+        }
     )
     result = evaluate_sigatoka_early_readiness(evidence, strict)
     assert result.decision == "blocked"
