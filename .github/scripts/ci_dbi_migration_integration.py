@@ -1,14 +1,14 @@
-"""Adaptador de cabeza Alembic para DBI-INSPECT-001.
+"""Adaptador de cabeza Alembic para DBI-MULTI-001.
 
 Conserva íntegro el fixture histórico en ``ci_dbi_migration_integration_base``
-y únicamente avanza la revisión esperada al incremento INSPECT actual.
+y únicamente avanza la revisión esperada al incremento MULTI persistente actual.
 """
 
 from __future__ import annotations
 
 import ci_dbi_migration_integration_base as base
 
-base.EXPECTED_HEAD = "dbi_0017_field_observations"
+base.EXPECTED_HEAD = "dbi_0018_multi_extractions"
 
 
 if __name__ == "__main__":

@@ -27,7 +27,7 @@ from app.dbi.models import (  # noqa: E402
     AssetMultipartSession,
 )
 
-HEAD = "dbi_0017_field_observations"
+HEAD = "dbi_0018_multi_extractions"
 MULTIPART_REVISION = "dbi_0010_asset_multipart"
 SESSION_TABLE = "dbi_asset_multipart_sessions"
 PART_TABLE = "dbi_asset_multipart_parts"
