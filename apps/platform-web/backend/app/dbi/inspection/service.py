@@ -16,6 +16,7 @@ from app.dbi.inspection.api_schemas import (
     DBIFieldObservationBody,
     DBIFieldObservationCorrectionRequest,
     DBIFieldObservationCreateRequest,
+    DBIFieldObservationUPAssociationRequest,
 )
 from app.dbi.inspection.contracts import (
     DBIFieldObservationCorrection,
@@ -27,6 +28,8 @@ from app.dbi.inspection.repository import (
     DBIFieldObservationRepository,
     DBIInspectionConflict,
 )
+
+DBI_UP_ASSOCIATION_REASON_PREFIX = "UP_ASSOCIATION_UNEQUIVOCAL: "
 
 
 class DBIInspectionUnavailable(LookupError):
@@ -238,6 +241,52 @@ class DBIFieldObservationService:
             DBIFieldObservationCorrection(
                 base_version_id=request.base_version_id,
                 correction_reason=request.correction_reason,
+                payload=payload,
+            ),
+            recorded_by_ref=context.principal_ref,
+        )
+
+    def associate_up(
+        self,
+        context: DBIAccessContext,
+        *,
+        organization_ref: str,
+        farm_id: UUID,
+        plot_id: UUID,
+        observation_id: UUID,
+        request: DBIFieldObservationUPAssociationRequest,
+    ) -> DBIFieldObservationVersion:
+        """Crea una versión que sólo cambia la UP tras confirmación inequívoca."""
+
+        self._require_plot(
+            context,
+            organization_ref=organization_ref,
+            farm_id=farm_id,
+            plot_id=plot_id,
+            permission=DBIPermission.WRITE,
+        )
+        latest = self._repository.get_latest(
+            observation_id=observation_id,
+            tenant_ref=context.tenant_ref,
+            farm_id=farm_id,
+            plot_id=plot_id,
+        )
+        if latest is None:
+            raise DBIInspectionUnavailable()
+        if latest.version_id != request.base_version_id:
+            raise DBIInspectionConflict(
+                "base_version_id no es la versión vigente de la observación indicada."
+            )
+        if latest.payload.up_id == request.up_id:
+            return latest
+
+        payload = latest.payload.model_copy(update={"up_id": request.up_id})
+        return self._repository.correct_observation(
+            DBIFieldObservationCorrection(
+                base_version_id=request.base_version_id,
+                correction_reason=(
+                    DBI_UP_ASSOCIATION_REASON_PREFIX + request.association_reason
+                ),
                 payload=payload,
             ),
             recorded_by_ref=context.principal_ref,
