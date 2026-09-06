@@ -40,9 +40,11 @@ jobs:
           python -m py_compile services/banana-density/src/banana_analyzer/multispectral_indices.py
           python -m py_compile services/banana-density/src/banana_analyzer/multispectral_stack.py
           python -m py_compile services/banana-density/src/banana_analyzer/multispectral_extraction.py
+          python -m py_compile services/banana-density/src/banana_analyzer/multispectral_dataset.py
           python -m py_compile .github/scripts/ci_dbi_multi_indices.py
           python -m py_compile .github/scripts/ci_dbi_multi_stack.py
           python -m py_compile .github/scripts/ci_dbi_multi_extraction.py
+          python -m py_compile .github/scripts/ci_dbi_multi_dataset.py
 
       - name: Validar fórmulas, nodata y reproducibilidad
         run: python .github/scripts/ci_dbi_multi_indices.py
@@ -52,3 +54,6 @@ jobs:
 
       - name: Validar extracción espacial MULTI ↔ INSPECT
         run: python .github/scripts/ci_dbi_multi_extraction.py
+
+      - name: Validar dataset multi-finca y revisitas opcionales
+        run: python .github/scripts/ci_dbi_multi_dataset.py
