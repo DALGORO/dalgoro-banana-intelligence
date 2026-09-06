@@ -10,7 +10,6 @@ from sqlalchemy import and_, or_, select
 from sqlalchemy.dialects.postgresql import insert as postgresql_insert
 from sqlalchemy.orm import Session
 
-from app.dbi.inspection.repository import DBIInspectionConflict
 from app.dbi.models.inspection import (
     DBIFieldObservationRecord,
     DBIFieldObservationVersionRecord,
