@@ -1,4 +1,13 @@
-"""Persistencia control-plane de evidencia multiespectral derivada DBI."""
+"""Superficie pública de evidencia multiespectral DBI.
+
+Los contratos puros se cargan sin arrastrar dependencias de persistencia. El
+repositorio SQLAlchemy se resuelve de forma perezosa sólo cuando un consumidor lo
+solicita explícitamente.
+"""
+
+from __future__ import annotations
+
+from typing import Any
 
 from app.dbi.multispectral.active_learning import (
     DBI_SAMPLING_PRIORITY_SCHEMA_VERSION,
@@ -14,10 +23,34 @@ from app.dbi.multispectral.contracts import (
     DBISpectralVariableSummary,
     multispectral_extraction_id,
 )
-from app.dbi.multispectral.repository import (
-    DBIMultispectralExtractionRepository,
-    DBIMultispectralPersistenceConflict,
+
+_LAZY_REPOSITORY_EXPORTS = frozenset(
+    {
+        "DBIMultispectralExtractionRepository",
+        "DBIMultispectralPersistenceConflict",
+    }
 )
+
+
+def __getattr__(name: str) -> Any:
+    """Carga persistencia sólo para consumidores que realmente la requieren."""
+
+    if name not in _LAZY_REPOSITORY_EXPORTS:
+        raise AttributeError(f"module {__name__!r} has no attribute {name!r}")
+
+    from app.dbi.multispectral.repository import (
+        DBIMultispectralExtractionRepository,
+        DBIMultispectralPersistenceConflict,
+    )
+
+    exports = {
+        "DBIMultispectralExtractionRepository": DBIMultispectralExtractionRepository,
+        "DBIMultispectralPersistenceConflict": DBIMultispectralPersistenceConflict,
+    }
+    value = exports[name]
+    globals()[name] = value
+    return value
+
 
 __all__ = [
     "DBI_MULTISPECTRAL_EXTRACTION_SCHEMA_VERSION",
