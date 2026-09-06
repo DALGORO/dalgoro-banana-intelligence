@@ -78,8 +78,23 @@ def validate_nodata_and_unstable_division() -> None:
     for result in results.values():
         assert not result.valid_mask[0, 1]
         assert np.isnan(result.values[0, 1])
+
+    for index in (
+        SpectralIndex.NDVI,
+        SpectralIndex.NDRE,
+        SpectralIndex.GNDVI,
+        SpectralIndex.CI_RED_EDGE,
+        SpectralIndex.CI_GREEN,
+    ):
+        result = results[index]
         assert not result.valid_mask[1, 0]
         assert np.isnan(result.values[1, 0])
+
+    # EVI2 incluye +1.0 en el denominador; reflectancia cero no es nodata por sí sola.
+    # El píxel sólo debe invalidarse si la autoridad ráster/QA lo marca explícitamente.
+    evi2 = results[SpectralIndex.EVI2]
+    assert evi2.valid_mask[1, 0]
+    assert np.isclose(evi2.values[1, 0], 0.0)
 
     for index in (SpectralIndex.GNDVI, SpectralIndex.CI_GREEN):
         result = results[index]
