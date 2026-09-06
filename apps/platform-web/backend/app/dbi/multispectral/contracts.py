@@ -120,10 +120,8 @@ class DBIMultispectralExtractionCandidate(_MultispectralModel):
         elif self.support_limitation is None:
             raise ValueError("Una ventana sustituta exige limitación explícita.")
 
-        expected_keys = {
-            *(("band", ref) for ref in _BAND_REFS),
-            *(("index", ref) for ref in _INDEX_REFS),
-        }
+        expected_keys = {("band", ref) for ref in _BAND_REFS}
+        expected_keys.update(("index", ref) for ref in _INDEX_REFS)
         keys = {(item.variable_kind, item.variable_ref) for item in self.summaries}
         if keys != expected_keys or len(self.summaries) != len(expected_keys):
             raise ValueError("summaries debe contener exactamente 4 bandas y 6 índices.")
