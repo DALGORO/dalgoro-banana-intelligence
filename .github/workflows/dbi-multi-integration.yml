@@ -1,0 +1,44 @@
+name: DBI multispectral integration
+
+on:
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: dbi-multi-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  scientific-indices:
+    name: DBI · índices multiespectrales sintéticos
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+
+    steps:
+      - name: Descargar código
+        uses: actions/checkout@9f698171ed81b15d1823a05fc7211befd50c8ae0
+
+      - name: Configurar Python
+        uses: actions/setup-python@ece7cb06caefa5fff74198d8649806c4678c61a1
+        with:
+          python-version: "3.11"
+          cache: pip
+          cache-dependency-path: services/banana-density/requirements.txt
+
+      - name: Instalar dependencia ráster controlada
+        run: python -m pip install rasterio==1.4.4
+
+      - name: Comprobar dependencias
+        run: python -m pip check
+
+      - name: Compilar núcleo MULTI y CI
+        run: |
+          python -m py_compile services/banana-density/src/banana_analyzer/multispectral_indices.py
+          python -m py_compile .github/scripts/ci_dbi_multi_indices.py
+
+      - name: Validar fórmulas, nodata y reproducibilidad
+        run: python .github/scripts/ci_dbi_multi_indices.py
