@@ -30,12 +30,7 @@ jobs:
           cache-dependency-path: services/banana-density/requirements.txt
 
       - name: Instalar dependencias MULTI controladas
-        run: >-
-          python -m pip install
-          rasterio==1.4.4
-          pydantic==2.12.3
-          SQLAlchemy==2.0.44
-          GeoAlchemy2==0.20.0
+        run: python -m pip install rasterio==1.4.4 pydantic==2.12.3
 
       - name: Comprobar dependencias
         run: python -m pip check
