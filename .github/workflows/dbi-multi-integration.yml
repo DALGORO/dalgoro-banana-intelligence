@@ -29,8 +29,8 @@ jobs:
           cache: pip
           cache-dependency-path: services/banana-density/requirements.txt
 
-      - name: Instalar dependencia ráster controlada
-        run: python -m pip install rasterio==1.4.4
+      - name: Instalar dependencias MULTI controladas
+        run: python -m pip install rasterio==1.4.4 pydantic==2.12.3
 
       - name: Comprobar dependencias
         run: python -m pip check
@@ -41,10 +41,12 @@ jobs:
           python -m py_compile services/banana-density/src/banana_analyzer/multispectral_stack.py
           python -m py_compile services/banana-density/src/banana_analyzer/multispectral_extraction.py
           python -m py_compile services/banana-density/src/banana_analyzer/multispectral_dataset.py
+          python -m py_compile apps/platform-web/backend/app/dbi/multispectral/active_learning.py
           python -m py_compile .github/scripts/ci_dbi_multi_indices.py
           python -m py_compile .github/scripts/ci_dbi_multi_stack.py
           python -m py_compile .github/scripts/ci_dbi_multi_extraction.py
           python -m py_compile .github/scripts/ci_dbi_multi_dataset.py
+          python -m py_compile .github/scripts/ci_dbi_multi_active_learning.py
 
       - name: Validar fórmulas, nodata y reproducibilidad
         run: python .github/scripts/ci_dbi_multi_indices.py
@@ -57,3 +59,6 @@ jobs:
 
       - name: Validar dataset multi-finca y revisitas opcionales
         run: python .github/scripts/ci_dbi_multi_dataset.py
+
+      - name: Validar prioridades advisory para Sampling
+        run: python .github/scripts/ci_dbi_multi_active_learning.py
