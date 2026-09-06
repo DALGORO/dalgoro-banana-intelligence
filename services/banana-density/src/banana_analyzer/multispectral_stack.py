@@ -140,7 +140,7 @@ def _validate_source(
         )
     try:
         declared_dtype = np.dtype(source.dtype)
-    except TypeError as error:
+    except (TypeError, ValueError) as error:
         raise MultispectralStackError("dtype no es reconocido por NumPy.") from error
     if raw.dtype != declared_dtype:
         raise MultispectralStackError(
@@ -188,6 +188,15 @@ def _same_grid(
     )
 
 
+def _fingerprint_nodata(value: float | int | None) -> float | int | str | None:
+    if value is None:
+        return None
+    number = float(value)
+    if math.isnan(number):
+        return "NaN"
+    return value
+
+
 def _fingerprint(bands: dict[SpectralBand, PreparedSpectralBand]) -> str:
     material: list[dict[str, object]] = []
     for band in SpectralBand:
@@ -203,7 +212,7 @@ def _fingerprint(bands: dict[SpectralBand, PreparedSpectralBand]) -> str:
                 "width": source.width,
                 "height": source.height,
                 "dtype": np.dtype(source.dtype).name,
-                "nodata": source.nodata,
+                "nodata": _fingerprint_nodata(source.nodata),
                 "scale": float(source.scale),
                 "offset": float(source.offset),
                 "calibration_profile_version": source.calibration_profile_version,
@@ -213,7 +222,7 @@ def _fingerprint(bands: dict[SpectralBand, PreparedSpectralBand]) -> str:
         material,
         sort_keys=True,
         separators=(",", ":"),
-        allow_nan=True,
+        allow_nan=False,
     ).encode("utf-8")
     return hashlib.sha256(canonical).hexdigest()
 
