@@ -45,6 +45,7 @@ jobs:
           python -m py_compile .github/scripts/ci_dbi_inspection_persistence.py
           python -m py_compile .github/scripts/ci_dbi_inspection_http.py
           python -m py_compile .github/scripts/ci_dbi_inspection_offline_idempotency.py
+          python -m py_compile .github/scripts/ci_dbi_inspection_up_association.py
 
       - name: Validar CORE, ausencias explícitas, UP opcional y versionado
         env:
@@ -55,6 +56,11 @@ jobs:
         env:
           PYTHONPATH: apps/platform-web/backend
         run: python .github/scripts/ci_dbi_inspection_http.py
+
+      - name: Validar asociación posterior a UP inequívoca
+        env:
+          PYTHONPATH: apps/platform-web/backend
+        run: python .github/scripts/ci_dbi_inspection_up_association.py
 
       - name: Validar identidad estable para reintentos offline
         env:
