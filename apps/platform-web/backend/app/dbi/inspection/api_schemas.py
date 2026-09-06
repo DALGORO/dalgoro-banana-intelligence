@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from datetime import datetime
+from typing import Literal
 from uuid import UUID
 
 from pydantic import BaseModel, ConfigDict, Field
@@ -39,3 +40,12 @@ class DBIFieldObservationCorrectionRequest(_InspectionAPIModel):
     base_version_id: UUID
     correction_reason: str = Field(min_length=1, max_length=500)
     observation: DBIFieldObservationBody
+
+
+class DBIFieldObservationUPAssociationRequest(_InspectionAPIModel):
+    """Asocia una UP confirmada sin reescribir la evidencia observada."""
+
+    base_version_id: UUID
+    up_id: UUID
+    confirmation: Literal["unequivocal"]
+    association_reason: str = Field(min_length=1, max_length=450)
