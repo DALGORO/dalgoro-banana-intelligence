@@ -4,7 +4,8 @@ import AppShell from '../components/AppShell';
 import Login from '../pages/Login';
 import Dashboard from '../pages/Dashboard';
 import Companies from '../pages/Companies';
-import CompanyDetail from '../pages/CompanyDetail';
+import CompanyDetailWithDbi from '../pages/CompanyDetailWithDbi';
+import DbiPilotPage from '../pages/DbiPilotPage';
 import Documents from '../pages/Documents';
 import DocumentViewer from '../pages/DocumentViewer';
 import DocumentForm from "../pages/DocumentForm";
@@ -36,7 +37,8 @@ export const router = createBrowserRouter([
     children: [
       { index: true, element: <Dashboard /> },
       { path: 'companies', element: <Companies /> },
-      { path: 'companies/:id', element: <CompanyDetail /> },
+      { path: 'companies/:id', element: <CompanyDetailWithDbi /> },
+      { path: 'companies/:id/agricultura', element: <Protected element={<DbiPilotPage />} /> },
       { path: 'pay', element: <PaymentPage /> },
       { path: 'companies/:id/iperc', element: <Protected element={<IPERCTab/>} /> },
       { path: 'companies/:id/investigacion-incidentes', element: <Protected element={<IncidentAssistant />} /> },
