@@ -109,6 +109,7 @@ $apiPassword = $null
 
 $jwtSecret = [guid]::NewGuid().ToString("N") + [guid]::NewGuid().ToString("N")
 Save-ProtectedSecret $jwtSecret $JwtSecretPath
+$env:JWT_SECRET = $jwtSecret
 $jwtSecret = $null
 
 Write-Host "4/7 Creando autenticacion local persistente..."
@@ -163,7 +164,7 @@ with Session(engine) as session:
     if ($LASTEXITCODE -ne 0) { throw "No se pudo inicializar la autenticacion SQLite local." }
 } finally {
     Pop-Location
-    Remove-Item Env:DATABASE_URL, Env:DBI_LOCAL_LOGIN_PASSWORD, Env:DBI_LOCAL_LOGIN_EMAIL -ErrorAction SilentlyContinue
+    Remove-Item Env:DATABASE_URL, Env:DBI_LOCAL_LOGIN_PASSWORD, Env:DBI_LOCAL_LOGIN_EMAIL, Env:JWT_SECRET -ErrorAction SilentlyContinue
     $loginPlain = $null
     $loginSecure = $null
 }
