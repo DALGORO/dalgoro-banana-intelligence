@@ -51,9 +51,9 @@ export default function Signup() {
         <div className="mb-5 flex items-center gap-3">
           <img src="/logo-white.png" className="h-10 rounded-xl bg-[var(--dal-navy-900)] p-1 dark:bg-transparent" />
           <div>
-            <div className="text-lg font-semibold text-slate-900 dark:text-white">DALGORO</div>
+            <div className="text-lg font-semibold text-slate-900 dark:text-white">DALGORO Banana Intelligence</div>
             <div className="text-sm text-slate-500 dark:text-slate-400">
-              Registro de acceso a la plataforma
+              Sistema geoespacial
             </div>
           </div>
         </div>
@@ -61,7 +61,7 @@ export default function Signup() {
         <div className="mb-4">
           <h1 className="text-2xl font-semibold text-slate-900 dark:text-white">Crear cuenta</h1>
           <p className="page-subtitle mt-1">
-            Completa tus datos para crear un usuario y acceder al sistema.
+            Crea un usuario para acceder a DALGORO Banana Intelligence – sistema geoespacial.
           </p>
         </div>
 
