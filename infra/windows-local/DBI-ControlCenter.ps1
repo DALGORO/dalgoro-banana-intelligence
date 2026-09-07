@@ -333,7 +333,7 @@ function Get-DbiStatus {
 
     $backend = if (Test-DbiHttp "http://127.0.0.1:$([int]$config.backend_port)/api/v1/health") { "RUNNING" } else { "STOPPED" }
     $frontend = if (Test-DbiHttp "http://127.0.0.1:$([int]$config.frontend_port)/api/v1/health") { "RUNNING" } else { "STOPPED" }
-    $tunnel = if ($state -and $state.tunnel_pid -and (Test-DbiProcess ([int]$state.tunnel_pid)) { "RUNNING" } else { "STOPPED" }
+    $tunnel = if ($state -and $state.tunnel_pid -and (Test-DbiProcess ([int]$state.tunnel_pid))) { "RUNNING" } else { "STOPPED" }
 
     return [pscustomobject]@{
         Database = $container
