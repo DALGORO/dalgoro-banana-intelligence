@@ -130,12 +130,18 @@ import os
 from sqlalchemy import create_engine
 from sqlalchemy.orm import Session
 
-from app.db.base import Base
+from app.db.base_class import Base
 from app.models.user import User
+from app.models.company import Company
+from app.models.subscription import Subscription
+from app.models.document import Document  # registra la relación Company.documents
 from app.core.security import get_password_hash
 
 engine = create_engine(os.environ["DATABASE_URL"])
-Base.metadata.create_all(engine)
+Base.metadata.create_all(
+    engine,
+    tables=[User.__table__, Company.__table__, Subscription.__table__],
+)
 
 email = os.environ["DBI_LOCAL_LOGIN_EMAIL"]
 password = os.environ["DBI_LOCAL_LOGIN_PASSWORD"]
