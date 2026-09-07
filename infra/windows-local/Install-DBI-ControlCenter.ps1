@@ -122,6 +122,7 @@ $authDbUrl = $AuthDb.Replace("\", "/")
 $env:DATABASE_URL = "sqlite+pysqlite:///$authDbUrl"
 $env:DBI_LOCAL_LOGIN_PASSWORD = $loginPlain
 $env:DBI_LOCAL_LOGIN_EMAIL = $AuthEmail
+Push-Location $Backend
 try {
 @'
 import os
@@ -161,6 +162,7 @@ with Session(engine) as session:
 '@ | & $Python -
     if ($LASTEXITCODE -ne 0) { throw "No se pudo inicializar la autenticacion SQLite local." }
 } finally {
+    Pop-Location
     Remove-Item Env:DATABASE_URL, Env:DBI_LOCAL_LOGIN_PASSWORD, Env:DBI_LOCAL_LOGIN_EMAIL -ErrorAction SilentlyContinue
     $loginPlain = $null
     $loginSecure = $null
