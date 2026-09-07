@@ -90,8 +90,8 @@ function healthLabel(health: 'online' | 'offline' | 'checking') {
 function getPageMeta(pathname: string) {
   if (pathname === '/') {
     return {
-      title: 'Panel general',
-      subtitle: 'Revisa el estado global de cumplimiento y detecta qué empresa requiere atención primero.',
+      title: 'Inicio geoespacial',
+      subtitle: 'Accede a empresas, fincas, lotes, ortofotos e inspecciones de campo desde DALGORO Banana Intelligence.',
     };
   }
 
@@ -111,29 +111,29 @@ function getPageMeta(pathname: string) {
 
   if (pathname.startsWith('/companies/') && pathname.includes('/investigacion-incidentes')) {
     return {
-      title: 'Investigación y consultas SST',
-      subtitle: 'Resuelve dudas normativas, de implementación y de actuación ante incidentes, sin exponer detalles técnicos del sistema.',
+      title: 'Investigación y consultas',
+      subtitle: 'Módulo legado conservado fuera del flujo geoespacial principal.',
     };
   }
 
   if (pathname.startsWith('/companies/') && pathname.includes('/iperc')) {
     return {
       title: 'IPERC',
-      subtitle: 'Evalúa peligros, riesgos y controles con una lectura más clara del contexto de la empresa.',
+      subtitle: 'Módulo legado conservado fuera del flujo geoespacial principal.',
     };
   }
 
   if (pathname.startsWith('/companies/')) {
     return {
-      title: 'Detalle de empresa',
-      subtitle: 'Administra información operativa, cumplimiento y módulos asociados a la empresa seleccionada.',
+      title: 'Empresa y análisis geoespacial',
+      subtitle: 'Accede a la estructura agrícola DBI para crear fincas, lotes, ortofotos e inspecciones.',
     };
   }
 
   if (pathname.startsWith('/companies')) {
     return {
       title: 'Empresas',
-      subtitle: 'Registra, revisa y organiza las empresas dentro de tu cupo disponible.',
+      subtitle: 'Organiza los clientes que utilizarás como base para el análisis geoespacial.',
     };
   }
 
@@ -152,8 +152,8 @@ function getPageMeta(pathname: string) {
   }
 
   return {
-    title: 'SST Compliance',
-    subtitle: 'Gestiona cumplimiento, empresas y documentación desde una sola plataforma.',
+    title: 'DALGORO Banana Intelligence',
+    subtitle: 'Sistema geoespacial para fincas, lotes, ortofotos, muestreo e inspección de campo.',
   };
 }
 
@@ -174,6 +174,7 @@ export default function AppShell() {
   const matchCompanyNested = useMatch('/companies/:id/*');
   const companyId = matchCompanyNested?.params?.id ?? matchCompanyBase?.params?.id;
   const enableDocs = import.meta.env.VITE_ENABLE_DOCS === '1';
+  const showLegacySstModules = false;
 
   const [health, setHealth] = useState<'online' | 'offline' | 'checking'>('checking');
   const [subStatus, setSubStatus] = useState<SubscriptionStatusLite | null>(null);
@@ -270,34 +271,34 @@ export default function AppShell() {
           </div>
 
           <div>
-            <div className="brand text-sm font-semibold text-slate-900 dark:text-white">DALGORO</div>
+            <div className="brand text-sm font-semibold text-slate-900 dark:text-white">DALGORO Banana Intelligence</div>
             <div className="text-xs text-slate-600 dark:text-white/70">
-              Plataforma de cumplimiento SST guiada para operar con mayor claridad.
+              Sistema geoespacial para fincas, lotes, ortofotos e inspección de campo.
             </div>
           </div>
         </div>
 
         <nav className="mt-6 flex flex-col gap-1">
-          <NavItem to="/" label="Dashboard" />
-          <NavItem to="/companies" label="Empresas" />
+          {showLegacySstModules && <NavItem to="/" label="Dashboard legado" />}
+          <NavItem to="/companies" label="Empresas / clientes" />
 
           {isAdmin && (
             <NavItem to="/admin" label="Administración de usuarios" />
           )}
 
-          {enableDocs && companyId && (
+          {showLegacySstModules && enableDocs && companyId && (
             <NavItem to={`/companies/${companyId}/documents`} label="Documentos" />
           )}
 
-          {companyId && (
+          {showLegacySstModules && companyId && (
             <>
               <div className="mt-5 mb-1 px-3 text-[11px] uppercase tracking-[0.18em] text-slate-500 dark:text-white/50">
-                Empresa actual
+                Módulos legados
               </div>
 
               <NavItem
                 to={`/companies/${companyId}/investigacion-incidentes`}
-                label="Investigación y consultas SST"
+                label="Investigación y consultas"
               />
 
               <NavItem to={`/companies/${companyId}/iperc`} label="IPERC" />
@@ -311,7 +312,7 @@ export default function AppShell() {
               Estado del sistema
             </div>
             <div className="mt-1 text-sm text-slate-700 dark:text-white/80">
-              Consulta rápida del acceso y del estado operativo antes de trabajar en los módulos.
+              Consulta rápida del acceso y del estado operativo antes de trabajar con información geoespacial.
             </div>
           </div>
 
@@ -345,7 +346,7 @@ export default function AppShell() {
       <main className="p-6 md:p-8">
         <header className="topbar mb-6 flex flex-col gap-4 md:flex-row md:items-start md:justify-between">
           <div className="page-title-block">
-            <div className="page-kicker">SST Compliance</div>
+            <div className="page-kicker">DALGORO Banana Intelligence – sistema geoespacial</div>
             <h1 className="text-2xl font-semibold">{pageMeta.title}</h1>
             <p className="page-subtitle max-w-3xl">{pageMeta.subtitle}</p>
           </div>
