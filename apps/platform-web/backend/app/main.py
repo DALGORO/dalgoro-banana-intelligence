@@ -1,5 +1,7 @@
 from contextlib import asynccontextmanager
 from datetime import datetime
+import os
+from pathlib import Path
 
 from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
@@ -10,6 +12,7 @@ from app.core.config import settings
 from app.core.security import decode_token
 from app.db.session import SessionLocal
 from app.dbi.runtime import DBIRuntime
+from app.dbi.storage_local import DBILocalObjectStore
 from app.models.subscription import Subscription
 from app.models.user import User
 
@@ -87,6 +90,23 @@ def _billing_block_response(
     )
 
 
+def _local_object_store() -> DBILocalObjectStore | None:
+    """Conecta storage persistente solo para la estación local/desarrollo DBI."""
+
+    environment = os.environ.get("DBI_ENVIRONMENT", "").strip().lower()
+    explicit_root = os.environ.get("DBI_LOCAL_STORAGE_ROOT", "").strip()
+
+    root: Path | None = Path(explicit_root) if explicit_root else None
+    if root is None and environment in {"development", "local"}:
+        local_app_data = os.environ.get("LOCALAPPDATA", "").strip()
+        if local_app_data:
+            root = Path(local_app_data) / "DALGORO" / "DBI" / "storage"
+
+    if root is None:
+        return None
+    return DBILocalObjectStore(root)
+
+
 @asynccontextmanager
 async def lifespan(application: FastAPI):
     """Administra DBI sin sustituir recursos heredados de la aplicación."""
@@ -94,9 +114,16 @@ async def lifespan(application: FastAPI):
     runtime = DBIRuntime()
     application.state.dbi_runtime = runtime
     runtime.start()
+
+    object_store = _local_object_store()
+    if object_store is not None:
+        application.state.dbi_object_store = object_store
+
     try:
         yield
     finally:
+        if hasattr(application.state, "dbi_object_store"):
+            delattr(application.state, "dbi_object_store")
         runtime.stop()
 
 
