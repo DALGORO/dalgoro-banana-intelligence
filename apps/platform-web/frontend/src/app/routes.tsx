@@ -2,7 +2,6 @@ import { lazy, Suspense, type ReactElement } from 'react';
 import { createBrowserRouter, Navigate } from 'react-router-dom';
 import AppShell from '../components/AppShell';
 import Login from '../pages/Login';
-import Dashboard from '../pages/Dashboard';
 import Companies from '../pages/Companies';
 import CompanyDetailWithDbi from '../pages/CompanyDetailWithDbi';
 import DbiPilotPage from '../pages/DbiPilotPage';
@@ -35,7 +34,7 @@ export const router = createBrowserRouter([
     path: '/',
     element: <Protected element={<AppShell />} />,
     children: [
-      { index: true, element: <Dashboard /> },
+      { index: true, element: <Navigate to="companies" replace /> },
       { path: 'companies', element: <Companies /> },
       { path: 'companies/:id', element: <CompanyDetailWithDbi /> },
       { path: 'companies/:id/agricultura', element: <Protected element={<DbiPilotPage />} /> },
