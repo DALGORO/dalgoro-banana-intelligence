@@ -5,6 +5,7 @@ from __future__ import annotations
 import argparse
 import importlib.util
 import json
+import os
 from pathlib import Path
 from types import ModuleType
 from typing import Any
@@ -34,10 +35,51 @@ def _load_interface(engine_root: Path) -> ModuleType:
     return module
 
 
+def _ensure_geotiff_alias(values: dict[str, Any], config_path: Path) -> None:
+    """Da al motor estable una ruta .tif sin duplicar la ortofoto privada DBI.
+
+    El object store DBI usa claves opacas sin extensión. La GUI estable valida que
+    la ortofoto termine en .tif/.tiff antes de abrirla. Como storage y jobs viven
+    bajo LOCALAPPDATA en el mismo volumen local, un hard link ofrece una vista
+    compatible del mismo archivo sin copiar varios GB.
+    """
+
+    raw = str(values.get("orthophoto") or "").strip()
+    if not raw:
+        return
+    source = Path(raw).expanduser().resolve(strict=False)
+    if source.suffix.lower() in {".tif", ".tiff"}:
+        return
+    if not source.is_file():
+        return
+
+    alias = config_path.parent / "inputs" / "ortofoto.tif"
+    alias.parent.mkdir(parents=True, exist_ok=True)
+    if alias.exists():
+        try:
+            if os.path.samefile(source, alias):
+                values["orthophoto"] = str(alias)
+                return
+        except OSError:
+            pass
+        alias.unlink()
+
+    try:
+        os.link(source, alias)
+    except OSError as error:
+        raise RuntimeError(
+            "No se pudo crear la vista .tif de la ortofoto privada DBI sin duplicar el archivo."
+        ) from error
+
+    values["orthophoto"] = str(alias)
+
+
 def prepare(request_path: Path, config_path: Path, engine_root: Path) -> int:
     root = engine_root.expanduser().resolve(strict=False)
     interface = _load_interface(root)
     values = _read_json(request_path)
+
+    _ensure_geotiff_alias(values, config_path)
 
     all_layers = str(getattr(interface, "ALL_EXCLUSION_LAYERS"))
     if str(values.get("exclusions_gpkg") or "").strip():
