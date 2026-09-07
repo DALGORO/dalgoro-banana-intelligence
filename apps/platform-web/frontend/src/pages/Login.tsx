@@ -14,7 +14,7 @@ export default function Login(){
     setErr(undefined); setLoading(true);
     try {
       await login(email, password);
-      nav("/", { replace: true, state: { welcome: true, userEmail: email } });
+      nav("/companies", { replace: true });
 
     } catch (e:any) {
       setErr(e?.response?.data?.detail ?? "Credenciales inválidas");
@@ -31,10 +31,10 @@ export default function Login(){
           />
           <div>
             <div className="text-lg font-semibold text-slate-900 dark:text-white">
-              DALGORO
+              DALGORO Banana Intelligence
             </div>
             <div className="text-sm text-slate-500 dark:text-slate-400">
-              Acceso a la plataforma
+              Sistema geoespacial
             </div>
           </div>
         </div>
@@ -44,7 +44,7 @@ export default function Login(){
             Ingresar
           </h1>
           <p className="page-subtitle mt-1">
-            Accede con tu correo y contraseña para continuar.
+            Accede al sistema geoespacial con tu correo y contraseña.
           </p>
         </div>
 

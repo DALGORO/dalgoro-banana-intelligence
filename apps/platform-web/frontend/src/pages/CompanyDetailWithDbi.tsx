@@ -1,29 +1,34 @@
 import { Link, useParams } from "react-router-dom";
 
-import CompanyDetail from "./CompanyDetail";
-
 export default function CompanyDetailWithDbi() {
   const { id } = useParams<{ id: string }>();
 
   return (
-    <div className="space-y-4">
-      <div className="status-banner status-banner-info">
-        <div className="flex flex-wrap items-center justify-between gap-3">
-          <div>
-            <div className="font-medium">Agricultura DBI · primera prueba real</div>
-            <p className="mt-1 text-sm">
-              Crea finca y lote, importa el límite GeoJSON, carga la ortofoto GeoTIFF y genera el enlace INSPECT para usarlo desde el iPad.
-            </p>
-          </div>
+    <div className="space-y-5">
+      <div className="surface space-y-4">
+        <div className="page-title-block">
+          <span className="page-kicker">DALGORO Banana Intelligence – sistema geoespacial</span>
+          <h1>Empresa seleccionada</h1>
+          <p className="page-subtitle">
+            Continúa al módulo agrícola para crear fincas y lotes, importar coordenadas, cargar ortofotos GeoTIFF y preparar INSPECT para el iPad.
+          </p>
+        </div>
+
+        <div className="flex flex-wrap gap-3">
           {id && (
             <Link className="btn-primary" to={`/companies/${id}/agricultura`}>
-              Abrir módulo agrícola
+              Abrir análisis geoespacial
             </Link>
           )}
+          <Link className="btn-ghost" to="/companies">
+            ← Volver a empresas
+          </Link>
         </div>
       </div>
 
-      <CompanyDetail />
+      <div className="status-banner status-banner-info text-sm">
+        El flujo visible de esta instalación está enfocado en empresa → finca → lote → GeoJSON → ortofoto → inspección de campo.
+      </div>
     </div>
   );
 }

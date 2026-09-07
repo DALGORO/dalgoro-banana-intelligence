@@ -1,7 +1,7 @@
 {
-  "name": "DALGORO Banana Intelligence",
+  "name": "DALGORO Banana Intelligence – sistema geoespacial",
   "short_name": "DALGORO DBI",
-  "description": "Base móvil offline para navegación y operación de campo DALGORO Banana Intelligence.",
+  "description": "Sistema geoespacial DALGORO Banana Intelligence para fincas, lotes, ortofotos, muestreo e inspección de campo.",
   "start_url": "/",
   "scope": "/",
   "display": "standalone",
