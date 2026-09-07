@@ -10,15 +10,20 @@ export default function CompanyDetailWithDbi() {
           <span className="page-kicker">DALGORO Banana Intelligence – sistema geoespacial</span>
           <h1>Empresa seleccionada</h1>
           <p className="page-subtitle">
-            Continúa al módulo agrícola para crear fincas y lotes, importar coordenadas, cargar ortofotos GeoTIFF y preparar INSPECT para el iPad.
+            Prepara la finca y la ortofoto una sola vez; luego ejecuta el análisis completo de densidad de siembra con el mismo motor que ya utilizas.
           </p>
         </div>
 
         <div className="flex flex-wrap gap-3">
           {id && (
-            <Link className="btn-primary" to={`/companies/${id}/agricultura`}>
-              Abrir análisis geoespacial
-            </Link>
+            <>
+              <Link className="btn-secondary" to={`/companies/${id}/agricultura`}>
+                Preparar finca / ortofoto
+              </Link>
+              <Link className="btn-primary" to={`/companies/${id}/agricultura/densidad`}>
+                Densidad de siembra
+              </Link>
+            </>
           )}
           <Link className="btn-ghost" to="/companies">
             ← Volver a empresas
@@ -27,7 +32,7 @@ export default function CompanyDetailWithDbi() {
       </div>
 
       <div className="status-banner status-banner-info text-sm">
-        El flujo visible de esta instalación está enfocado en empresa → finca → lote → GeoJSON → ortofoto → inspección de campo.
+        Densidad de siembra recibe la ortofoto verificada, el Excel de coordenadas, un GeoPackage de exclusiones opcional y la densidad objetivo; después ejecuta el pipeline completo hasta mapas, archivos GIS e informe PDF.
       </div>
     </div>
   );
