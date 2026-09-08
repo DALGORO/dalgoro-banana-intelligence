@@ -6,6 +6,8 @@ import argparse
 import importlib.util
 import json
 import os
+import subprocess
+from datetime import datetime, timezone
 from pathlib import Path
 from types import ModuleType
 from typing import Any
@@ -74,6 +76,96 @@ def _ensure_geotiff_alias(values: dict[str, Any], config_path: Path) -> None:
     values["orthophoto"] = str(alias)
 
 
+def _prepare_pipeline_workspace(values: dict[str, Any], config_path: Path) -> None:
+    """Mueve solo las salidas pesadas a un espacio DALGORO dedicado en Windows.
+
+    El estado y los inputs del trabajo permanecen en LOCALAPPDATA. El directorio
+    ``runs`` de control se conserva como junction hacia el workspace en F:, de
+    modo que DBI mantiene sus rutas y trazabilidad mientras el motor calcula el
+    espacio libre y escribe físicamente en el volumen con mayor capacidad.
+    """
+
+    if os.name != "nt":
+        return
+
+    local_output_raw = str(values.get("output_root") or "").strip()
+    if not local_output_raw:
+        raise RuntimeError("El análisis no definió un directorio de salida.")
+
+    local_output = Path(local_output_raw).expanduser().resolve(strict=False)
+    expected_output = (config_path.parent / "runs").resolve(strict=False)
+    if local_output != expected_output:
+        raise RuntimeError(
+            "El directorio de salida del trabajo no coincide con el espacio DBI esperado."
+        )
+
+    workspace_raw = os.environ.get("DBI_DENSITY_WORKSPACE_ROOT", "").strip()
+    workspace_root = Path(
+        workspace_raw
+        or "F:/DALGORO_DBI/BANANA_INTELLIGENCE/DENSITY_PIPELINE"
+    ).expanduser().resolve(strict=False)
+
+    anchor = Path(workspace_root.anchor)
+    if not workspace_root.anchor or not anchor.exists():
+        raise RuntimeError(
+            f"No está disponible el volumen del workspace de densidad: {workspace_root.anchor or workspace_root}"
+        )
+
+    job_id = config_path.parent.name
+    workspace_job = workspace_root / "jobs" / job_id
+    pipeline_output = workspace_job / "runs"
+    pipeline_output.mkdir(parents=True, exist_ok=False)
+
+    if not local_output.is_dir():
+        raise RuntimeError(
+            f"No existe el directorio local de salida preparado por DBI: {local_output}"
+        )
+    if any(local_output.iterdir()):
+        raise RuntimeError(
+            f"El directorio local de salida no está vacío y no puede reubicarse: {local_output}"
+        )
+
+    local_output.rmdir()
+    junction = subprocess.run(
+        ["cmd.exe", "/d", "/c", "mklink", "/J", str(local_output), str(pipeline_output)],
+        capture_output=True,
+        text=True,
+        encoding="utf-8",
+        errors="replace",
+        check=False,
+    )
+    if junction.returncode != 0 or not local_output.is_dir():
+        local_output.mkdir(parents=True, exist_ok=True)
+        try:
+            pipeline_output.rmdir()
+            workspace_job.rmdir()
+        except OSError:
+            pass
+        detail = (junction.stdout + "\n" + junction.stderr).strip()
+        raise RuntimeError(
+            "No se pudo enlazar el directorio de ejecución DBI con el workspace dedicado"
+            + (f": {detail}" if detail else ".")
+        )
+
+    trace = {
+        "schema_version": "dalgoro-dbi-density-workspace.v1",
+        "job_id": job_id,
+        "created_at": datetime.now(timezone.utc).isoformat(),
+        "control_job_root": str(config_path.parent),
+        "control_output_link": str(local_output),
+        "pipeline_output_root": str(pipeline_output),
+        "producer": str(values.get("producer") or ""),
+        "farm_name": str(values.get("farm_name") or ""),
+        "target_density": str(values.get("target_density") or ""),
+    }
+    (workspace_job / "traceability.json").write_text(
+        json.dumps(trace, ensure_ascii=False, indent=2),
+        encoding="utf-8",
+    )
+
+    values["output_root"] = str(pipeline_output)
+
+
 def prepare(request_path: Path, config_path: Path, engine_root: Path) -> int:
     root = engine_root.expanduser().resolve(strict=False)
     interface = _load_interface(root)
@@ -89,6 +181,7 @@ def prepare(request_path: Path, config_path: Path, engine_root: Path) -> int:
         values["exclusions_layer"] = ""
 
     interface.validate_values(values)
+    _prepare_pipeline_workspace(values, config_path)
     config = interface.build_pipeline_config(values)
 
     # Las configuraciones cartográficas/técnicas deben provenir del mismo motor
