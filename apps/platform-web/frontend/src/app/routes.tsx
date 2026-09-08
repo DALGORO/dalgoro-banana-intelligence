@@ -4,7 +4,7 @@ import AppShell from '../components/AppShell';
 import Login from '../pages/Login';
 import Companies from '../pages/Companies';
 import CompanyDetailWithDbi from '../pages/CompanyDetailWithDbi';
-import DbiDensityPage from '../pages/DbiDensityPage';
+import DbiDensityWithCandidateReview from '../pages/DbiDensityWithCandidateReview';
 import DbiPilotPage from '../pages/DbiPilotPage';
 import PaymentPage from '../pages/PaymentPage';
 import Signup from '../pages/Signup';
@@ -30,7 +30,7 @@ export const router = createBrowserRouter([
       { path: 'companies', element: <Companies /> },
       { path: 'companies/:id', element: <CompanyDetailWithDbi /> },
       { path: 'companies/:id/agricultura', element: <Protected element={<DbiPilotPage />} /> },
-      { path: 'companies/:id/agricultura/densidad', element: <Protected element={<DbiDensityPage />} /> },
+      { path: 'companies/:id/agricultura/densidad', element: <Protected element={<DbiDensityWithCandidateReview />} /> },
       { path: 'pay', element: <PaymentPage /> },
       {
         path: 'fincas/:fincaId/mapa',

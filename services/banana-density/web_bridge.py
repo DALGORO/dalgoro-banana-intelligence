@@ -3,10 +3,12 @@
 from __future__ import annotations
 
 import argparse
+import importlib
 import importlib.util
 import json
 import os
 import subprocess
+import sys
 from datetime import datetime, timezone
 from pathlib import Path
 from types import ModuleType
@@ -206,6 +208,32 @@ def prepare(request_path: Path, config_path: Path, engine_root: Path) -> int:
     return 0
 
 
+def candidate_review(run_directory: Path, reviewed_candidates: Path, engine_root: Path) -> int:
+    """Ejecuta sin duplicar lógica la revisión de candidatos del motor estable."""
+
+    root = engine_root.expanduser().resolve(strict=False)
+    run = run_directory.expanduser().resolve(strict=False)
+    reviewed = reviewed_candidates.expanduser().resolve(strict=False)
+    module_path = root / "src" / "banana_analyzer" / "candidate_review.py"
+    if not module_path.is_file():
+        raise FileNotFoundError(
+            f"El motor estable no incorpora revisión de candidatos: {module_path}"
+        )
+    if not run.is_dir():
+        raise FileNotFoundError(f"No existe la ejecución a revisar: {run}")
+    if not reviewed.is_file():
+        raise FileNotFoundError(f"No existe el GeoPackage revisado: {reviewed}")
+
+    source_root = str(root / "src")
+    if source_root not in sys.path:
+        sys.path.insert(0, source_root)
+    module = importlib.import_module("banana_analyzer.candidate_review")
+    runner = getattr(module, "run_candidate_review", None)
+    if not callable(runner):
+        raise RuntimeError("El motor estable no expone run_candidate_review().")
+    return int(runner(run, reviewed))
+
+
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(prog="banana-density-web-bridge")
     sub = parser.add_subparsers(dest="command", required=True)
@@ -213,6 +241,11 @@ def build_parser() -> argparse.ArgumentParser:
     prepare_parser.add_argument("request_path", type=Path)
     prepare_parser.add_argument("config_path", type=Path)
     prepare_parser.add_argument("engine_root", type=Path)
+
+    review_parser = sub.add_parser("candidate-review")
+    review_parser.add_argument("run_directory", type=Path)
+    review_parser.add_argument("reviewed_candidates", type=Path)
+    review_parser.add_argument("engine_root", type=Path)
     return parser
 
 
@@ -220,6 +253,8 @@ def main() -> int:
     args = build_parser().parse_args()
     if args.command == "prepare":
         return prepare(args.request_path, args.config_path, args.engine_root)
+    if args.command == "candidate-review":
+        return candidate_review(args.run_directory, args.reviewed_candidates, args.engine_root)
     return 1
 
 
