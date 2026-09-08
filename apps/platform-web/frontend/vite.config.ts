@@ -10,6 +10,8 @@ const apiProxy = {
   },
 };
 
+const localAccessHosts = ["localhost", "127.0.0.1", ".trycloudflare.com"];
+
 export default defineConfig({
   plugins: [react()],
   resolve: {
@@ -19,12 +21,14 @@ export default defineConfig({
   },
   server: {
     port: 5173,
+    allowedHosts: localAccessHosts,
     proxy: apiProxy,
   },
-  // El Control Center ejecuta `vite preview`; por eso el proxy /api debe
-  // existir también en preview para que laptop/iPad usen un único origen HTTPS.
+  // El Control Center ejecuta `vite preview`; por eso el proxy /api y los
+  // hosts de Quick Tunnel deben estar habilitados también en preview.
   preview: {
     port: 4173,
+    allowedHosts: localAccessHosts,
     proxy: apiProxy,
   },
 });
