@@ -124,7 +124,7 @@ def validate_single_authority() -> None:
     )
     assert resolved == ApprovedAnalysisProfile(
         model_version_id="model_v1",
-        pipeline_config_version="density_pipeline_v1",
+        pipeline_config_version="pipeline_v1",
         policy_ref="policy_v1",
     )
     _raises(
