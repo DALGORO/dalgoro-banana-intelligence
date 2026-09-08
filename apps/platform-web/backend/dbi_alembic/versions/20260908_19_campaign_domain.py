@@ -107,6 +107,11 @@ def downgrade() -> None:
         "dbi_campaigns",
         type_="foreignkey",
     )
+    op.drop_constraint(
+        "ck_dbi_campaigns_status",
+        "dbi_campaigns",
+        type_="check",
+    )
     op.execute(
         "UPDATE dbi_campaigns SET status = 'planned' WHERE analysis_type IS NOT NULL"
     )
@@ -117,11 +122,6 @@ def downgrade() -> None:
     )
     op.drop_constraint(
         "ck_dbi_campaigns_analysis_type",
-        "dbi_campaigns",
-        type_="check",
-    )
-    op.drop_constraint(
-        "ck_dbi_campaigns_status",
         "dbi_campaigns",
         type_="check",
     )
