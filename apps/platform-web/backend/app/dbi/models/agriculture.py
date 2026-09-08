@@ -176,12 +176,12 @@ class Campaign(DBIBase):
             name="uq_dbi_campaigns_farm_code",
         ),
         CheckConstraint(
-            "status IN ("
-            "'planned', 'active', 'completed', 'cancelled', "
-            "'DRAFT', 'PROCESSING', 'ANALYZED', 'TECHNICAL_REVIEW', "
+            "(analysis_type IS NULL AND status IN "
+            "('planned', 'active', 'completed', 'cancelled')) OR "
+            "(analysis_type IS NOT NULL AND status IN "
+            "('DRAFT', 'PROCESSING', 'ANALYZED', 'TECHNICAL_REVIEW', "
             "'SAMPLING_READY', 'FIELD_WORK', 'FIELD_COMPLETED', "
-            "'APPROVED', 'PUBLISHED'"
-            ")",
+            "'APPROVED', 'PUBLISHED'))",
             name="ck_dbi_campaigns_status",
         ),
         CheckConstraint(
