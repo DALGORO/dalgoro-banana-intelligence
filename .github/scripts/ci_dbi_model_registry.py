@@ -190,7 +190,7 @@ def validate_models_and_migration() -> None:
     )
 
     scripts = ScriptDirectory.from_config(Config(str(BACKEND / "dbi_alembic.ini")))
-    assert scripts.get_heads() == ["dbi_0018_multi_extractions"]
+    assert scripts.get_heads() == ["dbi_0019_campaign_domain"]
     revision = scripts.get_revision("dbi_0013_model_registry")
     assert revision is not None
     assert revision.down_revision == "dbi_0012_durable_delivery"
