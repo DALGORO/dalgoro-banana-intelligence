@@ -12,6 +12,7 @@ from sqlalchemy import (
     CheckConstraint,
     DateTime,
     ForeignKey,
+    ForeignKeyConstraint,
     Index,
     Numeric,
     String,
@@ -165,7 +166,7 @@ class Plot(DBIBase):
 
 
 class Campaign(DBIBase):
-    """Campaña temporal registrada para una finca."""
+    """Campaña agrícola legacy o levantamiento técnico DBI scoped por lote."""
 
     __tablename__ = "dbi_campaigns"
     __table_args__ = (
@@ -175,25 +176,65 @@ class Campaign(DBIBase):
             name="uq_dbi_campaigns_farm_code",
         ),
         CheckConstraint(
-            "status IN ('planned', 'active', 'completed', 'cancelled')",
+            "status IN ("
+            "'planned', 'active', 'completed', 'cancelled', "
+            "'DRAFT', 'PROCESSING', 'ANALYZED', 'TECHNICAL_REVIEW', "
+            "'SAMPLING_READY', 'FIELD_WORK', 'FIELD_COMPLETED', "
+            "'APPROVED', 'PUBLISHED'"
+            ")",
             name="ck_dbi_campaigns_status",
         ),
         CheckConstraint(
             "ends_at IS NULL OR ends_at >= starts_at",
             name="ck_dbi_campaigns_date_order",
         ),
+        CheckConstraint(
+            "analysis_type IS NULL OR analysis_type IN ('density', 'multispectral')",
+            name="ck_dbi_campaigns_analysis_type",
+        ),
+        CheckConstraint(
+            "(analysis_type IS NULL AND tenant_ref IS NULL AND "
+            "organization_ref IS NULL AND plot_id IS NULL AND captured_at IS NULL) "
+            "OR (analysis_type IS NOT NULL AND tenant_ref IS NOT NULL AND "
+            "organization_ref IS NOT NULL AND plot_id IS NOT NULL AND "
+            "captured_at IS NOT NULL)",
+            name="ck_dbi_campaigns_technical_scope_complete",
+        ),
+        ForeignKeyConstraint(
+            ["plot_id", "farm_id"],
+            ["dbi_plots.id", "dbi_plots.farm_id"],
+            name="fk_dbi_campaigns_plot_farm",
+            ondelete="RESTRICT",
+        ),
         Index("ix_dbi_campaigns_farm_id", "farm_id"),
         Index("ix_dbi_campaigns_starts_at", "starts_at"),
+        Index("ix_dbi_campaigns_tenant_ref", "tenant_ref"),
+        Index("ix_dbi_campaigns_organization_ref", "organization_ref"),
+        Index("ix_dbi_campaigns_plot_id", "plot_id"),
+        Index("ix_dbi_campaigns_captured_at", "captured_at"),
+        Index("ix_dbi_campaigns_status", "status"),
     )
 
     id: Mapped[UUID] = mapped_column(Uuid, primary_key=True, default=uuid4)
+    tenant_ref: Mapped[str | None] = mapped_column(String(128), nullable=True)
+    organization_ref: Mapped[str | None] = mapped_column(String(128), nullable=True)
     farm_id: Mapped[UUID] = mapped_column(
         Uuid,
         ForeignKey("dbi_farms.id", ondelete="CASCADE"),
         nullable=False,
     )
+    plot_id: Mapped[UUID | None] = mapped_column(Uuid, nullable=True)
     code: Mapped[str] = mapped_column(String(64), nullable=False)
     name: Mapped[str] = mapped_column(String(160), nullable=False)
+    analysis_type: Mapped[str | None] = mapped_column(String(16), nullable=True)
+    captured_at: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True),
+        nullable=True,
+    )
+    processed_at: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True),
+        nullable=True,
+    )
     starts_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True),
         nullable=False,
@@ -207,6 +248,28 @@ class Campaign(DBIBase):
         nullable=False,
         default="planned",
     )
+    reviewed_at: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True),
+        nullable=True,
+    )
+    field_started_at: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True),
+        nullable=True,
+    )
+    field_completed_at: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True),
+        nullable=True,
+    )
+    approved_at: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True),
+        nullable=True,
+    )
+    published_at: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True),
+        nullable=True,
+    )
+    current_revision_id: Mapped[UUID | None] = mapped_column(Uuid, nullable=True)
+    source_job_id: Mapped[UUID | None] = mapped_column(Uuid, nullable=True)
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True),
         nullable=False,
