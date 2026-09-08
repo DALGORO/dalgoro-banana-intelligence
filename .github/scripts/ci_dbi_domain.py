@@ -45,12 +45,25 @@ EXPECTED_COLUMNS = {
     },
     "dbi_campaigns": {
         "id",
+        "tenant_ref",
+        "organization_ref",
         "farm_id",
+        "plot_id",
         "code",
         "name",
+        "analysis_type",
+        "captured_at",
+        "processed_at",
         "starts_at",
         "ends_at",
         "status",
+        "reviewed_at",
+        "field_started_at",
+        "field_completed_at",
+        "approved_at",
+        "published_at",
+        "current_revision_id",
+        "source_job_id",
         "created_at",
         "updated_at",
     },
@@ -78,7 +91,11 @@ def validate_metadata() -> None:
         ].foreign_keys
     }
     assert plot_targets == {"dbi_farms.id"}
-    assert campaign_targets == {"dbi_farms.id"}
+    assert campaign_targets == {
+        "dbi_farms.id",
+        "dbi_plots.id",
+        "dbi_plots.farm_id",
+    }
 
 
 def validate_constraints() -> None:
@@ -101,6 +118,8 @@ def validate_constraints() -> None:
         "ck_dbi_plots_boundary_valid",
         "ck_dbi_campaigns_status",
         "ck_dbi_campaigns_date_order",
+        "ck_dbi_campaigns_analysis_type",
+        "ck_dbi_campaigns_technical_scope_complete",
     }.issubset(constraint_names)
 
     all_constraint_names = {
@@ -114,19 +133,23 @@ def validate_constraints() -> None:
         "pk_dbi_campaigns",
         "fk_dbi_plots_farm_id_dbi_farms",
         "fk_dbi_campaigns_farm_id_dbi_farms",
+        "fk_dbi_campaigns_plot_farm",
     }.issubset(all_constraint_names)
 
 
 def validate_migration_graph() -> None:
-    """Comprueba que el dominio continúa la línea base DBI."""
+    """Comprueba la línea histórica y el head único del dominio DBI."""
 
     config = Config(str(BACKEND_ROOT / "dbi_alembic.ini"))
     scripts = ScriptDirectory.from_config(config)
     assert scripts.get_bases() == ["dbi_0001_baseline"]
-    assert len(scripts.get_heads()) == 1
-    revision = scripts.get_revision("dbi_0002_agricultural_domain")
-    assert revision is not None
-    assert revision.down_revision == "dbi_0001_baseline"
+    assert scripts.get_heads() == ["dbi_0019_campaign_domain"]
+    original = scripts.get_revision("dbi_0002_agricultural_domain")
+    assert original is not None
+    assert original.down_revision == "dbi_0001_baseline"
+    campaign_domain = scripts.get_revision("dbi_0019_campaign_domain")
+    assert campaign_domain is not None
+    assert campaign_domain.down_revision == "dbi_0018_multi_extractions"
 
 
 def validate_offline_sql() -> None:
@@ -154,6 +177,7 @@ def validate_offline_sql() -> None:
     assert "alembic_version_dbi" in sql
     assert "geometry(multipolygon,4326)" in compact_sql
     assert "ix_dbi_plots_boundary_gist" in sql
+    assert "dbi_0019_campaign_domain" in sql
     for forbidden in (
         "create extension",
         "geography(",
