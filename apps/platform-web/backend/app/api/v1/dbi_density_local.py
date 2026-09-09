@@ -8,7 +8,7 @@ import subprocess
 import threading
 from datetime import datetime
 from pathlib import Path
-from typing import Annotated, Any
+from typing import Annotated, Any, Callable
 from uuid import UUID, uuid4
 
 from fastapi import APIRouter, Depends, File, Form, HTTPException, Request, UploadFile, status
@@ -18,6 +18,7 @@ from sqlalchemy.orm import Session
 
 from app.api.deps import current_user, db as get_db
 from app.dbi.dependencies import get_dbi_session
+from app.dbi.density_campaign import link_density_job_to_campaign, mark_density_campaign_analyzed
 from app.dbi.models.agriculture import Farm, Plot
 from app.dbi.models.assets import AnalysisInputAsset
 from app.dbi.storage_contracts import DBIStoragePurpose
@@ -73,6 +74,7 @@ class DensityStageResponse(BaseModel):
 
 class DensityJobResponse(BaseModel):
     job_id: UUID
+    campaign_id: UUID | None = None
     company_id: int
     farm_id: UUID
     plot_id: UUID
@@ -89,6 +91,7 @@ class DensityJobResponse(BaseModel):
 
 class DensityJobCreatedResponse(BaseModel):
     job_id: UUID
+    campaign_id: UUID | None = None
     status: str
 
 
@@ -235,6 +238,16 @@ def update_job(job_id: UUID | str, **changes: Any) -> dict[str, Any]:
         data["updated_at"] = now()
         write_json(job_file(job_id), data)
         return data
+
+
+def job_campaign_id(job: dict[str, Any]) -> UUID | None:
+    raw = str(job.get("campaign_id") or "").strip()
+    if not raw:
+        return None
+    try:
+        return UUID(raw)
+    except ValueError:
+        return None
 
 
 def save_upload(upload: UploadFile, path: Path, max_bytes: int) -> None:
@@ -385,7 +398,11 @@ def pipeline_state(job: dict[str, Any]) -> dict[str, Any] | None:
     return value if isinstance(value, dict) else None
 
 
-def monitor(job_id: UUID, process: subprocess.Popen[str]) -> None:
+def monitor(
+    job_id: UUID,
+    process: subprocess.Popen[str],
+    session_factory: Callable[[], Session] | None = None,
+) -> None:
     completed = list(read_job(job_id).get("completed_stages") or [])
     previous: str | None = None
     try:
@@ -423,8 +440,27 @@ def monitor(job_id: UUID, process: subprocess.Popen[str]) -> None:
         if final == "failed":
             errors = state.get("errors") if state else None
             error = str(errors[-1]) if isinstance(errors, list) and errors else f"El motor terminó con código {code}. Revise el log del análisis."
-        update_job(job_id, status=final, current_stage=None, process_pid=None,
-                   run_directory=str(run) if run else None, report_path=report, error=error)
+        final_job = update_job(
+            job_id,
+            status=final,
+            current_stage=None,
+            process_pid=None,
+            run_directory=str(run) if run else None,
+            report_path=report,
+            error=error,
+        )
+        if final == "completed" and session_factory is not None:
+            try:
+                if mark_density_campaign_analyzed(session_factory, final_job):
+                    update_job(job_id, campaign_sync_error=None)
+            except Exception as campaign_error:  # integración separada del resultado científico
+                update_job(
+                    job_id,
+                    campaign_sync_error=(
+                        "No se pudo sincronizar Campaign después del análisis: "
+                        f"{type(campaign_error).__name__}"
+                    ),
+                )
     except Exception as error:  # pragma: no cover
         try:
             update_job(job_id, status="failed", process_pid=None, error=f"{type(error).__name__}: {error}")
@@ -435,7 +471,11 @@ def monitor(job_id: UUID, process: subprocess.Popen[str]) -> None:
             PROCESSES.pop(str(job_id), None)
 
 
-def launch(job_id: UUID, resume: bool = False) -> None:
+def launch(
+    job_id: UUID,
+    resume: bool = False,
+    session_factory: Callable[[], Session] | None = None,
+) -> None:
     python, _model, message = runtime_status()
     if python is None:
         raise HTTPException(status_code=503, detail=message)
@@ -458,7 +498,11 @@ def launch(job_id: UUID, resume: bool = False) -> None:
         )
         PROCESSES[str(job_id)] = process
         update_job(job_id, status="running", current_stage=None, process_pid=process.pid, error=None)
-        threading.Thread(target=monitor, args=(job_id, process), daemon=True).start()
+        threading.Thread(
+            target=monitor,
+            args=(job_id, process, session_factory),
+            daemon=True,
+        ).start()
 
 
 def stage_responses(job: dict[str, Any]) -> list[DensityStageResponse]:
@@ -487,7 +531,7 @@ def response(job: dict[str, Any]) -> DensityJobResponse:
     bonus = 0.5 if any(item.status == "running" for item in stages) else 0.0
     report = str(job.get("report_path") or "").strip()
     return DensityJobResponse(
-        job_id=UUID(str(job["job_id"])), company_id=int(job["company_id"]),
+        job_id=UUID(str(job["job_id"])), campaign_id=job_campaign_id(job), company_id=int(job["company_id"]),
         farm_id=UUID(str(job["farm_id"])), plot_id=UUID(str(job["plot_id"])),
         orthophoto_asset_id=UUID(str(job["orthophoto_asset_id"])), status=str(job.get("status") or "unknown"),
         current_stage=str(job["current_stage"]) if job.get("current_stage") else None,
@@ -544,8 +588,24 @@ def create_job(
         dbi_session, company_id, farm_id, plot_id, orthophoto_asset_id, _local_store(request)
     )
     job_id = prepare_job(company, farm, plot, asset, ortho, boundary_excel, boundary_sheet, target_density, exclusions_gpkg)
-    launch(job_id)
-    return DensityJobCreatedResponse(job_id=job_id, status="running")
+    campaign_metadata = link_density_job_to_campaign(
+        dbi_session,
+        tenant_ref=_tenant_ref(),
+        organization_ref=_organization_ref(company_id),
+        farm_id=farm.id,
+        plot_id=plot.id,
+        source_job_id=job_id,
+        orthophoto_asset_id=asset.id,
+        orthophoto_sha256=asset.sha256,
+        orthophoto_asset_created_at=asset.created_at,
+        target_density=target_density,
+    )
+    update_job(job_id, **campaign_metadata)
+    dbi_session.commit()
+    session_factory = request.app.state.dbi_runtime.require_session_factory()
+    launch(job_id, session_factory=session_factory)
+    campaign_id = UUID(str(campaign_metadata["campaign_id"]))
+    return DensityJobCreatedResponse(job_id=job_id, campaign_id=campaign_id, status="running")
 
 
 @router.get("/companies/{company_id}/density/jobs/latest", response_model=DensityJobResponse | None)
@@ -561,12 +621,22 @@ def get_job(company_id: int, job_id: UUID, legacy_session: LegacySession, user: 
 
 
 @router.post("/companies/{company_id}/density/jobs/{job_id}/resume", response_model=DensityJobCreatedResponse)
-def resume_job(company_id: int, job_id: UUID, legacy_session: LegacySession, user: CurrentUser) -> DensityJobCreatedResponse:
+def resume_job(
+    company_id: int,
+    job_id: UUID,
+    request: Request,
+    legacy_session: LegacySession,
+    user: CurrentUser,
+) -> DensityJobCreatedResponse:
     job = authorize_job(company_id, legacy_session, user, job_id)
     if str(job.get("status")) not in {"failed", "stopped", "paused"}:
         raise HTTPException(status_code=409, detail="Este análisis no está disponible para reanudación.")
-    launch(job_id, resume=True)
-    return DensityJobCreatedResponse(job_id=job_id, status="running")
+    launch(
+        job_id,
+        resume=True,
+        session_factory=request.app.state.dbi_runtime.require_session_factory(),
+    )
+    return DensityJobCreatedResponse(job_id=job_id, campaign_id=job_campaign_id(job), status="running")
 
 
 @router.post("/companies/{company_id}/density/jobs/{job_id}/stop", response_model=DensityJobCreatedResponse)
@@ -583,7 +653,7 @@ def stop_job(company_id: int, job_id: UUID, legacy_session: LegacySession, user:
             process.send_signal(signal.SIGTERM)
     finally:
         update_job(job_id, status="stopped", process_pid=None, error="Ejecución detenida por el usuario.")
-    return DensityJobCreatedResponse(job_id=job_id, status="stopped")
+    return DensityJobCreatedResponse(job_id=job_id, campaign_id=job_campaign_id(job), status="stopped")
 
 
 @router.get("/companies/{company_id}/density/jobs/{job_id}/report")
