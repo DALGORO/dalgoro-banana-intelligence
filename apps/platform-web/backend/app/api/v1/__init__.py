@@ -21,6 +21,7 @@ from .dbi_assets import router as dbi_assets_router
 from .dbi_campaign_artifacts import router as dbi_campaign_artifacts_router
 from .dbi_campaigns import router as dbi_campaigns_router
 from .dbi_density_local import router as dbi_density_local_router
+from .dbi_density_legacy_campaign import router as dbi_density_legacy_campaign_router
 from .dbi_density_candidate_review_local import router as dbi_density_candidate_review_local_router
 from .dbi_flight_source_manifests import (
     router as dbi_flight_source_manifests_router,
@@ -57,6 +58,7 @@ def get_api_router() -> APIRouter:
     api.include_router(dbi_campaigns_router)
     api.include_router(dbi_campaign_artifacts_router)
     api.include_router(dbi_density_local_router)
+    api.include_router(dbi_density_legacy_campaign_router)
     api.include_router(dbi_density_candidate_review_local_router)
     api.include_router(dbi_flight_source_manifests_router)
     api.include_router(dbi_inspection_router)
