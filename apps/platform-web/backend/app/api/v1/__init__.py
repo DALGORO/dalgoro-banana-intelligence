@@ -18,6 +18,7 @@ from .dbi_admin_principals import router as dbi_admin_principals_router
 from .dbi_analysis_jobs import router as dbi_analysis_jobs_router
 from .dbi_asset_multipart import router as dbi_asset_multipart_router
 from .dbi_assets import router as dbi_assets_router
+from .dbi_campaign_artifacts import router as dbi_campaign_artifacts_router
 from .dbi_campaigns import router as dbi_campaigns_router
 from .dbi_density_local import router as dbi_density_local_router
 from .dbi_density_candidate_review_local import router as dbi_density_candidate_review_local_router
@@ -54,6 +55,7 @@ def get_api_router() -> APIRouter:
     api.include_router(dbi_assets_router)
     api.include_router(dbi_asset_multipart_router)
     api.include_router(dbi_campaigns_router)
+    api.include_router(dbi_campaign_artifacts_router)
     api.include_router(dbi_density_local_router)
     api.include_router(dbi_density_candidate_review_local_router)
     api.include_router(dbi_flight_source_manifests_router)
