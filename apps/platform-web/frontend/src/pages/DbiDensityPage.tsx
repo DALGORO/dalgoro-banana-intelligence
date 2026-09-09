@@ -20,13 +20,14 @@ type DensityRuntime = { ready: boolean; message: string };
 type DensityStage = { key: string; title: string; status: string; error: string | null };
 type DensityJob = {
   job_id: string;
+  campaign_id: string | null;
   status: string;
   progress_percent: number;
   stages: DensityStage[];
   report_ready: boolean;
   error: string | null;
 };
-type CreatedJob = { job_id: string; status: string };
+type CreatedJob = { job_id: string; campaign_id: string | null; status: string };
 type UploadedOrtho = { asset_id: string; size_bytes: number };
 
 function errorText(error: unknown, fallback: string) {
@@ -310,7 +311,11 @@ export default function DbiDensityPage() {
         form,
       );
       await refreshJob(data.job_id);
-      setMessage("Análisis completo iniciado. El motor ejecutará las 17 etapas automáticamente.");
+      setMessage(
+        data.campaign_id
+          ? `Análisis completo iniciado. Campaign DBI ${data.campaign_id.slice(0, 8)}… vinculada; el motor ejecutará las 17 etapas automáticamente.`
+          : "Análisis completo iniciado. El motor ejecutará las 17 etapas automáticamente.",
+      );
     } catch (runError) {
       setError(errorText(runError, "No se pudo iniciar el análisis completo."));
     } finally {
@@ -548,6 +553,15 @@ export default function DbiDensityPage() {
               {job.report_ready && <button className="btn-primary" disabled={busy !== null} onClick={() => void downloadReport()}>{busy === "report" ? "Preparando PDF…" : "Descargar informe PDF"}</button>}
             </div>
           </div>
+          {job.campaign_id ? (
+            <div className="status-banner status-banner-info text-sm">
+              <strong>Campaign DBI:</strong> {job.campaign_id} · vínculo técnico activo para este análisis de densidad.
+            </div>
+          ) : (
+            <div className="status-banner status-banner-warning text-sm">
+              <strong>Campaign DBI:</strong> No disponible. Este es un trabajo histórico creado antes de la incorporación de Campaign.
+            </div>
+          )}
           <div>
             <div className="mb-1 flex justify-between text-xs"><span>17 etapas</span><span>{job.progress_percent}%</span></div>
             <div className="h-2 overflow-hidden rounded-full bg-slate-200 dark:bg-white/10"><div className="h-full bg-slate-700 dark:bg-white" style={{ width: `${job.progress_percent}%` }} /></div>
