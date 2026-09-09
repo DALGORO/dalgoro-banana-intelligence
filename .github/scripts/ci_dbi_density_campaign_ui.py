@@ -31,7 +31,7 @@ def main() -> None:
         assert fragment in backend, f"Backend Density dejó de exponer Campaign: {fragment}"
 
     assert "run-full-analysis" in backend
-    assert frontend.count("17 etapas") == 1
+    assert frontend.count("<span>17 etapas</span>") == 1
     print("Density/Campaign UI: trazabilidad visual y compatibilidad histórica aprobadas.")
 
 
