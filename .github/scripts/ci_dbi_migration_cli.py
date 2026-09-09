@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import ci_dbi_migration_cli_base as base
 
-base.HEAD = "dbi_0019_campaign_domain"
+base.HEAD = "dbi_0020_campaign_artifacts"
 
 
 if __name__ == "__main__":
