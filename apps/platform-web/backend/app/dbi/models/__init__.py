@@ -13,6 +13,7 @@ from app.dbi.models.analysis_jobs import AnalysisJob, AnalysisJobAttempt
 from app.dbi.models.analysis_results import DBIAnalysisResult
 from app.dbi.models.asset_multipart import AssetMultipartPart, AssetMultipartSession
 from app.dbi.models.assets import AnalysisArtifact, AnalysisInputAsset
+from app.dbi.models.campaign_artifacts import DBICampaignArtifact
 from app.dbi.models.delivery import DBIDeliveryMessage
 from app.dbi.models.flight_source_manifest import FlightSourceBundle, FlightSourceEntry
 from app.dbi.models.identity import (
@@ -54,6 +55,7 @@ __all__ = [
     "DBIAdminAuditResourceType",
     "DBIAnalysisProfile",
     "DBIAnalysisResult",
+    "DBICampaignArtifact",
     "DBIDeliveryMessage",
     "DBIFieldObservationRecord",
     "DBIFieldObservationVersionRecord",
