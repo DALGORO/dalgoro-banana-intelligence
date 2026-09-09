@@ -66,6 +66,7 @@ jobs:
           python -m py_compile ../../../.github/scripts/ci_dbi_migration_cli.py
           python -m py_compile ../../../.github/scripts/ci_dbi_migration_integration.py
           python -m py_compile ../../../.github/scripts/ci_dbi_campaign_persistence.py
+          python -m py_compile ../../../.github/scripts/ci_dbi_density_campaign_link.py
           python -m py_compile ../../../.github/scripts/ci_dbi_admin_privilege_diagnostics.py
           python -m py_compile ../../../.github/scripts/ci_dbi_admin_integration.py
           python -m py_compile ../../../.github/scripts/ci_dbi_admin_integration_runner.py
@@ -98,6 +99,13 @@ jobs:
           DBI_ENVIRONMENT: test
           DBI_DATABASE_URL: postgresql+psycopg://dbi_test_migrator@127.0.0.1:5432/dbi_test
         run: python ../../../.github/scripts/ci_dbi_campaign_persistence.py
+
+      - name: Validar vínculo Density job a Campaign DBI
+        env:
+          PYTHONPATH: .
+          DBI_ENVIRONMENT: test
+          DBI_DATABASE_URL: postgresql+psycopg://dbi_test_migrator@127.0.0.1:5432/dbi_test
+        run: python ../../../.github/scripts/ci_dbi_density_campaign_link.py
 
       - name: Validar persistencia INSPECT append-only en PostGIS
         env:
