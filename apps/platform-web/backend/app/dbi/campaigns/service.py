@@ -9,6 +9,7 @@ from sqlalchemy.orm import Session
 
 from app.dbi.campaigns.contracts import (
     DBICampaignAnalysisType,
+    DBICampaignConflict,
     DBICampaignCreate,
     DBICampaignSnapshot,
     DBICampaignStatus,
@@ -56,6 +57,37 @@ class DBICampaignService:
             request=request,
         )
         return campaign_snapshot(row), created
+
+    def link_source_job(
+        self,
+        *,
+        campaign_id: UUID,
+        tenant_ref: str,
+        organization_ref: str,
+        farm_id: UUID,
+        plot_id: UUID,
+        source_job_id: UUID,
+    ) -> DBICampaignSnapshot:
+        """Vincula el job científico fuente sin permitir reuso divergente."""
+
+        row = self._repository.get_campaign_for_update(
+            campaign_id=campaign_id,
+            tenant_ref=tenant_ref,
+            organization_ref=organization_ref,
+            farm_id=farm_id,
+            plot_id=plot_id,
+        )
+        if row is None:
+            raise DBICampaignUnavailable("Campaña DBI no disponible.")
+        if row.source_job_id is not None and row.source_job_id != source_job_id:
+            raise DBICampaignConflict(
+                "La campaña ya está vinculada a un job científico diferente."
+            )
+        if row.source_job_id is None:
+            row.source_job_id = source_job_id
+            row.updated_at = utc_now()
+            self._repository.flush()
+        return campaign_snapshot(row)
 
     def transition_campaign(
         self,
