@@ -42,8 +42,12 @@ jobs:
           python -m py_compile apps/platform-web/backend/app/api/v1/dbi_campaigns.py
           python -m py_compile apps/platform-web/backend/dbi_alembic/versions/20260908_19_campaign_domain.py
           python -m py_compile .github/scripts/ci_dbi_campaigns.py
+          python -m py_compile .github/scripts/ci_dbi_density_campaign_ui.py
 
       - name: Validar contratos, lifecycle, scope y aislamiento density
         env:
           PYTHONPATH: apps/platform-web/backend
         run: python .github/scripts/ci_dbi_campaigns.py
+
+      - name: Validar trazabilidad visual Density a Campaign
+        run: python .github/scripts/ci_dbi_density_campaign_ui.py
