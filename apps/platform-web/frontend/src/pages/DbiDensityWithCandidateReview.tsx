@@ -6,8 +6,21 @@ import DbiDensityPage from "./DbiDensityPage";
 
 type DensityJobLite = {
   job_id: string;
+  campaign_id: string | null;
   status: string;
   report_ready: boolean;
+};
+
+type CampaignAdoptionStatus = {
+  job_id: string;
+  eligible: boolean;
+  adopted: boolean;
+  campaign_id: string | null;
+  campaign_status: string | null;
+  campaign_origin: string | null;
+  catalog_artifact_count: number;
+  catalog_artifact_types: string[];
+  message: string;
 };
 
 type CandidateReviewStatus = {
@@ -28,6 +41,10 @@ export default function DbiDensityWithCandidateReview() {
   const { id } = useParams<{ id: string }>();
   const companyId = Number(id);
   const [job, setJob] = useState<DensityJobLite | null>(null);
+  const [adoption, setAdoption] = useState<CampaignAdoptionStatus | null>(null);
+  const [campaignBusy, setCampaignBusy] = useState(false);
+  const [campaignMessage, setCampaignMessage] = useState<string | null>(null);
+  const [campaignError, setCampaignError] = useState<string | null>(null);
   const [review, setReview] = useState<CandidateReviewStatus | null>(null);
   const [reviewFile, setReviewFile] = useState<File | null>(null);
   const [busy, setBusy] = useState<string | null>(null);
@@ -39,7 +56,18 @@ export default function DbiDensityWithCandidateReview() {
       `/api/v1/dbi/pilot/companies/${companyId}/density/jobs/latest`,
     );
     setJob(latest);
-    if (!latest || latest.status !== "completed") {
+    if (!latest) {
+      setAdoption(null);
+      setReview(null);
+      return;
+    }
+
+    const { data: campaignStatus } = await api.get<CampaignAdoptionStatus>(
+      `/api/v1/dbi/pilot/companies/${companyId}/density/jobs/${latest.job_id}/campaign-adoption`,
+    );
+    setAdoption(campaignStatus);
+
+    if (latest.status !== "completed") {
       setReview(null);
       return;
     }
@@ -56,6 +84,27 @@ export default function DbiDensityWithCandidateReview() {
     }, 3000);
     return () => window.clearInterval(timer);
   }, [refresh]);
+
+  const adoptHistoricalCampaign = async () => {
+    if (!job || !adoption?.eligible) return;
+    setCampaignBusy(true);
+    setCampaignError(null);
+    setCampaignMessage(null);
+    try {
+      const { data } = await api.post<CampaignAdoptionStatus>(
+        `/api/v1/dbi/pilot/companies/${companyId}/density/jobs/${job.job_id}/campaign-adoption`,
+      );
+      setAdoption(data);
+      setCampaignMessage(data.message);
+      await refresh();
+    } catch (adoptionError) {
+      setCampaignError(
+        errorText(adoptionError, "No se pudo adoptar el trabajo histórico en Campaign."),
+      );
+    } finally {
+      setCampaignBusy(false);
+    }
+  };
 
   const downloadCandidates = async () => {
     if (!job || !review?.candidates_ready) return;
@@ -105,10 +154,59 @@ export default function DbiDensityWithCandidateReview() {
 
   const completed = job?.status === "completed";
   const reviewing = review?.status === "running";
+  const campaignOriginLabel = adoption?.campaign_origin === "legacy_import"
+    ? "Trabajo histórico adoptado"
+    : "Análisis nativo Campaign";
 
   return (
     <div className="space-y-5">
-      <DbiDensityPage />
+      <DbiDensityPage key={`${job?.job_id ?? "none"}:${job?.campaign_id ?? "historical"}`} />
+
+      <section className="surface space-y-4">
+        <div>
+          <div className="eyebrow">Trazabilidad Campaign</div>
+          <h2 className="text-lg font-semibold">Continuidad del análisis histórico</h2>
+          <p className="muted mt-1 text-sm">
+            Permite incorporar un análisis completado antes de Campaign a la arquitectura DBI actual sin volver a ejecutar YOLO ni ninguna de las 17 etapas científicas.
+          </p>
+        </div>
+
+        {!job && (
+          <div className="status-banner status-banner-info text-sm">
+            La trazabilidad Campaign aparecerá cuando exista un trabajo de densidad.
+          </div>
+        )}
+
+        {job && adoption?.eligible && (
+          <div className="space-y-3">
+            <div className="status-banner status-banner-warning text-sm">
+              <strong>Trabajo histórico detectado.</strong> La adopción crea una Campaign de compatibilidad, conserva el Job {job.job_id.slice(0, 8)}… y registra únicamente evidencia canónica verificable. No recalcula resultados ni modifica el motor de Density.
+            </div>
+            <button
+              className="btn-primary"
+              disabled={campaignBusy}
+              onClick={() => void adoptHistoricalCampaign()}
+            >
+              {campaignBusy ? "Adoptando en Campaign…" : "Adoptar trabajo histórico en Campaign"}
+            </button>
+          </div>
+        )}
+
+        {job && adoption?.campaign_id && (
+          <div className="status-banner status-banner-success text-sm">
+            <div><strong>Campaign DBI:</strong> {adoption.campaign_id}</div>
+            <div className="mt-1"><strong>Estado:</strong> {adoption.campaign_status ?? "Sin estado"}</div>
+            <div className="mt-1"><strong>Origen:</strong> {campaignOriginLabel}</div>
+            <div className="mt-1">
+              <strong>Catálogo técnico:</strong> {adoption.catalog_artifact_count} evidencia{adoption.catalog_artifact_count === 1 ? "" : "s"} verificable{adoption.catalog_artifact_count === 1 ? "" : "s"}
+              {adoption.catalog_artifact_types.length > 0 ? ` · ${adoption.catalog_artifact_types.join(", ")}` : ""}
+            </div>
+          </div>
+        )}
+
+        {campaignMessage && <div className="status-banner status-banner-success">{campaignMessage}</div>}
+        {campaignError && <div className="status-banner status-banner-danger">{campaignError}</div>}
+      </section>
 
       <section className="surface space-y-4">
         <div>
