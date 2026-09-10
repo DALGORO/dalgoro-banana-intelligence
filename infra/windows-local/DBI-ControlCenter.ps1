@@ -35,6 +35,28 @@ function Test-DbiPort([int]$Port) {
     return $null -ne (Get-NetTCPConnection -LocalPort $Port -State Listen -ErrorAction SilentlyContinue | Select-Object -First 1)
 }
 
+function Assert-DbiPortAvailable([int]$Port, [string]$ServiceName) {
+    $listener = Get-NetTCPConnection `
+        -LocalPort $Port `
+        -State Listen `
+        -ErrorAction SilentlyContinue |
+        Select-Object -First 1
+
+    if ($null -eq $listener) {
+        return
+    }
+
+    $ownerPid = [int]$listener.OwningProcess
+    $processName = "desconocido"
+
+    try {
+        $processInfo = Get-Process -Id $ownerPid -ErrorAction Stop
+        $processName = $processInfo.ProcessName
+    } catch {}
+
+    throw "$ServiceName no puede iniciar: el puerto $Port ya esta ocupado por PID $ownerPid ($processName). El Control Center no reutilizara un proceso no registrado."
+}
+
 function Test-DbiHttp([string]$Url) {
     try {
         $response = Invoke-WebRequest -UseBasicParsing -Uri $Url -TimeoutSec 4
@@ -42,6 +64,61 @@ function Test-DbiHttp([string]$Url) {
     } catch {
         return $false
     }
+}
+
+function Get-DbiPortOwnerPid([int]$Port) {
+    $listener = Get-NetTCPConnection `
+        -LocalPort $Port `
+        -State Listen `
+        -ErrorAction SilentlyContinue |
+        Select-Object -First 1
+
+    if ($null -eq $listener) {
+        return 0
+    }
+
+    return [int]$listener.OwningProcess
+}
+
+function Test-DbiPidInProcessTree(
+    [int]$RootProcessId,
+    [int]$CandidateProcessId
+) {
+    if (
+        $RootProcessId -le 0 -or
+        $CandidateProcessId -le 0
+    ) {
+        return $false
+    }
+
+    $currentPid = $CandidateProcessId
+    $visited = @{}
+
+    for ($i = 0; $i -lt 20 -and $currentPid -gt 0; $i++) {
+        if ($currentPid -eq $RootProcessId) {
+            return $true
+        }
+
+        if ($visited.ContainsKey($currentPid)) {
+            return $false
+        }
+
+        $visited[$currentPid] = $true
+
+        try {
+            $processInfo = Get-CimInstance `
+                Win32_Process `
+                -Filter "ProcessId = $currentPid" `
+                -ErrorAction Stop
+        }
+        catch {
+            return $false
+        }
+
+        $currentPid = [int]$processInfo.ParentProcessId
+    }
+
+    return $false
 }
 
 function Wait-DbiCondition([scriptblock]$Condition, [int]$TimeoutSeconds, [string]$FailureMessage) {
@@ -70,6 +147,82 @@ function Test-DbiProcess([int]$ProcessId) {
 function Stop-DbiProcessTree([int]$ProcessId) {
     if (-not (Test-DbiProcess $ProcessId)) { return }
     & taskkill.exe /PID $ProcessId /T /F *> $null
+}
+
+function Test-DbiRecordedStackHealthy($Config, $State) {
+    if (-not $State) {
+        return $false
+    }
+
+    $backendPid = [int]$State.backend_pid
+    $frontendPid = [int]$State.frontend_pid
+    $tunnelPid = [int]$State.tunnel_pid
+
+    if (
+        $backendPid -le 0 -or
+        $frontendPid -le 0 -or
+        $tunnelPid -le 0
+    ) {
+        return $false
+    }
+
+    if (
+        -not (Test-DbiProcess $backendPid) -or
+        -not (Test-DbiProcess $frontendPid) -or
+        -not (Test-DbiProcess $tunnelPid)
+    ) {
+        return $false
+    }
+
+    $backendOwnerPid = Get-DbiPortOwnerPid ([int]$Config.backend_port)
+    $frontendOwnerPid = Get-DbiPortOwnerPid ([int]$Config.frontend_port)
+
+    if (
+        -not (
+            Test-DbiPidInProcessTree `
+                -RootProcessId $backendPid `
+                -CandidateProcessId $backendOwnerPid
+        )
+    ) {
+        return $false
+    }
+
+    if (
+        -not (
+            Test-DbiPidInProcessTree `
+                -RootProcessId $frontendPid `
+                -CandidateProcessId $frontendOwnerPid
+        )
+    ) {
+        return $false
+    }
+
+    $configuredStorage = [string]$Config.storage_root
+    $configuredTemp = [string]$Config.temp_root
+    $recordedStorage = [string]$State.storage_root
+    $recordedTemp = [string]$State.temp_root
+
+    if (
+        [string]::IsNullOrWhiteSpace($recordedStorage) -or
+        [string]::IsNullOrWhiteSpace($recordedTemp)
+    ) {
+        return $false
+    }
+
+    if (
+        $recordedStorage.TrimEnd('\') -ne $configuredStorage.TrimEnd('\') -or
+        $recordedTemp.TrimEnd('\') -ne $configuredTemp.TrimEnd('\')
+    ) {
+        return $false
+    }
+
+    $backendHealthy = Test-DbiHttp `
+        "http://127.0.0.1:$([int]$Config.backend_port)/api/v1/health"
+
+    $frontendHealthy = Test-DbiHttp `
+        "http://127.0.0.1:$([int]$Config.frontend_port)/api/v1/health"
+
+    return $backendHealthy -and $frontendHealthy
 }
 
 function Ensure-DockerReady($Config) {
@@ -151,14 +304,6 @@ function Ensure-FrontendBuild($Config) {
 }
 
 function Start-DbiTunnel($Config) {
-    $state = Get-DbiState
-    if ($state -and $state.tunnel_pid -and (Test-DbiProcess ([int]$state.tunnel_pid))) {
-        return [pscustomobject]@{
-            ProcessId = [int]$state.tunnel_pid
-            PublicUrl = [string]$state.public_url
-            PublicHost = ([uri][string]$state.public_url).Host
-        }
-    }
 
     $cloudflared = [string]$Config.cloudflared_exe
     if (-not (Test-Path $cloudflared)) {
@@ -186,17 +331,51 @@ function Start-DbiTunnel($Config) {
         -RedirectStandardOutput $outLog -RedirectStandardError $errLog
 
     if ($mode -ne "named") {
-        Wait-DbiCondition -TimeoutSeconds 40 -FailureMessage "Cloudflare no entrego una URL Quick Tunnel. Revise $errLog" -Condition {
-            $text = ""
-            if (Test-Path $outLog) { $text += (Get-Content -Raw $outLog -ErrorAction SilentlyContinue) }
-            if (Test-Path $errLog) { $text += "`n" + (Get-Content -Raw $errLog -ErrorAction SilentlyContinue) }
-            $match = [regex]::Match($text, "https://[a-z0-9-]+\.trycloudflare\.com")
-            if ($match.Success) {
-                $script:QuickTunnelUrl = $match.Value
-                return $true
-            }
-            return $false
+        try {
+            Wait-DbiCondition `
+                -TimeoutSeconds 40 `
+                -FailureMessage "Cloudflare no entrego una URL Quick Tunnel. Revise $errLog" `
+                -Condition {
+                    $text = ""
+
+                    if (Test-Path $outLog) {
+                        $text += (
+                            Get-Content `
+                                -Raw `
+                                $outLog `
+                                -ErrorAction SilentlyContinue
+                        )
+                    }
+
+                    if (Test-Path $errLog) {
+                        $text += "`n" + (
+                            Get-Content `
+                                -Raw `
+                                $errLog `
+                                -ErrorAction SilentlyContinue
+                        )
+                    }
+
+                    $match = [regex]::Match(
+                        $text,
+                        "https://[a-z0-9-]+\.trycloudflare\.com"
+                    )
+
+                    if ($match.Success) {
+                        $script:QuickTunnelUrl = $match.Value
+                        return $true
+                    }
+
+                    return $false
+                }
         }
+        catch {
+            if ($process) {
+                Stop-DbiProcessTree ([int]$process.Id)
+            }
+            throw
+        }
+
         $publicUrl = $script:QuickTunnelUrl
     }
 
@@ -209,90 +388,248 @@ function Start-DbiTunnel($Config) {
 
 function Start-DbiBackend($Config) {
     $backendPort = [int]$Config.backend_port
-    if (Test-DbiPort $backendPort) { return $null }
+    Assert-DbiPortAvailable $backendPort "FastAPI"
 
     $repo = [string]$Config.repo_path
     $backend = Join-Path $repo "apps\platform-web\backend"
     $python = Join-Path $backend ".venv\Scripts\python.exe"
-    if (-not (Test-Path $python)) { throw "No existe el venv backend: $python" }
+
+    if (-not (Test-Path $python)) {
+        throw "No existe el venv backend: $python"
+    }
+
+    $storageRoot = [string]$Config.storage_root
+    $tempRoot = [string]$Config.temp_root
+
+    if ([string]::IsNullOrWhiteSpace($storageRoot)) {
+        throw "Falta storage_root en local-ops.json."
+    }
+
+    if ([string]::IsNullOrWhiteSpace($tempRoot)) {
+        throw "Falta temp_root en local-ops.json."
+    }
+
+    New-Item `
+        -ItemType Directory `
+        -Force `
+        -Path $storageRoot, $tempRoot |
+        Out-Null
 
     $dbiPassword = Get-DbiPlainSecret $ApiPasswordPath
     $jwtSecret = Get-DbiPlainSecret $JwtSecretPath
     $authDb = ([string]$Config.auth_db).Replace("\", "/")
 
+    $previousStorageRoot = $env:DBI_LOCAL_STORAGE_ROOT
+    $previousTemp = $env:TEMP
+    $previousTmp = $env:TMP
+
     $env:DATABASE_URL = "sqlite+pysqlite:///$authDb"
     $env:JWT_SECRET = $jwtSecret
     $env:DBI_ENVIRONMENT = "development"
     $env:DBI_DATABASE_URL = "postgresql+psycopg://dbi_development_api:$dbiPassword@127.0.0.1:55432/dbi_development"
+    $env:DBI_LOCAL_STORAGE_ROOT = $storageRoot
+    $env:TEMP = $tempRoot
+    $env:TMP = $tempRoot
     $env:PYTHONUTF8 = "1"
 
     try {
         $outLog = Join-Path $LogsDir "backend.out.log"
         $errLog = Join-Path $LogsDir "backend.err.log"
-        Remove-Item $outLog, $errLog -Force -ErrorAction SilentlyContinue
-        $process = Start-Process -FilePath $python `
-            -ArgumentList "-m", "uvicorn", "app.main:app", "--host", "127.0.0.1", "--port", "$backendPort" `
-            -WorkingDirectory $backend -WindowStyle Hidden -PassThru `
-            -RedirectStandardOutput $outLog -RedirectStandardError $errLog
-    } finally {
-        Remove-Item Env:DATABASE_URL, Env:JWT_SECRET, Env:DBI_ENVIRONMENT, Env:DBI_DATABASE_URL, Env:PYTHONUTF8 -ErrorAction SilentlyContinue
+
+        Remove-Item `
+            $outLog, $errLog `
+            -Force `
+            -ErrorAction SilentlyContinue
+
+        $process = Start-Process `
+            -FilePath $python `
+            -ArgumentList `
+                "-m",
+                "uvicorn",
+                "app.main:app",
+                "--host",
+                "127.0.0.1",
+                "--port",
+                "$backendPort" `
+            -WorkingDirectory $backend `
+            -WindowStyle Hidden `
+            -PassThru `
+            -RedirectStandardOutput $outLog `
+            -RedirectStandardError $errLog
+    }
+    finally {
+        Remove-Item `
+            Env:DATABASE_URL,
+            Env:JWT_SECRET,
+            Env:DBI_ENVIRONMENT,
+            Env:DBI_DATABASE_URL,
+            Env:PYTHONUTF8 `
+            -ErrorAction SilentlyContinue
+
+        if ([string]::IsNullOrEmpty($previousStorageRoot)) {
+            Remove-Item Env:DBI_LOCAL_STORAGE_ROOT -ErrorAction SilentlyContinue
+        } else {
+            $env:DBI_LOCAL_STORAGE_ROOT = $previousStorageRoot
+        }
+
+        if ([string]::IsNullOrEmpty($previousTemp)) {
+            Remove-Item Env:TEMP -ErrorAction SilentlyContinue
+        } else {
+            $env:TEMP = $previousTemp
+        }
+
+        if ([string]::IsNullOrEmpty($previousTmp)) {
+            Remove-Item Env:TMP -ErrorAction SilentlyContinue
+        } else {
+            $env:TMP = $previousTmp
+        }
     }
 
-    Wait-DbiCondition -TimeoutSeconds 35 -FailureMessage "FastAPI no respondio. Revise $errLog" -Condition {
-        Test-DbiHttp "http://127.0.0.1:$backendPort/api/v1/health"
+    try {
+        Wait-DbiCondition `
+            -TimeoutSeconds 35 `
+            -FailureMessage "FastAPI no respondio. Revise $errLog" `
+            -Condition {
+                Test-DbiHttp `
+                    "http://127.0.0.1:$backendPort/api/v1/health"
+            }
     }
+    catch {
+        if ($process) {
+            Stop-DbiProcessTree ([int]$process.Id)
+        }
+        throw
+    }
+
     return $process
 }
 
 function Start-DbiFrontend($Config, [string]$AllowedHost) {
     $frontendPort = [int]$Config.frontend_port
-    if (Test-DbiPort $frontendPort) { return $null }
+    Assert-DbiPortAvailable $frontendPort "Vite Preview"
 
     Ensure-FrontendBuild $Config
-    $frontend = Join-Path ([string]$Config.repo_path) "apps\platform-web\frontend"
+
+    $frontend = Join-Path `
+        ([string]$Config.repo_path) `
+        "apps\platform-web\frontend"
 
     $env:__VITE_ADDITIONAL_SERVER_ALLOWED_HOSTS = $AllowedHost
+
     try {
         $outLog = Join-Path $LogsDir "frontend.out.log"
         $errLog = Join-Path $LogsDir "frontend.err.log"
-        Remove-Item $outLog, $errLog -Force -ErrorAction SilentlyContinue
+
+        Remove-Item `
+            $outLog, $errLog `
+            -Force `
+            -ErrorAction SilentlyContinue
+
         $command = "npm run preview -- --host 127.0.0.1 --port $frontendPort"
-        $process = Start-Process -FilePath "cmd.exe" -ArgumentList "/c", $command `
-            -WorkingDirectory $frontend -WindowStyle Hidden -PassThru `
-            -RedirectStandardOutput $outLog -RedirectStandardError $errLog
-    } finally {
-        Remove-Item Env:__VITE_ADDITIONAL_SERVER_ALLOWED_HOSTS -ErrorAction SilentlyContinue
+
+        $process = Start-Process `
+            -FilePath "cmd.exe" `
+            -ArgumentList "/c", $command `
+            -WorkingDirectory $frontend `
+            -WindowStyle Hidden `
+            -PassThru `
+            -RedirectStandardOutput $outLog `
+            -RedirectStandardError $errLog
+    }
+    finally {
+        Remove-Item `
+            Env:__VITE_ADDITIONAL_SERVER_ALLOWED_HOSTS `
+            -ErrorAction SilentlyContinue
     }
 
-    Wait-DbiCondition -TimeoutSeconds 25 -FailureMessage "Vite Preview no respondio. Revise $errLog" -Condition {
-        Test-DbiHttp "http://127.0.0.1:$frontendPort/api/v1/health"
+    try {
+        Wait-DbiCondition `
+            -TimeoutSeconds 60 `
+            -FailureMessage "Vite Preview no respondio. Revise $errLog" `
+            -Condition {
+                Test-DbiHttp `
+                    "http://127.0.0.1:$frontendPort/api/v1/health"
+            }
     }
+    catch {
+        if ($process) {
+            Stop-DbiProcessTree ([int]$process.Id)
+        }
+        throw
+    }
+
     return $process
 }
 
 function Start-DbiStack {
     Ensure-DbiRuntimeDirectories
+
     $config = Get-DbiConfig
     Ensure-DockerReady $config
 
-    $backend = Start-DbiBackend $config
-    $tunnel = Start-DbiTunnel $config
-    $frontend = Start-DbiFrontend $config $tunnel.PublicHost
-
     $oldState = Get-DbiState
-    $state = [ordered]@{
-        started_at = (Get-Date).ToString("o")
-        backend_pid = if ($backend) { $backend.Id } elseif ($oldState) { $oldState.backend_pid } else { 0 }
-        frontend_pid = if ($frontend) { $frontend.Id } elseif ($oldState) { $oldState.frontend_pid } else { 0 }
-        tunnel_pid = $tunnel.ProcessId
-        public_url = $tunnel.PublicUrl
-        tunnel_mode = [string]$config.tunnel_mode
-    }
-    Save-DbiState $state
 
-    return [pscustomobject]@{
-        Status = "RUNNING"
-        PublicUrl = $tunnel.PublicUrl
+    if (Test-DbiRecordedStackHealthy $config $oldState) {
+        return [pscustomobject]@{
+            Status = "RUNNING"
+            PublicUrl = [string]$oldState.public_url
+        }
+    }
+
+    $backend = $null
+    $tunnel = $null
+    $frontend = $null
+
+    try {
+        $backend = Start-DbiBackend $config
+        $tunnel = Start-DbiTunnel $config
+        $frontend = Start-DbiFrontend $config $tunnel.PublicHost
+
+        $state = [ordered]@{
+            started_at = (Get-Date).ToString("o")
+            backend_pid = $backend.Id
+            frontend_pid = $frontend.Id
+            tunnel_pid = $tunnel.ProcessId
+            public_url = $tunnel.PublicUrl
+            tunnel_mode = [string]$config.tunnel_mode
+            storage_root = [string]$config.storage_root
+            temp_root = [string]$config.temp_root
+        }
+
+        Save-DbiState $state
+
+        return [pscustomobject]@{
+            Status = "RUNNING"
+            PublicUrl = $tunnel.PublicUrl
+        }
+    }
+    catch {
+        if ($frontend) {
+            Stop-DbiProcessTree ([int]$frontend.Id)
+        }
+
+        if ($tunnel) {
+            Stop-DbiProcessTree ([int]$tunnel.ProcessId)
+        }
+
+        if ($backend) {
+            Stop-DbiProcessTree ([int]$backend.Id)
+        }
+
+        Save-DbiState ([ordered]@{
+            failed_at = (Get-Date).ToString("o")
+            backend_pid = 0
+            frontend_pid = 0
+            tunnel_pid = 0
+            public_url = if ($oldState) {
+                [string]$oldState.public_url
+            } else {
+                ""
+            }
+            tunnel_mode = [string]$config.tunnel_mode
+        })
+
+        throw
     }
 }
 
