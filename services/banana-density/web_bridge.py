@@ -43,22 +43,64 @@ def _ensure_geotiff_alias(values: dict[str, Any], config_path: Path) -> None:
     """Da al motor estable una ruta .tif sin duplicar la ortofoto privada DBI.
 
     El object store DBI usa claves opacas sin extensión. La GUI estable valida que
-    la ortofoto termine en .tif/.tiff antes de abrirla. Como storage y jobs viven
-    bajo LOCALAPPDATA en el mismo volumen local, un hard link ofrece una vista
-    compatible del mismo archivo sin copiar varios GB.
+    la ortofoto termine en .tif/.tiff antes de abrirla. El alias debe crearse en el
+    mismo volumen físico que la ortofoto porque Windows no admite hard links entre
+    volúmenes diferentes.
     """
 
     raw = str(values.get("orthophoto") or "").strip()
     if not raw:
         return
+
     source = Path(raw).expanduser().resolve(strict=False)
+
     if source.suffix.lower() in {".tif", ".tiff"}:
         return
+
     if not source.is_file():
         return
 
-    alias = config_path.parent / "inputs" / "ortofoto.tif"
+    job_id = config_path.parent.name
+
+    temp_candidates = [
+        os.environ.get("TEMP", "").strip(),
+        os.environ.get("TMP", "").strip(),
+    ]
+
+    alias_root: Path | None = None
+
+    for raw_temp in temp_candidates:
+        if not raw_temp:
+            continue
+
+        candidate = Path(raw_temp).expanduser().resolve(strict=False)
+
+        if candidate.drive.lower() == source.drive.lower():
+            alias_root = candidate / "dalgoro-density-aliases" / job_id
+            break
+
+    if alias_root is None:
+        storage_raw = os.environ.get("DBI_LOCAL_STORAGE_ROOT", "").strip()
+
+        if storage_raw:
+            storage_root = Path(storage_raw).expanduser().resolve(strict=False)
+
+            if storage_root.drive.lower() == source.drive.lower():
+                alias_root = (
+                    storage_root
+                    / ".density-aliases"
+                    / job_id
+                )
+
+    if alias_root is None:
+        raise RuntimeError(
+            "No existe un directorio temporal DBI en el mismo volumen "
+            "que la ortofoto privada."
+        )
+
+    alias = alias_root / "ortofoto.tif"
     alias.parent.mkdir(parents=True, exist_ok=True)
+
     if alias.exists():
         try:
             if os.path.samefile(source, alias):
@@ -66,13 +108,15 @@ def _ensure_geotiff_alias(values: dict[str, Any], config_path: Path) -> None:
                 return
         except OSError:
             pass
+
         alias.unlink()
 
     try:
         os.link(source, alias)
     except OSError as error:
         raise RuntimeError(
-            "No se pudo crear la vista .tif de la ortofoto privada DBI sin duplicar el archivo."
+            "No se pudo crear la vista .tif de la ortofoto privada DBI "
+            "en el mismo volumen sin duplicar el archivo."
         ) from error
 
     values["orthophoto"] = str(alias)
@@ -116,38 +160,57 @@ def _prepare_pipeline_workspace(values: dict[str, Any], config_path: Path) -> No
     job_id = config_path.parent.name
     workspace_job = workspace_root / "jobs" / job_id
     pipeline_output = workspace_job / "runs"
-    pipeline_output.mkdir(parents=True, exist_ok=False)
 
-    if not local_output.is_dir():
-        raise RuntimeError(
-            f"No existe el directorio local de salida preparado por DBI: {local_output}"
-        )
-    if any(local_output.iterdir()):
-        raise RuntimeError(
-            f"El directorio local de salida no está vacío y no puede reubicarse: {local_output}"
+    if local_output == pipeline_output.resolve(strict=False):
+        pipeline_output.mkdir(parents=True, exist_ok=True)
+    else:
+        pipeline_output.mkdir(parents=True, exist_ok=False)
+
+        if not local_output.is_dir():
+            raise RuntimeError(
+                f"No existe el directorio local de salida preparado por DBI: {local_output}"
+            )
+
+        if any(local_output.iterdir()):
+            raise RuntimeError(
+                f"El directorio local de salida no está vacío y no puede reubicarse: {local_output}"
+            )
+
+        local_output.rmdir()
+
+        junction = subprocess.run(
+            [
+                "cmd.exe",
+                "/d",
+                "/c",
+                "mklink",
+                "/J",
+                str(local_output),
+                str(pipeline_output),
+            ],
+            capture_output=True,
+            text=True,
+            encoding="utf-8",
+            errors="replace",
+            check=False,
         )
 
-    local_output.rmdir()
-    junction = subprocess.run(
-        ["cmd.exe", "/d", "/c", "mklink", "/J", str(local_output), str(pipeline_output)],
-        capture_output=True,
-        text=True,
-        encoding="utf-8",
-        errors="replace",
-        check=False,
-    )
-    if junction.returncode != 0 or not local_output.is_dir():
-        local_output.mkdir(parents=True, exist_ok=True)
-        try:
-            pipeline_output.rmdir()
-            workspace_job.rmdir()
-        except OSError:
-            pass
-        detail = (junction.stdout + "\n" + junction.stderr).strip()
-        raise RuntimeError(
-            "No se pudo enlazar el directorio de ejecución DBI con el workspace dedicado"
-            + (f": {detail}" if detail else ".")
-        )
+        if junction.returncode != 0 or not local_output.is_dir():
+            local_output.mkdir(parents=True, exist_ok=True)
+
+            try:
+                pipeline_output.rmdir()
+                workspace_job.rmdir()
+            except OSError:
+                pass
+
+            detail = (junction.stdout + "\n" + junction.stderr).strip()
+
+            raise RuntimeError(
+                "No se pudo enlazar el directorio de ejecución DBI "
+                "con el workspace dedicado"
+                + (f": {detail}" if detail else ".")
+            )
 
     trace = {
         "schema_version": "dalgoro-dbi-density-workspace.v1",
