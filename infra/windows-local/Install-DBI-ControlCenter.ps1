@@ -1,4 +1,7 @@
-param()
+param(
+    [string]$DataRoot = "",
+    [string]$DensityRoot = ""
+)
 
 $ErrorActionPreference = "Stop"
 
@@ -18,6 +21,27 @@ $AuthEmail = "dbi.local@dalgoro.ec"
 $ContainerName = "dbi-postgis-development"
 $CloudflaredDir = Join-Path $env:USERPROFILE "cloudflared"
 $CloudflaredExe = Join-Path $CloudflaredDir "cloudflared.exe"
+
+if ([string]::IsNullOrWhiteSpace($DataRoot)) {
+    $DataRoot = Read-Host "Ruta de datos DBI (por ejemplo D:\DALGORO_DBI)"
+}
+
+if ([string]::IsNullOrWhiteSpace($DataRoot)) {
+    throw "Debe indicar una ruta de datos DBI."
+}
+
+$StorageRoot = Join-Path $DataRoot "storage"
+$TempRoot = Join-Path $DataRoot "temp"
+
+if ([string]::IsNullOrWhiteSpace($DensityRoot)) {
+    $DensityRoot = Read-Host "Ruta del workspace Density (por ejemplo F:\DALGORO_DBI\BANANA_INTELLIGENCE\DENSITY_PIPELINE)"
+}
+
+if ([string]::IsNullOrWhiteSpace($DensityRoot)) {
+    throw "Debe indicar una ruta para el workspace Density."
+}
+
+$DensityJobsRoot = Join-Path $DensityRoot "jobs"
 
 function Wait-DockerReady {
     try {
@@ -75,7 +99,9 @@ if (-not (Test-Path $ControlScript)) {
     throw "No se encontro DBI-ControlCenter.ps1"
 }
 
-New-Item -ItemType Directory -Force -Path $RuntimeDir, $LogsDir, $CloudflaredDir | Out-Null
+New-Item -ItemType Directory -Force `
+    -Path $RuntimeDir, $LogsDir, $CloudflaredDir, $StorageRoot, $TempRoot, $DensityRoot, $DensityJobsRoot |
+    Out-Null
 
 Write-Host "1/7 Verificando Docker/PostGIS..."
 Wait-DockerReady
@@ -184,6 +210,9 @@ $config = [ordered]@{
     cloudflared_exe = $CloudflaredExe
     auth_db = $AuthDb
     auth_email = $AuthEmail
+    storage_root = $StorageRoot
+    temp_root = $TempRoot
+    density_root = $DensityRoot
     tunnel_mode = "quick"
     tunnel_name = ""
     public_hostname = ""
