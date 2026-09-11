@@ -199,19 +199,23 @@ function Test-DbiRecordedStackHealthy($Config, $State) {
 
     $configuredStorage = [string]$Config.storage_root
     $configuredTemp = [string]$Config.temp_root
+    $configuredDensity = [string]$Config.density_root
     $recordedStorage = [string]$State.storage_root
     $recordedTemp = [string]$State.temp_root
+    $recordedDensity = [string]$State.density_root
 
     if (
         [string]::IsNullOrWhiteSpace($recordedStorage) -or
-        [string]::IsNullOrWhiteSpace($recordedTemp)
+        [string]::IsNullOrWhiteSpace($recordedTemp) -or
+        [string]::IsNullOrWhiteSpace($recordedDensity)
     ) {
         return $false
     }
 
     if (
         $recordedStorage.TrimEnd('\') -ne $configuredStorage.TrimEnd('\') -or
-        $recordedTemp.TrimEnd('\') -ne $configuredTemp.TrimEnd('\')
+        $recordedTemp.TrimEnd('\') -ne $configuredTemp.TrimEnd('\') -or
+        $recordedDensity.TrimEnd('\') -ne $configuredDensity.TrimEnd('\')
     ) {
         return $false
     }
@@ -400,6 +404,7 @@ function Start-DbiBackend($Config) {
 
     $storageRoot = [string]$Config.storage_root
     $tempRoot = [string]$Config.temp_root
+    $densityRoot = [string]$Config.density_root
 
     if ([string]::IsNullOrWhiteSpace($storageRoot)) {
         throw "Falta storage_root en local-ops.json."
@@ -407,6 +412,20 @@ function Start-DbiBackend($Config) {
 
     if ([string]::IsNullOrWhiteSpace($tempRoot)) {
         throw "Falta temp_root en local-ops.json."
+    }
+
+    if ([string]::IsNullOrWhiteSpace($densityRoot)) {
+        throw "Falta density_root en local-ops.json."
+    }
+
+    if (-not (Test-Path -LiteralPath $densityRoot -PathType Container)) {
+        throw "El workspace Density configurado no esta disponible: $densityRoot"
+    }
+
+    $densityJobsRoot = Join-Path $densityRoot "jobs"
+
+    if (-not (Test-Path -LiteralPath $densityJobsRoot -PathType Container)) {
+        throw "No existe la carpeta jobs del workspace Density: $densityJobsRoot"
     }
 
     New-Item `
@@ -420,6 +439,7 @@ function Start-DbiBackend($Config) {
     $authDb = ([string]$Config.auth_db).Replace("\", "/")
 
     $previousStorageRoot = $env:DBI_LOCAL_STORAGE_ROOT
+    $previousDensityRoot = $env:DBI_DENSITY_ROOT
     $previousTemp = $env:TEMP
     $previousTmp = $env:TMP
 
@@ -428,6 +448,7 @@ function Start-DbiBackend($Config) {
     $env:DBI_ENVIRONMENT = "development"
     $env:DBI_DATABASE_URL = "postgresql+psycopg://dbi_development_api:$dbiPassword@127.0.0.1:55432/dbi_development"
     $env:DBI_LOCAL_STORAGE_ROOT = $storageRoot
+    $env:DBI_DENSITY_ROOT = $densityRoot
     $env:TEMP = $tempRoot
     $env:TMP = $tempRoot
     $env:PYTHONUTF8 = "1"
@@ -470,6 +491,12 @@ function Start-DbiBackend($Config) {
             Remove-Item Env:DBI_LOCAL_STORAGE_ROOT -ErrorAction SilentlyContinue
         } else {
             $env:DBI_LOCAL_STORAGE_ROOT = $previousStorageRoot
+        }
+
+        if ([string]::IsNullOrEmpty($previousDensityRoot)) {
+            Remove-Item Env:DBI_DENSITY_ROOT -ErrorAction SilentlyContinue
+        } else {
+            $env:DBI_DENSITY_ROOT = $previousDensityRoot
         }
 
         if ([string]::IsNullOrEmpty($previousTemp)) {
@@ -594,6 +621,7 @@ function Start-DbiStack {
             tunnel_mode = [string]$config.tunnel_mode
             storage_root = [string]$config.storage_root
             temp_root = [string]$config.temp_root
+            density_root = [string]$config.density_root
         }
 
         Save-DbiState $state

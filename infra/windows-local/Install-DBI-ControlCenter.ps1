@@ -1,5 +1,6 @@
 param(
-    [string]$DataRoot = ""
+    [string]$DataRoot = "",
+    [string]$DensityRoot = ""
 )
 
 $ErrorActionPreference = "Stop"
@@ -31,6 +32,16 @@ if ([string]::IsNullOrWhiteSpace($DataRoot)) {
 
 $StorageRoot = Join-Path $DataRoot "storage"
 $TempRoot = Join-Path $DataRoot "temp"
+
+if ([string]::IsNullOrWhiteSpace($DensityRoot)) {
+    $DensityRoot = Read-Host "Ruta del workspace Density (por ejemplo F:\DALGORO_DBI\BANANA_INTELLIGENCE\DENSITY_PIPELINE)"
+}
+
+if ([string]::IsNullOrWhiteSpace($DensityRoot)) {
+    throw "Debe indicar una ruta para el workspace Density."
+}
+
+$DensityJobsRoot = Join-Path $DensityRoot "jobs"
 
 function Wait-DockerReady {
     try {
@@ -89,7 +100,7 @@ if (-not (Test-Path $ControlScript)) {
 }
 
 New-Item -ItemType Directory -Force `
-    -Path $RuntimeDir, $LogsDir, $CloudflaredDir, $StorageRoot, $TempRoot |
+    -Path $RuntimeDir, $LogsDir, $CloudflaredDir, $StorageRoot, $TempRoot, $DensityRoot, $DensityJobsRoot |
     Out-Null
 
 Write-Host "1/7 Verificando Docker/PostGIS..."
@@ -201,6 +212,7 @@ $config = [ordered]@{
     auth_email = $AuthEmail
     storage_root = $StorageRoot
     temp_root = $TempRoot
+    density_root = $DensityRoot
     tunnel_mode = "quick"
     tunnel_name = ""
     public_hostname = ""
