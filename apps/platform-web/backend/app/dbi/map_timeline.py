@@ -2,11 +2,15 @@
 
 from __future__ import annotations
 
+import json
+import math
+import re
 from urllib.parse import quote
 from uuid import UUID
 
 from geoalchemy2.shape import to_shape
-from sqlalchemy import select
+from sqlalchemy import func, select
+from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.orm import Session
 
 from app.dbi.models.agriculture import Campaign, Farm, Plot
@@ -42,6 +46,92 @@ _VISIBLE_RGB_CAMPAIGN_STATES = frozenset(
         "PUBLISHED",
     }
 )
+
+
+_EPSG_PATTERN = re.compile(r"^EPSG:(?P<code>[1-9][0-9]{2,6})$")
+
+
+def _validated_bounds(
+    bounds_json: str,
+) -> tuple[float, float, float, float] | None:
+    try:
+        raw = json.loads(bounds_json)
+    except (TypeError, ValueError):
+        return None
+
+    if not isinstance(raw, list) or len(raw) != 4:
+        return None
+    if any(
+        isinstance(value, bool) or not isinstance(value, (int, float))
+        for value in raw
+    ):
+        return None
+
+    west, south, east, north = (float(value) for value in raw)
+    if not all(math.isfinite(value) for value in (west, south, east, north)):
+        return None
+    if west >= east or south >= north:
+        return None
+    return west, south, east, north
+
+
+def _valid_wgs84_bounds(
+    bounds: tuple[float, float, float, float],
+) -> tuple[float, float, float, float] | None:
+    west, south, east, north = bounds
+    if (
+        -180.0 <= west < east <= 180.0
+        and -90.0 <= south < north <= 90.0
+    ):
+        return bounds
+    return None
+
+
+def raster_bounds_wgs84(
+    session: Session,
+    *,
+    crs: str,
+    bounds_json: str,
+) -> tuple[float, float, float, float] | None:
+    """Deriva viewport WGS84 sin convertir el Raster en autoridad territorial."""
+
+    bounds = _validated_bounds(bounds_json)
+    if bounds is None:
+        return None
+
+    match = _EPSG_PATTERN.fullmatch(str(crs).strip())
+    if match is None:
+        return None
+    srid = int(match.group("code"))
+
+    if srid == 4326:
+        return _valid_wgs84_bounds(bounds)
+
+    west, south, east, north = bounds
+    transformed = func.ST_Transform(
+        func.ST_MakeEnvelope(west, south, east, north, srid),
+        4326,
+    )
+    box = func.Box3D(transformed)
+    try:
+        row = session.execute(
+            select(
+                func.ST_XMin(box),
+                func.ST_YMin(box),
+                func.ST_XMax(box),
+                func.ST_YMax(box),
+            )
+        ).one()
+    except SQLAlchemyError:
+        return None
+
+    try:
+        candidate = tuple(float(value) for value in row)
+    except (TypeError, ValueError):
+        return None
+    if len(candidate) != 4 or not all(math.isfinite(value) for value in candidate):
+        return None
+    return _valid_wgs84_bounds(candidate)  # type: ignore[arg-type]
 
 
 def _review_status(campaign_status: str) -> ProfessionalReviewStatus:
@@ -164,11 +254,14 @@ class DBIMapTimelineReader:
 
         timeline: list[RasterTileTimelineEntry] = []
         seen_campaigns: set[UUID] = set()
+        viewport_raster: DBIRasterProduct | None = None
 
         for campaign, artifact, raster in rows:
             if campaign.id in seen_campaigns:
                 continue
             seen_campaigns.add(campaign.id)
+            if viewport_raster is None:
+                viewport_raster = raster
 
             assert campaign.captured_at is not None
             timeline.append(
@@ -188,6 +281,13 @@ class DBIMapTimelineReader:
                     ),
                     professional_review_status=_review_status(campaign.status),
                 )
+            )
+
+        if bounds is None and viewport_raster is not None:
+            bounds = raster_bounds_wgs84(
+                self._session,
+                crs=viewport_raster.crs,
+                bounds_json=viewport_raster.bounds_json,
             )
 
         dates = sorted({entry.captured_at for entry in timeline})
