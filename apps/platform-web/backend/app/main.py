@@ -2,6 +2,7 @@ from contextlib import asynccontextmanager
 from datetime import datetime
 import os
 from pathlib import Path
+import sys
 
 from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
@@ -11,6 +12,7 @@ from app.api.v1 import get_api_router
 from app.core.config import settings
 from app.core.security import decode_token
 from app.db.session import SessionLocal
+from app.dbi.raster.local_tile_renderer import DBILocalSubprocessRasterTileRenderer
 from app.dbi.raster.tiles import DBIRasterTileCache
 from app.dbi.runtime import DBIRuntime
 from app.dbi.storage_local import DBILocalObjectStore
@@ -108,6 +110,29 @@ def _local_object_store() -> DBILocalObjectStore | None:
     return DBILocalObjectStore(root)
 
 
+def _local_raster_tile_renderer(
+    object_store: DBILocalObjectStore,
+) -> DBILocalSubprocessRasterTileRenderer:
+    """Conecta el renderer aislado sólo para la estación local DBI."""
+
+    repository_root = Path(__file__).resolve().parents[4]
+    script_path = (
+        repository_root
+        / "services"
+        / "banana-density"
+        / "render_tile_cli.py"
+    )
+    python_executable = (
+        os.environ.get("DBI_RASTER_RENDERER_PYTHON", "").strip()
+        or sys.executable
+    )
+    return DBILocalSubprocessRasterTileRenderer(
+        object_store,
+        script_path=script_path,
+        python_executable=python_executable,
+    )
+
+
 @asynccontextmanager
 async def lifespan(application: FastAPI):
     """Administra DBI sin sustituir recursos heredados de la aplicación."""
@@ -120,10 +145,15 @@ async def lifespan(application: FastAPI):
     object_store = _local_object_store()
     if object_store is not None:
         application.state.dbi_object_store = object_store
+        application.state.dbi_raster_tile_renderer = _local_raster_tile_renderer(
+            object_store
+        )
 
     try:
         yield
     finally:
+        if hasattr(application.state, "dbi_raster_tile_renderer"):
+            delattr(application.state, "dbi_raster_tile_renderer")
         if hasattr(application.state, "dbi_object_store"):
             delattr(application.state, "dbi_object_store")
         if hasattr(application.state, "dbi_raster_tile_cache"):
