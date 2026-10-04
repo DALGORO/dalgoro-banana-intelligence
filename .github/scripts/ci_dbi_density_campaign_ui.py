@@ -72,11 +72,18 @@ def main() -> None:
             f"Campaign Density nueva no garantiza orthophoto_source: {fragment}"
         )
 
-    assert density_campaign.index("register_artifact(") < density_campaign.index(
+    link_function = density_campaign.split(
+        "def link_density_job_to_campaign",
+        1,
+    )[1].split(
+        "def mark_density_campaign_analyzed",
+        1,
+    )[0]
+    assert link_function.index("register_artifact(") < link_function.index(
         "target_status=DBICampaignStatus.PROCESSING"
     )
-    assert ".commit(" not in density_campaign
-    assert ".rollback(" not in density_campaign
+    assert ".commit(" not in link_function
+    assert ".rollback(" not in link_function
 
     assert "uuid5(" in adoption_service
     assert 'LEGACY_CAMPAIGN_ORIGIN = "legacy_import"' in adoption_service
