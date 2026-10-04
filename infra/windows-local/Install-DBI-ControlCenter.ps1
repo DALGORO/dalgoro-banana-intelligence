@@ -208,10 +208,18 @@ $densityPythonCandidates = @(
 )
 $densityPython = ""
 foreach ($candidate in $densityPythonCandidates) {
-    if (Test-Path -LiteralPath $candidate -PathType Leaf) {
-        $densityPython = (Resolve-Path -LiteralPath $candidate).Path
-        break
+    if (-not (Test-Path -LiteralPath $candidate -PathType Leaf)) {
+        continue
     }
+
+    $resolvedDensityPython = (Resolve-Path -LiteralPath $candidate).Path
+    try {
+        & $resolvedDensityPython -c "import rasterio" *> $null
+        if ($LASTEXITCODE -eq 0) {
+            $densityPython = $resolvedDensityPython
+            break
+        }
+    } catch {}
 }
 
 $config = [ordered]@{
