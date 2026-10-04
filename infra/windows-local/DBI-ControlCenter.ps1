@@ -390,6 +390,40 @@ function Start-DbiTunnel($Config) {
     }
 }
 
+function Get-DbiDensityPython($Config) {
+    $repo = [string]$Config.repo_path
+    $candidates = New-Object System.Collections.Generic.List[string]
+
+    if (
+        $Config.PSObject.Properties.Name -contains "density_python" -and
+        -not [string]::IsNullOrWhiteSpace([string]$Config.density_python)
+    ) {
+        $candidates.Add([string]$Config.density_python)
+    }
+
+    if (-not [string]::IsNullOrWhiteSpace($env:DBI_DENSITY_PYTHON)) {
+        $candidates.Add([string]$env:DBI_DENSITY_PYTHON)
+    }
+
+    $candidates.Add(
+        (Join-Path $repo "services\banana-density\.venv\Scripts\python.exe")
+    )
+    $candidates.Add(
+        "F:\PROY_CONTEO_BANANO_1\automatizacion_banano\.venv\Scripts\python.exe"
+    )
+
+    foreach ($candidate in $candidates) {
+        if (
+            -not [string]::IsNullOrWhiteSpace($candidate) -and
+            (Test-Path -LiteralPath $candidate -PathType Leaf)
+        ) {
+            return (Resolve-Path -LiteralPath $candidate).Path
+        }
+    }
+
+    return ""
+}
+
 function Start-DbiBackend($Config) {
     $backendPort = [int]$Config.backend_port
     Assert-DbiPortAvailable $backendPort "FastAPI"
@@ -440,8 +474,12 @@ function Start-DbiBackend($Config) {
 
     $previousStorageRoot = $env:DBI_LOCAL_STORAGE_ROOT
     $previousDensityRoot = $env:DBI_DENSITY_ROOT
+    $previousDensityPython = $env:DBI_DENSITY_PYTHON
+    $previousRasterPython = $env:DBI_RASTER_RENDERER_PYTHON
     $previousTemp = $env:TEMP
     $previousTmp = $env:TMP
+
+    $densityPython = Get-DbiDensityPython $Config
 
     $env:DATABASE_URL = "sqlite+pysqlite:///$authDb"
     $env:JWT_SECRET = $jwtSecret
@@ -449,6 +487,10 @@ function Start-DbiBackend($Config) {
     $env:DBI_DATABASE_URL = "postgresql+psycopg://dbi_development_api:$dbiPassword@127.0.0.1:55432/dbi_development"
     $env:DBI_LOCAL_STORAGE_ROOT = $storageRoot
     $env:DBI_DENSITY_ROOT = $densityRoot
+    if (-not [string]::IsNullOrWhiteSpace($densityPython)) {
+        $env:DBI_DENSITY_PYTHON = $densityPython
+        $env:DBI_RASTER_RENDERER_PYTHON = $densityPython
+    }
     $env:TEMP = $tempRoot
     $env:TMP = $tempRoot
     $env:PYTHONUTF8 = "1"
@@ -497,6 +539,18 @@ function Start-DbiBackend($Config) {
             Remove-Item Env:DBI_DENSITY_ROOT -ErrorAction SilentlyContinue
         } else {
             $env:DBI_DENSITY_ROOT = $previousDensityRoot
+        }
+
+        if ([string]::IsNullOrEmpty($previousDensityPython)) {
+            Remove-Item Env:DBI_DENSITY_PYTHON -ErrorAction SilentlyContinue
+        } else {
+            $env:DBI_DENSITY_PYTHON = $previousDensityPython
+        }
+
+        if ([string]::IsNullOrEmpty($previousRasterPython)) {
+            Remove-Item Env:DBI_RASTER_RENDERER_PYTHON -ErrorAction SilentlyContinue
+        } else {
+            $env:DBI_RASTER_RENDERER_PYTHON = $previousRasterPython
         }
 
         if ([string]::IsNullOrEmpty($previousTemp)) {
