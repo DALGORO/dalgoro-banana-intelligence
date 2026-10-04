@@ -9,6 +9,7 @@ from typing import Literal
 from pydantic import BaseModel, ConfigDict, Field
 
 FARM_MAP_TIMELINE_SCHEMA_VERSION = "farm-map-timeline.v1"
+PLOT_MAP_TIMELINE_SCHEMA_VERSION = "plot-map-timeline.v1"
 
 
 class StrictContractModel(BaseModel):
@@ -84,6 +85,43 @@ class MapComparisonCapability(StrictContractModel):
     minimum_dates: Literal[2] = 2
     available_dates: list[datetime] = Field(default_factory=list)
     enabled: bool = False
+
+
+class RasterTileTimelineEntry(StrictContractModel):
+    """Capa Raster real consumible por MapLibre sin dirección privada del COG."""
+
+    entry_id: str = Field(min_length=1, max_length=128)
+    campaign_id: str = Field(min_length=1, max_length=128)
+    plot_id: str = Field(min_length=1, max_length=128)
+    layer_type: Literal["rgb"] = "rgb"
+    captured_at: datetime
+    title: str = Field(min_length=1, max_length=160)
+    classification: Literal[EvidenceClassification.OBSERVED] = (
+        EvidenceClassification.OBSERVED
+    )
+    source_artifact_id: str = Field(min_length=1, max_length=128)
+    raster_product_id: str = Field(min_length=1, max_length=128)
+    tile_url_template: str = Field(min_length=1, max_length=1024)
+    confidence: Confidence | None = None
+    professional_review_status: ProfessionalReviewStatus
+
+
+class PlotMapTimelineResponse(StrictContractModel):
+    """Cronología real y autorizada de un lote DBI."""
+
+    schema_version: Literal["plot-map-timeline.v1"] = (
+        PLOT_MAP_TIMELINE_SCHEMA_VERSION
+    )
+    organization_ref: str = Field(min_length=1, max_length=128)
+    farm_id: str = Field(min_length=1, max_length=128)
+    plot_id: str = Field(min_length=1, max_length=128)
+    status: Literal["awaiting_data", "ready"]
+    available_layers: list[MapLayerCatalogEntry]
+    timeline: list[RasterTileTimelineEntry] = Field(default_factory=list)
+    comparison: MapComparisonCapability = Field(
+        default_factory=MapComparisonCapability
+    )
+    viewport_bounds: tuple[float, float, float, float] | None = None
 
 
 class FarmMapTimelineResponse(StrictContractModel):
