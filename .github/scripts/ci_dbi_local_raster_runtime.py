@@ -9,6 +9,9 @@ CONTROL = ROOT / "infra" / "windows-local" / "DBI-ControlCenter.ps1"
 INSTALLER = ROOT / "infra" / "windows-local" / "Install-DBI-ControlCenter.ps1"
 MAIN = ROOT / "apps" / "platform-web" / "backend" / "app" / "main.py"
 PILOT = ROOT / "apps" / "platform-web" / "backend" / "app" / "api" / "v1" / "dbi_pilot_raster.py"
+BUILDER = ROOT / "apps" / "platform-web" / "backend" / "app" / "dbi" / "raster" / "pilot_builder.py"
+PILOT_UI = ROOT / "apps" / "platform-web" / "frontend" / "src" / "pages" / "DbiPilotPage.tsx"
+RUNBOOK = ROOT / "docs" / "42_REAL_FLIGHT_TEST_DBI-PILOT-RASTER-001.md"
 
 
 def main() -> None:
@@ -16,6 +19,9 @@ def main() -> None:
     installer = INSTALLER.read_text(encoding="utf-8")
     main_source = MAIN.read_text(encoding="utf-8")
     pilot_source = PILOT.read_text(encoding="utf-8")
+    builder_source = BUILDER.read_text(encoding="utf-8")
+    pilot_ui = PILOT_UI.read_text(encoding="utf-8")
+    runbook = RUNBOOK.read_text(encoding="utf-8")
 
     for token in (
         "DBI_DENSITY_PYTHON",
@@ -37,6 +43,21 @@ def main() -> None:
     assert "DBI_RASTER_RENDERER_PYTHON" in pilot_source
     assert "DBI_DENSITY_PYTHON" in pilot_source
     assert "density_python()" not in pilot_source
+    assert "orthophotos/{asset_id}/rgb-cog" in pilot_source
+    assert "DBIPilotRasterBuilder" in pilot_source
+    assert "flight_test_cog.py" in pilot_source
+
+    for source in (pilot_source, builder_source, main_source):
+        lowered = source.lower()
+        assert "import rasterio" not in lowered
+        assert "from rasterio" not in lowered
+        assert "from osgeo" not in lowered
+
+    assert "Preparar mapa RGB" in pilot_ui
+    assert "Abrir mapa" in pilot_ui
+    assert "Raster / COG" in pilot_ui
+    assert "GeoTIFF real verificado" in runbook
+    assert "DBIRasterProduct ready" in runbook
 
     print(
         "DBI local Raster runtime aprobado: Python geoespacial explícito, "
