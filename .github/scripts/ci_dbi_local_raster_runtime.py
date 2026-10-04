@@ -70,10 +70,13 @@ def main() -> None:
     assert 'declared_crs == "AUTO_FROM_GEOTIFF"' in pilot_upload
     assert "crs=asset_crs" in pilot_upload
     assert "crs: str | None" in pilot_upload
-    assert "_reconcile_source_crs" in builder_source
+    assert "_validate_source_crs" in builder_source
     assert "actual_crs=candidate.crs" in builder_source
     assert "actual_crs=row.crs" in builder_source
     assert "El CRS declarado de la ortofoto diverge" in builder_source
+    assert "_promote_source_crs" in pilot_source
+    assert "asset.crs = actual_crs" in pilot_source
+    assert "actual_crs=result.crs" in pilot_source
 
     print(
         "DBI local Raster runtime aprobado: Python geoespacial explícito, "
