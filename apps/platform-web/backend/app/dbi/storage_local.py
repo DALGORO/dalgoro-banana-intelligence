@@ -338,6 +338,17 @@ class DBILocalObjectStore:
     def stat(self, address: DBIStorageAddress) -> DBIStorageObjectRecord:
         return self._load_record(address, include_retired=False)
 
+    def resolve_internal_path(self, address: DBIStorageAddress) -> Path:
+        """Resuelve la ruta física sólo para adaptadores locales server-side.
+
+        La ruta nunca forma parte de contratos HTTP, grants o respuestas DBI.
+        Esta capacidad es deliberadamente específica del provider local.
+        """
+
+        record = self.stat(address)
+        object_path, _ = self._paths(record.metadata.address)
+        return object_path
+
     @contextmanager
     def open_read(self, address: DBIStorageAddress) -> Iterator[BinaryIO]:
         record = self.stat(address)
