@@ -45,6 +45,18 @@ export const router = createBrowserRouter([
         ),
       },
       {
+        path: 'dbi/organizations/:organizationRef/farms/:farmId/plots/:plotId/mapa',
+        element: (
+          <Protected
+            element={(
+              <Suspense fallback={<div className="card">Cargando visor Raster DBI…</div>}>
+                <FarmMapTimeline />
+              </Suspense>
+            )}
+          />
+        ),
+      },
+      {
         path: 'dbi/organizations/:organizationRef/farms/:farmId/plots/:plotId/sampling/:planId',
         element: (
           <Protected
