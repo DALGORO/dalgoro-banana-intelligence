@@ -12,6 +12,12 @@ from uuid import UUID, uuid4
 
 from sqlalchemy.orm import Session
 
+from app.dbi.campaigns.artifacts import (
+    DBICampaignArtifactRegistration,
+    DBICampaignArtifactService,
+    DBICampaignArtifactSourceKind,
+    DBICampaignArtifactType,
+)
 from app.dbi.campaigns.contracts import (
     DBICampaignAnalysisType,
     DBICampaignCreate,
@@ -73,6 +79,22 @@ def link_density_job_to_campaign(
         plot_id=plot_id,
         source_job_id=source_job_id,
     )
+    orthophoto_artifact, _artifact_created = DBICampaignArtifactService(
+        session
+    ).register_artifact(
+        campaign_id=campaign_id,
+        tenant_ref=tenant_ref,
+        organization_ref=organization_ref,
+        farm_id=farm_id,
+        plot_id=plot_id,
+        request=DBICampaignArtifactRegistration(
+            artifact_type=DBICampaignArtifactType.ORTHOPHOTO_SOURCE,
+            source_kind=DBICampaignArtifactSourceKind.INPUT_ASSET,
+            source_ref=orthophoto_asset_id,
+            sha256=orthophoto_sha256,
+            version=1,
+        ),
+    )
     service.transition_campaign(
         campaign_id=campaign_id,
         tenant_ref=tenant_ref,
@@ -91,6 +113,9 @@ def link_density_job_to_campaign(
         "campaign_captured_at_source": CAPTURED_AT_SOURCE_ASSET_CREATED_FALLBACK,
         "campaign_sync_error": None,
         "orthophoto_asset_id": str(orthophoto_asset_id),
+        "orthophoto_campaign_artifact_id": str(
+            orthophoto_artifact.campaign_artifact_id
+        ),
     }
 
 
