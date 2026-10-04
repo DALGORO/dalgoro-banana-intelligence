@@ -1,9 +1,12 @@
-"""Valida el contrato cartográfico sin bases ni servicios externos."""
+"""Valida contratos cartográficos DBI sin servicios externos."""
 
 from __future__ import annotations
 
+from datetime import datetime, timezone
 import os
 from pathlib import Path
+from unittest.mock import patch
+from uuid import UUID
 
 from pydantic import ValidationError
 
@@ -19,13 +22,24 @@ EXPECTED_LAYER_TYPES = {
     "sst",
 }
 REPOSITORY_ROOT = Path(__file__).resolve().parents[2]
+ORG = "organization-map-ci"
+TENANT = "tenant-map-ci"
+FARM = UUID("61000000-0000-4000-8000-000000000061")
+PLOT = UUID("62000000-0000-4000-8000-000000000062")
+CAMPAIGN = UUID("63000000-0000-4000-8000-000000000063")
+ARTIFACT = UUID("64000000-0000-4000-8000-000000000064")
+RASTER = UUID("65000000-0000-4000-8000-000000000065")
 
 
 def validate_contract() -> None:
-    """Comprueba versión, catálogo, vacío inicial y campos estrictos."""
+    """Comprueba legado v1 y nuevo contrato Raster estricto."""
 
     from app.schemas.dbi_map import (
         FarmMapTimelineResponse,
+        MAP_LAYER_CATALOG,
+        PlotMapTimelineResponse,
+        ProfessionalReviewStatus,
+        RasterTileTimelineEntry,
         build_empty_farm_map_timeline,
     )
 
@@ -45,10 +59,6 @@ def validate_contract() -> None:
         item["layer_type"] for item in payload["available_layers"]
     } == EXPECTED_LAYER_TYPES
 
-    serialized = response.model_dump_json()
-    for forbidden in ("http://", "https://", "file://", "localhost", "\\"):
-        assert forbidden not in serialized
-
     try:
         FarmMapTimelineResponse.model_validate(
             {**payload, "unexpected_contract_field": True}
@@ -56,11 +66,134 @@ def validate_contract() -> None:
     except ValidationError:
         pass
     else:
-        raise AssertionError("El contrato aceptó un campo desconocido.")
+        raise AssertionError("El contrato legacy aceptó un campo desconocido.")
+
+    captured = datetime(2026, 10, 4, 12, 0, tzinfo=timezone.utc)
+    real = PlotMapTimelineResponse(
+        organization_ref=ORG,
+        farm_id=str(FARM),
+        plot_id=str(PLOT),
+        status="ready",
+        available_layers=list(MAP_LAYER_CATALOG),
+        timeline=[
+            RasterTileTimelineEntry(
+                entry_id=f"rgb:{CAMPAIGN}:{RASTER}",
+                campaign_id=str(CAMPAIGN),
+                plot_id=str(PLOT),
+                captured_at=captured,
+                title="Vuelo RGB CI",
+                source_artifact_id=str(ARTIFACT),
+                raster_product_id=str(RASTER),
+                tile_url_template=(
+                    f"/api/v1/dbi/organizations/{ORG}/farms/{FARM}/plots/"
+                    f"{PLOT}/raster-products/{RASTER}/tiles/"
+                    "{z}/{x}/{y}.png"
+                ),
+                professional_review_status=ProfessionalReviewStatus.PENDING,
+            )
+        ],
+        comparison={
+            "minimum_dates": 2,
+            "available_dates": [captured],
+            "enabled": False,
+        },
+        viewport_bounds=(-79.95, -3.40, -79.90, -3.35),
+    )
+    real_payload = real.model_dump(mode="json")
+    assert real_payload["schema_version"] == "plot-map-timeline.v1"
+    assert real_payload["timeline"][0]["layer_type"] == "rgb"
+    assert real_payload["timeline"][0]["classification"] == "observed"
+    assert real_payload["timeline"][0]["tile_url_template"].endswith(
+        "/tiles/{z}/{x}/{y}.png"
+    )
+
+    serialized = real.model_dump_json()
+    for forbidden in (
+        "file://",
+        "localhost",
+        "object_key",
+        "bucket",
+        "credentials",
+        "\\",
+    ):
+        assert forbidden not in serialized
+
+
+def _context():
+    from app.dbi.authorization import (
+        DBIAccessContext,
+        DBIFarmScope,
+        DBIPermission,
+        DBIPlotScope,
+    )
+
+    return DBIAccessContext(
+        principal_ref="principal-map-ci",
+        tenant_ref=TENANT,
+        organization_refs=frozenset({ORG}),
+        farm_scopes=frozenset({DBIFarmScope(ORG, FARM)}),
+        plot_scopes=frozenset({DBIPlotScope(ORG, FARM, PLOT)}),
+        permissions=frozenset({DBIPermission.READ}),
+    )
+
+
+def _real_response():
+    from app.schemas.dbi_map import (
+        MAP_LAYER_CATALOG,
+        PlotMapTimelineResponse,
+        ProfessionalReviewStatus,
+        RasterTileTimelineEntry,
+    )
+
+    captured = datetime(2026, 10, 4, 12, 0, tzinfo=timezone.utc)
+    return PlotMapTimelineResponse(
+        organization_ref=ORG,
+        farm_id=str(FARM),
+        plot_id=str(PLOT),
+        status="ready",
+        available_layers=list(MAP_LAYER_CATALOG),
+        timeline=[
+            RasterTileTimelineEntry(
+                entry_id=f"rgb:{CAMPAIGN}:{RASTER}",
+                campaign_id=str(CAMPAIGN),
+                plot_id=str(PLOT),
+                captured_at=captured,
+                title="Vuelo RGB CI",
+                source_artifact_id=str(ARTIFACT),
+                raster_product_id=str(RASTER),
+                tile_url_template=(
+                    f"/api/v1/dbi/organizations/{ORG}/farms/{FARM}/plots/"
+                    f"{PLOT}/raster-products/{RASTER}/tiles/"
+                    "{z}/{x}/{y}.png"
+                ),
+                professional_review_status=ProfessionalReviewStatus.PENDING,
+            )
+        ],
+        comparison={
+            "minimum_dates": 2,
+            "available_dates": [captured],
+            "enabled": False,
+        },
+        viewport_bounds=(-79.95, -3.40, -79.90, -3.35),
+    )
+
+
+class _FakeTimelineReader:
+    def __init__(self, session) -> None:
+        assert session is not None
+
+    def read_plot_timeline(self, **kwargs):
+        assert kwargs == {
+            "tenant_ref": TENANT,
+            "organization_ref": ORG,
+            "farm_id": FARM,
+            "plot_id": PLOT,
+        }
+        return _real_response()
 
 
 def validate_endpoint() -> None:
-    """Comprueba autenticación, validación del ID y respuesta HTTP."""
+    """Comprueba legacy y nueva ruta autorizada sin tocar una base."""
 
     os.environ["DATABASE_URL"] = "sqlite+pysqlite:///:memory:"
     os.environ["JWT_SECRET"] = "dbi-map-ci-placeholder"
@@ -69,6 +202,8 @@ def validate_endpoint() -> None:
     from fastapi.testclient import TestClient
 
     from app.api.deps import current_user
+    from app.api.v1 import dbi_map
+    from app.dbi.dependencies import get_dbi_access_context, get_dbi_session
     from app.main import app
 
     with TestClient(app) as anonymous_client:
@@ -93,9 +228,28 @@ def validate_endpoint() -> None:
     assert valid.json()["timeline"] == []
     assert invalid.status_code == 422, invalid.text
 
+    app.dependency_overrides[get_dbi_session] = lambda: object()
+    app.dependency_overrides[get_dbi_access_context] = _context
+    try:
+        with patch.object(dbi_map, "DBIMapTimelineReader", _FakeTimelineReader):
+            with TestClient(app) as client:
+                response = client.get(
+                    f"/api/v1/dbi/organizations/{ORG}/farms/{FARM}/plots/"
+                    f"{PLOT}/map/timeline",
+                    headers={"X-DBI-Tenant": TENANT},
+                )
+    finally:
+        app.dependency_overrides.clear()
+
+    assert response.status_code == 200, response.text
+    payload = response.json()
+    assert payload["status"] == "ready"
+    assert len(payload["timeline"]) == 1
+    assert payload["timeline"][0]["raster_product_id"] == str(RASTER)
+
 
 def validate_frontend_contract() -> None:
-    """Evita divergencia entre el contrato Python y su consumidor TypeScript."""
+    """Evita divergencia entre contratos Python, cliente y MapLibre."""
 
     feature_path = (
         REPOSITORY_ROOT
@@ -115,25 +269,49 @@ def validate_frontend_contract() -> None:
         / "pages"
         / "FarmMapTimeline.tsx"
     )
+    routes_path = (
+        REPOSITORY_ROOT
+        / "apps"
+        / "platform-web"
+        / "frontend"
+        / "src"
+        / "app"
+        / "routes.tsx"
+    )
     feature_source = feature_path.read_text(encoding="utf-8")
     page_source = page_path.read_text(encoding="utf-8")
+    routes_source = routes_path.read_text(encoding="utf-8")
 
     assert "farm-map-timeline.v1" in feature_source
+    assert "plot-map-timeline.v1" in feature_source
+    assert "X-DBI-Tenant" in feature_source
+    assert "tile_url_template" in feature_source
     for layer_type in EXPECTED_LAYER_TYPES:
         assert f'"{layer_type}"' in feature_source
 
     assert "sources: {}" in page_source
-    for forbidden in ("http://", "https://", "file://"):
-        assert forbidden not in page_source
+    assert 'type: "raster"' in page_source
+    assert "transformRequest" in page_source
+    assert "mapLibreDbiHeaders" in page_source
+    assert "viewport_bounds" in page_source
+    assert (
+        "dbi/organizations/:organizationRef/farms/:farmId/plots/:plotId/mapa"
+        in routes_source
+    )
+
+    for forbidden in ("file://", "presigned", "signed_url"):
+        assert forbidden not in feature_source.lower()
+        assert forbidden not in page_source.lower()
 
 
 def main() -> None:
-    """Ejecuta todas las barreras cartográficas."""
-
     validate_contract()
     validate_endpoint()
     validate_frontend_contract()
-    print("Contrato de mapa cronológico: validación offline aprobada.")
+    print(
+        "DBI-MAP-002 offline aprobado: contrato real, autorización, "
+        "tile template privado y MapLibre Raster."
+    )
 
 
 if __name__ == "__main__":
