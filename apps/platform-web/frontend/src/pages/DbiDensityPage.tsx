@@ -555,7 +555,23 @@ export default function DbiDensityPage() {
           </div>
           {job.campaign_id ? (
             <div className="status-banner status-banner-info text-sm">
-              <strong>Campaign DBI:</strong> {job.campaign_id} · vínculo técnico activo para este análisis de densidad.
+              <div className="flex flex-wrap items-center justify-between gap-3">
+                <span>
+                  <strong>Campaign DBI:</strong> {job.campaign_id} · vínculo técnico activo para este análisis de densidad.
+                </span>
+                {context && farmId && plotId && (
+                  <Link
+                    className="btn-secondary"
+                    to={`/dbi/organizations/${encodeURIComponent(
+                      context.organization_ref,
+                    )}/farms/${farmId}/plots/${plotId}/mapa?tenant=${encodeURIComponent(
+                      context.tenant_ref,
+                    )}`}
+                  >
+                    Abrir mapa RGB
+                  </Link>
+                )}
+              </div>
             </div>
           ) : (
             <div className="status-banner status-banner-warning text-sm">
