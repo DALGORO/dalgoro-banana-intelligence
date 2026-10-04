@@ -77,6 +77,7 @@ class PilotBootstrapResponse(BaseModel):
 class PilotRuntimeResponse(BaseModel):
     local_mode: bool
     storage_ready: bool
+    raster_ready: bool
     public_url: str | None
 
 
@@ -371,11 +372,21 @@ def pilot_runtime(
         except (OSError, ValueError, TypeError):
             public_url = None
 
+    raster_python = os.environ.get(
+        "DBI_RASTER_RENDERER_PYTHON",
+        "",
+    ).strip()
     return PilotRuntimeResponse(
         local_mode=True,
         storage_ready=isinstance(
             getattr(request.app.state, "dbi_object_store", None),
             DBILocalObjectStore,
+        ),
+        raster_ready=bool(
+            raster_python
+            and Path(raster_python).is_file()
+            and getattr(request.app.state, "dbi_raster_tile_renderer", None)
+            is not None
         ),
         public_url=public_url,
     )

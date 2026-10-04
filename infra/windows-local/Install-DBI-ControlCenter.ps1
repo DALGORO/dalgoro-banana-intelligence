@@ -202,6 +202,26 @@ with Session(engine) as session:
 }
 
 Write-Host "5/7 Guardando configuracion local sin secretos..."
+$densityPythonCandidates = @(
+    (Join-Path $RepoPath "services\banana-density\.venv\Scripts\python.exe"),
+    "F:\PROY_CONTEO_BANANO_1\automatizacion_banano\.venv\Scripts\python.exe"
+)
+$densityPython = ""
+foreach ($candidate in $densityPythonCandidates) {
+    if (-not (Test-Path -LiteralPath $candidate -PathType Leaf)) {
+        continue
+    }
+
+    $resolvedDensityPython = (Resolve-Path -LiteralPath $candidate).Path
+    try {
+        & $resolvedDensityPython -c "import rasterio" *> $null
+        if ($LASTEXITCODE -eq 0) {
+            $densityPython = $resolvedDensityPython
+            break
+        }
+    } catch {}
+}
+
 $config = [ordered]@{
     repo_path = $RepoPath
     container_name = $ContainerName
@@ -213,6 +233,7 @@ $config = [ordered]@{
     storage_root = $StorageRoot
     temp_root = $TempRoot
     density_root = $DensityRoot
+    density_python = $densityPython
     tunnel_mode = "quick"
     tunnel_name = ""
     public_hostname = ""

@@ -25,8 +25,14 @@ class DBIMapTimelineUnavailable(LookupError):
     """El lote/campaña/raster solicitado no está disponible dentro del scope."""
 
 
-_VISIBLE_TECHNICAL_STATES = frozenset(
+# Esta proyección publica exclusivamente la ortofoto RGB observada, no
+# inferencias de la Campaign. Por eso una Campaign técnica real puede mostrar
+# su fuente RGB desde DRAFT/PROCESSING; las capas inferidas siguen gobernadas
+# por sus propios estados y contratos.
+_VISIBLE_RGB_CAMPAIGN_STATES = frozenset(
     {
+        "DRAFT",
+        "PROCESSING",
         "ANALYZED",
         "TECHNICAL_REVIEW",
         "SAMPLING_READY",
@@ -141,7 +147,7 @@ class DBIMapTimelineReader:
                 Campaign.plot_id == plot_id,
                 Campaign.analysis_type.is_not(None),
                 Campaign.captured_at.is_not(None),
-                Campaign.status.in_(_VISIBLE_TECHNICAL_STATES),
+                Campaign.status.in_(_VISIBLE_RGB_CAMPAIGN_STATES),
                 DBICampaignArtifact.artifact_type == "orthophoto_source",
                 DBICampaignArtifact.technical_status == "current",
                 DBIRasterProduct.tenant_ref == tenant_ref,

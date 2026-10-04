@@ -149,6 +149,25 @@ function Stop-DbiProcessTree([int]$ProcessId) {
     & taskkill.exe /PID $ProcessId /T /F *> $null
 }
 
+function Get-DbiRepoRevision($Config) {
+    $repo = [string]$Config.repo_path
+    if ([string]::IsNullOrWhiteSpace($repo) -or -not (Test-Path $repo)) {
+        return ""
+    }
+
+    try {
+        $revision = (
+            & git -C $repo rev-parse HEAD 2>$null |
+            Select-Object -First 1
+        )
+        if ($LASTEXITCODE -eq 0 -and -not [string]::IsNullOrWhiteSpace($revision)) {
+            return ([string]$revision).Trim()
+        }
+    } catch {}
+
+    return ""
+}
+
 function Test-DbiRecordedStackHealthy($Config, $State) {
     if (-not $State) {
         return $false
@@ -203,6 +222,10 @@ function Test-DbiRecordedStackHealthy($Config, $State) {
     $recordedStorage = [string]$State.storage_root
     $recordedTemp = [string]$State.temp_root
     $recordedDensity = [string]$State.density_root
+    $configuredRevision = Get-DbiRepoRevision $Config
+    $recordedRevision = [string]$State.repo_revision
+    $configuredDensityPython = Get-DbiDensityPython $Config
+    $recordedDensityPython = [string]$State.density_python
 
     if (
         [string]::IsNullOrWhiteSpace($recordedStorage) -or
@@ -216,6 +239,20 @@ function Test-DbiRecordedStackHealthy($Config, $State) {
         $recordedStorage.TrimEnd('\') -ne $configuredStorage.TrimEnd('\') -or
         $recordedTemp.TrimEnd('\') -ne $configuredTemp.TrimEnd('\') -or
         $recordedDensity.TrimEnd('\') -ne $configuredDensity.TrimEnd('\')
+    ) {
+        return $false
+    }
+
+    if (
+        -not [string]::IsNullOrWhiteSpace($configuredRevision) -and
+        $recordedRevision -ne $configuredRevision
+    ) {
+        return $false
+    }
+
+    if (
+        -not [string]::IsNullOrWhiteSpace($configuredDensityPython) -and
+        $recordedDensityPython.TrimEnd('\') -ne $configuredDensityPython.TrimEnd('\')
     ) {
         return $false
     }
@@ -390,6 +427,48 @@ function Start-DbiTunnel($Config) {
     }
 }
 
+function Get-DbiDensityPython($Config) {
+    $repo = [string]$Config.repo_path
+    $candidates = New-Object System.Collections.Generic.List[string]
+
+    if (
+        $Config.PSObject.Properties.Name -contains "density_python" -and
+        -not [string]::IsNullOrWhiteSpace([string]$Config.density_python)
+    ) {
+        $candidates.Add([string]$Config.density_python)
+    }
+
+    if (-not [string]::IsNullOrWhiteSpace($env:DBI_DENSITY_PYTHON)) {
+        $candidates.Add([string]$env:DBI_DENSITY_PYTHON)
+    }
+
+    $candidates.Add(
+        (Join-Path $repo "services\banana-density\.venv\Scripts\python.exe")
+    )
+    $candidates.Add(
+        "F:\PROY_CONTEO_BANANO_1\automatizacion_banano\.venv\Scripts\python.exe"
+    )
+
+    foreach ($candidate in $candidates) {
+        if (
+            [string]::IsNullOrWhiteSpace($candidate) -or
+            -not (Test-Path -LiteralPath $candidate -PathType Leaf)
+        ) {
+            continue
+        }
+
+        $resolved = (Resolve-Path -LiteralPath $candidate).Path
+        try {
+            & $resolved -c "import rasterio" *> $null
+            if ($LASTEXITCODE -eq 0) {
+                return $resolved
+            }
+        } catch {}
+    }
+
+    return ""
+}
+
 function Start-DbiBackend($Config) {
     $backendPort = [int]$Config.backend_port
     Assert-DbiPortAvailable $backendPort "FastAPI"
@@ -440,8 +519,12 @@ function Start-DbiBackend($Config) {
 
     $previousStorageRoot = $env:DBI_LOCAL_STORAGE_ROOT
     $previousDensityRoot = $env:DBI_DENSITY_ROOT
+    $previousDensityPython = $env:DBI_DENSITY_PYTHON
+    $previousRasterPython = $env:DBI_RASTER_RENDERER_PYTHON
     $previousTemp = $env:TEMP
     $previousTmp = $env:TMP
+
+    $densityPython = Get-DbiDensityPython $Config
 
     $env:DATABASE_URL = "sqlite+pysqlite:///$authDb"
     $env:JWT_SECRET = $jwtSecret
@@ -449,6 +532,10 @@ function Start-DbiBackend($Config) {
     $env:DBI_DATABASE_URL = "postgresql+psycopg://dbi_development_api:$dbiPassword@127.0.0.1:55432/dbi_development"
     $env:DBI_LOCAL_STORAGE_ROOT = $storageRoot
     $env:DBI_DENSITY_ROOT = $densityRoot
+    if (-not [string]::IsNullOrWhiteSpace($densityPython)) {
+        $env:DBI_DENSITY_PYTHON = $densityPython
+        $env:DBI_RASTER_RENDERER_PYTHON = $densityPython
+    }
     $env:TEMP = $tempRoot
     $env:TMP = $tempRoot
     $env:PYTHONUTF8 = "1"
@@ -497,6 +584,18 @@ function Start-DbiBackend($Config) {
             Remove-Item Env:DBI_DENSITY_ROOT -ErrorAction SilentlyContinue
         } else {
             $env:DBI_DENSITY_ROOT = $previousDensityRoot
+        }
+
+        if ([string]::IsNullOrEmpty($previousDensityPython)) {
+            Remove-Item Env:DBI_DENSITY_PYTHON -ErrorAction SilentlyContinue
+        } else {
+            $env:DBI_DENSITY_PYTHON = $previousDensityPython
+        }
+
+        if ([string]::IsNullOrEmpty($previousRasterPython)) {
+            Remove-Item Env:DBI_RASTER_RENDERER_PYTHON -ErrorAction SilentlyContinue
+        } else {
+            $env:DBI_RASTER_RENDERER_PYTHON = $previousRasterPython
         }
 
         if ([string]::IsNullOrEmpty($previousTemp)) {
@@ -622,6 +721,8 @@ function Start-DbiStack {
             storage_root = [string]$config.storage_root
             temp_root = [string]$config.temp_root
             density_root = [string]$config.density_root
+            density_python = Get-DbiDensityPython $config
+            repo_revision = Get-DbiRepoRevision $config
         }
 
         Save-DbiState $state
