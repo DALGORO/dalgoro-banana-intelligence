@@ -44,8 +44,11 @@ En Densidad:
 1. Crear o seleccionar finca.
 2. Crear o seleccionar lote.
 3. Seleccionar o cargar una ortofoto GeoTIFF real.
-4. Esperar estado `verified`.
-5. Pulsar **Preparar mapa RGB**.
+4. Esperar estado `verified`. Si la UI usa `AUTO_FROM_GEOTIFF`, el activo
+   conserva CRS sin resolver hasta que el COG validado lea el CRS real; el
+   sentinel nunca se trata como CRS científico.
+5. Pulsar **Preparar mapa RGB**. El CRS real del manifest COG se reconcilia con
+   el activo fuente; un CRS explícito divergente falla cerrado.
 6. Confirmar que el COG queda listo.
 7. Cargar el Excel real del límite de análisis y los demás parámetros de Density.
 8. Pulsar **Ejecutar análisis completo**.
