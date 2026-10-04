@@ -20,8 +20,10 @@ BACKEND = ROOT / "apps" / "platform-web" / "backend"
 sys.path.insert(0, str(BACKEND))
 sys.path.insert(0, str(ROOT / ".github" / "scripts"))
 
+from app.dbi.models.assets import AnalysisInputAsset  # noqa: E402
 from app.dbi.raster.pilot_builder import (  # noqa: E402
     DBIPilotRasterBuilder,
+    DBIPilotRasterConflict,
     DBIPilotRasterUnavailable,
 )
 from app.dbi.storage_contracts import (  # noqa: E402
@@ -98,7 +100,7 @@ def _provision_pilot_source() -> None:
                      content_type, size_bytes, sha256, crs, created_by_ref, verified_at,
                      created_at, updated_at)
                 VALUES (%s, %s, %s, %s, 'orthophoto', 'verified', %s, %s, %s, %s,
-                        'EPSG:32717', 'actor-pilot-raster-ci', %s, %s, %s)
+                        NULL, 'actor-pilot-raster-ci', %s, %s, %s)
                 ON CONFLICT (id) DO UPDATE SET
                     status = EXCLUDED.status,
                     object_key = EXCLUDED.object_key,
@@ -220,6 +222,9 @@ def validate_builder(factory, root: Path) -> None:
         assert first.width == 1024
         assert first.height == 768
         assert first.band_count == 3
+        source = session.get(AnalysisInputAsset, PILOT_ORTHO_ID)
+        assert source is not None
+        assert source.crs == "EPSG:32717"
 
         marker.unlink()
         replay = builder.prepare_rgb(
@@ -231,7 +236,24 @@ def validate_builder(factory, root: Path) -> None:
         session.commit()
         assert replay.product_id == first.product_id
         assert replay.created is False
+        assert replay.crs == "EPSG:32717"
         assert not marker.exists(), "El replay no debe volver a ejecutar Rasterio."
+
+        source.crs = "EPSG:4326"
+        session.commit()
+        try:
+            builder.prepare_rgb(
+                tenant_ref=TENANT,
+                farm_id=FARM_ID,
+                plot_id=PLOT_ID,
+                asset_id=PILOT_ORTHO_ID,
+            )
+        except DBIPilotRasterConflict:
+            pass
+        else:
+            raise AssertionError("CRS explícito divergente debía rechazarse.")
+        source.crs = "EPSG:32717"
+        session.commit()
 
         address = DBIStoragePolicy.build_address(
             tenant_ref=TENANT,
@@ -287,8 +309,8 @@ def main() -> None:
     finally:
         engine.dispose()
     print(
-        "DBI-PILOT-RASTER-001 aprobado: COG aislado, registro ready, "
-        "replay sin rerender y staging limpio."
+        "DBI-PILOT-RASTER aprobado: COG aislado, CRS real reconciliado, "
+        "registro ready, replay sin rerender y staging limpio."
     )
 
 
