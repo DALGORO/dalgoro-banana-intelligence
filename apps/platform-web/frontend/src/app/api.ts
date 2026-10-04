@@ -11,6 +11,7 @@ import type { AxiosRequestConfig } from "axios";
  */
 const RAW_API_BASE = (import.meta.env.VITE_API_URL ?? "").replace(/\/+$/, "");
 const API_BASE = RAW_API_BASE.replace(/\/api(?:\/v1)?$/, "");
+export const apiBaseUrl = API_BASE;
 const client = axios.create({
   baseURL: API_BASE || undefined,
   withCredentials: true,
