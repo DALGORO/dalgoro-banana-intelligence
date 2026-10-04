@@ -45,11 +45,14 @@ jobs:
           python -m py_compile apps/platform-web/backend/app/dbi/raster/tiles.py
           python -m py_compile apps/platform-web/backend/app/dbi/raster/tile_service.py
           python -m py_compile apps/platform-web/backend/app/dbi/raster/local_tile_renderer.py
+          python -m py_compile apps/platform-web/backend/app/dbi/raster/pilot_builder.py
+          python -m py_compile apps/platform-web/backend/app/api/v1/dbi_pilot_raster.py
           python -m py_compile .github/scripts/ci_dbi_raster_cog.py
           python -m py_compile .github/scripts/ci_dbi_raster_contracts.py
           python -m py_compile .github/scripts/ci_dbi_raster_tiles.py
           python -m py_compile .github/scripts/ci_dbi_raster_tile_http.py
           python -m py_compile .github/scripts/ci_dbi_raster_tile_local_adapter.py
+          python -m py_compile .github/scripts/ci_dbi_pilot_raster_integration.py
 
       - name: Validar contratos Raster offline
         run: python .github/scripts/ci_dbi_raster_contracts.py
@@ -148,3 +151,11 @@ jobs:
           DBI_DATABASE_URL: postgresql+psycopg://dbi_test_raster@127.0.0.1:5432/dbi_test
           DBI_RASTER_RUN_INTEGRATION: "1"
         run: python .github/scripts/ci_dbi_raster_range_integration.py
+
+      - name: Validar preparación local de COG RGB para Pilot
+        env:
+          PYTHONPATH: apps/platform-web/backend:.github/scripts
+          DBI_ENVIRONMENT: test
+          DBI_DATABASE_URL: postgresql+psycopg://dbi_test_raster@127.0.0.1:5432/dbi_test
+          DBI_RASTER_RUN_INTEGRATION: "1"
+        run: python .github/scripts/ci_dbi_pilot_raster_integration.py
