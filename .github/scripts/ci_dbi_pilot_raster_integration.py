@@ -224,7 +224,9 @@ def validate_builder(factory, root: Path) -> None:
         assert first.band_count == 3
         source = session.get(AnalysisInputAsset, PILOT_ORTHO_ID)
         assert source is not None
-        assert source.crs == "EPSG:32717"
+        assert source.crs is None, (
+            "El builder Raster debe conservar SELECT-only sobre el activo fuente."
+        )
 
         marker.unlink()
         replay = builder.prepare_rgb(
@@ -239,8 +241,17 @@ def validate_builder(factory, root: Path) -> None:
         assert replay.crs == "EPSG:32717"
         assert not marker.exists(), "El replay no debe volver a ejecutar Rasterio."
 
-        source.crs = "EPSG:4326"
-        session.commit()
+        with _admin_connect() as connection:
+            with connection.cursor() as cursor:
+                cursor.execute(
+                    """
+                    UPDATE dbi.dbi_analysis_input_assets
+                    SET crs = 'EPSG:4326'
+                    WHERE id = %s
+                    """,
+                    (PILOT_ORTHO_ID,),
+                )
+        session.expire_all()
         try:
             builder.prepare_rgb(
                 tenant_ref=TENANT,
@@ -252,8 +263,18 @@ def validate_builder(factory, root: Path) -> None:
             pass
         else:
             raise AssertionError("CRS explícito divergente debía rechazarse.")
-        source.crs = "EPSG:32717"
-        session.commit()
+        finally:
+            with _admin_connect() as connection:
+                with connection.cursor() as cursor:
+                    cursor.execute(
+                        """
+                        UPDATE dbi.dbi_analysis_input_assets
+                        SET crs = NULL
+                        WHERE id = %s
+                        """,
+                        (PILOT_ORTHO_ID,),
+                    )
+            session.expire_all()
 
         address = DBIStoragePolicy.build_address(
             tenant_ref=TENANT,
@@ -309,8 +330,8 @@ def main() -> None:
     finally:
         engine.dispose()
     print(
-        "DBI-PILOT-RASTER aprobado: COG aislado, CRS real reconciliado, "
-        "registro ready, replay sin rerender y staging limpio."
+        "DBI-PILOT-RASTER aprobado: COG aislado, builder source read-only, "
+        "CRS divergente rechazado, replay sin rerender y staging limpio."
     )
 
 
