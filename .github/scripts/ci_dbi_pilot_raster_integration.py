@@ -42,12 +42,18 @@ from ci_dbi_raster_integration import (  # noqa: E402
     TENANT,
     _provision_raster_role,
 )
-from ci_dbi_worker_integration import _provision_role_and_shared_fixture  # noqa: E402
+from ci_dbi_worker_integration import (  # noqa: E402
+    NOW,
+    _admin_connect,
+    _provision_role_and_shared_fixture,
+)
 
 
+PILOT_ORTHO_ID = UUID("85000000-0000-4000-8000-000000000099")
+PILOT_ORTHO_PAYLOAD = b"pilot-raster-source-ci" * 8192
 FAKE_COG = b"pilot-raster-ci-cog" * 4096
 FAKE_COG_SHA = hashlib.sha256(FAKE_COG).hexdigest()
-SOURCE_SHA = hashlib.sha256(ORTHO_PAYLOAD).hexdigest()
+SOURCE_SHA = hashlib.sha256(PILOT_ORTHO_PAYLOAD).hexdigest()
 
 
 def _require_scope() -> None:
@@ -68,20 +74,61 @@ def _factory():
     return engine, sessionmaker(bind=engine, expire_on_commit=False, future=True)
 
 
-def _put_source(store: DBILocalObjectStore) -> None:
-    metadata = DBIStoragePolicy.build_metadata(
+def _pilot_source_metadata():
+    return DBIStoragePolicy.build_metadata(
         address=DBIStoragePolicy.build_address(
             tenant_ref=TENANT,
             purpose=DBIStoragePurpose.ANALYSIS_INPUT,
-            object_id=ORTHO_ID,
+            object_id=PILOT_ORTHO_ID,
         ),
         content_type="image/tiff",
-        size_bytes=len(ORTHO_PAYLOAD),
+        size_bytes=len(PILOT_ORTHO_PAYLOAD),
         sha256_hex=SOURCE_SHA,
     )
+
+
+def _provision_pilot_source() -> None:
+    metadata = _pilot_source_metadata()
+    with _admin_connect() as connection:
+        with connection.cursor() as cursor:
+            cursor.execute(
+                """
+                INSERT INTO dbi.dbi_analysis_input_assets
+                    (id, tenant_ref, farm_id, plot_id, asset_kind, status, object_key,
+                     content_type, size_bytes, sha256, crs, created_by_ref, verified_at,
+                     created_at, updated_at)
+                VALUES (%s, %s, %s, %s, 'orthophoto', 'verified', %s, %s, %s, %s,
+                        'EPSG:32717', 'actor-pilot-raster-ci', %s, %s, %s)
+                ON CONFLICT (id) DO UPDATE SET
+                    status = EXCLUDED.status,
+                    object_key = EXCLUDED.object_key,
+                    content_type = EXCLUDED.content_type,
+                    size_bytes = EXCLUDED.size_bytes,
+                    sha256 = EXCLUDED.sha256,
+                    crs = EXCLUDED.crs,
+                    verified_at = EXCLUDED.verified_at,
+                    updated_at = EXCLUDED.updated_at
+                """,
+                (
+                    PILOT_ORTHO_ID,
+                    TENANT,
+                    FARM_ID,
+                    PLOT_ID,
+                    metadata.address.object_key,
+                    metadata.content_type,
+                    metadata.size_bytes,
+                    metadata.sha256,
+                    NOW,
+                    NOW,
+                    NOW,
+                ),
+            )
+
+
+def _put_source(store: DBILocalObjectStore) -> None:
     store.put(
-        DBIStorageWriteRequest(metadata=metadata),
-        BytesIO(ORTHO_PAYLOAD),
+        DBIStorageWriteRequest(metadata=_pilot_source_metadata()),
+        BytesIO(PILOT_ORTHO_PAYLOAD),
     )
 
 
@@ -159,7 +206,7 @@ def validate_builder(factory, root: Path) -> None:
             tenant_ref=TENANT,
             farm_id=FARM_ID,
             plot_id=PLOT_ID,
-            asset_id=ORTHO_ID,
+            asset_id=PILOT_ORTHO_ID,
         )
         session.commit()
 
@@ -168,7 +215,7 @@ def validate_builder(factory, root: Path) -> None:
         assert marker.is_file()
         assert first.created is True
         assert first.status == "ready"
-        assert first.source_asset_id == ORTHO_ID
+        assert first.source_asset_id == PILOT_ORTHO_ID
         assert first.sha256 == FAKE_COG_SHA
         assert first.width == 1024
         assert first.height == 768
@@ -179,7 +226,7 @@ def validate_builder(factory, root: Path) -> None:
             tenant_ref=TENANT,
             farm_id=FARM_ID,
             plot_id=PLOT_ID,
-            asset_id=ORTHO_ID,
+            asset_id=PILOT_ORTHO_ID,
         )
         session.commit()
         assert replay.product_id == first.product_id
@@ -229,6 +276,7 @@ def validate_rejects_unknown_source(factory, root: Path) -> None:
 def main() -> None:
     _require_scope()
     _provision_role_and_shared_fixture()
+    _provision_pilot_source()
     _provision_raster_role()
     engine, factory = _factory()
     try:
