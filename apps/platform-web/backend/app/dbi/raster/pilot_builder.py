@@ -37,6 +37,7 @@ from app.dbi.storage_policy import DBIStoragePolicy
 
 PROFILE_VERSION = "cog_v1"
 _MAX_MANIFEST_BYTES = 64 * 1024
+_AUTO_CRS_SENTINEL = "AUTO_FROM_GEOTIFF"
 
 
 class DBIPilotRasterError(RuntimeError):
@@ -88,6 +89,22 @@ def _ready_result(
 
 class DBIPilotRasterBuilder:
     """Convierte una ortofoto verificada a COG privado de forma recuperable."""
+
+    def _reconcile_source_crs(
+        self,
+        *,
+        asset: AnalysisInputAsset,
+        actual_crs: str,
+    ) -> None:
+        declared = (asset.crs or "").strip()
+        if not declared or declared == _AUTO_CRS_SENTINEL:
+            asset.crs = actual_crs
+            self._session.flush()
+            return
+        if declared != actual_crs:
+            raise DBIPilotRasterConflict(
+                "El CRS declarado de la ortofoto diverge del GeoTIFF validado."
+            )
 
     def __init__(
         self,
@@ -199,6 +216,10 @@ class DBIPilotRasterBuilder:
             raise DBIPilotRasterConflict(
                 "Storage diverge del producto Raster ready."
             )
+        self._reconcile_source_crs(
+            asset=asset,
+            actual_crs=row.crs,
+        )
         return _ready_result(row, source_asset_id=asset.id)
 
     def prepare_rgb(
@@ -311,6 +332,11 @@ class DBIPilotRasterBuilder:
                 raise DBIPilotRasterConflict(
                     "El COG generado diverge del manifiesto."
                 )
+
+            self._reconcile_source_crs(
+                asset=asset,
+                actual_crs=candidate.crs,
+            )
 
             service = DBIRasterProductService(self._session, self._store)
             # Verifica autoridad source ANTES de publicar el producto.
