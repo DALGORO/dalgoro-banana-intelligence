@@ -90,16 +90,14 @@ def _ready_result(
 class DBIPilotRasterBuilder:
     """Convierte una ortofoto verificada a COG privado de forma recuperable."""
 
-    def _reconcile_source_crs(
-        self,
+    @staticmethod
+    def _validate_source_crs(
         *,
         asset: AnalysisInputAsset,
         actual_crs: str,
     ) -> None:
         declared = (asset.crs or "").strip()
         if not declared or declared == _AUTO_CRS_SENTINEL:
-            asset.crs = actual_crs
-            self._session.flush()
             return
         if declared != actual_crs:
             raise DBIPilotRasterConflict(
@@ -216,7 +214,7 @@ class DBIPilotRasterBuilder:
             raise DBIPilotRasterConflict(
                 "Storage diverge del producto Raster ready."
             )
-        self._reconcile_source_crs(
+        self._validate_source_crs(
             asset=asset,
             actual_crs=row.crs,
         )
@@ -333,7 +331,7 @@ class DBIPilotRasterBuilder:
                     "El COG generado diverge del manifiesto."
                 )
 
-            self._reconcile_source_crs(
+            self._validate_source_crs(
                 asset=asset,
                 actual_crs=candidate.crs,
             )
