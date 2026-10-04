@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import os
+from pathlib import Path
 from typing import Annotated
 from uuid import UUID
 
@@ -11,7 +13,6 @@ from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
 from app.api.deps import current_user, db as get_db
-from app.api.v1.dbi_density_local import density_python, service_root
 from app.api.v1.dbi_pilot import (
     _context_for,
     _local_store,
@@ -41,6 +42,26 @@ router = APIRouter(prefix="/dbi/pilot", tags=["dbi-pilot-raster"])
 LegacySession = Annotated[Session, Depends(get_db)]
 DBISession = Annotated[Session, Depends(get_dbi_session)]
 CurrentUser = Annotated[User, Depends(current_user)]
+
+
+def _raster_python() -> Path | None:
+    raw = (
+        os.environ.get("DBI_RASTER_RENDERER_PYTHON", "").strip()
+        or os.environ.get("DBI_DENSITY_PYTHON", "").strip()
+    )
+    if not raw:
+        return None
+    path = Path(raw).expanduser().resolve(strict=False)
+    return path if path.is_file() else None
+
+
+def _flight_test_script() -> Path:
+    return (
+        Path(__file__).resolve().parents[6]
+        / "services"
+        / "banana-density"
+        / "flight_test_cog.py"
+    )
 
 
 class PilotRasterResponse(BaseModel):
@@ -121,7 +142,7 @@ def prepare_pilot_rgb_cog(
         dbi_session.rollback()
         raise HTTPException(status_code=404, detail="Recurso no disponible.") from error
 
-    raster_python = density_python()
+    raster_python = _raster_python()
     if raster_python is None:
         dbi_session.rollback()
         raise HTTPException(
@@ -135,7 +156,7 @@ def prepare_pilot_rgb_cog(
             dbi_session,
             store,
             raster_python=raster_python,
-            flight_test_script=service_root() / "flight_test_cog.py",
+            flight_test_script=_flight_test_script(),
         ).prepare_rgb(
             tenant_ref=tenant_ref,
             farm_id=farm_id,
