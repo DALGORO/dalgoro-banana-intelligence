@@ -109,6 +109,8 @@ def _seed_scope(session: Session) -> None:
             status="active",
         )
     )
+    # Materializa primero la jerarquía referenciada por las FKs compuestas.
+    session.flush()
     session.add(
         AnalysisInputAsset(
             id=ORTHOPHOTO_ASSET_ID,
