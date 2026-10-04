@@ -11,6 +11,7 @@ BACKEND = ROOT / "apps" / "platform-web" / "backend" / "app" / "api" / "v1" / "d
 ADOPTION_API = ROOT / "apps" / "platform-web" / "backend" / "app" / "api" / "v1" / "dbi_density_legacy_campaign.py"
 ADOPTION_SERVICE = ROOT / "apps" / "platform-web" / "backend" / "app" / "dbi" / "density_legacy_campaign.py"
 BRIDGE = ROOT / "services" / "banana-density" / "web_bridge.py"
+DENSITY_CAMPAIGN = ROOT / "apps" / "platform-web" / "backend" / "app" / "dbi" / "density_campaign.py"
 
 
 def main() -> None:
@@ -20,6 +21,7 @@ def main() -> None:
     adoption_api = ADOPTION_API.read_text(encoding="utf-8")
     adoption_service = ADOPTION_SERVICE.read_text(encoding="utf-8")
     bridge = BRIDGE.read_text(encoding="utf-8")
+    density_campaign = DENSITY_CAMPAIGN.read_text(encoding="utf-8")
 
     required_frontend = (
         "campaign_id: string | null;",
@@ -58,13 +60,31 @@ def main() -> None:
     ):
         assert fragment in adoption_api, f"Falta contrato de adopción histórica: {fragment}"
 
+    for fragment in (
+        "DBICampaignArtifactService",
+        "DBICampaignArtifactRegistration",
+        "DBICampaignArtifactType.ORTHOPHOTO_SOURCE",
+        "DBICampaignArtifactSourceKind.INPUT_ASSET",
+        "orthophoto_campaign_artifact_id",
+        "version=1",
+    ):
+        assert fragment in density_campaign, (
+            f"Campaign Density nueva no garantiza orthophoto_source: {fragment}"
+        )
+
+    assert density_campaign.index("register_artifact(") < density_campaign.index(
+        "target_status=DBICampaignStatus.PROCESSING"
+    )
+    assert ".commit(" not in density_campaign
+    assert ".rollback(" not in density_campaign
+
     assert "uuid5(" in adoption_service
     assert 'LEGACY_CAMPAIGN_ORIGIN = "legacy_import"' in adoption_service
     assert "DBICampaignStatus.ANALYZED" in adoption_service
     assert "run-full-analysis" in backend
     assert frontend.count("<span>17 etapas</span>") == 1
     assert "campaign" not in bridge.casefold()
-    print("Density/Campaign UI: trazabilidad, adopción histórica y aislamiento científico aprobados.")
+    print("Density/Campaign UI: trazabilidad, orthophoto_source, adopción histórica y aislamiento científico aprobados.")
 
 
 if __name__ == "__main__":
