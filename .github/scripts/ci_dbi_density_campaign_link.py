@@ -31,13 +31,20 @@ from app.dbi.density_campaign import (  # noqa: E402
     link_density_job_to_campaign,
     mark_density_campaign_analyzed,
 )
-from app.dbi.models import AnalysisInputAsset, Farm, Plot  # noqa: E402
+from app.dbi.map_timeline import DBIMapTimelineReader  # noqa: E402
+from app.dbi.models import (  # noqa: E402
+    AnalysisInputAsset,
+    DBIRasterProduct,
+    Farm,
+    Plot,
+)
 
 FARM_ID = UUID("10000000-0000-4000-8000-000000000020")
 PLOT_ID = UUID("20000000-0000-4000-8000-000000000020")
 JOB_ID = UUID("40000000-0000-4000-8000-000000000020")
 OTHER_JOB_ID = UUID("40000000-0000-4000-8000-000000000021")
 ORTHOPHOTO_ASSET_ID = UUID("50000000-0000-4000-8000-000000000020")
+RASTER_PRODUCT_ID = UUID("60000000-0000-4000-8000-000000000020")
 TENANT_REF = "tenant_density_campaign_ci"
 ORGANIZATION_REF = "organization_density_campaign_ci"
 CAPTURED_AT_FALLBACK = datetime(2026, 9, 8, 14, 0, tzinfo=timezone.utc)
@@ -121,6 +128,41 @@ def _seed_scope(session: Session) -> None:
             verified_at=CAPTURED_AT_FALLBACK,
             created_at=CAPTURED_AT_FALLBACK,
             updated_at=CAPTURED_AT_FALLBACK,
+        )
+    )
+    session.add(
+        DBIRasterProduct(
+            id=RASTER_PRODUCT_ID,
+            tenant_ref=TENANT_REF,
+            farm_id=FARM_ID,
+            plot_id=PLOT_ID,
+            source_kind="input_asset",
+            source_ref=ORTHOPHOTO_ASSET_ID,
+            source_sha256="a" * 64,
+            product_kind="rgb_visual",
+            profile_version="cog_v1",
+            generator_version="density-campaign-ci",
+            object_key=(
+                f"tenants/{TENANT_REF}/raster-product/{RASTER_PRODUCT_ID}"
+            ),
+            content_type="image/tiff",
+            size_bytes=2048,
+            sha256="b" * 64,
+            crs="EPSG:32717",
+            width=1024,
+            height=768,
+            band_count=3,
+            dtype="uint8",
+            transform_json="[0.03,0,620000,0,-0.03,9640000]",
+            bounds_json="[620000,9639976.96,620030.72,9640000]",
+            nodata_json="[null,null,null]",
+            scales_json="[1,1,1]",
+            offsets_json="[0,0,0]",
+            block_width=512,
+            block_height=512,
+            compression="deflate",
+            overview_levels_json="[2,4]",
+            status="ready",
         )
     )
     session.commit()
@@ -224,6 +266,23 @@ def validate_real_link() -> None:
                 orthophoto.campaign_artifact_id
             )
 
+            timeline = DBIMapTimelineReader(session).read_plot_timeline(
+                tenant_ref=TENANT_REF,
+                organization_ref=ORGANIZATION_REF,
+                farm_id=FARM_ID,
+                plot_id=PLOT_ID,
+            )
+            assert timeline.status == "ready"
+            assert len(timeline.timeline) == 1
+            entry = timeline.timeline[0]
+            assert entry.campaign_id == str(campaign_id)
+            assert entry.source_artifact_id == str(
+                orthophoto.campaign_artifact_id
+            )
+            assert entry.raster_product_id == str(RASTER_PRODUCT_ID)
+            assert entry.layer_type == "rgb"
+            assert entry.tile_url_template.endswith("/tiles/{z}/{x}/{y}.png")
+
             replay = DBICampaignService(session).link_source_job(
                 campaign_id=campaign_id,
                 tenant_ref=TENANT_REF,
@@ -283,7 +342,7 @@ def main() -> None:
     _require_ephemeral_ci()
     validate_density_source_contract()
     validate_real_link()
-    print("Density -> Campaign: vínculo, orthophoto_source, lifecycle y aislamiento científico aprobados.")
+    print("Density -> Campaign -> orthophoto_source -> Raster -> MAP: vínculo real y lifecycle aprobados.")
 
 
 if __name__ == "__main__":
