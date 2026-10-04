@@ -16,6 +16,7 @@ type PilotContext = {
 type RuntimeState = {
   local_mode: boolean;
   storage_ready: boolean;
+  raster_ready: boolean;
   public_url: string | null;
 };
 
@@ -565,7 +566,7 @@ export default function DbiPilotPage() {
       {error && <div className="status-banner status-banner-danger">{error}</div>}
       {message && <div className="status-banner status-banner-success">{message}</div>}
 
-      <div className="grid gap-3 md:grid-cols-4">
+      <div className="grid gap-3 md:grid-cols-5">
         <div className="metric-card">
           <p className="muted text-sm">Tenant local</p>
           <p className="mt-2 font-semibold">{context.tenant_ref}</p>
@@ -582,6 +583,12 @@ export default function DbiPilotPage() {
           <p className="muted text-sm">Almacenamiento</p>
           <p className="mt-2 font-semibold">
             {runtime?.storage_ready ? "Listo" : "No disponible"}
+          </p>
+        </div>
+        <div className="metric-card">
+          <p className="muted text-sm">Raster / COG</p>
+          <p className="mt-2 font-semibold">
+            {runtime?.raster_ready ? "Listo" : "No disponible"}
           </p>
         </div>
       </div>
