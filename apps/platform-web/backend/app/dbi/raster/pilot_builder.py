@@ -26,7 +26,11 @@ from app.dbi.raster.contracts import (
 )
 from app.dbi.raster.manifest import prepare_candidate_from_manifest
 from app.dbi.raster.service import DBIRasterProductService, DBIRasterUnavailable
-from app.dbi.storage_contracts import DBIStoragePurpose, DBIStorageWriteRequest
+from app.dbi.storage_contracts import (
+    DBIStorageError,
+    DBIStoragePurpose,
+    DBIStorageWriteRequest,
+)
 from app.dbi.storage_local import DBILocalObjectStore
 from app.dbi.storage_policy import DBIStoragePolicy
 
@@ -354,6 +358,14 @@ class DBIPilotRasterBuilder:
         except subprocess.TimeoutExpired as error:
             raise DBIPilotRasterUnavailable(
                 "La generación COG excedió el tiempo permitido."
+            ) from error
+        except DBIStorageError as error:
+            raise DBIPilotRasterConflict(
+                "Storage rechazó el producto Raster generado."
+            ) from error
+        except OSError as error:
+            raise DBIPilotRasterUnavailable(
+                "No se pudo leer/escribir el staging Raster local."
             ) from error
         except (DBIRasterConflict, DBIRasterUnavailable) as error:
             raise DBIPilotRasterConflict(
