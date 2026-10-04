@@ -53,6 +53,7 @@ jobs:
           python -m py_compile .github/scripts/ci_dbi_raster_tile_http.py
           python -m py_compile .github/scripts/ci_dbi_raster_tile_local_adapter.py
           python -m py_compile .github/scripts/ci_dbi_pilot_raster_integration.py
+          python -m py_compile .github/scripts/ci_dbi_local_raster_runtime.py
 
       - name: Validar contratos Raster offline
         run: python .github/scripts/ci_dbi_raster_contracts.py
@@ -65,6 +66,9 @@ jobs:
 
       - name: Validar CLI de primera ortofoto
         run: python services/banana-density/flight_test_cog.py --help
+
+      - name: Validar runtime Windows del piloto Raster
+        run: python .github/scripts/ci_dbi_local_raster_runtime.py
 
   raster-postgis:
     name: DBI · producto COG en PostGIS
