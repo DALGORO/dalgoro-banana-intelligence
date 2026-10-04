@@ -2,7 +2,6 @@ from contextlib import asynccontextmanager
 from datetime import datetime
 import os
 from pathlib import Path
-import sys
 
 from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
@@ -112,8 +111,12 @@ def _local_object_store() -> DBILocalObjectStore | None:
 
 def _local_raster_tile_renderer(
     object_store: DBILocalObjectStore,
-) -> DBILocalSubprocessRasterTileRenderer:
-    """Conecta el renderer aislado sólo para la estación local DBI."""
+) -> DBILocalSubprocessRasterTileRenderer | None:
+    """Conecta el renderer sólo cuando existe un Python geoespacial explícito."""
+
+    python_raw = os.environ.get("DBI_RASTER_RENDERER_PYTHON", "").strip()
+    if not python_raw:
+        return None
 
     repository_root = Path(__file__).resolve().parents[4]
     script_path = (
@@ -122,14 +125,10 @@ def _local_raster_tile_renderer(
         / "banana-density"
         / "render_tile_cli.py"
     )
-    python_executable = (
-        os.environ.get("DBI_RASTER_RENDERER_PYTHON", "").strip()
-        or sys.executable
-    )
     return DBILocalSubprocessRasterTileRenderer(
         object_store,
         script_path=script_path,
-        python_executable=python_executable,
+        python_executable=python_raw,
     )
 
 
@@ -145,9 +144,9 @@ async def lifespan(application: FastAPI):
     object_store = _local_object_store()
     if object_store is not None:
         application.state.dbi_object_store = object_store
-        application.state.dbi_raster_tile_renderer = _local_raster_tile_renderer(
-            object_store
-        )
+        tile_renderer = _local_raster_tile_renderer(object_store)
+        if tile_renderer is not None:
+            application.state.dbi_raster_tile_renderer = tile_renderer
 
     try:
         yield
