@@ -118,6 +118,16 @@ def validate_manifest_and_identity() -> None:
         )
     )
 
+    payload = json.loads(_manifest())
+    payload["descriptor"]["dtypes"] = ["uint16", "uint16", "uint16"]
+    _raises(
+        lambda: prepare_candidate_from_manifest(
+            json.dumps(payload),
+            source_kind=DBIRasterSourceKind.INPUT_ASSET,
+            source_ref=SOURCE_REF,
+        )
+    )
+
 
 def validate_budget_model() -> None:
     fraction = overview_raw_pixel_fraction((2, 4, 8))

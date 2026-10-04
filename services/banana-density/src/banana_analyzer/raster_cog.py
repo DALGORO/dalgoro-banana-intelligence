@@ -132,8 +132,11 @@ def _descriptor(path: Path) -> RasterDescriptor:
 def _validate_source(descriptor: RasterDescriptor, *, product_kind: ProductKind) -> None:
     if product_kind not in {"rgb_visual", "scientific"}:
         raise RasterCOGError("product_kind no está soportado.")
-    if product_kind == "rgb_visual" and descriptor.band_count < 3:
-        raise RasterCOGError("rgb_visual requiere al menos tres bandas.")
+    if product_kind == "rgb_visual":
+        if descriptor.band_count < 3:
+            raise RasterCOGError("rgb_visual requiere al menos tres bandas.")
+        if any(dtype != "uint8" for dtype in descriptor.dtypes):
+            raise RasterCOGError("rgb_visual requiere bandas uint8.")
 
 
 def _validate_cog(

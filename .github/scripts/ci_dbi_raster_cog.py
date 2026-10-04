@@ -47,6 +47,24 @@ def _make_rgb(path: Path) -> None:
         dataset.write(data)
 
 
+def _make_rgb_uint16(path: Path) -> None:
+    transform = from_origin(620000.0, 9640000.0, 0.03, 0.03)
+    rows, cols = 128, 128
+    data = np.zeros((3, rows, cols), dtype="uint16")
+    with rasterio.open(
+        path,
+        "w",
+        driver="GTiff",
+        width=cols,
+        height=rows,
+        count=3,
+        dtype="uint16",
+        crs="EPSG:32717",
+        transform=transform,
+    ) as dataset:
+        dataset.write(data)
+
+
 def _make_scientific(path: Path) -> None:
     transform = from_origin(620000.0, 9640000.0, 0.10, 0.10)
     rows, cols = 600, 700
@@ -76,7 +94,10 @@ def main() -> None:
         rgb_cog = root / "rgb.cog.tif"
         scientific = root / "ndvi.tif"
         scientific_cog = root / "ndvi.cog.tif"
+        rgb_uint16 = root / "rgb_uint16.tif"
+        rgb_uint16_cog = root / "rgb_uint16.cog.tif"
         _make_rgb(rgb)
+        _make_rgb_uint16(rgb_uint16)
         _make_scientific(scientific)
 
         rgb_manifest = generate_validated_cog(rgb, rgb_cog, product_kind="rgb_visual")
@@ -87,6 +108,17 @@ def main() -> None:
         assert rgb_manifest.descriptor.tiled is True
         assert rgb_manifest.descriptor.overview_levels
         assert rgb_manifest.source_sha256 != rgb_manifest.cog_sha256
+
+        try:
+            generate_validated_cog(
+                rgb_uint16,
+                rgb_uint16_cog,
+                product_kind="rgb_visual",
+            )
+        except RasterCOGError:
+            assert not rgb_uint16_cog.exists()
+        else:
+            raise AssertionError("rgb_visual uint16 debía rechazarse.")
 
         science_manifest = generate_validated_cog(
             scientific,

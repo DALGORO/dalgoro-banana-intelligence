@@ -157,8 +157,11 @@ def validate_candidate(candidate: DBIRasterProductCandidate) -> DBIRasterProduct
     _positive_int(candidate.width, field_name="width")
     _positive_int(candidate.height, field_name="height")
     bands = _positive_int(candidate.band_count, field_name="band_count")
-    if candidate.product_kind is DBIRasterProductKind.RGB_VISUAL and bands < 3:
-        raise DBIRasterConflict("rgb_visual requiere al menos tres bandas.")
+    if candidate.product_kind is DBIRasterProductKind.RGB_VISUAL:
+        if bands < 3:
+            raise DBIRasterConflict("rgb_visual requiere al menos tres bandas.")
+        if candidate.dtype != "uint8":
+            raise DBIRasterConflict("rgb_visual requiere dtype uint8.")
     _canonical_ref(candidate.dtype, field_name="dtype")
     _finite_tuple(candidate.transform, field_name="transform", length=6)
     _finite_tuple(candidate.bounds, field_name="bounds", length=4)
