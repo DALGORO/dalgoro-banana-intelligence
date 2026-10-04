@@ -489,15 +489,6 @@ export default function DbiPilotPage() {
     }
   };
 
-  const mapUrl = (farm: Farm, plot: Plot) => {
-    if (!context) return "#";
-    return `/dbi/organizations/${encodeURIComponent(
-      context.organization_ref,
-    )}/farms/${farm.id}/plots/${plot.id}/mapa?tenant=${encodeURIComponent(
-      context.tenant_ref,
-    )}`;
-  };
-
   const baseForField = useMemo(() => {
     const publicUrl = runtime?.public_url?.replace(/\/+$/, "");
     return publicUrl || window.location.origin.replace(/\/+$/, "");
@@ -904,7 +895,7 @@ export default function DbiPilotPage() {
                             {raster && (
                               <a
                                 className="btn-secondary"
-                                href={mapUrl(farm, plot)}
+                                href={raster.map_path}
                                 target="_blank"
                                 rel="noreferrer"
                               >
