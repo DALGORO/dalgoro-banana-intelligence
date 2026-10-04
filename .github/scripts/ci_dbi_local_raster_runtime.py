@@ -11,6 +11,7 @@ MAIN = ROOT / "apps" / "platform-web" / "backend" / "app" / "main.py"
 PILOT = ROOT / "apps" / "platform-web" / "backend" / "app" / "api" / "v1" / "dbi_pilot_raster.py"
 BUILDER = ROOT / "apps" / "platform-web" / "backend" / "app" / "dbi" / "raster" / "pilot_builder.py"
 PILOT_UI = ROOT / "apps" / "platform-web" / "frontend" / "src" / "pages" / "DbiPilotPage.tsx"
+DENSITY_UI = ROOT / "apps" / "platform-web" / "frontend" / "src" / "pages" / "DbiDensityPage.tsx"
 RUNBOOK = ROOT / "docs" / "42_REAL_FLIGHT_TEST_DBI-PILOT-RASTER-001.md"
 
 
@@ -21,6 +22,7 @@ def main() -> None:
     pilot_source = PILOT.read_text(encoding="utf-8")
     builder_source = BUILDER.read_text(encoding="utf-8")
     pilot_ui = PILOT_UI.read_text(encoding="utf-8")
+    density_ui = DENSITY_UI.read_text(encoding="utf-8")
     runbook = RUNBOOK.read_text(encoding="utf-8")
 
     for token in (
@@ -56,6 +58,10 @@ def main() -> None:
     assert "Preparar mapa RGB" in pilot_ui
     assert "Abrir mapa" in pilot_ui
     assert "Raster / COG" in pilot_ui
+    assert "Preparar mapa RGB" in density_ui
+    assert "Verificar mapa RGB" in density_ui
+    assert "Raster / COG" in density_ui
+    assert "map_path" in density_ui
     assert "GeoTIFF real verificado" in runbook
     assert "DBIRasterProduct ready" in runbook
 
