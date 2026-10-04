@@ -5,6 +5,7 @@ from __future__ import annotations
 import os
 from pathlib import Path
 from typing import Annotated
+from urllib.parse import quote
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException, Request, status
@@ -88,8 +89,8 @@ def _map_path(
     tenant_ref: str,
 ) -> str:
     return (
-        f"/dbi/organizations/{organization_ref}/farms/{farm_id}/plots/"
-        f"{plot_id}/mapa?tenant={tenant_ref}"
+        f"/dbi/organizations/{quote(organization_ref, safe='')}/farms/{farm_id}/plots/"
+        f"{plot_id}/mapa?tenant={quote(tenant_ref, safe='')}"
     )
 
 
