@@ -192,6 +192,47 @@ class _FakeTimelineReader:
         return _real_response()
 
 
+def validate_viewport_contract() -> None:
+    """Comprueba el fallback sin exigir PostGIS para casos directos/invalidos."""
+
+    from app.dbi.map_timeline import raster_bounds_wgs84
+
+    direct = raster_bounds_wgs84(
+        object(),  # no se consulta para EPSG:4326
+        crs="EPSG:4326",
+        bounds_json="[-79.95,-3.40,-79.90,-3.35]",
+    )
+    assert direct == (-79.95, -3.40, -79.90, -3.35)
+
+    for crs, bounds_json in (
+        ("EPSG:4326", "[10,10,9,11]"),
+        ("EPSG:4326", "[181,-3,182,-2]"),
+        ("EPSG:4326", "[1,2,3]"),
+        ("EPSG:4326", "[1,2,3,\"bad\"]"),
+        ("WGS84", "[-79.95,-3.40,-79.90,-3.35]"),
+    ):
+        assert raster_bounds_wgs84(
+            object(),
+            crs=crs,
+            bounds_json=bounds_json,
+        ) is None
+
+    source = (
+        REPOSITORY_ROOT
+        / "apps"
+        / "platform-web"
+        / "backend"
+        / "app"
+        / "dbi"
+        / "map_timeline.py"
+    ).read_text(encoding="utf-8")
+    assert "if bounds is None and viewport_raster is not None:" in source
+    assert "raster_bounds_wgs84(" in source
+    assert "ST_Transform" in source
+    assert "import rasterio" not in source.lower()
+    assert "from rasterio" not in source.lower()
+
+
 def validate_endpoint() -> None:
     """Comprueba legacy y nueva ruta autorizada sin tocar una base."""
 
@@ -306,10 +347,11 @@ def validate_frontend_contract() -> None:
 
 def main() -> None:
     validate_contract()
+    validate_viewport_contract()
     validate_endpoint()
     validate_frontend_contract()
     print(
-        "DBI-MAP-002 offline aprobado: contrato real, autorización, "
+        "DBI-MAP offline aprobado: contrato real, autorización, viewport Raster, "
         "tile template privado y MapLibre Raster."
     )
 
