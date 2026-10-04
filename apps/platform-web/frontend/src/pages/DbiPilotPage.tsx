@@ -911,6 +911,14 @@ export default function DbiPilotPage() {
                                 Abrir mapa
                               </a>
                             )}
+                            {raster && !raster.map_ready && (
+                              <Link
+                                className="btn-secondary"
+                                to={`/companies/${companyId}/agricultura/densidad`}
+                              >
+                                Vincular Campaign vía Densidad
+                              </Link>
+                            )}
                             <button
                               className="btn-secondary"
                               type="button"
