@@ -822,10 +822,11 @@ export default function DbiPilotPage() {
       <section className="surface space-y-4">
         <div>
           <div className="eyebrow">Paso 4</div>
-          <h2 className="text-lg font-semibold">Abrir INSPECT en iPad</h2>
+          <h2 className="text-lg font-semibold">Preparar mapa RGB y abrir INSPECT</h2>
           <p className="muted mt-1 text-sm">
-            Cada lote ofrece un enlace con tenant, organización, finca y lote ya
-            identificados. Inicia sesión desde Safari y permite la ubicación.
+            Desde la laptop prepara el COG privado de la ortofoto. Cuando exista
+            una Campaign técnica real del mismo lote, MAP-002 la mostrará sin
+            entregar el GeoTIFF al navegador. INSPECT sigue disponible para iPad.
           </p>
         </div>
 
