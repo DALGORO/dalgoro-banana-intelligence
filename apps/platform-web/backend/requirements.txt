@@ -1,4 +1,4 @@
-﻿alembic==1.17.0
+alembic==1.17.0
 annotated-doc==0.0.3
 annotated-types==0.7.0
 anyio==4.11.0
@@ -78,7 +78,7 @@ tinyhtml5==2.0.0
 typing-inspection==0.4.2
 typing_extensions==4.15.0
 tzdata==2025.2
-urllib3==2.5.0
+urllib3==2.8.0
 uvicorn==0.38.0
 watchfiles==1.1.1
 weasyprint==66.0
