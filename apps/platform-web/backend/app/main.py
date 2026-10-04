@@ -11,6 +11,7 @@ from app.api.v1 import get_api_router
 from app.core.config import settings
 from app.core.security import decode_token
 from app.db.session import SessionLocal
+from app.dbi.raster.tiles import DBIRasterTileCache
 from app.dbi.runtime import DBIRuntime
 from app.dbi.storage_local import DBILocalObjectStore
 from app.models.subscription import Subscription
@@ -113,6 +114,7 @@ async def lifespan(application: FastAPI):
 
     runtime = DBIRuntime()
     application.state.dbi_runtime = runtime
+    application.state.dbi_raster_tile_cache = DBIRasterTileCache()
     runtime.start()
 
     object_store = _local_object_store()
@@ -124,6 +126,8 @@ async def lifespan(application: FastAPI):
     finally:
         if hasattr(application.state, "dbi_object_store"):
             delattr(application.state, "dbi_object_store")
+        if hasattr(application.state, "dbi_raster_tile_cache"):
+            delattr(application.state, "dbi_raster_tile_cache")
         runtime.stop()
 
 
