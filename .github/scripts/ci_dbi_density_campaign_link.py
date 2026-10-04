@@ -17,6 +17,12 @@ BACKEND = ROOT / "apps" / "platform-web" / "backend"
 sys.path.insert(0, str(BACKEND))
 
 from app.db.dbi_config import load_dbi_database_config  # noqa: E402
+from app.dbi.campaigns.artifacts import (  # noqa: E402
+    DBICampaignArtifactReader,
+    DBICampaignArtifactSourceKind,
+    DBICampaignArtifactTechnicalStatus,
+    DBICampaignArtifactType,
+)
 from app.dbi.campaigns.contracts import DBICampaignConflict, DBICampaignStatus  # noqa: E402
 from app.dbi.campaigns.reader import DBICampaignReader  # noqa: E402
 from app.dbi.campaigns.service import DBICampaignService  # noqa: E402
@@ -25,7 +31,7 @@ from app.dbi.density_campaign import (  # noqa: E402
     link_density_job_to_campaign,
     mark_density_campaign_analyzed,
 )
-from app.dbi.models import Farm, Plot  # noqa: E402
+from app.dbi.models import AnalysisInputAsset, Farm, Plot  # noqa: E402
 
 FARM_ID = UUID("10000000-0000-4000-8000-000000000020")
 PLOT_ID = UUID("20000000-0000-4000-8000-000000000020")
@@ -94,6 +100,27 @@ def _seed_scope(session: Session) -> None:
             code="density-campaign-ci-plot",
             name="Density Campaign CI Plot",
             status="active",
+        )
+    )
+    session.add(
+        AnalysisInputAsset(
+            id=ORTHOPHOTO_ASSET_ID,
+            tenant_ref=TENANT_REF,
+            farm_id=FARM_ID,
+            plot_id=PLOT_ID,
+            asset_kind="orthophoto",
+            status="verified",
+            object_key=(
+                f"tenants/{TENANT_REF}/analysis-input/{ORTHOPHOTO_ASSET_ID}"
+            ),
+            content_type="image/tiff",
+            size_bytes=1024,
+            sha256="a" * 64,
+            crs="EPSG:32717",
+            created_by_ref="density-campaign-ci",
+            verified_at=CAPTURED_AT_FALLBACK,
+            created_at=CAPTURED_AT_FALLBACK,
+            updated_at=CAPTURED_AT_FALLBACK,
         )
     )
     session.commit()
@@ -166,6 +193,7 @@ def validate_real_link() -> None:
             assert metadata["target_density"] == 1650.0
             assert metadata["orthophoto_asset_id"] == str(ORTHOPHOTO_ASSET_ID)
             assert metadata["orthophoto_sha256"] == "a" * 64
+            assert metadata["orthophoto_campaign_artifact_id"]
             assert metadata["campaign_captured_at_source"] == (
                 CAPTURED_AT_SOURCE_ASSET_CREATED_FALLBACK
             )
@@ -173,6 +201,28 @@ def validate_real_link() -> None:
             assert linked.status is DBICampaignStatus.PROCESSING
             assert linked.source_job_id == JOB_ID
             assert linked.processed_at is None
+
+            artifacts = DBICampaignArtifactReader(session).list_artifacts(
+                campaign_id=campaign_id,
+                tenant_ref=TENANT_REF,
+                organization_ref=ORGANIZATION_REF,
+                farm_id=FARM_ID,
+                plot_id=PLOT_ID,
+            )
+            assert len(artifacts) == 1
+            orthophoto = artifacts[0]
+            assert orthophoto.artifact_type is DBICampaignArtifactType.ORTHOPHOTO_SOURCE
+            assert orthophoto.source_kind is DBICampaignArtifactSourceKind.INPUT_ASSET
+            assert orthophoto.source_ref == ORTHOPHOTO_ASSET_ID
+            assert orthophoto.sha256 == "a" * 64
+            assert orthophoto.version == 1
+            assert (
+                orthophoto.technical_status
+                is DBICampaignArtifactTechnicalStatus.CURRENT
+            )
+            assert metadata["orthophoto_campaign_artifact_id"] == str(
+                orthophoto.campaign_artifact_id
+            )
 
             replay = DBICampaignService(session).link_source_job(
                 campaign_id=campaign_id,
@@ -233,7 +283,7 @@ def main() -> None:
     _require_ephemeral_ci()
     validate_density_source_contract()
     validate_real_link()
-    print("Density -> Campaign: vínculo, lifecycle y aislamiento científico aprobados.")
+    print("Density -> Campaign: vínculo, orthophoto_source, lifecycle y aislamiento científico aprobados.")
 
 
 if __name__ == "__main__":
