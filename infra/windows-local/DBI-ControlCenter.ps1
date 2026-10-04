@@ -451,11 +451,19 @@ function Get-DbiDensityPython($Config) {
 
     foreach ($candidate in $candidates) {
         if (
-            -not [string]::IsNullOrWhiteSpace($candidate) -and
-            (Test-Path -LiteralPath $candidate -PathType Leaf)
+            [string]::IsNullOrWhiteSpace($candidate) -or
+            -not (Test-Path -LiteralPath $candidate -PathType Leaf)
         ) {
-            return (Resolve-Path -LiteralPath $candidate).Path
+            continue
         }
+
+        $resolved = (Resolve-Path -LiteralPath $candidate).Path
+        try {
+            & $resolved -c "import rasterio" *> $null
+            if ($LASTEXITCODE -eq 0) {
+                return $resolved
+            }
+        } catch {}
     }
 
     return ""
