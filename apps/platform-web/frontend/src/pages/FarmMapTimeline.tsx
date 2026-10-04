@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useParams, useSearchParams } from "react-router-dom";
 import {
-  Map,
+  Map as MapLibreMap,
   NavigationControl,
   setWorkerUrl,
   type StyleSpecification,
@@ -73,7 +73,7 @@ export default function FarmMapTimeline() {
   const effectiveFarmId = farmId ?? fincaId ?? "";
 
   const mapContainerRef = useRef<HTMLDivElement | null>(null);
-  const mapRef = useRef<Map | null>(null);
+  const mapRef = useRef<MapLibreMap | null>(null);
   const activeRasterIdsRef = useRef<string[]>([]);
   const fittedRef = useRef<string | null>(null);
 
@@ -100,7 +100,7 @@ export default function FarmMapTimeline() {
   useEffect(() => {
     if (!mapContainerRef.current || mapRef.current) return;
 
-    const map = new Map({
+    const map = new MapLibreMap({
       container: mapContainerRef.current,
       style: EMPTY_MAP_STYLE,
       center: [-79.8, -3.3],
