@@ -10,7 +10,7 @@ from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException, Request, status
 from pydantic import BaseModel
-from sqlalchemy.exc import IntegrityError
+from sqlalchemy.exc import IntegrityError, SQLAlchemyError
 from sqlalchemy.orm import Session
 
 from app.api.deps import current_user, db as get_db
@@ -30,6 +30,7 @@ from app.dbi.authorization import (
 from app.dbi.dependencies import get_dbi_session
 from app.dbi.map_timeline import DBIMapTimelineReader, DBIMapTimelineUnavailable
 from app.dbi.models.agriculture import Farm, Plot
+from app.dbi.models.assets import AnalysisInputAsset
 from app.dbi.raster.pilot_builder import (
     DBIPilotRasterBuilder,
     DBIPilotRasterConflict,
@@ -79,6 +80,29 @@ class PilotRasterResponse(BaseModel):
     band_count: int
     map_ready: bool
     map_path: str
+
+
+def _promote_source_crs(
+    session: Session,
+    *,
+    asset_id: UUID,
+    actual_crs: str,
+) -> None:
+    asset = session.get(AnalysisInputAsset, asset_id)
+    if asset is None:
+        raise DBIPilotRasterConflict(
+            "La ortofoto fuente dejó de estar disponible."
+        )
+
+    declared = (asset.crs or "").strip()
+    if not declared or declared == "AUTO_FROM_GEOTIFF":
+        asset.crs = actual_crs
+        session.flush()
+        return
+    if declared != actual_crs:
+        raise DBIPilotRasterConflict(
+            "El CRS declarado de la ortofoto diverge del GeoTIFF validado."
+        )
 
 
 def _map_path(
@@ -164,6 +188,11 @@ def prepare_pilot_rgb_cog(
             plot_id=plot_id,
             asset_id=asset_id,
         )
+        _promote_source_crs(
+            dbi_session,
+            asset_id=asset_id,
+            actual_crs=result.crs,
+        )
         dbi_session.commit()
     except DBIPilotRasterUnavailable as error:
         dbi_session.rollback()
@@ -176,6 +205,13 @@ def prepare_pilot_rgb_cog(
         raise HTTPException(
             status_code=409,
             detail="El producto Raster entra en conflicto con el estado DBI.",
+        ) from error
+
+    except SQLAlchemyError as error:
+        dbi_session.rollback()
+        raise HTTPException(
+            status_code=409,
+            detail="No se pudo reconciliar la metadata CRS del activo fuente.",
         ) from error
 
     map_ready = False
