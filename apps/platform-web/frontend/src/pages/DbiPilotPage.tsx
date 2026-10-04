@@ -55,6 +55,22 @@ type Asset = {
   verified_at: string | null;
 };
 
+type PilotRasterResult = {
+  product_id: string;
+  source_asset_id: string;
+  created: boolean;
+  status: string;
+  profile_version: string;
+  size_bytes: number;
+  sha256: string;
+  crs: string;
+  width: number;
+  height: number;
+  band_count: number;
+  map_ready: boolean;
+  map_path: string;
+};
+
 type MultiPolygon = {
   type: "MultiPolygon";
   coordinates: number[][][][];
@@ -171,6 +187,7 @@ export default function DbiPilotPage() {
   const [farms, setFarms] = useState<Farm[]>([]);
   const [plotsByFarm, setPlotsByFarm] = useState<Record<string, Plot[]>>({});
   const [assetsByFarm, setAssetsByFarm] = useState<Record<string, Asset[]>>({});
+  const [rasterByAsset, setRasterByAsset] = useState<Record<string, PilotRasterResult>>({});
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -439,6 +456,47 @@ export default function DbiPilotPage() {
     }
   };
 
+  const prepareRgbMap = async (farm: Farm, plot: Plot, asset: Asset) => {
+    if (!context || asset.status !== "verified") return;
+
+    const busyKey = `raster:${asset.id}`;
+    setBusy(busyKey);
+    setError(null);
+    setMessage(null);
+    try {
+      const { data } = await api.post<PilotRasterResult>(
+        `/api/v1/dbi/pilot/companies/${companyId}/farms/${farm.id}/plots/${plot.id}/orthophotos/${asset.id}/rgb-cog`,
+      );
+      setRasterByAsset((current) => ({
+        ...current,
+        [asset.id]: data,
+      }));
+      setMessage(
+        data.map_ready
+          ? `Mapa RGB listo: ${data.width}×${data.height}px · COG privado verificado.`
+          : `COG RGB listo: ${data.width}×${data.height}px. El mapa aparecerá cuando esta ortofoto esté vinculada a una Campaign técnica real.`,
+      );
+    } catch (rasterError) {
+      setError(
+        errorText(
+          rasterError,
+          "No se pudo preparar el COG RGB privado para el mapa.",
+        ),
+      );
+    } finally {
+      setBusy(null);
+    }
+  };
+
+  const mapUrl = (farm: Farm, plot: Plot) => {
+    if (!context) return "#";
+    return `/dbi/organizations/${encodeURIComponent(
+      context.organization_ref,
+    )}/farms/${farm.id}/plots/${plot.id}/mapa?tenant=${encodeURIComponent(
+      context.tenant_ref,
+    )}`;
+  };
+
   const baseForField = useMemo(() => {
     const publicUrl = runtime?.public_url?.replace(/\/+$/, "");
     return publicUrl || window.location.origin.replace(/\/+$/, "");
@@ -487,7 +545,7 @@ export default function DbiPilotPage() {
           <span className="page-kicker">Primera prueba real</span>
           <h1>Agricultura DBI · {companyName}</h1>
           <p className="page-subtitle">
-            Empresa → finca → lote georreferenciado → ortofoto → captura INSPECT en iPad.
+            Empresa → finca → lote georreferenciado → ortofoto → COG privado → mapa real → captura INSPECT en iPad.
           </p>
         </div>
         <div className="flex flex-wrap gap-2">
@@ -796,6 +854,7 @@ export default function DbiPilotPage() {
                         asset.plot_id === plot.id && asset.asset_kind === "orthophoto",
                     );
                     const latest = orthos[orthos.length - 1];
+                    const raster = latest ? rasterByAsset[latest.id] : undefined;
                     return (
                       <div key={plot.id} className="rounded-xl border border-slate-200 p-3 dark:border-white/10">
                         <div className="flex flex-wrap items-center justify-between gap-3">
@@ -813,8 +872,38 @@ export default function DbiPilotPage() {
                                   }`
                                 : "no cargada"}
                             </div>
+                            {raster && (
+                              <div className="mt-1 text-xs">
+                                Mapa RGB: COG {raster.status} · {raster.width}×{raster.height}px
+                                {raster.map_ready ? " · Campaign visible" : " · esperando Campaign"}
+                              </div>
+                            )}
                           </div>
                           <div className="flex flex-wrap gap-2">
+                            {latest?.status === "verified" && (
+                              <button
+                                className="btn-secondary"
+                                type="button"
+                                disabled={busy !== null}
+                                onClick={() => void prepareRgbMap(farm, plot, latest)}
+                              >
+                                {busy === `raster:${latest.id}`
+                                  ? "Preparando COG…"
+                                  : raster
+                                    ? "Verificar mapa RGB"
+                                    : "Preparar mapa RGB"}
+                              </button>
+                            )}
+                            {raster && (
+                              <a
+                                className="btn-secondary"
+                                href={mapUrl(farm, plot)}
+                                target="_blank"
+                                rel="noreferrer"
+                              >
+                                Abrir mapa
+                              </a>
+                            )}
                             <button
                               className="btn-secondary"
                               type="button"
