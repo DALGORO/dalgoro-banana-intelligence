@@ -149,6 +149,25 @@ function Stop-DbiProcessTree([int]$ProcessId) {
     & taskkill.exe /PID $ProcessId /T /F *> $null
 }
 
+function Get-DbiRepoRevision($Config) {
+    $repo = [string]$Config.repo_path
+    if ([string]::IsNullOrWhiteSpace($repo) -or -not (Test-Path $repo)) {
+        return ""
+    }
+
+    try {
+        $revision = (
+            & git -C $repo rev-parse HEAD 2>$null |
+            Select-Object -First 1
+        )
+        if ($LASTEXITCODE -eq 0 -and -not [string]::IsNullOrWhiteSpace($revision)) {
+            return ([string]$revision).Trim()
+        }
+    } catch {}
+
+    return ""
+}
+
 function Test-DbiRecordedStackHealthy($Config, $State) {
     if (-not $State) {
         return $false
@@ -203,6 +222,10 @@ function Test-DbiRecordedStackHealthy($Config, $State) {
     $recordedStorage = [string]$State.storage_root
     $recordedTemp = [string]$State.temp_root
     $recordedDensity = [string]$State.density_root
+    $configuredRevision = Get-DbiRepoRevision $Config
+    $recordedRevision = [string]$State.repo_revision
+    $configuredDensityPython = Get-DbiDensityPython $Config
+    $recordedDensityPython = [string]$State.density_python
 
     if (
         [string]::IsNullOrWhiteSpace($recordedStorage) -or
@@ -216,6 +239,20 @@ function Test-DbiRecordedStackHealthy($Config, $State) {
         $recordedStorage.TrimEnd('\') -ne $configuredStorage.TrimEnd('\') -or
         $recordedTemp.TrimEnd('\') -ne $configuredTemp.TrimEnd('\') -or
         $recordedDensity.TrimEnd('\') -ne $configuredDensity.TrimEnd('\')
+    ) {
+        return $false
+    }
+
+    if (
+        -not [string]::IsNullOrWhiteSpace($configuredRevision) -and
+        $recordedRevision -ne $configuredRevision
+    ) {
+        return $false
+    }
+
+    if (
+        -not [string]::IsNullOrWhiteSpace($configuredDensityPython) -and
+        $recordedDensityPython.TrimEnd('\') -ne $configuredDensityPython.TrimEnd('\')
     ) {
         return $false
     }
@@ -676,6 +713,8 @@ function Start-DbiStack {
             storage_root = [string]$config.storage_root
             temp_root = [string]$config.temp_root
             density_root = [string]$config.density_root
+            density_python = Get-DbiDensityPython $config
+            repo_revision = Get-DbiRepoRevision $config
         }
 
         Save-DbiState $state
