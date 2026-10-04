@@ -103,6 +103,11 @@ def _provision_raster_role() -> None:
                 )
             )
             cursor.execute(
+                sql.SQL("GRANT USAGE ON SCHEMA public TO {}").format(
+                    sql.Identifier(RASTER_ROLE)
+                )
+            )
+            cursor.execute(
                 sql.SQL("GRANT USAGE ON SCHEMA dbi TO {}").format(
                     sql.Identifier(RASTER_ROLE)
                 )
