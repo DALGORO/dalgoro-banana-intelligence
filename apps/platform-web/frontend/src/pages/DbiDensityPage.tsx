@@ -17,10 +17,34 @@ type Asset = {
   crs: string | null;
 };
 type DensityRuntime = { ready: boolean; message: string };
+type PilotRuntime = {
+  local_mode: boolean;
+  storage_ready: boolean;
+  raster_ready: boolean;
+  public_url: string | null;
+};
+type PilotRasterResult = {
+  product_id: string;
+  source_asset_id: string;
+  created: boolean;
+  status: string;
+  profile_version: string;
+  size_bytes: number;
+  sha256: string;
+  crs: string;
+  width: number;
+  height: number;
+  band_count: number;
+  map_ready: boolean;
+  map_path: string;
+};
 type DensityStage = { key: string; title: string; status: string; error: string | null };
 type DensityJob = {
   job_id: string;
   campaign_id: string | null;
+  farm_id: string;
+  plot_id: string;
+  orthophoto_asset_id: string;
   status: string;
   progress_percent: number;
   stages: DensityStage[];
@@ -63,6 +87,8 @@ export default function DbiDensityPage() {
   const [company, setCompany] = useState<Company | null>(null);
   const [context, setContext] = useState<PilotContext | null>(null);
   const [runtime, setRuntime] = useState<DensityRuntime | null>(null);
+  const [pilotRuntime, setPilotRuntime] = useState<PilotRuntime | null>(null);
+  const [rasterResult, setRasterResult] = useState<PilotRasterResult | null>(null);
   const [farms, setFarms] = useState<Farm[]>([]);
   const [plotsByFarm, setPlotsByFarm] = useState<Record<string, Plot[]>>({});
   const [assetsByFarm, setAssetsByFarm] = useState<Record<string, Asset[]>>({});
@@ -123,17 +149,24 @@ export default function DbiDensityPage() {
     (async () => {
       try {
         setLoading(true);
-        const [{ data: companyData }, { data: ctx }, { data: runtimeData }, { data: latestJob }] =
-          await Promise.all([
-            api.get<Company>(`/api/v1/companies/${companyId}`),
-            api.post<PilotContext>(`/api/v1/dbi/pilot/companies/${companyId}/bootstrap`),
-            api.get<DensityRuntime>(`/api/v1/dbi/pilot/companies/${companyId}/density/runtime`),
-            api.get<DensityJob | null>(`/api/v1/dbi/pilot/companies/${companyId}/density/jobs/latest`),
-          ]);
+        const [
+          { data: companyData },
+          { data: ctx },
+          { data: runtimeData },
+          { data: pilotRuntimeData },
+          { data: latestJob },
+        ] = await Promise.all([
+          api.get<Company>(`/api/v1/companies/${companyId}`),
+          api.post<PilotContext>(`/api/v1/dbi/pilot/companies/${companyId}/bootstrap`),
+          api.get<DensityRuntime>(`/api/v1/dbi/pilot/companies/${companyId}/density/runtime`),
+          api.get<PilotRuntime>(`/api/v1/dbi/pilot/companies/${companyId}/runtime`),
+          api.get<DensityJob | null>(`/api/v1/dbi/pilot/companies/${companyId}/density/jobs/latest`),
+        ]);
         if (!active) return;
         setCompany(companyData);
         setContext(ctx);
         setRuntime(runtimeData);
+        setPilotRuntime(pilotRuntimeData);
         setJob(latestJob);
         await loadDbiData(ctx);
       } catch (initialError) {
@@ -170,6 +203,15 @@ export default function DbiDensityPage() {
         : verifiedOrthos[verifiedOrthos.length - 1]?.id ?? "",
     );
   }, [verifiedOrthos]);
+
+  useEffect(() => {
+    if (
+      rasterResult &&
+      rasterResult.source_asset_id !== orthophotoAssetId
+    ) {
+      setRasterResult(null);
+    }
+  }, [orthophotoAssetId, rasterResult]);
 
   const refreshJob = useCallback(
     async (jobId: string) => {
@@ -273,11 +315,47 @@ export default function DbiDensityPage() {
       );
       await loadDbiData(context);
       setOrthophotoAssetId(data.asset_id);
+      setRasterResult(null);
       setOrthoFile(null);
       setUploadPct(100);
       setMessage(`Ortofoto verificada y lista para analizar · ${formatBytes(data.size_bytes)}.`);
     } catch (uploadError) {
       setError(errorText(uploadError, "No se pudo cargar la ortofoto."));
+    } finally {
+      setBusy(null);
+    }
+  };
+
+  const prepareRgbMap = async () => {
+    if (!pilotRuntime?.raster_ready) {
+      setError("El runtime Raster / COG no está listo.");
+      return;
+    }
+    if (!farmId || !plotId || !orthophotoAssetId) {
+      setError("Selecciona finca, lote y una ortofoto verificada.");
+      return;
+    }
+
+    setBusy("raster");
+    setError(null);
+    setMessage(null);
+    try {
+      const { data } = await api.post<PilotRasterResult>(
+        `/api/v1/dbi/pilot/companies/${companyId}/farms/${farmId}/plots/${plotId}/orthophotos/${orthophotoAssetId}/rgb-cog`,
+      );
+      setRasterResult(data);
+      setMessage(
+        data.map_ready
+          ? `Mapa RGB listo · ${data.width}×${data.height}px · COG privado verificado.`
+          : `COG RGB listo · ${data.width}×${data.height}px. Falta vincular esta ortofoto a una Campaign real.`,
+      );
+    } catch (rasterError) {
+      setError(
+        errorText(
+          rasterError,
+          "No se pudo preparar el COG RGB privado para el mapa.",
+        ),
+      );
     } finally {
       setBusy(null);
     }
@@ -389,6 +467,12 @@ export default function DbiDensityPage() {
       {message && <div className="status-banner status-banner-success">{message}</div>}
       <div className={runtime?.ready ? "status-banner status-banner-success" : "status-banner status-banner-warning"}>
         <strong>Motor de densidad:</strong> {runtime?.message ?? "Estado no disponible."}
+      </div>
+      <div className={pilotRuntime?.raster_ready ? "status-banner status-banner-success" : "status-banner status-banner-warning"}>
+        <strong>Raster / COG:</strong>{" "}
+        {pilotRuntime?.raster_ready
+          ? "Runtime geoespacial aislado listo."
+          : "No disponible. Reinicia el Control Center con un Python Density que tenga Rasterio."}
       </div>
       <div className="status-banner status-banner-info text-sm">
         Para densidad de siembra no necesitas GeoJSON. DALGORO construye el límite de análisis desde el Excel de coordenadas y genera los archivos GIS requeridos durante el pipeline.
@@ -525,10 +609,49 @@ export default function DbiDensityPage() {
             <span className="muted mt-1 block text-xs">Si contiene varias capas espaciales, se combinan para la exclusión.</span>
           </label>
         </div>
-        <div className="grid gap-3 md:grid-cols-3">
+        <div className="grid gap-3 md:grid-cols-4">
           <div className="metric-card"><p className="muted text-sm">Excel</p><p className="mt-2 font-semibold">{boundaryExcel?.name ?? "Pendiente"}</p></div>
           <div className="metric-card"><p className="muted text-sm">Exclusiones</p><p className="mt-2 font-semibold">{exclusionsGpkg?.name ?? "No aplican"}</p></div>
           <div className="metric-card"><p className="muted text-sm">Ortofoto</p><p className="mt-2 font-semibold">{selectedOrtho ? formatBytes(selectedOrtho.size_bytes) : "Pendiente"}</p></div>
+          <div className="metric-card">
+            <p className="muted text-sm">Mapa RGB</p>
+            <p className="mt-2 font-semibold">
+              {rasterResult
+                ? rasterResult.map_ready
+                  ? "Listo para abrir"
+                  : "COG listo · espera Campaign"
+                : "Pendiente"}
+            </p>
+          </div>
+        </div>
+        <div className="flex flex-wrap gap-2">
+          <button
+            className="btn-secondary"
+            disabled={
+              busy !== null ||
+              !pilotRuntime?.raster_ready ||
+              !farmId ||
+              !plotId ||
+              !orthophotoAssetId
+            }
+            onClick={() => void prepareRgbMap()}
+          >
+            {busy === "raster"
+              ? "Preparando COG…"
+              : rasterResult
+                ? "Verificar mapa RGB"
+                : "Preparar mapa RGB"}
+          </button>
+          {rasterResult?.map_ready && (
+            <a
+              className="btn-secondary"
+              href={rasterResult.map_path}
+              target="_blank"
+              rel="noreferrer"
+            >
+              Abrir mapa RGB
+            </a>
+          )}
         </div>
         <button
           className="btn-primary"
@@ -559,17 +682,28 @@ export default function DbiDensityPage() {
                 <span>
                   <strong>Campaign DBI:</strong> {job.campaign_id} · vínculo técnico activo para este análisis de densidad.
                 </span>
-                {context && farmId && plotId && (
-                  <Link
+                {rasterResult?.map_ready ? (
+                  <a
                     className="btn-secondary"
-                    to={`/dbi/organizations/${encodeURIComponent(
-                      context.organization_ref,
-                    )}/farms/${farmId}/plots/${plotId}/mapa?tenant=${encodeURIComponent(
-                      context.tenant_ref,
-                    )}`}
+                    href={rasterResult.map_path}
+                    target="_blank"
+                    rel="noreferrer"
                   >
                     Abrir mapa RGB
-                  </Link>
+                  </a>
+                ) : (
+                  <button
+                    className="btn-secondary"
+                    type="button"
+                    disabled={
+                      busy !== null ||
+                      !pilotRuntime?.raster_ready ||
+                      job.orthophoto_asset_id !== orthophotoAssetId
+                    }
+                    onClick={() => void prepareRgbMap()}
+                  >
+                    {busy === "raster" ? "Verificando mapa…" : "Preparar / verificar mapa RGB"}
+                  </button>
                 )}
               </div>
             </div>
