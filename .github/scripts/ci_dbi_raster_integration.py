@@ -22,6 +22,7 @@ ROOT = Path(__file__).resolve().parents[2]
 BACKEND = ROOT / "apps" / "platform-web" / "backend"
 sys.path.insert(0, str(BACKEND))
 
+from app.dbi.map_timeline import raster_bounds_wgs84  # noqa: E402
 from app.dbi.models.raster_products import DBIRasterProduct  # noqa: E402
 from app.dbi.raster.contracts import (  # noqa: E402
     DBIRasterConflict,
@@ -439,6 +440,40 @@ def validate_retirement_and_recovery(factory) -> None:
         session.close()
 
 
+def validate_map_viewport_transform(factory) -> None:
+    session = factory()
+    try:
+        direct = raster_bounds_wgs84(
+            session,
+            crs="EPSG:4326",
+            bounds_json="[-79.95,-3.40,-79.90,-3.35]",
+        )
+        assert direct == (-79.95, -3.40, -79.90, -3.35)
+
+        assert raster_bounds_wgs84(
+            session,
+            crs="urn:ogc:def:crs:EPSG::32717",
+            bounds_json="[620000,9639976.96,620030.72,9640000]",
+        ) is None
+        assert raster_bounds_wgs84(
+            session,
+            crs="EPSG:32717",
+            bounds_json="[620000,9639976.96,620000,9640000]",
+        ) is None
+
+        transformed = raster_bounds_wgs84(
+            session,
+            crs="EPSG:32717",
+            bounds_json="[620000,9639976.96,620030.72,9640000]",
+        )
+        assert transformed is not None
+        west, south, east, north = transformed
+        assert -82.0 < west < east < -78.0
+        assert -5.0 < south < north < 2.0
+    finally:
+        session.close()
+
+
 def main() -> None:
     _require_scope()
     _provision_role_and_shared_fixture()
@@ -448,11 +483,12 @@ def main() -> None:
         validate_success_replay_and_conflicts(factory)
         validate_concurrency(factory)
         validate_retirement_and_recovery(factory)
+        validate_map_viewport_transform(factory)
         validate_acl()
     finally:
         engine.dispose()
     print(
-        "DBI-RASTER-001 PostGIS aprobado: COG privado, replay, concurrencia, retiro, tenant y ACL."
+        "DBI-RASTER-001 PostGIS aprobado: COG privado, replay, viewport WGS84, concurrencia, retiro, tenant y ACL."
     )
 
 
