@@ -234,6 +234,11 @@ jobs:
           PYTHONPATH: .
         run: python ../../../.github/scripts/ci_map_contract.py
 
+      - name: Validar gate integrado de primera prueba RGB real
+        env:
+          PYTHONPATH: .
+        run: python ../../../.github/scripts/ci_dbi_real_flight_readiness.py
+
       - name: Validar contrato de trabajo geoespacial
         env:
           PYTHONPATH: .
