@@ -1,4 +1,4 @@
-"""HTTP autorizado para metadata, rangos y retiro de productos COG DBI."""
+"""HTTP autorizado para metadata, rangos, tiles y retiro de productos COG DBI."""
 
 from __future__ import annotations
 
@@ -28,6 +28,19 @@ from app.dbi.raster.reader import (
     DBIRasterProductUnavailable,
 )
 from app.dbi.raster.service import DBIRasterProductService, DBIRasterUnavailable
+from app.dbi.raster.tile_service import (
+    DBIRasterTileApplication,
+    DBIRasterTileIntegrityError,
+    DBIRasterTileOutsideExtent,
+    DBIRasterTileRendererUnavailable,
+    DBIRasterTileRequestError,
+    build_public_tile_style,
+)
+from app.dbi.raster.tiles import (
+    DBIRasterTileCache,
+    DBIRasterTileCoordinate,
+    DBIRasterTileError,
+)
 from app.dbi.storage_contracts import DBIPrivateObjectStore, MAX_STORAGE_RANGE_BYTES
 
 router = APIRouter(prefix="/dbi", tags=["dbi-raster"])
@@ -39,6 +52,8 @@ DBI_RASTER_NOT_FOUND_DETAIL = "Producto Raster DBI no disponible."
 DBI_RASTER_CONFLICT_DETAIL = "El producto Raster DBI no supera las verificaciones de integridad."
 DBI_RASTER_STORAGE_DETAIL = "El almacenamiento Raster DBI no está disponible."
 DBI_RASTER_RANGE_DETAIL = "El rango Raster solicitado no es válido."
+DBI_RASTER_TILE_REQUEST_DETAIL = "La visualización Raster solicitada no es válida."
+DBI_RASTER_TILE_RENDERER_DETAIL = "El renderer privado de tiles Raster no está disponible."
 
 
 def _not_found() -> HTTPException:
@@ -63,6 +78,20 @@ def _range_error(total_size: int) -> HTTPException:
             "Accept-Ranges": "bytes",
             "Content-Range": f"bytes */{total_size}",
         },
+    )
+
+
+def _tile_request_error() -> HTTPException:
+    return HTTPException(
+        status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+        detail=DBI_RASTER_TILE_REQUEST_DETAIL,
+    )
+
+
+def _tile_renderer_unavailable() -> HTTPException:
+    return HTTPException(
+        status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+        detail=DBI_RASTER_TILE_RENDERER_DETAIL,
     )
 
 
@@ -140,6 +169,19 @@ StoreDependency = Annotated[
 
 def _reader(session: Session, store: DBIPrivateObjectStore) -> DBIRasterProductReader:
     return DBIRasterProductReader(session, store)
+
+
+def _tile_runtime(request: Request):
+    """Resuelve cache/renderer sólo después de autorización y metadata."""
+
+    cache = getattr(request.app.state, "dbi_raster_tile_cache", None)
+    renderer = getattr(request.app.state, "dbi_raster_tile_renderer", None)
+    if not isinstance(cache, DBIRasterTileCache):
+        raise _tile_renderer_unavailable()
+    render_method = getattr(renderer, "render_tile", None)
+    if render_method is None or not callable(render_method):
+        raise _tile_renderer_unavailable()
+    return renderer, cache
 
 
 def _parse_decimal(value: str) -> int:
@@ -313,6 +355,97 @@ def get_raster_product_range(
             "Content-Length": str(result.length),
             "ETag": f'"sha256:{metadata.sha256}"',
             "Cache-Control": "private, max-age=60",
+            "X-Content-Type-Options": "nosniff",
+        },
+    )
+
+
+@router.get(
+    "/organizations/{organization_ref}/farms/{farm_id}/plots/{plot_id}/"
+    "raster-products/{product_id}/tiles/{z}/{x}/{y}.png",
+    response_class=Response,
+    responses={
+        200: {"content": {"image/png": {}}},
+        404: {"description": "Producto o tile no disponible"},
+        422: {"description": "Coordenada o estilo inválido"},
+        503: {"description": "Renderer privado no disponible"},
+    },
+)
+def get_raster_product_tile(
+    organization_ref: str,
+    farm_id: UUID,
+    plot_id: UUID,
+    product_id: UUID,
+    z: int,
+    x: int,
+    y: int,
+    request: Request,
+    session: SessionDependency,
+    context: AccessDependency,
+    store: StoreDependency,
+    band: int | None = None,
+    display_min: float | None = None,
+    display_max: float | None = None,
+) -> Response:
+    """Entrega un PNG autorizado sin resolver rutas privadas en FastAPI."""
+
+    _require_plot_read(
+        context,
+        organization_ref=organization_ref,
+        farm_id=farm_id,
+        plot_id=plot_id,
+    )
+
+    reader = _reader(session, store)
+    try:
+        metadata = reader.metadata(
+            product_id=product_id,
+            tenant_ref=context.tenant_ref,
+            farm_id=farm_id,
+            plot_id=plot_id,
+        )
+    except DBIRasterProductUnavailable as error:
+        raise _not_found() from error
+    except DBIRasterConflict as error:
+        raise _conflict() from error
+
+    try:
+        coordinate = DBIRasterTileCoordinate(z=z, x=x, y=y)
+        style = build_public_tile_style(
+            metadata,
+            band=band,
+            display_min=display_min,
+            display_max=display_max,
+        )
+    except (DBIRasterTileError, DBIRasterTileRequestError) as error:
+        raise _tile_request_error() from error
+    except DBIRasterTileIntegrityError as error:
+        raise _conflict() from error
+
+    renderer, cache = _tile_runtime(request)
+    try:
+        delivery = DBIRasterTileApplication(renderer, cache).deliver(
+            metadata=metadata,
+            tenant_ref=context.tenant_ref,
+            farm_id=farm_id,
+            plot_id=plot_id,
+            coordinate=coordinate,
+            style=style,
+        )
+    except DBIRasterTileOutsideExtent as error:
+        raise _not_found() from error
+    except DBIRasterTileRendererUnavailable as error:
+        raise _tile_renderer_unavailable() from error
+    except (DBIRasterTileIntegrityError, DBIRasterTileError) as error:
+        raise _conflict() from error
+
+    return Response(
+        content=delivery.data,
+        media_type=delivery.content_type,
+        headers={
+            "ETag": delivery.etag,
+            "Cache-Control": "private, max-age=60",
+            "X-DBI-Tile-Cache": "hit" if delivery.cache_hit else "miss",
             "X-Content-Type-Options": "nosniff",
         },
     )
