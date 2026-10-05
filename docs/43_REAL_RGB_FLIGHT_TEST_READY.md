@@ -75,7 +75,7 @@ En Densidad:
 ## Gate técnico del repositorio
 
 `.github/scripts/ci_dbi_real_flight_readiness.py` valida que existan
-simultáneamente:
+simultáneamente, incluyendo el gate DBI-FLIGHT-READY-002:
 
 - builder COG aislado;
 - producto Raster privado;
@@ -87,6 +87,7 @@ simultáneamente:
 - MapLibre con headers DBI;
 - Control Center con Python Rasterio explícito;
 - ausencia de Rasterio/GDAL dentro del proceso FastAPI.
+- reconciliación `AUTO_FROM_GEOTIFF` → CRS real validado por COG, con fail-closed ante divergencias.
 
 Los workflows dinámicos especializados continúan validando PostGIS, Raster,
 Campaign, Sampling, Inspection, Multispectral, PWA, frontend y backend.
