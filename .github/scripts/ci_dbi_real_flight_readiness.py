@@ -18,6 +18,7 @@ DENSITY = ROOT / "services" / "banana-density"
 FILES = {
     "pilot_builder": BACKEND / "app" / "dbi" / "raster" / "pilot_builder.py",
     "pilot_api": BACKEND / "app" / "api" / "v1" / "dbi_pilot_raster.py",
+    "pilot_upload": BACKEND / "app" / "api" / "v1" / "dbi_pilot.py",
     "density_campaign": BACKEND / "app" / "dbi" / "density_campaign.py",
     "map_timeline": BACKEND / "app" / "dbi" / "map_timeline.py",
     "raster_api": BACKEND / "app" / "api" / "v1" / "dbi_raster_products.py",
@@ -73,6 +74,29 @@ def validate_cog_publication() -> None:
         "DBI_DENSITY_PYTHON",
         "flight_test_cog.py",
         "map_path",
+    )
+
+
+def validate_auto_crs_reconciliation() -> None:
+    require(
+        "pilot_upload",
+        'declared_crs == "AUTO_FROM_GEOTIFF"',
+        "crs=asset_crs",
+        "crs: str | None",
+    )
+    require(
+        "pilot_builder",
+        "_validate_source_crs",
+        "actual_crs=candidate.crs",
+        "actual_crs=row.crs",
+        "El CRS declarado de la ortofoto diverge",
+    )
+    require(
+        "pilot_api",
+        "_promote_source_crs",
+        "asset.crs = actual_crs",
+        "actual_crs=result.crs",
+        "No se pudo reconciliar la metadata CRS",
     )
 
 
@@ -230,6 +254,7 @@ def validate_process_boundaries() -> None:
 
 def main() -> None:
     validate_cog_publication()
+    validate_auto_crs_reconciliation()
     validate_campaign_to_map()
     validate_tiles_and_browser()
     validate_rgb_contract()
@@ -237,7 +262,7 @@ def main() -> None:
     validate_real_integration_evidence()
     validate_process_boundaries()
     print(
-        "DBI-FLIGHT-READY-001 aprobado: GeoTIFF -> COG -> Campaign -> "
+        "DBI-FLIGHT-READY-002 aprobado: GeoTIFF + CRS AUTO -> COG -> Campaign -> "
         "Raster -> tiles -> MapLibre integrado y con fronteras cerradas."
     )
 
