@@ -89,7 +89,7 @@ class PilotOrthophotoResponse(BaseModel):
     content_type: str
     size_bytes: int
     sha256: str
-    crs: str
+    crs: str | None
 
 
 def _require_local_pilot() -> None:
@@ -438,6 +438,13 @@ def upload_pilot_orthophoto(
             detail="La ortofoto debe declararse como image/tiff.",
         )
 
+    declared_crs = crs.strip()
+    asset_crs = (
+        None
+        if declared_crs == "AUTO_FROM_GEOTIFF"
+        else declared_crs
+    )
+
     max_bytes = int(
         os.environ.get(
             "DBI_PILOT_MAX_UPLOAD_BYTES",
@@ -479,7 +486,7 @@ def upload_pilot_orthophoto(
             content_type=content_type,
             size_bytes=total,
             sha256=digest.hexdigest(),
-            crs=crs.strip(),
+            crs=asset_crs,
         )
         evidence = DBIAssetService(repository).register(
             context,
@@ -546,5 +553,5 @@ def upload_pilot_orthophoto(
         content_type=content_type,
         size_bytes=total,
         sha256=digest.hexdigest(),
-        crs=crs.strip(),
+        crs=asset_crs,
     )
