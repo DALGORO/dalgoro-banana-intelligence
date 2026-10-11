@@ -34,8 +34,8 @@ ALLOWED_SIDECARS = frozenset({
 })
 REQUIRED_SIDECARS = frozenset({".shp", ".shx", ".dbf", ".prj"})
 PRIVATE_PROPERTY_FRAGMENTS = (
-    "password", "secret", "token", "object_key", "bucket", "credential",
-    "file_url", "filepath", "sha256",
+    "password", "secret", "token", "object_key", "path", "bucket",
+    "credential", "sha", "file_url",
 )
 
 
@@ -72,6 +72,10 @@ def _prepare_shapefile(source: Path, dest: Path) -> Path:
         stems: set[str] = set()
         suffixes: set[str] = set()
         for info in entries:
+            if info.flag_bits & 0x1:
+                raise PortalGISConversionError("No se admiten ZIP cifrados.")
+            if info.compress_type not in {zipfile.ZIP_STORED, zipfile.ZIP_DEFLATED}:
+                raise PortalGISConversionError("El ZIP usa una compresión no admitida.")
             name = info.filename
             posix = Path(name)
             if (
