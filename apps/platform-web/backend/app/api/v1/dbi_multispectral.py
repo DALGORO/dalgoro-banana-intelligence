@@ -33,6 +33,9 @@ class DBIMultispectralExtractionRead(BaseModel):
     extraction_id: UUID
     created_at: datetime
     observed_at: datetime
+    campaign_id: UUID | None
+    captured_at: datetime | None
+    campaign_linkage: str
     payload: DBIMultispectralExtractionCandidate
 
 
@@ -80,12 +83,22 @@ def get_multispectral_extraction(
         farm_id=farm_id,
         plot_id=plot_id,
     ).get(row.id)
-    return _checked_multispectral_row(row, observed_at, context, organization_ref, farm_id, plot_id)
+    provenance = repository.campaign_provenance_by_extraction_scoped(
+        extraction_ids=[row.id],
+        tenant_ref=context.tenant_ref,
+        organization_ref=organization_ref,
+        farm_id=farm_id,
+        plot_id=plot_id,
+    ).get(row.id)
+    return _checked_multispectral_row(
+        row, observed_at, provenance, context, organization_ref, farm_id, plot_id,
+    )
 
 
 def _checked_multispectral_row(
     row: object,
     observed_at: datetime | None,
+    provenance: tuple[UUID, datetime] | None,
     context: DBIAccessContext,
     organization_ref: str,
     farm_id: UUID,
@@ -114,6 +127,17 @@ def _checked_multispectral_row(
             and row.payload_json == canonical_json(payload.model_dump(mode="json"))
             and row.payload_sha256 == sha256_text(row.payload_json)
         )
+        if provenance is not None:
+            campaign_id, captured_at = provenance
+            if (
+                not isinstance(campaign_id, UUID)
+                or not isinstance(captured_at, datetime)
+                or captured_at.tzinfo is None
+                or captured_at.utcoffset() is None
+            ):
+                raise ValueError("campaign provenance")
+        else:
+            campaign_id, captured_at = None, None
         if (not fields_match or row.created_at is None
                 or observed_at is None or observed_at.tzinfo is None
                 or observed_at.utcoffset() is None):
@@ -123,7 +147,11 @@ def _checked_multispectral_row(
 
     return DBIMultispectralExtractionRead(
         extraction_id=row.id, created_at=row.created_at,
-        observed_at=observed_at, payload=payload,
+        observed_at=observed_at,
+        campaign_id=campaign_id,
+        captured_at=captured_at,
+        campaign_linkage="verified_job_chain" if campaign_id else "unverified",
+        payload=payload,
     )
 
 
@@ -166,9 +194,17 @@ def list_multispectral_extractions(
         farm_id=farm_id,
         plot_id=plot_id,
     )
+    provenance = repository.campaign_provenance_by_extraction_scoped(
+        extraction_ids=[row.id for row in rows],
+        tenant_ref=context.tenant_ref,
+        organization_ref=organization_ref,
+        farm_id=farm_id,
+        plot_id=plot_id,
+    )
     return [
         _checked_multispectral_row(
-            row, observation_times.get(row.id), context, organization_ref, farm_id, plot_id,
+            row, observation_times.get(row.id), provenance.get(row.id),
+            context, organization_ref, farm_id, plot_id,
         )
         for row in rows
     ]
