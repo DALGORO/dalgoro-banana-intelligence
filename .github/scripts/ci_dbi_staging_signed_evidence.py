@@ -234,6 +234,10 @@ def run():
                 {**policy, "keys": [policy["keys"][0], policy["keys"][0]]},
                 {**policy, "keys": [policy["keys"][0], {
                     **policy["keys"][1],
+                    "key_id": policy["keys"][0]["key_id"],
+                }]},
+                {**policy, "keys": [policy["keys"][0], {
+                    **policy["keys"][1],
                     "public_key_b64": policy["keys"][0]["public_key_b64"],
                 }]},
                 {**policy, "keys": [policy["keys"][0], {
@@ -257,6 +261,12 @@ def run():
             paths["trust_policy"].chmod(0o666)
             blocked(paths, pin)
             paths["trust_policy"].chmod(0o600)
+            original_policy_file = root / "policy_original"
+            paths["trust_policy"].rename(original_policy_file)
+            paths["trust_policy"].symlink_to(original_policy_file)
+            blocked(paths, pin)
+            paths["trust_policy"].unlink()
+            original_policy_file.rename(paths["trust_policy"])
 
             # Si E4 falla (digest de restauración cambiado), la firma no basta.
             paths["restore_report"].write_bytes(b"tampered restore")
