@@ -1,7 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 
-import { verifiedMultispectralCampaigns } from "../src/features/multispectralCampaignHistory.ts";
+import { verifiedMultispectralCampaigns, extractionForMapCampaign } from "../src/features/multispectralCampaignHistory.ts";
 
 const scope = {
   tenantRef: "tenant-ci",
@@ -94,4 +94,46 @@ test("the history refuses to invent trends or compare index values", () => {
     assert.equal("ndvi_delta" in result, false);
     assert.equal("comparable" in result, false);
   }
+});
+
+test("map selection by exact verified Campaign chooses only matching evidence", () => {
+  const records = [
+    item({index: 1, campaignId: campaign(1), captured: "2026-09-15T09:00:00Z"}),
+    item({index: 2, campaignId: campaign(2), captured: "2026-09-15T04:00:00-05:00"}),
+    item({index: 3, campaignId: campaign(3), captured: "2026-10-01T10:00:00Z"}),
+  ];
+  assert.equal(extractionForMapCampaign(records, scope, "2026-09-15T09:00:00Z", null, ""), null,
+    "La fecha compartida no acredita una Campaign concreta");
+  const selected = extractionForMapCampaign(
+    records, scope, "2026-09-15T09:00:00+00:00", campaign(2), id(1),
+  );
+  assert.equal(selected?.extraction_id, id(2));
+  assert.equal(extractionForMapCampaign(
+    records, scope, "2026-09-15T09:00:00Z", campaign(3), "",
+  ), null, "No ignorar discordancia entre ID Campaign y fecha");
+  assert.equal(extractionForMapCampaign(
+    records, scope, "2026-10-01T10:00:00Z", null, id(1),
+  )?.extraction_id, id(3));
+});
+
+test("unverified and scope-crossing records never appear as map-linked evidence", () => {
+  const verified = item({index: 1});
+  const unverified = item({index: 2, linkage: "unverified"});
+  const foreign = item({index: 3, override: {tenant_ref: "other-tenant"}});
+  const rows = [unverified, foreign, verified];
+  assert.equal(extractionForMapCampaign(
+    rows, scope, "2026-09-15T09:00:00Z", null, id(2),
+  )?.extraction_id, id(1));
+  assert.equal(extractionForMapCampaign(
+    rows, scope, "not-a-date", null, "",
+  ), null);
+  assert.equal(extractionForMapCampaign(
+    [unverified, foreign], scope, "2026-09-15T09:00:00Z", null, "",
+  ), null);
+  assert.equal(extractionForMapCampaign(
+    [foreign, verified], {...scope, plotId: "plot-other"}, "", null, "",
+  ), null);
+  assert.equal(extractionForMapCampaign(
+    rows, scope, "", null, id(2),
+  )?.extraction_id, id(2), "Una extracción no vinculada se consulta solo sin fecha de mapa");
 });
