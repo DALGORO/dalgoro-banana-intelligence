@@ -116,18 +116,22 @@ def converter(expected_hash: str, *, corrupt=False):
     return run
 
 
+def stage(store, row, payload):
+    metadata = DBIStoragePolicy.build_metadata(
+        address=DBIStoragePolicy.build_address(
+            tenant_ref=row.tenant_ref, purpose=DBIStoragePurpose.TECHNICAL_SOURCE,
+            object_id=row.source_object_id),
+        content_type="application/geopackage+sqlite3",
+        size_bytes=len(payload), sha256_hex=row.sha256,
+    )
+    store.put(DBIStorageWriteRequest(metadata=metadata), BytesIO(payload))
+
+
 def run():
     payload = b"SQLite format 3\x00" + b"test-gis-data"
     store = DBIInMemoryObjectStore()
     receipt = make_receipt(payload)
-    meta = DBIStoragePolicy.build_metadata(
-        address=DBIStoragePolicy.build_address(
-            tenant_ref=receipt.tenant_ref, purpose=DBIStoragePurpose.TECHNICAL_SOURCE,
-            object_id=receipt.source_object_id),
-        content_type="application/geopackage+sqlite3",
-        size_bytes=len(payload), sha256_hex=receipt.sha256,
-    )
-    store.put(DBIStorageWriteRequest(metadata=meta), BytesIO(payload))
+    stage(store, receipt, payload)
     state = State(receipt)
     with TemporaryDirectory(prefix="dbi-preview-tests-") as root:
         worker = DBIPortalGISPreparationWorker(
@@ -162,6 +166,7 @@ def run():
 
         # Descubrimiento después de validar S3/SHA; sin preview y sin reclamos repetidos.
         multi = make_receipt(payload)
+        stage(store, multi, payload)
         multi_state = State(multi)
         def discovery(source: Path, output_dir: Path):
             assert sha256(source.read_bytes()).hexdigest() == multi.sha256
@@ -187,6 +192,7 @@ def run():
 
         # Se rechazan opciones inválidas sin almacenarlas ni publicarlas.
         invalid = make_receipt(payload)
+        stage(store, invalid, payload)
         invalid_state = State(invalid)
         invalid_worker = DBIPortalGISPreparationWorker(
             lambda: Session(invalid_state), store,
