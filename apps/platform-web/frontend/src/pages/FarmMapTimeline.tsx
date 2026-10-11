@@ -7,6 +7,7 @@ import {
   type StyleSpecification,
 } from "maplibre-gl";
 import "maplibre-gl/dist/maplibre-gl.css";
+import { GoogleSatelliteViewer } from "@/components/GoogleSatelliteViewer";
 import mapWorkerUrl from "maplibre-gl/dist/maplibre-gl-worker.mjs?worker&url";
 
 import {
@@ -97,8 +98,10 @@ export default function FarmMapTimeline() {
     };
   }, [farmId, organizationRef, plotId, tenantRef]);
 
+  const useGoogleBase = Boolean(import.meta.env.VITE_GOOGLE_MAPS_API_KEY?.trim()) && Boolean(realLocator);
+
   useEffect(() => {
-    if (!mapContainerRef.current || mapRef.current) return;
+    if (useGoogleBase || !mapContainerRef.current || mapRef.current) return;
 
     const map = new MapLibreMap({
       container: mapContainerRef.current,
@@ -125,7 +128,7 @@ export default function FarmMapTimeline() {
       fittedRef.current = null;
       setMapReady(false);
     };
-  }, [tenantRef]);
+  }, [tenantRef, useGoogleBase]);
 
   useEffect(() => {
     let active = true;
@@ -408,11 +411,19 @@ export default function FarmMapTimeline() {
 
         <section className="card p-0 overflow-hidden">
           <div className="relative min-h-[560px]">
-            <div
-              ref={mapContainerRef}
-              className="absolute inset-0"
-              aria-label="Mapa cronológico de la finca"
-            />
+            {useGoogleBase && realLocator ? (
+              <GoogleSatelliteViewer
+                tenantRef={realLocator.tenantRef}
+                entries={displayEntries}
+                bounds={isPlotTimeline(data) ? data.viewport_bounds : null}
+              />
+            ) : (
+              <div
+                ref={mapContainerRef}
+                className="absolute inset-0"
+                aria-label="Mapa cronológico de la finca"
+              />
+            )}
 
             <div className="pointer-events-none absolute inset-x-4 bottom-4">
               {loading && (
