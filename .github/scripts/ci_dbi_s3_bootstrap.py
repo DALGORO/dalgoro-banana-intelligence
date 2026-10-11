@@ -70,12 +70,13 @@ def run():
 
     # Startup S3 sin IO; la aplicación enlaza exactamente el puerto inyectado.
     with patch.dict(os.environ, SECRETS, clear=True):
-        with patch("app.main.create_configured_object_store", return_value=object()) as binding:
-            with TestClient(app) as client:
-                assert hasattr(client.app.state, "dbi_object_store")
-                assert not hasattr(client.app.state, "dbi_raster_tile_renderer")
-            assert binding.call_count == 1
-            assert not hasattr(app.state, "dbi_object_store")
+        with patch("app.dbi.runtime.DBIRuntime.start"), patch("app.dbi.runtime.DBIRuntime.stop"):
+            with patch("app.main.create_configured_object_store", return_value=object()) as binding:
+                with TestClient(app) as client:
+                    assert hasattr(client.app.state, "dbi_object_store")
+                    assert not hasattr(client.app.state, "dbi_raster_tile_renderer")
+                assert binding.call_count == 1
+                assert not hasattr(app.state, "dbi_object_store")
 
     # Configuración defectuosa no permite arrancar ni dejar runtime colgado.
     with patch.dict(os.environ, {**SECRETS, "DBI_S3_ENDPOINT_URL": "http://invalid"}, clear=True):
