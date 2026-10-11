@@ -1,5 +1,13 @@
 # DBI-H11-DEC-001 — INSPECT ligado a Campaign MULTI, aprendizaje supervisado y roles
 
+> **DECISIÓN POSTERIOR CONFIRMADA — doble aprobación obligatoria:** cada versión INSPECT
+> debe recibir **dos firmas independientes**, una validación técnica seguida de
+> una autorización administrativa, antes de publicarse o ser consultable por el
+> cliente. Una persona no puede firmar ambos pasos. La corrección abre un nuevo
+> ciclo. Véase [DBI-H11-DEC-002](78_DBI_INSPECT_DUAL_APPROVAL_POLICY_H11.md).
+> La política pura está bajo prueba; todavía no hay aprobación persistida ni
+> filtrado de publicación en las API existentes.
+
 **Decisión del producto (11-10-2026).** El cliente ha precisado que **cada nueva INSPECT del flujo de monitoreo debe pertenecer a un levantamiento MULTI identificable**. La razón es construir verdad-terreno capaz de contrastar señales espectrales con afectaciones observadas del banano y, tras validación científica, estudiar detección/estadificación de Sigatoka negra. **El cliente externo tiene consulta únicamente; el técnico y el administrador pueden registrar y corregir según permisos, y solo una autoridad agronómica explícita puede aprobar/publicar.**
 
 Este documento es un **contrato de diseño**, no una implementación de vínculos nuevos, inferencia o despliegue. No autoriza cambios en producción ni transforma el actual gate de Sigatoka en diagnóstico.
