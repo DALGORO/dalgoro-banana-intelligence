@@ -429,6 +429,8 @@ export default function FarmMapTimeline() {
     setUploadNotice(null);
     try {
       const preview = await getGISImportPreview(realLocator, id);
+      const relatedCampaign = vectorCampaigns.find(item => item.id === preview.receipt.campaign_id);
+      if (relatedCampaign) setSelectedDate(relatedCampaign.captured_at);
       setPrivatePreview(preview);
       setUploadNotice("Vista previa privada en el mapa. Revisa ubicación, entidades y atributos antes de aprobar.");
     } catch {
