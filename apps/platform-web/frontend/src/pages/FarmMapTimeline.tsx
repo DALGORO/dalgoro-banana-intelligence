@@ -206,7 +206,7 @@ export default function FarmMapTimeline() {
         ));
       }).catch(() => { if (active) setCanPublish(false); });
     return () => { active = false; };
-  }, [realLocator]);
+  }, [realLocator, gisScopeKey]);
 
 
   useEffect(() => {
@@ -828,8 +828,7 @@ export default function FarmMapTimeline() {
                 {uploading ? "Procesando recepción…" : /\.(zip|gpkg)$/i.test(uploadFile?.name ?? "") ? "Guardar original privado" : "Publicar GeoJSON en el lote"}
               </button>
               {uploadNotice && <p role="status" className="muted text-xs">{uploadNotice}</p>}
-              {gisImports.length > 0 && (
-                <div className="space-y-2" aria-label="Archivos GIS recibidos">
+              <div className="space-y-2" aria-label="Archivos GIS recibidos">
                   <div className="flex items-center justify-between gap-2">
                     <p className="text-xs font-medium">Archivos GIS y estado de revisión</p>
                     <button
@@ -878,8 +877,10 @@ export default function FarmMapTimeline() {
                         )}
                     </div>
                   ))}
+                  {gisImports.length === 0 && (
+                    <p className="muted text-xs">No hay originales GIS recibidos en este lote.</p>
+                  )}
                 </div>
-              )}
             </div>
           )}
 
