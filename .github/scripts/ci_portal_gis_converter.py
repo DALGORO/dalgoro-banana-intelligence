@@ -3,6 +3,7 @@ from __future__ import annotations
 
 import hashlib
 import json
+import subprocess
 import sys
 import tempfile
 import zipfile
@@ -16,7 +17,7 @@ sys.path.insert(0, str(ROOT / "services" / "banana-density"))
 sys.path.insert(0, str(ROOT / "apps" / "platform-web" / "backend"))
 from app.dbi.portal_vector_validation import validate_portal_geojson  # noqa: E402
 from portal_gis_convert_cli import (  # noqa: E402
-    PortalGISConversionError, convert_vector,
+    PortalGISConversionError, convert_vector, discover_vector_layers,
 )
 
 
@@ -68,6 +69,37 @@ def main() -> None:
         assert hashlib.sha256(gpkg.read_bytes()).hexdigest() == original_sha
         output_again, _ = convert_vector(gpkg, folder / "convertido")
         assert output_again == output
+
+        # QGIS GPKG multicapa: se enumeran capas geométricas reales,
+        # pero NUNCA se elige automáticamente una para el cliente.
+        source.to_file(gpkg, layer="limites", driver="GPKG", engine="pyogrio", mode="a")
+        names = discover_vector_layers(gpkg)
+        assert names == ["plantas", "limites"], names
+        should_reject(
+            lambda: convert_vector(gpkg, folder / "sin_seleccion"),
+            "GeoPackage multicapa sin selección explícita",
+        )
+        should_reject(
+            lambda: convert_vector(gpkg, folder / "capa_inventada", layer="inventada"),
+            "Nombre de capa arbitrario",
+        )
+        chosen, chosen_manifest_path = convert_vector(
+            gpkg, folder / "capa_seleccionada", layer="limites",
+        )
+        assert chosen.is_file()
+        chosen_manifest = json.loads(chosen_manifest_path.read_text(encoding="utf-8"))
+        assert chosen_manifest["source_layer"] == "limites"
+        assert chosen_manifest["source_sha256"] == hashlib.sha256(gpkg.read_bytes()).hexdigest()
+        cli = subprocess.run(
+            [sys.executable, str(ROOT / "services" / "banana-density" / "portal_gis_convert_cli.py"),
+             str(gpkg), "--list-layers"],
+            check=True, capture_output=True, text=True,
+        )
+        assert json.loads(cli.stdout) == {"layers": ["plantas", "limites"]}
+        should_reject(
+            lambda: discover_vector_layers(folder / "noexiste.gpkg"),
+            "Sin fuente GPKG",
+        )
 
         shape_dir = folder / "shp"
         shape_dir.mkdir()

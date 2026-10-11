@@ -156,11 +156,53 @@ def _count_vertices(coords: object, depth: int = 0) -> int:
     return sum(_count_vertices(part, depth + 1) for part in coords)
 
 
+def discover_vector_layers(source: Path) -> list[str]:
+    """Descubre SOLAMENTE nombres de capas geométricas con GDAL en el worker.
+
+    Nunca desde FastAPI. No ejecuta SQL arbitrario, no devuelve metadatos
+    de conexiones privadas ni selecciona automáticamente entre varias capas.
+    """
+    source = Path(source)
+    if (
+        source.suffix.lower() != ".gpkg"
+        or not source.is_file() or source.is_symlink()
+        or not 16 <= source.stat().st_size <= MAX_SOURCE_BYTES
+    ):
+        raise PortalGISConversionError("Selecciona un GeoPackage privado válido.")
+    with source.open("rb") as file:
+        if file.read(16) != b"SQLite format 3\x00":
+            raise PortalGISConversionError("Cabecera GeoPackage inválida.")
+    try:
+        found = pyogrio.list_layers(source)
+    except (OSError, RuntimeError, ValueError) as error:
+        raise PortalGISConversionError("No se pudieron listar las capas del GeoPackage.") from error
+    layers: list[str] = []
+    for name, geometry_type in found:
+        if geometry_type is None:
+            continue
+        if (
+            not isinstance(name, str)
+            or not 1 <= len(name) <= 100
+            or any(ord(char) < 32 or ord(char) == 127 for char in name)
+        ):
+            raise PortalGISConversionError("El GeoPackage contiene nombres de capa inválidos.")
+        layers.append(name)
+        if len(layers) > 20:
+            raise PortalGISConversionError("GeoPackage con demasiadas capas; máximo 20.")
+    if not layers or len(layers) != len(set(layers)):
+        raise PortalGISConversionError("GeoPackage sin capas geométricas únicas válidas.")
+    return layers
+
+
 def _read_vector(input_path: Path, layer: str | None):
-    layers = [
-        str(name) for name, geometry_type in pyogrio.list_layers(input_path)
-        if geometry_type is not None
-    ]
+    layers = (
+        discover_vector_layers(input_path)
+        if input_path.suffix.lower() == ".gpkg"
+        else [
+            str(name) for name, geometry_type in pyogrio.list_layers(input_path)
+            if geometry_type is not None
+        ]
+    )
     if not layers:
         raise PortalGISConversionError("El archivo no contiene capas vectoriales geométricas.")
     if layer is None:
@@ -283,9 +325,21 @@ def convert_vector(source: Path, output_dir: Path, *, layer: str | None = None) 
 def main() -> None:
     parser = argparse.ArgumentParser(description="Convertir SHP ZIP o GPKG a GeoJSON para el portal DALGORO.")
     parser.add_argument("source", type=Path, help="Archivo original .gpkg o .zip")
-    parser.add_argument("--output-dir", type=Path, required=True, help="Carpeta donde guardar el derivado")
+    parser.add_argument("--output-dir", type=Path, help="Carpeta donde guardar el derivado")
     parser.add_argument("--layer", type=str, help="Nombre exacto de capa en un GeoPackage multicapa")
+    parser.add_argument("--list-layers", action="store_true", help="Enumerar nombres geométricos del GPKG sin convertir")
     args = parser.parse_args()
+    if args.list_layers:
+        if args.output_dir is not None or args.layer is not None:
+            parser.error("--list-layers no admite --output-dir ni --layer.")
+        try:
+            names = discover_vector_layers(args.source)
+        except PortalGISConversionError as error:
+            parser.exit(2, f"Error de descubrimiento: {error}\n")
+        print(json.dumps({"layers": names}, ensure_ascii=False))
+        return
+    if args.output_dir is None:
+        parser.error("La conversión requiere --output-dir.")
     try:
         output, manifest = convert_vector(args.source, args.output_dir, layer=args.layer)
     except (PortalGISConversionError, OSError) as error:
