@@ -71,10 +71,21 @@ def get_multispectral_extraction(
     if row is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=_NOT_FOUND)
 
+    return _checked_multispectral_row(row, context, organization_ref, farm_id, plot_id)
+
+
+def _checked_multispectral_row(
+    row: object,
+    context: DBIAccessContext,
+    organization_ref: str,
+    farm_id: UUID,
+    plot_id: UUID,
+) -> DBIMultispectralExtractionRead:
+    """Falla cerrado ante diferencias entre payload versionado y registro persistido."""
     try:
         payload = DBIMultispectralExtractionCandidate.model_validate_json(row.payload_json)
         fields_match = (
-            row.id == extraction_id == multispectral_extraction_id(payload)
+            row.id == multispectral_extraction_id(payload)
             and row.tenant_ref == context.tenant_ref == payload.tenant_ref
             and row.organization_ref == organization_ref == payload.organization_ref
             and row.farm_id == farm_id == payload.farm_id
@@ -101,3 +112,40 @@ def get_multispectral_extraction(
     return DBIMultispectralExtractionRead(
         extraction_id=row.id, created_at=row.created_at, payload=payload,
     )
+
+
+@router.get(
+    "/organizations/{organization_ref}/farms/{farm_id}/plots/{plot_id}"
+    "/multispectral-extractions",
+    response_model=list[DBIMultispectralExtractionRead],
+)
+def list_multispectral_extractions(
+    organization_ref: str,
+    farm_id: UUID,
+    plot_id: UUID,
+    session: SessionDependency,
+    context: AccessDependency,
+) -> list[DBIMultispectralExtractionRead]:
+    """Lista hasta 20 derivaciones recientes, sin revelar otras fincas ni datos corruptos."""
+    try:
+        DBIAuthorizationPolicy.require_plot(
+            context,
+            tenant_ref=context.tenant_ref,
+            organization_ref=organization_ref,
+            farm_id=farm_id,
+            plot_id=plot_id,
+            permission=DBIPermission.READ,
+        )
+    except DBIAccessDenied as exc:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=_NOT_FOUND) from exc
+
+    rows = DBIMultispectralExtractionRepository(session).list_scoped(
+        tenant_ref=context.tenant_ref,
+        organization_ref=organization_ref,
+        farm_id=farm_id,
+        plot_id=plot_id,
+    )
+    return [
+        _checked_multispectral_row(row, context, organization_ref, farm_id, plot_id)
+        for row in rows
+    ]
