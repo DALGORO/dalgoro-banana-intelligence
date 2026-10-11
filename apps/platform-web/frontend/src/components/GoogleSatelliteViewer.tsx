@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from "react";
 import {
   apiResourceUrl, mapLibreDbiHeaders, type RasterTileTimelineEntry,
 } from "@/features/mapTimeline";
+import type { VectorLayerDetail } from "@/features/portalVectors";
 
 type Position = { lat: number; lng: number };
 type TilePoint = { x: number; y: number };
@@ -11,6 +12,12 @@ type MapType = {
   releaseTile: (node: HTMLElement) => void;
 };
 type SatelliteMap = {
+  data: {
+    addGeoJson: (geojson: object) => Array<{ setProperty: (key: string, value: string) => void }>;
+    forEach: (callback: (feature: object) => void) => void;
+    remove: (feature: object) => void;
+    setStyle: (style: (feature: { getProperty: (name: string) => string }) => object) => void;
+  };
   overlayMapTypes: { clear: () => void; push: (overlay: MapType) => void };
   fitBounds: (bounds: { west: number; south: number; east: number; north: number }) => void;
 };
@@ -112,11 +119,12 @@ function authorizedRasterOverlay(
 }
 
 export function GoogleSatelliteViewer({
-  tenantRef, entries, bounds,
+  tenantRef, entries, bounds, vectors = [],
 }: {
   tenantRef: string;
   entries: RasterTileTimelineEntry[];
   bounds: [number, number, number, number] | null;
+  vectors?: VectorLayerDetail[];
 }) {
   const elementRef = useRef<HTMLDivElement | null>(null);
   const mapRef = useRef<SatelliteMap | null>(null);
@@ -159,6 +167,34 @@ export function GoogleSatelliteViewer({
     }
     return () => { map.overlayMapTypes.clear(); };
   }, [entries, ready, tenantRef]);
+
+  useEffect(() => {
+    const map = mapRef.current;
+    if (!ready || !map) return;
+    map.data.forEach((feature) => map.data.remove(feature));
+    for (const vector of vectors) {
+      for (const feature of map.data.addGeoJson(vector.geojson)) {
+        feature.setProperty("__dbi_layer_kind", vector.layer.layer_kind);
+      }
+    }
+    map.data.setStyle((feature) => {
+      const kind = feature.getProperty("__dbi_layer_kind");
+      const isDensity = kind === "density_hexagons";
+      const isBoundary = kind === "boundaries";
+      return {
+        fillColor: isDensity ? "#d97706" : "#0d9488",
+        fillOpacity: isBoundary ? 0.06 : 0.23,
+        strokeColor: isDensity ? "#b45309" : "#047857",
+        strokeWeight: isBoundary ? 3 : 2,
+        icon: {
+          path: 0, scale: 4,
+          fillColor: "#059669", fillOpacity: 1,
+          strokeColor: "#ffffff", strokeWeight: 1,
+        },
+      };
+    });
+    return () => { map.data.forEach(feature => map.data.remove(feature)); };
+  }, [ready, vectors]);
 
   useEffect(() => {
     if (!ready || !mapRef.current || !bounds) return;
