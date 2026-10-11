@@ -6,6 +6,7 @@ from uuid import UUID, uuid4
 
 from sqlalchemy import CheckConstraint, DateTime, ForeignKey, ForeignKeyConstraint, Index, Integer, String, Text, UniqueConstraint, Uuid
 from sqlalchemy.orm import Mapped, mapped_column
+from sqlalchemy.dialects.postgresql import JSONB
 from app.db.dbi_base import DBIBase
 
 
@@ -18,8 +19,14 @@ class DBIPortalGISImport(DBIBase):
         ),
         UniqueConstraint("source_object_id", name="uq_dbi_portal_gis_import_object"),
         CheckConstraint("source_format IN ('gpkg', 'shp_zip')", name="ck_dbi_portal_gis_import_format"),
-        CheckConstraint("status IN ('received', 'processing', 'prepared', 'published', 'failed')", name="ck_dbi_portal_gis_import_status"),
+        CheckConstraint("status IN ('received', 'processing', 'prepared', 'published', 'failed', 'needs_selection')", name="ck_dbi_portal_gis_import_status"),
         CheckConstraint("status != 'published' OR published_layer_id IS NOT NULL", name="ck_dbi_portal_gis_import_published"),
+        CheckConstraint(
+            "(available_layers IS NULL OR (source_format = 'gpkg' AND jsonb_typeof(available_layers) = 'array' "
+            "AND jsonb_array_length(available_layers) BETWEEN 2 AND 20)) "
+            "AND (status != 'needs_selection' OR available_layers IS NOT NULL)",
+            name="ck_dbi_portal_gis_import_options",
+        ),
         CheckConstraint("size_bytes > 0 AND size_bytes <= 31457280", name="ck_dbi_portal_gis_import_size"),
         CheckConstraint("sha256 ~ '^[0-9a-f]{64}$'", name="ck_dbi_portal_gis_import_sha"),
         CheckConstraint(
@@ -43,6 +50,7 @@ class DBIPortalGISImport(DBIBase):
     size_bytes: Mapped[int] = mapped_column(Integer, nullable=False)
     sha256: Mapped[str] = mapped_column(String(64), nullable=False)
     status: Mapped[str] = mapped_column(String(16), nullable=False, default="received")
+    available_layers: Mapped[list[str] | None] = mapped_column(JSONB, nullable=True)
     processing_started_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
     processing_ref: Mapped[UUID | None] = mapped_column(Uuid, nullable=True)
     attempt_count: Mapped[int] = mapped_column(Integer, nullable=False, default=0)

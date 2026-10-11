@@ -6,6 +6,7 @@ Nunca importa GDAL/Pyogrio en FastAPI y no publica capas automáticamente.
 from __future__ import annotations
 
 import argparse
+import json
 from importlib.util import find_spec
 import os
 import stat
@@ -22,6 +23,7 @@ if str(BACKEND) not in sys.path:
 from app.db.dbi_config import load_dbi_database_config  # noqa: E402
 from app.dbi.portal_gis_worker_service import (  # noqa: E402
     DBIPortalGISPreparationWorker,
+    GISLayersPendingSelection,
 )
 from app.dbi.runtime import DBIRuntime  # noqa: E402
 from app.dbi.storage_bootstrap import (  # noqa: E402
@@ -112,20 +114,14 @@ def _minimal_conversion_environment(output_dir: Path, values: Mapping[str, str])
     return env
 
 
-def run_isolated_converter(source: Path, output_dir: Path):
-    """Conversión estricta con timeout; salida del parser nunca va al usuario."""
-    source = Path(source)
-    output_dir = Path(output_dir)
-    if source.suffix.lower() not in {".gpkg", ".zip"} or not source.is_file():
-        raise RuntimeError("Origen GIS local inválido.")
-    if not output_dir.is_dir() or source.parent == output_dir:
-        raise RuntimeError("Destino GIS no aislado.")
+def _run_converter(source: Path, output_dir: Path, arguments: list[str], *, stdout) -> None:
+    """Comparte límites y aislamiento entre descubrimiento y conversión."""
     try:
         result = subprocess.run(
-            [sys.executable, str(CONVERTER), str(source), "--output-dir", str(output_dir)],
+            [sys.executable, str(CONVERTER), str(source), *arguments],
             cwd=output_dir,
             env=_minimal_conversion_environment(output_dir, os.environ),
-            stdout=subprocess.DEVNULL,
+            stdout=stdout,
             stderr=subprocess.DEVNULL,
             timeout=CONVERSION_TIMEOUT_SECONDS,
             check=False,
@@ -136,6 +132,42 @@ def run_isolated_converter(source: Path, output_dir: Path):
         raise RuntimeError("Falló o expiró el conversor GIS aislado.") from None
     if result.returncode != 0:
         raise RuntimeError("El conversor GIS rechazó la fuente.")
+
+
+def run_isolated_converter(source: Path, output_dir: Path):
+    """Descubre primero GPKG multicapa sin publicar ni autoelegir."""
+    source = Path(source)
+    output_dir = Path(output_dir)
+    if source.suffix.lower() not in {".gpkg", ".zip"} or not source.is_file():
+        raise RuntimeError("Origen GIS local inválido.")
+    if not output_dir.is_dir() or source.parent == output_dir:
+        raise RuntimeError("Destino GIS no aislado.")
+
+    if source.suffix.lower() == ".gpkg":
+        options_file = output_dir / ".gis-layer-options.json"
+        try:
+            with options_file.open("xb") as sink:
+                _run_converter(source, output_dir, ["--list-layers"], stdout=sink)
+            if not 1 <= options_file.stat().st_size <= 4096:
+                raise RuntimeError("Lista de capas GIS fuera de límite.")
+            payload = json.loads(options_file.read_text(encoding="utf-8"))
+            if not isinstance(payload, dict) or set(payload) != {"layers"}:
+                raise RuntimeError("Lista de capas GIS inválida.")
+            layers = payload["layers"]
+            if not isinstance(layers, list) or not 1 <= len(layers) <= 20 or any(
+                not isinstance(name, str) or not 1 <= len(name) <= 100
+                or any(ord(char) < 32 or ord(char) == 127 for char in name)
+                for name in layers
+            ) or len(set(layers)) != len(layers):
+                raise RuntimeError("Capas GIS inválidas.")
+        except (ValueError, UnicodeError):
+            raise RuntimeError("Respuesta inválida del descubridor GIS.") from None
+        finally:
+            options_file.unlink(missing_ok=True)
+        if len(layers) > 1:
+            return GISLayersPendingSelection(tuple(layers))
+
+    _run_converter(source, output_dir, ["--output-dir", str(output_dir)], stdout=subprocess.DEVNULL)
     derivatives = list(output_dir.glob("*.geojson"))
     manifests = list(output_dir.glob("*.manifest.json"))
     if len(derivatives) != 1 or len(manifests) != 1:
@@ -193,6 +225,7 @@ def main() -> None:
     print({
         None: "Sin importaciones GIS pendientes.",
         "prepared": "Vista previa GIS privada preparada; requiere aprobación MANAGE.",
+        "needs_selection": "Capas geométricas detectadas; requiere elección MANAGE antes de convertir.",
         "lease_lost": "El claim venció; el resultado no se guardó.",
     }.get(result, "Resultado GIS pendiente de revisión."))
 

@@ -27,7 +27,7 @@ from app.dbi.models.admin_audit import (  # noqa: E402
     DBIAdminAuditResourceType,
 )
 
-HEAD = "dbi_0024_gis_approval"
+HEAD = "dbi_0025_gpkg_layer_options"
 HIERARCHY_REVISION = "dbi_0008_scope_hierarchy"
 AUDIT_REVISION = "dbi_0007_admin_audit"
 TABLE = "dbi_admin_audit_events"
@@ -160,11 +160,16 @@ def validate_migration_graph_and_sql() -> None:
         "foreignkey(actor_membership_id)",
     ):
         assert required in compact_sql
+    # Los metadatos GIS pueden usar JSONB; la auditoría administrativa NO.
+    markers = ("create table dbi_admin_audit_events", "create table dbi.dbi_admin_audit_events")
+    audit_marker = next((marker for marker in markers if marker in sql), None)
+    assert audit_marker is not None
+    audit_ddl = sql.split(audit_marker, 1)[1].split(");", 1)[0]
+    assert "jsonb" not in audit_ddl
     for forbidden in (
         "admin_audit_logs",
         "users",
         "companies",
-        "jsonb",
         " payload ",
         " description ",
         "drop database",

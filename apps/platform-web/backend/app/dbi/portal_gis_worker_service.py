@@ -42,6 +42,12 @@ class GISClaim:
     created_at: datetime
 
 
+@dataclass(frozen=True)
+class GISLayersPendingSelection:
+    """Nombres geométricos verificados por el conversor aislado; no son una preview."""
+    layers: tuple[str, ...]
+
+
 class DBIPortalGISPreparationWorker:
     """Ejecuta un solo claim a la vez. Ninguna ruta FastAPI importa GDAL."""
 
@@ -49,7 +55,7 @@ class DBIPortalGISPreparationWorker:
         self,
         session_factory: Callable[[], Session],
         store: DBIPrivateObjectStore,
-        converter: Callable[[Path, Path], tuple[Path, Path]],
+        converter: Callable[[Path, Path], tuple[Path, Path] | GISLayersPendingSelection],
         *,
         workspace_root: Path,
         clock: Callable[[], datetime] = lambda: datetime.now(timezone.utc),
@@ -99,7 +105,7 @@ class DBIPortalGISPreparationWorker:
             session.commit()
             return claim
 
-    def _prepare(self, claim: GISClaim) -> tuple[str, str, int]:
+    def _prepare(self, claim: GISClaim) -> tuple[str, str, int] | GISLayersPendingSelection:
         self.workspace_root.mkdir(parents=True, exist_ok=True)
         address = DBIStoragePolicy.build_address(
             tenant_ref=claim.tenant_ref,
@@ -129,7 +135,23 @@ class DBIPortalGISPreparationWorker:
                     raise DBIPortalGISWorkerFailure("Integridad SHA256 del origen inválida.")
             output_dir = root / "out"
             output_dir.mkdir(mode=0o700)
-            output, manifest_file = self.converter(source, output_dir)
+            conversion = self.converter(source, output_dir)
+            if isinstance(conversion, GISLayersPendingSelection):
+                layers = conversion.layers
+                if (
+                    claim.source_format != "gpkg"
+                    or not 2 <= len(layers) <= 20
+                    or any(
+                        not isinstance(name, str)
+                        or not 1 <= len(name) <= 100
+                        or any(ord(char) < 32 or ord(char) == 127 for char in name)
+                        for name in layers
+                    )
+                    or len(set(layers)) != len(layers)
+                ):
+                    raise DBIPortalGISWorkerFailure("Opciones geométricas inválidas.")
+                return conversion
+            output, manifest_file = conversion
             output = Path(output)
             manifest_file = Path(manifest_file)
             if output.is_symlink() or manifest_file.is_symlink():
@@ -160,7 +182,7 @@ class DBIPortalGISPreparationWorker:
                 raise DBIPortalGISWorkerFailure("Manifiesto de conversión no concuerda.")
             return parsed.geojson_text, sha256(parsed.geojson_text.encode("utf-8")).hexdigest(), parsed.feature_count
 
-    def _complete(self, claim: GISClaim, result: tuple[str, str, int] | None) -> bool:
+    def _complete(self, claim: GISClaim, result: tuple[str, str, int] | GISLayersPendingSelection | None) -> bool:
         """Fencing: ningún resultado de un intento vencido puede modificar la fila."""
         with self.session_factory() as session:
             row = session.execute(
@@ -179,6 +201,11 @@ class DBIPortalGISPreparationWorker:
             if result is None:
                 # El original permanece privado; el motivo técnico jamás se expone.
                 row.status = "failed"
+            elif isinstance(result, GISLayersPendingSelection):
+                if row.source_format != "gpkg" or row.available_layers is not None:
+                    raise DBIPortalGISWorkerFailure("Opciones de capas en estado incompatible.")
+                row.available_layers = list(result.layers)
+                row.status = "needs_selection"
             else:
                 text, digest, count = result
                 existing = session.get(DBIPortalGISPreview, claim.import_id)
@@ -205,4 +232,6 @@ class DBIPortalGISPreparationWorker:
         except (DBIStorageError, DBIPortalGISWorkerFailure, DBIPortalVectorInvalid, ValueError, OSError, RuntimeError):
             self._complete(claim, None)
             return "failed"
-        return "prepared" if self._complete(claim, preview) else "lease_lost"
+        if not self._complete(claim, preview):
+            return "lease_lost"
+        return "needs_selection" if isinstance(preview, GISLayersPendingSelection) else "prepared"
