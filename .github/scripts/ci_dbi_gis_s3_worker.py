@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import importlib.util
+import json
 import os
 from pathlib import Path
 import subprocess
@@ -100,15 +101,45 @@ def tests():
             assert "DBI_DATABASE_URL" not in kwargs["env"]
             assert "DBI_S3_SECRET_ACCESS_KEY" not in kwargs["env"]
             assert SECRET not in repr(kwargs["env"])
-            (output / "valid.geojson").write_bytes(b"{}")
-            (output / "valid.manifest.json").write_bytes(b"{}")
+            if "--list-layers" in argv:
+                kwargs["stdout"].write(json.dumps({"layers": ["unica"]}).encode("utf-8"))
+            else:
+                (output / "valid.geojson").write_bytes(b"{}")
+                (output / "valid.manifest.json").write_bytes(b"{}")
             return SimpleNamespace(returncode=0)
 
         with patch.dict(os.environ, secret_vars, clear=True):
             with patch.object(worker.subprocess, "run", side_effect=fake_run) as called:
                 geojson, manifest = worker.run_isolated_converter(source, output)
                 assert geojson.is_file() and manifest.is_file()
-                assert called.call_count == 1
+                assert called.call_count == 2
+
+        # GPKG multicapa: detener conversión y no crear ninguna vista previa.
+        def discover_two(argv, **kwargs):
+            assert "--list-layers" in argv
+            kwargs["stdout"].write(json.dumps({"layers": ["plantas", "limites"]}).encode("utf-8"))
+            return SimpleNamespace(returncode=0)
+
+        with patch.object(worker.subprocess, "run", side_effect=discover_two) as called:
+            choices = worker.run_isolated_converter(source, output)
+            assert choices == worker.GISLayersPendingSelection(("plantas", "limites"))
+            assert called.call_count == 1
+            assert not (output / ".gis-layer-options.json").exists()
+
+        # La respuesta malformada o con múltiples nombres iguales es rechazada.
+        for invalid in ({"layers": ["duplicada", "duplicada"]},
+                        {"layers": ["a\\nsecreta", "otra"]},
+                        {"not_layers": ["a", "b"]}):
+            def discover_invalid(argv, **kwargs):
+                kwargs["stdout"].write(json.dumps(invalid).encode("utf-8"))
+                return SimpleNamespace(returncode=0)
+            with patch.object(worker.subprocess, "run", side_effect=discover_invalid):
+                try:
+                    worker.run_isolated_converter(source, output)
+                except RuntimeError:
+                    pass
+                else:
+                    raise AssertionError("Se admitieron opciones multicapa inválidas")
 
         # Un parser con error no publica ni entrega metadatos del proveedor.
         with patch.object(worker.subprocess, "run", return_value=SimpleNamespace(returncode=2)):
