@@ -22,7 +22,8 @@ export type GISImportReceipt = {
   source_format: "gpkg" | "shp_zip";
   layer_kind: VectorLayerKind;
   size_bytes: number;
-  status: "received" | "processing" | "prepared" | "published" | "failed";
+  status: "received" | "processing" | "needs_selection" | "prepared" | "published" | "failed";
+  available_layers: string[] | null;
   published_layer_id: string | null;
   created_at: string;
 };
