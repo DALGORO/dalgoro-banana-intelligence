@@ -165,7 +165,7 @@ def tests():
             else:
                 raise AssertionError("Capa inventada admitida")
             assert called.call_count == 1
-        for wrong in ("limites\\nsecretos", "", "x" * 101):
+        for wrong in ("limites" + chr(10) + "secretos", "", "x" * 101):
             with patch.object(worker.subprocess, "run") as called:
                 try:
                     worker.run_isolated_converter(source, selected_output, layer=wrong)
