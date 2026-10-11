@@ -48,7 +48,7 @@ class Session:
         row = self.state.row
         if row.tenant_ref not in sql:
             found = None
-        elif "SKIP LOCKED" in sql and row.status not in {"received", "processing"}:
+        elif "attempt_count <" in sql and row.status not in {"received", "processing"}:
             found = None
         else:
             found = row
