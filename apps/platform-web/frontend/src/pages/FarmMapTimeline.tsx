@@ -786,16 +786,38 @@ export default function FarmMapTimeline() {
               {uploadNotice && <p role="status" className="muted text-xs">{uploadNotice}</p>}
               {gisImports.length > 0 && (
                 <div className="space-y-2" aria-label="Archivos GIS recibidos">
-                  <p className="text-xs font-medium">Originales privados recibidos (sin publicar)</p>
+                  <p className="text-xs font-medium">Archivos GIS y estado de revisión</p>
                   {gisImports.slice(0, 8).map(item => (
-                    <div key={item.id} className="rounded-lg border border-slate-300/40 p-2 text-xs">
+                    <div key={item.id} className="space-y-2 rounded-lg border border-slate-300/40 p-2 text-xs">
                       <span className="block font-medium">{item.original_filename}</span>
-                      <span className="muted">
+                      <span className="muted block">
                         {item.status === "received" ? "Recibido · pendiente de conversión"
                           : item.status === "processing" ? "En conversión"
-                          : item.status === "prepared" ? "Convertido · pendiente de revisión"
+                          : item.status === "prepared" ? "Convertido · pendiente de aprobación"
+                          : item.status === "published" ? "Revisado · publicado en el lote"
                           : "Conversión fallida"}
                       </span>
+                      {item.status === "prepared" && (
+                        <button type="button" className="text-xs font-medium underline"
+                          disabled={gisReviewBusy}
+                          onClick={() => void inspectGISImport(item)}>
+                          Revisar vista previa en el mapa
+                        </button>
+                      )}
+                      {item.status === "prepared" && reviewedImportId === item.id
+                        && gisPreviewVector && (
+                          <div className="space-y-2 border-t border-slate-300/40 pt-2">
+                            <p className="muted">
+                              Vista previa privada: {gisPreviewVector.layer.feature_count} elementos.
+                              Confirma geometrías, atributos y fecha del levantamiento.
+                            </p>
+                            <button type="button" className="btn-primary w-full"
+                              disabled={gisReviewBusy || !activeCampaignIds.has(item.campaign_id)}
+                              onClick={() => void approveGISImport(item)}>
+                              {gisReviewBusy ? "Publicando…" : "Aprobar y publicar esta capa"}
+                            </button>
+                          </div>
+                        )}
                     </div>
                   ))}
                 </div>
