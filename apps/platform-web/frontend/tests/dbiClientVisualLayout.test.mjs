@@ -2,6 +2,7 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import { coverageLabel, INDEX_EXPLANATIONS } from "../src/features/producerEvidenceReadout.ts";
+import { isObservationUUID, inspectionVersionMatchesScope, observedNumberLabel } from "../src/features/inspectionEvidenceRead.ts";
 
 const file = (relative) => readFileSync(new URL(relative, import.meta.url), "utf8");
 const shell = file("../src/components/AppShell.tsx");
@@ -9,6 +10,7 @@ const map = file("../src/pages/FarmMapTimeline.tsx");
 const multi = file("../src/components/MultispectralEvidencePanel.tsx");
 const styles = file("../src/components/dbi-client-view.css");
 const tracking = file("../src/components/FarmTrackingPanel.tsx");
+const inspect = file("../src/components/InspectionObservationLookup.tsx");
 
 test("approved DBI client visual shell reuses the existing DALGORO PNG brand", () => {
   assert.match(shell, /src="\/logo-white\.png"/);
@@ -118,7 +120,7 @@ test("tracking is an accessible tab INSIDE map viewer and MULTI remains mounted"
 });
 
 test("tracking only describes authorized visible entries and GIS, not diagnoses", () => {
-  assert.match(tracking, /import type \{ MapTimelineEntry \}/);
+  assert.match(tracking, /import type \{ MapTimelineEntry, PlotMapTimelineLocator \}/);
   assert.match(tracking, /import type \{ VectorLayerInfo \}/);
   assert.match(tracking, /visibleMapEntries: readonly MapTimelineEntry\[\]/);
   assert.match(tracking, /associatedGISLayers: readonly VectorLayerInfo\[\]/);
@@ -131,4 +133,70 @@ test("tracking only describes authorized visible entries and GIS, not diagnoses"
   assert.match(tracking, /role="status"/);
   assert.match(tracking, /role="alert"/);
   assert.doesNotMatch(tracking, /api\.get\(|fetch\(|localStorage|setInterval/);
+});
+
+test("INSPECT query is explicit, READ scoped, and does not invent list endpoints", () => {
+  assert.match(map, /locator=\{realLocator\}/);
+  assert.match(tracking, /<InspectionObservationLookup/);
+  assert.match(tracking, /key=\{JSON\.stringify\(\[locator\.tenantRef, locator\.organizationRef, locator\.farmId, locator\.plotId\]\)\}/);
+  assert.match(inspect, /onSubmit=\{event => \{/);
+  assert.match(inspect, /isObservationUUID\(observationId\)/);
+  assert.match(inspect, /api\.get<INSPECTReadVersion>/);
+  assert.match(inspect, /headers: \{ "X-DBI-Tenant": locator\.tenantRef \}/);
+  assert.match(inspect, /inspectionVersionMatchesScope\(data, locator, observationId\)/);
+  assert.match(inspect, /requestSequence\.current/);
+  assert.match(inspect, /No existe una observación consultable con ese ID/);
+  assert.match(inspect, /no se atribuye a la Campaign del mapa/);
+  assert.doesNotMatch(inspect, /api\.post|localStorage|IndexedDB|setInterval/);
+});
+
+test("INSPECT cross-tenant, cross-plot, or wrong ID is rejected before showing observation", () => {
+  const id = "12345678-1234-1234-1234-1234567890ab";
+  const versionId = "12345678-1234-1234-1234-1234567890ac";
+  const locator = {
+    tenantRef: "tenant-alpha",
+    organizationRef: "org-a",
+    farmId: "11111111-1111-1111-1111-111111111111",
+    plotId: "22222222-2222-2222-2222-222222222222",
+  };
+  const observed = { state: "observed", value: 3, reason: null };
+  const record = {
+    schema_version: "dbi-field-observation.v1",
+    observation_id: id,
+    version_id: versionId,
+    version: 1,
+    created_at: "2026-09-01T08:00:00Z",
+    payload: {
+      tenant_ref: locator.tenantRef,
+      organization_ref: locator.organizationRef,
+      farm_id: locator.farmId,
+      plot_id: locator.plotId,
+      observed_at: "2026-09-01T07:00:00Z",
+      evidence_kind: "observed",
+      sampling_point_id: null,
+      up_id: null,
+      gps_fix: null,
+      core: { foure: observed, yls: observed, functional_leaves: observed },
+    },
+  };
+  assert.equal(isObservationUUID(id), true);
+  assert.equal(isObservationUUID("bad-or-leaked-url"), false);
+  assert.equal(inspectionVersionMatchesScope(record, locator, id), true);
+  assert.equal(inspectionVersionMatchesScope(record, locator, versionId), false);
+  assert.equal(inspectionVersionMatchesScope({ ...record, observation_id: versionId }, locator, id), false);
+  assert.equal(inspectionVersionMatchesScope({ ...record, payload: { ...record.payload, tenant_ref: "tenant-beta" } }, locator, id), false);
+  assert.equal(inspectionVersionMatchesScope({ ...record, payload: { ...record.payload, organization_ref: "org-b" } }, locator, id), false);
+  assert.equal(inspectionVersionMatchesScope({ ...record, payload: { ...record.payload, farm_id: "33333333-3333-3333-3333-333333333333" } }, locator, id), false);
+  assert.equal(inspectionVersionMatchesScope({ ...record, payload: { ...record.payload, plot_id: "44444444-4444-4444-4444-444444444444" } }, locator, id), false);
+  assert.equal(inspectionVersionMatchesScope({ ...record, payload: { ...record.payload, evidence_kind: "derived" } }, locator, id), false);
+  assert.equal(inspectionVersionMatchesScope({ ...record, version: 0 }, locator, id), false);
+  assert.equal(inspectionVersionMatchesScope({ ...record, payload: { ...record.payload, core: null } }, locator, id), false);
+});
+
+test("INSPECT missing data remain missing rather than healthy or diseased", () => {
+  assert.equal(observedNumberLabel({ state: "observed", value: 0, reason: null }), "0");
+  assert.equal(observedNumberLabel({ state: "observed", value: 5, reason: null }), "5");
+  assert.equal(observedNumberLabel({ state: "not_measured", value: null, reason: "not_visited" }), "No medido");
+  assert.equal(observedNumberLabel({ state: "not_applicable", value: null, reason: "no_bunch" }), "No aplicable");
+  assert.equal(observedNumberLabel({ state: "observed", value: Number.NaN, reason: null }), "Dato no disponible");
 });
