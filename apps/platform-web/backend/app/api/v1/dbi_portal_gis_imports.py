@@ -21,7 +21,7 @@ from app.api.v1.dbi_assets import get_dbi_asset_object_store
 from app.api.v1.dbi_portal_vectors import _campaign, _require_scope, LayerKind
 from app.dbi.authorization import DBIAccessContext
 from app.dbi.dependencies import get_dbi_access_context, get_dbi_session
-from app.dbi.models.portal_gis_imports import DBIPortalGISImport
+from app.dbi.models.portal_gis_imports import DBIPortalGISImport, DBIPortalGISPreview
 from app.dbi.portal_gis_staging import (
     MAX_GIS_UPLOAD_BYTES, PortalGISSourceInvalid,
     normalize_upload_filename, validate_staged_source,
@@ -175,3 +175,42 @@ async def receive_gis_import(
             pass  # Seguirá siendo un objeto privado no enumerable.
         raise HTTPException(status_code=503, detail="No se pudo registrar la recepción GIS.")
     return _response(row)
+
+
+class PortalGISPreviewDetail(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    receipt: PortalGISImportInfo
+    feature_count: int
+    geojson: dict
+
+
+@router.get(
+    "/organizations/{organization_ref}/farms/{farm_id}/plots/{plot_id}/map/gis-imports/{import_id}/preview",
+    response_model=PortalGISPreviewDetail,
+)
+def get_gis_import_preview(
+    organization_ref: str, farm_id: UUID, plot_id: UUID, import_id: UUID,
+    session: SessionDep, context: AccessDep,
+) -> PortalGISPreviewDetail:
+    # La vista previa no equivale a una capa pública ni confiere permiso READ.
+    _require_scope(context, organization_ref, farm_id, plot_id, publish=True)
+    row = session.execute(
+        select(DBIPortalGISImport).where(
+            DBIPortalGISImport.id == import_id,
+            DBIPortalGISImport.tenant_ref == context.tenant_ref,
+            DBIPortalGISImport.organization_ref == organization_ref,
+            DBIPortalGISImport.farm_id == farm_id,
+            DBIPortalGISImport.plot_id == plot_id,
+        )
+    ).scalar_one_or_none()
+    if row is None or row.status != "prepared":
+        raise HTTPException(status_code=404, detail="Vista previa GIS no disponible.")
+    preview = session.get(DBIPortalGISPreview, row.id)
+    if preview is None:
+        raise HTTPException(status_code=404, detail="Vista previa GIS no disponible.")
+    import json
+    return PortalGISPreviewDetail(
+        receipt=_response(row),
+        feature_count=preview.feature_count,
+        geojson=json.loads(preview.geojson_text),
+    )
