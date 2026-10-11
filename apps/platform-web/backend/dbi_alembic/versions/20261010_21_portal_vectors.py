@@ -29,6 +29,7 @@ def upgrade() -> None:
         sa.Column("crs", sa.String(length=16), nullable=False),
         sa.Column("source_sha256", sa.String(length=64), nullable=False),
         sa.Column("geojson_text", sa.Text(), nullable=False),
+        sa.Column("source_bytes", sa.LargeBinary(), nullable=False),
         sa.Column("feature_count", sa.Integer(), nullable=False),
         sa.Column("created_by_ref", sa.String(length=128), nullable=False),
         sa.Column("created_at", sa.DateTime(timezone=True), nullable=False),
@@ -46,6 +47,7 @@ def upgrade() -> None:
         ),
         sa.CheckConstraint("feature_count > 0 AND feature_count <= 2500", name="ck_dbi_portal_vector_features"),
         sa.CheckConstraint("octet_length(geojson_text) BETWEEN 20 AND 2097152", name="ck_dbi_portal_vector_size"),
+        sa.CheckConstraint("octet_length(source_bytes) BETWEEN 20 AND 2097152", name="ck_dbi_portal_vector_source_size"),
         sa.CheckConstraint("source_sha256 ~ '^[0-9a-f]{64}$'", name="ck_dbi_portal_vector_sha"),
     )
     op.create_index(
