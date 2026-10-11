@@ -222,3 +222,26 @@ class DBIMultispectralExtractionRepository:
                 DBIMultispectralExtractionRecord.plot_id == plot_id,
             )
         ).scalar_one_or_none()
+
+    def list_scoped(
+        self,
+        *,
+        tenant_ref: str,
+        organization_ref: str,
+        farm_id: UUID,
+        plot_id: UUID,
+    ) -> list[DBIMultispectralExtractionRecord]:
+        """Últimas 20 derivaciones del lote; sin filtrado en memoria ni alcance implícito."""
+        return list(
+            self._session.execute(
+                select(DBIMultispectralExtractionRecord).where(
+                    DBIMultispectralExtractionRecord.tenant_ref == tenant_ref,
+                    DBIMultispectralExtractionRecord.organization_ref == organization_ref,
+                    DBIMultispectralExtractionRecord.farm_id == farm_id,
+                    DBIMultispectralExtractionRecord.plot_id == plot_id,
+                ).order_by(
+                    DBIMultispectralExtractionRecord.created_at.desc(),
+                    DBIMultispectralExtractionRecord.id.desc(),
+                ).limit(20)
+            ).scalars().all()
+        )

@@ -10,6 +10,7 @@ import {
 } from "maplibre-gl";
 import "maplibre-gl/dist/maplibre-gl.css";
 import { GoogleSatelliteViewer } from "@/components/GoogleSatelliteViewer";
+import { MultispectralEvidencePanel } from "@/components/MultispectralEvidencePanel";
 import { api } from "@/app/api";
 import {
   getVectorLayer, listVectorLayers, listVectorCampaigns, listGISImports, getGISImportPreview, publishReviewedGISImport, publishGeoJSON, stageGISOriginal, selectGISImportLayer, vectorExtent,
@@ -1022,6 +1023,7 @@ export default function FarmMapTimeline() {
           </div>
         </section>
       </div>
+      {realLocator && <MultispectralEvidencePanel key={gisScopeKey} locator={realLocator} />}
     </div>
   );
 }
