@@ -161,9 +161,11 @@ def validate_migration_graph_and_sql() -> None:
     ):
         assert required in compact_sql
     # Los metadatos GIS pueden usar JSONB; la auditoría administrativa NO.
-    audit_ddl = sql.split("create table dbi.dbi_admin_audit_events", 1)
-    assert len(audit_ddl) == 2
-    assert "jsonb" not in audit_ddl[1].split(");", 1)[0]
+    markers = ("create table dbi_admin_audit_events", "create table dbi.dbi_admin_audit_events")
+    audit_marker = next((marker for marker in markers if marker in sql), None)
+    assert audit_marker is not None
+    audit_ddl = sql.split(audit_marker, 1)[1].split(");", 1)[0]
+    assert "jsonb" not in audit_ddl
     for forbidden in (
         "admin_audit_logs",
         "users",
