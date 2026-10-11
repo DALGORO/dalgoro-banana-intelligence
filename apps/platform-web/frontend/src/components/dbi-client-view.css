@@ -7,6 +7,54 @@
   background: #f3f5f3;
 }
 
+/* Fecha real y accesos para móvil: ocultos a teclado y lectura en escritorio. */
+.dbi-mobile-toolbar {
+  display: none;
+}
+
+.dbi-map-stage,
+.dbi-multi-panel {
+  scroll-margin-top: 16px;
+}
+
+.dbi-mobile-shortcuts {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.dbi-mobile-shortcuts a {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 42px;
+  padding: 9px 12px;
+  border: 1px solid #b8c8c2;
+  border-radius: 11px;
+  color: #17343a;
+  background: #f4f8f6;
+  font-size: 12px;
+  font-weight: 600;
+  text-decoration: none;
+}
+
+.dbi-mobile-shortcuts a:hover {
+  border-color: #b57548;
+  background: #fff6ed;
+}
+
+.dbi-mobile-shortcuts a:focus-visible,
+.dbi-mobile-toolbar select:focus-visible {
+  outline: 3px solid #b57548;
+  outline-offset: 2px;
+}
+
+.dark .dbi-mobile-shortcuts a {
+  color: #e9f4ee;
+  background: #21393f;
+  border-color: #6b8982;
+}
+
 @media (min-width: 768px) {
   .dbi-client-shell {
     grid-template-columns: 244px minmax(0, 1fr);
@@ -296,6 +344,31 @@
 }
 
 @media (max-width: 767px) {
+  .dbi-mobile-toolbar {
+    display: grid;
+    width: 100%;
+    gap: 9px;
+    padding: 13px;
+    border: 1px solid #dce6df;
+    border-radius: 14px;
+    background: #f8faf8;
+  }
+
+  .dark .dbi-mobile-toolbar {
+    background: rgba(255, 255, 255, 0.06);
+    border-color: rgba(255, 255, 255, 0.16);
+  }
+
+  .dbi-mobile-toolbar p {
+    margin: 0;
+  }
+
+  .dbi-mobile-toolbar select {
+    min-width: 0;
+    width: 100%;
+    min-height: 44px;
+  }
+
   .dbi-client-shell .app-sidebar {
     position: static;
     padding: 12px;
