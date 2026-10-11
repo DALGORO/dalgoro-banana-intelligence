@@ -101,6 +101,9 @@ def review_packet(
     now: datetime | None = None,
 ) -> dict:
     """Solo coherencia de formato/huella; jamás autentica evidencia externa."""
+    if type(packet) is not dict or set(packet) != PACKET_FIELDS:
+        raise PacketInvalid("packet_schema_invalid")
+
     def equals(name: str, required: str):
         if type(packet[name]) is not str or packet[name] != required:
             raise PacketInvalid("packet_scope_invalid")
