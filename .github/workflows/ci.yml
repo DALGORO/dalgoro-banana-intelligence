@@ -274,6 +274,11 @@ jobs:
           PYTHONPATH: .
         run: python ../../../.github/scripts/ci_backend_smoke.py
 
+      - name: Validar conversión GIS portal (SHP ZIP y GeoPackage)
+        env:
+          PYTHONPATH: src
+        run: python ../../.github/scripts/ci_portal_gis_vector_conversion.py
+
       - name: Auditar dependencias instaladas
         continue-on-error: true
         run: |
