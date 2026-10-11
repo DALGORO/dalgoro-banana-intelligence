@@ -10,7 +10,7 @@ from datetime import datetime, timezone
 from uuid import UUID, uuid4
 
 from sqlalchemy import (
-    CheckConstraint, DateTime, ForeignKey, ForeignKeyConstraint, Index,
+    CheckConstraint, DateTime, ForeignKeyConstraint, Index,
     String, UniqueConstraint, Uuid,
 )
 from sqlalchemy.orm import Mapped, mapped_column
@@ -91,6 +91,10 @@ class DBIInspectionApprovalEventRecord(DBIBase):
 
     __tablename__ = "dbi_inspect_approval_events"
     __table_args__ = (
+        ForeignKeyConstraint(
+            ["link_id"], ["dbi_inspect_campaign_links.id"],
+            name="fk_dbi_inspect_approval_events_link", ondelete="RESTRICT",
+        ),
         UniqueConstraint(
             "link_id", "event_kind", name="uq_dbi_inspect_approval_event_step",
         ),
@@ -108,11 +112,7 @@ class DBIInspectionApprovalEventRecord(DBIBase):
     )
 
     id: Mapped[UUID] = mapped_column(Uuid, primary_key=True, default=uuid4)
-    link_id: Mapped[UUID] = mapped_column(
-        Uuid,
-        ForeignKey("dbi_inspect_campaign_links.id", ondelete="RESTRICT"),
-        nullable=False,
-    )
+    link_id: Mapped[UUID] = mapped_column(Uuid, nullable=False)
     event_kind: Mapped[str] = mapped_column(String(32), nullable=False)
     actor_ref: Mapped[str] = mapped_column(String(128), nullable=False)
     decided_at: Mapped[datetime] = mapped_column(
