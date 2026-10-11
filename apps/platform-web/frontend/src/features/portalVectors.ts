@@ -14,6 +14,18 @@ export type GeoJSONFeatureCollection = {
   }>;
 };
 
+export type GISImportReceipt = {
+  id: string;
+  campaign_id: string;
+  name: string;
+  original_filename: string;
+  source_format: "gpkg" | "shp_zip";
+  layer_kind: VectorLayerKind;
+  size_bytes: number;
+  status: "received" | "processing" | "prepared" | "failed";
+  created_at: string;
+};
+
 export type VectorCampaign = {
   id: string;
   name: string;
@@ -88,6 +100,34 @@ export async function publishGeoJSON(
         ...headers(locator.tenantRef),
         "Content-Type": "application/geo+json",
       },
+    },
+  );
+  return data;
+}
+
+function importsUrl(locator: PlotMapTimelineLocator) {
+  return url(locator).replace(/\/vector-layers$/, "/gis-imports");
+}
+
+export async function listGISImports(locator: PlotMapTimelineLocator) {
+  const { data } = await api.get<GISImportReceipt[]>(importsUrl(locator), {
+    headers: headers(locator.tenantRef),
+  });
+  return data;
+}
+
+export async function stageGISOriginal(
+  locator: PlotMapTimelineLocator,
+  file: File, campaignId: string,
+  kind: VectorLayerKind, name: string,
+) {
+  const query = new URLSearchParams({
+    filename: file.name, campaign_id: campaignId, layer_kind: kind, name,
+  });
+  const { data } = await api.post<GISImportReceipt>(
+    `${importsUrl(locator)}?${query.toString()}`, file,
+    {
+      headers: { ...headers(locator.tenantRef), "Content-Type": "application/octet-stream" },
     },
   );
   return data;
