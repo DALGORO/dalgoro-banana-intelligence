@@ -36,7 +36,7 @@ asumir que todos los proveedores compatibles funcionan idénticamente.
 1. **No activar en producción aún**. Preparar un bucket privado específico y
    política IAM de mínimo privilegio, sin ACL pública ni publicación web.
 2. Probar desde una instancia staging con PostGIS DBI migrado hasta
-   `dbi_0024_gis_approval`, usando un tenant y finca de prueba. Comprobar
+   `dbi_0026_gpkg_layer_choice`, usando un tenant y finca de prueba. Comprobar
    GET/PUT, tags, `head_object`, checksum SHA-256, rangos y `retire` con
    objetos sintéticos; validar los grants temporales para el navegador.
 3. Configurar el mismo endpoint/bucket lógico con credenciales **diferentes
@@ -78,3 +78,10 @@ que existe un worker de producción.
   de objetos privados, con renderer local preservado.
 - `.github/scripts/ci_dbi_s3_bootstrap.py`: seguridad, compatibilidad
   legacy/offline y cierre correcto del runtime.
+
+
+> **Nota operativa (microhito E1):** la referencia de revisión DBI 26 es
+> requisito del **código**, no comprobación de una base staging real.
+> El controlador de migraciones conectado actual **bloquea staging**;
+> no se autoriza aplicar Alembic directamente. Ver
+> [gate offline y bloqueos](59_DBI_GIS_STAGING_OFFLINE_READINESS.md).
