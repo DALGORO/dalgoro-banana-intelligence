@@ -252,7 +252,8 @@ def rehearse():
             _stage("cleanup_archive")
         for name in (archive, corrupt):
             try:
-                _docker("exec", "--user", "postgres", cid, "rm", "-f", name)
+                # docker cp crea el archivo corrupto como root en /tmp sticky.
+                _docker("exec", "--user", "root", cid, "rm", "-f", name)
             except Exception:
                 cleanup_failed = True
     if cleanup_failed or answer is None:
