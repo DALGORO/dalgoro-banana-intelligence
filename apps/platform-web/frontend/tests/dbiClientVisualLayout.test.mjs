@@ -49,6 +49,7 @@ test("mobile quick date and side date share Campaign reset, not an inferred flig
   assert.match(map, /dates\.map\(date => \(/);
   assert.match(map, /aria-label="Accesos rápidos del visor"/);
   assert.match(map, /href="#dbi-map-view"/);
+  assert.match(map, /href="#dbi-tab-tracking" onClick=\{\(\) => setInfoTab\("tracking"\)\}/);
   assert.match(map, /realLocator && <a href="#dbi-multi-evidence"/);
   assert.match(map, /id="dbi-map-view"/);
   assert.match(multi, /id="dbi-multi-evidence"/);
