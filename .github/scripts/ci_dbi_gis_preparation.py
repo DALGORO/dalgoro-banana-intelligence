@@ -18,7 +18,7 @@ sys.path.insert(0, str(ROOT / "apps" / "platform-web" / "backend"))
 from app.api.v1.dbi_portal_gis_imports import get_gis_import_preview  # noqa: E402
 from app.dbi.authorization import DBIAccessContext, DBIFarmScope, DBIPlotScope, DBIPermission  # noqa: E402
 from app.dbi.models.portal_gis_imports import DBIPortalGISImport, DBIPortalGISPreview  # noqa: E402
-from app.dbi.portal_gis_worker_service import DBIPortalGISPreparationWorker  # noqa: E402
+from app.dbi.portal_gis_worker_service import DBIPortalGISPreparationWorker, GISLayersPendingSelection  # noqa: E402
 from app.dbi.storage_contracts import DBIStoragePurpose, DBIStorageWriteRequest  # noqa: E402
 from app.dbi.storage_memory import DBIInMemoryObjectStore  # noqa: E402
 from app.dbi.storage_policy import DBIStoragePolicy  # noqa: E402
@@ -159,6 +159,42 @@ def run():
             assert exc.status_code == 404
         else:
             raise AssertionError("Vista previa de otro lote disponible")
+
+        # Descubrimiento después de validar S3/SHA; sin preview y sin reclamos repetidos.
+        multi = make_receipt(payload)
+        multi_state = State(multi)
+        def discovery(source: Path, output_dir: Path):
+            assert sha256(source.read_bytes()).hexdigest() == multi.sha256
+            return GISLayersPendingSelection(("plantas", "limites"))
+        multi_worker = DBIPortalGISPreparationWorker(
+            lambda: Session(multi_state), store, discovery, workspace_root=Path(root),
+        )
+        assert multi_worker.process_one(tenant_ref="otro-tenant") is None
+        assert multi_worker.process_one(tenant_ref=multi.tenant_ref) == "needs_selection"
+        assert multi.status == "needs_selection"
+        assert multi.available_layers == ["plantas", "limites"]
+        assert multi.attempt_count == 1 and multi.processing_ref is None
+        assert multi_state.preview is None
+        assert multi_worker.process_one(tenant_ref=multi.tenant_ref) is None
+        assert list(Path(root).iterdir()) == []
+        try:
+            get_gis_import_preview("org-gis", multi.farm_id, multi.plot_id, multi.id,
+                                   Session(multi_state), manager(multi))
+        except HTTPException as exc:
+            assert exc.status_code == 404
+        else:
+            raise AssertionError("Importación sin selección no debe tener preview")
+
+        # Se rechazan opciones inválidas sin almacenarlas ni publicarlas.
+        invalid = make_receipt(payload)
+        invalid_state = State(invalid)
+        invalid_worker = DBIPortalGISPreparationWorker(
+            lambda: Session(invalid_state), store,
+            lambda source, dest: GISLayersPendingSelection(("same", "same")),
+            workspace_root=Path(root),
+        )
+        assert invalid_worker.process_one(tenant_ref=invalid.tenant_ref) == "failed"
+        assert invalid.available_layers is None and invalid_state.preview is None
 
         broken = make_receipt(payload)
         broken_state = State(broken)
