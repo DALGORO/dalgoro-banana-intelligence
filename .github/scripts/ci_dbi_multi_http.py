@@ -75,6 +75,13 @@ class Repo:
             "extraction_id": "id"
         }.get(key, key)) == value for key, value in kwargs.items()) else None
 
+    def list_scoped(self, **kwargs):
+        self.queries.append(kwargs)
+        if self.row is None:
+            return []
+        return [self.row] if all(getattr(self.row, key) == value
+                                 for key, value in kwargs.items()) else []
+
 
 def denied(status_code, operation):
     try:
@@ -98,7 +105,19 @@ def main():
             session, context() if ctx is None else ctx,
         )
 
+    def listing(*, org=ORG, farm=FARM, plot=PLOT, ctx=None):
+        return dbi_multispectral.list_multispectral_extractions(
+            org, farm, plot, session, context() if ctx is None else ctx,
+        )
+
     with patch.object(dbi_multispectral, "DBIMultispectralExtractionRepository", return_value=repo):
+        listed = listing()
+        assert len(listed) == 1 and listed[0].payload == candidate
+        assert repo.queries == [{
+            "tenant_ref": TENANT, "organization_ref": ORG,
+            "farm_id": FARM, "plot_id": PLOT,
+        }]
+        assert "object_key" not in listed[0].model_dump_json()
         data = call()
         assert data.extraction_id == row.id
         assert data.payload == candidate
@@ -106,7 +125,7 @@ def main():
         assert data.payload.support_mode == "window"
         assert len(data.payload.summaries) == 10
         assert data.created_at == row.created_at
-        assert repo.queries == [{
+        assert repo.queries[-1:] == [{
             "extraction_id": row.id,
             "tenant_ref": TENANT,
             "organization_ref": ORG,
@@ -117,6 +136,13 @@ def main():
         assert "S3_SECRET" not in data.model_dump_json()
         assert call() == data
 
+        denied(404, lambda: listing(ctx=context(read=False)))
+        denied(404, lambda: listing(org="organization-foreign"))
+        denied(404, lambda: listing(plot=uuid4()))
+        denied(404, lambda: listing(farm=uuid4()))
+        denied(404, lambda: listing(ctx=context(tenant="tenant-crossed")))
+        denied(404, lambda: listing(ctx=context(organization="org-crossed")))
+        assert listing() == [data]
         denied(404, lambda: call(ctx=context(read=False)))
         denied(404, lambda: call(org="organization-foreign"))
         denied(404, lambda: call(plot=uuid4()))
@@ -125,6 +151,7 @@ def main():
         denied(404, lambda: call(ctx=context(organization="org-crossed")))
         denied(404, lambda: call(extraction=uuid4()))
         repo.row = None
+        assert listing() == []
         denied(404, lambda: call())
         repo.row = row
 
@@ -153,11 +180,18 @@ def main():
                 "tenant_ref", "organization_ref", "farm_id", "plot_id"
             } else 409
             denied(expected, lambda: call())
+            # Lectura de lista también falla cerrado si la fila retornada
+            # contiene payload o scope adulterados (no se filtra después).
+            if expected == 409:
+                denied(409, lambda: listing())
+            else:
+                assert listing() == []
             setattr(row, attr, original)
 
         original = row.payload_json
         row.payload_json = '{"schema_version":"untrusted"}'
         denied(409, lambda: call())
+        denied(409, lambda: listing())
         row.payload_json = original
 
     routes = [
@@ -169,8 +203,16 @@ def main():
     assert len(routes) == 1
     assert routes[0].methods == {"GET"}
     assert routes[0].response_model is dbi_multispectral.DBIMultispectralExtractionRead
+    listing_routes = [
+        route for route in get_api_router().routes
+        if getattr(route, "path", "").endswith(
+            "/plots/{plot_id}/multispectral-extractions"
+        )
+    ]
+    assert len(listing_routes) == 1
+    assert listing_routes[0].methods == {"GET"}
     session.close()
-    print("Hito 11 MULTI READ: scope, provenance, sin privados ni escritura OK.")
+    print("Hito 11 MULTI READ: detalle y lista scoped, provenance, sin escritura OK.")
 
 
 if __name__ == "__main__":
