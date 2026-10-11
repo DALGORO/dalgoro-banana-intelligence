@@ -11,7 +11,7 @@ import {
 import "maplibre-gl/dist/maplibre-gl.css";
 import { GoogleSatelliteViewer } from "@/components/GoogleSatelliteViewer";
 import { MultispectralEvidencePanel } from "@/components/MultispectralEvidencePanel";
-import { belongsToSelectedMapCampaign } from "@/features/mapCampaignSelection";
+import { belongsToSelectedMapCampaign, mapTimelineViewKey } from "@/features/mapCampaignSelection";
 import { api } from "@/app/api";
 import {
   getVectorLayer, listVectorLayers, listVectorCampaigns, listGISImports, getGISImportPreview, publishReviewedGISImport, publishGeoJSON, stageGISOriginal, selectGISImportLayer, vectorExtent,
@@ -72,7 +72,7 @@ function isRasterEntry(
   return "tile_url_template" in entry && entry.layer_type === "rgb";
 }
 
-export default function FarmMapTimeline() {
+function FarmMapTimelineView() {
   const {
     fincaId,
     organizationRef,
@@ -1065,4 +1065,27 @@ export default function FarmMapTimeline() {
       )}
     </div>
   );
+}
+
+/**
+ * El router puede reutilizar el mismo componente al cambiar de lote.
+ * Key por ámbito fuerza desmontaje antes de que antiguos datos asíncronos
+ * o capas/controles administrativos puedan renderizarse en otro ámbito.
+ */
+export default function FarmMapTimeline() {
+  const { fincaId, organizationRef, farmId, plotId } = useParams<{
+    fincaId?: string;
+    organizationRef?: string;
+    farmId?: string;
+    plotId?: string;
+  }>();
+  const [searchParams] = useSearchParams();
+  const key = mapTimelineViewKey({
+    tenantRef: searchParams.get("tenant")?.trim() ?? "",
+    organizationRef,
+    farmId,
+    plotId,
+    fincaId,
+  });
+  return <FarmMapTimelineView key={key} />;
 }
