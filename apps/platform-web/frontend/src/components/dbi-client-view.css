@@ -315,7 +315,7 @@
   }
   .dbi-map-controls { grid-column: 1; }
   .dbi-map-stage { grid-column: 2; }
-  .dbi-multi-panel { grid-column: 1 / -1; }
+  .dbi-info-tabs { grid-column: 1 / -1; }
 }
 
 @media (min-width: 1560px) {
@@ -329,10 +329,10 @@
 
   .dbi-client-shell .dbi-map-controls { grid-column: 1; }
   .dbi-client-shell .dbi-map-stage { grid-column: 2; }
-  .dbi-client-shell .dbi-multi-panel { grid-column: 3; }
+  .dbi-client-shell .dbi-info-tabs { grid-column: 3; }
 
-  .dbi-client-shell .dbi-multi-panel {
-    padding: 16px;
+  .dbi-client-shell .dbi-info-tabs .dbi-multi-panel {
+    padding: 0;
   }
 }
 
@@ -485,6 +485,147 @@
 
 @media (max-width: 390px) {
   .dbi-producer-facts {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
+/* Pestañas de consulta dentro del visor; el mapa nunca se desmonta. */
+.dbi-info-tabs {
+  min-width: 0;
+  overflow: hidden;
+  border: 1px solid #e1e8e6;
+  border-radius: 20px;
+  background: #fff;
+  box-shadow: 0 5px 22px rgba(15, 35, 39, 0.045);
+}
+
+.dbi-info-tab-buttons {
+  display: flex;
+  align-items: stretch;
+  gap: 4px;
+  padding: 9px;
+  border-bottom: 1px solid #e1e8e6;
+  background: #f7faf8;
+}
+
+.dbi-info-tab-buttons button {
+  flex: 1 1 0;
+  min-width: 0;
+  min-height: 44px;
+  border-radius: 10px;
+  padding: 9px 7px;
+  color: #45615f;
+  font-size: 12px;
+  font-weight: 600;
+  overflow-wrap: anywhere;
+}
+
+.dbi-info-tab-buttons button[aria-selected="true"] {
+  color: #fff;
+  background: #17343a;
+}
+
+.dbi-info-tab-buttons button:focus-visible {
+  outline: 3px solid #b57548;
+  outline-offset: 2px;
+}
+
+.dbi-info-tab-panel {
+  min-width: 0;
+  padding: 14px;
+}
+
+.dbi-info-tab-panel[hidden] {
+  display: none !important;
+}
+
+.dbi-info-tabs .dbi-multi-panel {
+  border: 0;
+  border-radius: 0;
+  box-shadow: none;
+  padding: 0;
+  background: transparent;
+}
+
+.dbi-tracking-panel {
+  min-width: 0;
+}
+
+.dbi-tracking-facts {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 9px;
+}
+
+.dbi-tracking-facts > div {
+  min-width: 0;
+  border: 1px solid #e2e9e6;
+  border-radius: 12px;
+  background: #f8faf8;
+  padding: 10px;
+  overflow-wrap: anywhere;
+}
+
+.dbi-tracking-facts dt {
+  color: #596f70;
+  font-size: 11px;
+}
+
+.dbi-tracking-facts dd {
+  margin-top: 4px;
+  font-size: 12px;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+}
+
+.dbi-tracking-list {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.dbi-tracking-list li {
+  padding: 10px 0;
+  border-bottom: 1px solid #e1e8e6;
+}
+
+.dbi-tracking-next {
+  padding: 13px;
+  border-radius: 13px;
+  border: 1px solid #e9d6c8;
+  background: #fff7ee;
+}
+
+.dark .dbi-info-tabs {
+  background: #21393f;
+  border-color: rgba(255, 255, 255, 0.13);
+}
+
+.dark .dbi-info-tab-buttons,
+.dark .dbi-tracking-facts > div {
+  background: rgba(255, 255, 255, 0.04);
+  border-color: rgba(255, 255, 255, 0.12);
+}
+
+.dark .dbi-info-tab-buttons button {
+  color: #c9d8d5;
+}
+
+.dark .dbi-info-tab-buttons button[aria-selected="true"] {
+  color: #fff;
+}
+
+.dark .dbi-tracking-facts dt {
+  color: #c1d0cf;
+}
+
+.dark .dbi-tracking-next {
+  background: rgba(181, 123, 80, 0.08);
+  border-color: rgba(181, 123, 80, 0.35);
+}
+
+@media (max-width: 390px) {
+  .dbi-tracking-facts {
     grid-template-columns: minmax(0, 1fr);
   }
 }
