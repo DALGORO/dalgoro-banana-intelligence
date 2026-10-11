@@ -4,7 +4,7 @@ from __future__ import annotations
 from datetime import datetime, timezone
 from uuid import UUID, uuid4
 
-from sqlalchemy import CheckConstraint, DateTime, ForeignKey, ForeignKeyConstraint, Index, Integer, String, UniqueConstraint, Uuid
+from sqlalchemy import CheckConstraint, DateTime, ForeignKey, ForeignKeyConstraint, Index, Integer, String, Text, UniqueConstraint, Uuid
 from sqlalchemy.orm import Mapped, mapped_column
 from app.db.dbi_base import DBIBase
 
@@ -42,7 +42,31 @@ class DBIPortalGISImport(DBIBase):
     size_bytes: Mapped[int] = mapped_column(Integer, nullable=False)
     sha256: Mapped[str] = mapped_column(String(64), nullable=False)
     status: Mapped[str] = mapped_column(String(16), nullable=False, default="received")
+    processing_started_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    processing_ref: Mapped[UUID | None] = mapped_column(Uuid, nullable=True)
+    attempt_count: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
     created_by_ref: Mapped[str] = mapped_column(String(128), nullable=False)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), nullable=False,
+        default=lambda: datetime.now(timezone.utc),
+    )
+
+
+class DBIPortalGISPreview(DBIBase):
+    """Derivado de visualización validado pero privado hasta aprobación."""
+    __tablename__ = "dbi_portal_gis_previews"
+    __table_args__ = (
+        CheckConstraint("feature_count > 0 AND feature_count <= 2500", name="ck_dbi_portal_gis_preview_features"),
+        CheckConstraint("octet_length(geojson_text) BETWEEN 20 AND 2097152", name="ck_dbi_portal_gis_preview_size"),
+        CheckConstraint("sha256 ~ '^[0-9a-f]{64}$'", name="ck_dbi_portal_gis_preview_sha"),
+    )
+    import_id: Mapped[UUID] = mapped_column(
+        Uuid, ForeignKey("dbi_portal_gis_imports.id", ondelete="CASCADE"),
+        primary_key=True,
+    )
+    sha256: Mapped[str] = mapped_column(String(64), nullable=False)
+    feature_count: Mapped[int] = mapped_column(Integer, nullable=False)
+    geojson_text: Mapped[str] = mapped_column(Text, nullable=False)
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), nullable=False,
         default=lambda: datetime.now(timezone.utc),
