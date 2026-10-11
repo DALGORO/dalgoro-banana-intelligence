@@ -2,7 +2,7 @@ import test from "node:test";
 import assert from "node:assert/strict";
 
 import { verifiedMultispectralCampaigns, extractionForMapCampaign } from "../src/features/multispectralCampaignHistory.ts";
-import { belongsToSelectedMapCampaign } from "../src/features/mapCampaignSelection.ts";
+import { belongsToSelectedMapCampaign, mapTimelineViewKey } from "../src/features/mapCampaignSelection.ts";
 
 const scope = {
   tenantRef: "tenant-ci",
@@ -169,4 +169,26 @@ test("map/MULTI synchronization never substitutes data from another flight", () 
     [a, b], scope, "2026-09-20T09:00:00Z", null, "",
   );
   assert.equal(noMapProduct, null, "No se pueden presentar índices de una fecha anterior");
+});
+
+test("map viewport and MULTI get a new instance when agricultural scope changes", () => {
+  const base = {
+    tenantRef: scope.tenantRef,
+    organizationRef: scope.organizationRef,
+    farmId: scope.farmId,
+    plotId: scope.plotId,
+  };
+  const initial = mapTimelineViewKey(base);
+  assert.equal(mapTimelineViewKey({ ...base }), initial, "La misma ruta no remonta la vista");
+  for (const field of ["tenantRef", "organizationRef", "farmId", "plotId"]) {
+    assert.notEqual(mapTimelineViewKey({ ...base, [field]: "other" }), initial,
+      "Cambio de " + field + " debe desmontar todo el mapa, capas GIS y panel MULTI");
+  }
+  assert.notEqual(mapTimelineViewKey({ ...base, fincaId: "legacy-route" }), initial,
+    "No mezclar rutas de finca antiguas y rutas por lote");
+  assert.notEqual(
+    mapTimelineViewKey({ tenantRef: "", fincaId: "legacy-farm-1" }),
+    mapTimelineViewKey({ tenantRef: "", fincaId: "legacy-farm-2" }),
+    "La ruta legacy también aísla su mapa por finca",
+  );
 });

@@ -13,3 +13,24 @@ export function belongsToSelectedMapCampaign(
   );
   return dateMatches && (!exactCampaignId || campaignId === exactCampaignId);
 }
+
+/**
+ * Identidad completa de la vista: al cambiar tenant o ruta agrícola,
+ * React desmonta mapa, panel MULTI, cachés GIS y selecciones previas.
+ * Se usa el tenant normalizado de la URL; no genera ni concede permisos.
+ */
+export function mapTimelineViewKey(scope: {
+  tenantRef: string;
+  organizationRef?: string;
+  farmId?: string;
+  plotId?: string;
+  fincaId?: string;
+}): string {
+  return JSON.stringify([
+    scope.tenantRef,
+    scope.organizationRef ?? null,
+    scope.farmId ?? null,
+    scope.plotId ?? null,
+    scope.fincaId ?? null,
+  ]);
+}
