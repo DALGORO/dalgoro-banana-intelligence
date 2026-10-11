@@ -55,8 +55,8 @@ export function inspectionVersionMatchesScope(
     && value.payload?.evidence_kind === "observed"
     && value.payload.tenant_ref === locator.tenantRef
     && value.payload.organization_ref === locator.organizationRef
-    && value.payload.farm_id.toLowerCase() === locator.farmId.toLowerCase()
-    && value.payload.plot_id.toLowerCase() === locator.plotId.toLowerCase()
+    && value.payload.farm_id?.toLowerCase() === locator.farmId.toLowerCase()
+    && value.payload.plot_id?.toLowerCase() === locator.plotId.toLowerCase()
     && Boolean(value.payload.core?.foure)
     && Boolean(value.payload.core?.yls)
     && Boolean(value.payload.core?.functional_leaves)
