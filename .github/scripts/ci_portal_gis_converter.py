@@ -13,6 +13,8 @@ from shapely.geometry import Point
 
 ROOT = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(ROOT / "services" / "banana-density"))
+sys.path.insert(0, str(ROOT / "apps" / "platform-web" / "backend"))
+from app.dbi.portal_vector_validation import validate_portal_geojson  # noqa: E402
 from portal_gis_convert_cli import (  # noqa: E402
     PortalGISConversionError, convert_vector,
 )
@@ -34,6 +36,8 @@ def main() -> None:
                 "densidad": [1485],
                 "nombre": ["sector norte"],
                 "secret_token": ["NO_PUBLICAR"],
+                "source_path": ["s3://private/not-for-clients"],
+                "sha256_value": ["not-for-clients"],
             },
             geometry=[Point(-79.8, -3.3)],
             crs="EPSG:4326",
@@ -43,18 +47,24 @@ def main() -> None:
         original_sha = hashlib.sha256(gpkg.read_bytes()).hexdigest()
 
         output, metadata = convert_vector(gpkg, folder / "convertido")
-        result = json.loads(output.read_text(encoding="utf-8"))
+        converted_bytes = output.read_bytes()
+        validated = validate_portal_geojson(converted_bytes)
+        assert validated.feature_count == 1
+        result = json.loads(converted_bytes)
         feature = result["features"][0]
         lon, lat = feature["geometry"]["coordinates"]
         assert abs(lon + 79.8) < 1e-5 and abs(lat + 3.3) < 1e-5
         assert feature["properties"]["densidad"] == 1485
         assert feature["properties"]["nombre"] == "sector norte"
         assert "secret_token" not in feature["properties"]
+        assert "source_path" not in feature["properties"]
+        assert "sha256_value" not in feature["properties"]
         manifest = json.loads(metadata.read_text(encoding="utf-8"))
         assert manifest["source_sha256"] == original_sha
         assert manifest["captured_at"] is None
         assert manifest["output_crs"] == "EPSG:4326"
         assert manifest["feature_count"] == 1
+        assert manifest["output_sha256"] == hashlib.sha256(converted_bytes).hexdigest()
         assert hashlib.sha256(gpkg.read_bytes()).hexdigest() == original_sha
         output_again, _ = convert_vector(gpkg, folder / "convertido")
         assert output_again == output
@@ -80,6 +90,15 @@ def main() -> None:
                 archive.writestr(f"../escape.{sidecar}", "contenido")
         should_reject(lambda: convert_vector(traversal, folder / "escaped"), "zip traversal")
         assert not (folder / "escape.shp").exists()
+
+        alternate_compression = folder / "bzip2.zip"
+        with zipfile.ZipFile(alternate_compression, "w", compression=zipfile.ZIP_BZIP2) as archive:
+            for path in shape_dir.iterdir():
+                archive.write(path, path.name)
+        should_reject(
+            lambda: convert_vector(alternate_compression, folder / "compressed_out"),
+            "ZIP con compresión distinta a DEFLATE/STORE",
+        )
 
         shape_without_prj = folder / "no-prj.zip"
         with zipfile.ZipFile(shape_without_prj, "w") as archive:
