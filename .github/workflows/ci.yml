@@ -229,6 +229,11 @@ jobs:
           PYTHONPATH: .
         run: python ../../../.github/scripts/ci_dbi_gis_s3_worker.py
 
+      - name: Validar bloqueo de restore E6 fuera de CI autorizado (offline)
+        env:
+          PYTHONPATH: .
+        run: python ../../../.github/scripts/ci_dbi_backup_restore_rehearsal.py --check-guards-offline
+
       - name: Validar firmas digitales E5 de staging offline
         env:
           PYTHONPATH: .
