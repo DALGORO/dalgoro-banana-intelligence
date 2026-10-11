@@ -101,6 +101,7 @@ def _trusted_keys(path: Path, expected_pin: str, seen: set[tuple[int, int]]) -> 
         raise SignaturesBlocked("trust_policy_invalid")
     keys = {}
     principals = set()
+    key_ids = set()
     public_bytes = set()
     for entry in data["keys"]:
         if (type(entry) is not dict or set(entry) != KEY_FIELDS
@@ -109,13 +110,15 @@ def _trusted_keys(path: Path, expected_pin: str, seen: set[tuple[int, int]]) -> 
                 or type(entry["role"]) is not str
                 or entry["role"] not in {p[0] for p in PURPOSES.values()}
                 or entry["role"] in keys
-                or entry["principal_ref"] in principals):
+                or entry["principal_ref"] in principals
+                or entry["key_id"] in key_ids):
             raise SignaturesBlocked("trust_key_invalid")
         raw_key = _base64(entry["public_key_b64"], 32)
         if raw_key in public_bytes:
             raise SignaturesBlocked("trust_key_reused")
         keys[entry["role"]] = entry["key_id"], entry["principal_ref"], raw_key
         principals.add(entry["principal_ref"])
+        key_ids.add(entry["key_id"])
         public_bytes.add(raw_key)
     if len(keys) != 2:
         raise SignaturesBlocked("trust_roles_missing")
