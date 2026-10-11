@@ -87,3 +87,47 @@ export function verifiedMultispectralCampaigns(
       return difference || a.campaignId.localeCompare(b.campaignId);
     });
 }
+
+/**
+ * Selección sincronizada mapa↔MULTI: nunca asociar por fecha si dos Campaign
+ * comparten un instante. Solo Campaign verificadas de este tenant/lote.
+ * Sin fecha elegida permite consultar una extracción aislada sin atribuirla al mapa.
+ */
+export function extractionForMapCampaign(
+  items: readonly MultispectralExtraction[],
+  scope: PlotMapTimelineLocator,
+  mapDate: string,
+  selectedCampaignId: string | null,
+  requestedExtractionId: string,
+): MultispectralExtraction | null {
+  if (!mapDate && !selectedCampaignId) {
+    const scoped = items.filter(item => item.payload
+      && item.payload.tenant_ref === scope.tenantRef
+      && item.payload.organization_ref === scope.organizationRef
+      && item.payload.farm_id === scope.farmId
+      && item.payload.plot_id === scope.plotId);
+    return scoped.find(item => item.extraction_id === requestedExtractionId)
+      ?? scoped[0] ?? null;
+  }
+  const selectedTime = zonedTime(mapDate);
+  if (selectedTime === null) return null;
+  const matches = verifiedMultispectralCampaigns(items, scope).filter(row =>
+    zonedTime(row.capturedAt) === selectedTime
+    && (!selectedCampaignId || row.campaignId === selectedCampaignId)
+  );
+  // Con igual fecha y varias campañas, jamás escoger la primera arbitrariamente.
+  if (matches.length !== 1) return null;
+  const chosen = matches[0];
+  const matchingItems = items.filter(item =>
+    item.campaign_linkage === "verified_job_chain"
+    && item.campaign_id === chosen.campaignId
+    && zonedTime(item.captured_at) === selectedTime
+    && item.payload.tenant_ref === scope.tenantRef
+    && item.payload.organization_ref === scope.organizationRef
+    && item.payload.farm_id === scope.farmId
+    && item.payload.plot_id === scope.plotId
+  );
+  return matchingItems.find(item => item.extraction_id === requestedExtractionId)
+    ?? matchingItems.find(item => item.extraction_id === chosen.latestExtractionId)
+    ?? null;
+}

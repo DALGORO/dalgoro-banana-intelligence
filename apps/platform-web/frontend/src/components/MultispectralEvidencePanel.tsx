@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { verifiedMultispectralCampaigns } from "@/features/multispectralCampaignHistory";
+import { extractionForMapCampaign, verifiedMultispectralCampaigns } from "@/features/multispectralCampaignHistory";
 import type { PlotMapTimelineLocator } from "@/features/mapTimeline";
 import {
   listMultispectralExtractions, multispectralScopeKey,
@@ -79,7 +79,16 @@ function Statistics({ items, heading }: { items: MultispectralSummary[]; heading
 }
 
 /** Consulta bajo READ, sin IndexedDB/localStorage ni enlaces a objetos originales. */
-export function MultispectralEvidencePanel({ locator }: { locator: PlotMapTimelineLocator }) {
+export function MultispectralEvidencePanel({
+  locator, selectedMapDate, selectedMapCampaignId,
+  onChooseVerifiedCampaign, onClearMapSelection,
+}: {
+  locator: PlotMapTimelineLocator;
+  selectedMapDate: string;
+  selectedMapCampaignId: string | null;
+  onChooseVerifiedCampaign: (campaignId: string, capturedAt: string) => void;
+  onClearMapSelection: () => void;
+}) {
   const scopeKey = multispectralScopeKey(locator);
   const [result, setResult] = useState<Result | null>(null);
   const [selectedId, setSelectedId] = useState("");
@@ -99,7 +108,9 @@ export function MultispectralEvidencePanel({ locator }: { locator: PlotMapTimeli
   const current = result?.scopeKey === scopeKey ? result : null;
   const items = current?.items ?? [];
   const verifiedHistory = verifiedMultispectralCampaigns(items, locator);
-  const selected = items.find(item => item.extraction_id === selectedId) ?? items[0];
+  const selected = extractionForMapCampaign(
+    items, locator, selectedMapDate, selectedMapCampaignId, selectedId,
+  );
   const payload = selected?.payload;
   return (
     <section className="card space-y-4" aria-label="Evidencia multiespectral">
@@ -126,53 +137,77 @@ export function MultispectralEvidencePanel({ locator }: { locator: PlotMapTimeli
           Se mostrarán únicamente cuando existan datos científicos persistidos y autorizados.
         </p>
       )}
+      {current && !current.error && items.length > 0 && (
+        <section className="space-y-2" aria-label="Historial de vuelos multiespectrales verificados">
+          <div className="flex flex-wrap items-center justify-between gap-2">
+            <h3 className="text-sm font-semibold">Historial de vuelos con Campaign verificada</h3>
+            <span className="muted text-xs">{verifiedHistory.length} campañas verificadas · máximo 20 extracciones revisadas</span>
+          </div>
+          {verifiedHistory.length === 0 ? (
+            <p className="muted rounded-xl border border-slate-200 p-3 text-sm dark:border-slate-700">
+              Todavía no hay vuelos con procedencia Campaign verificada para este lote.
+              Las extracciones sin vínculo siguen disponibles en el selector inferior.
+            </p>
+          ) : (
+            <div className="flex flex-wrap gap-2" role="group" aria-label="Elegir vuelo verificado">
+              {verifiedHistory.map(entry => {
+                const active = selected?.campaign_linkage === "verified_job_chain"
+                  && selected.campaign_id === entry.campaignId;
+                return (
+                  <button key={entry.campaignId} type="button"
+                    aria-pressed={active}
+                    onClick={() => {
+                      setSelectedId(entry.latestExtractionId);
+                      onChooseVerifiedCampaign(entry.campaignId, entry.capturedAt);
+                    }}
+                    className={`rounded-xl border px-3 py-2 text-left text-sm transition-colors focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-emerald-600 ${
+                      active
+                        ? "border-emerald-600 bg-emerald-50 text-emerald-950 dark:bg-emerald-950/30 dark:text-emerald-100"
+                        : "border-slate-200 hover:border-emerald-500 dark:border-slate-700"
+                    }`}>
+                    <span className="block font-medium">{date(entry.capturedAt)}</span>
+                    <span className="block text-xs opacity-75">
+                      Campaign {entry.campaignId.slice(0, 8)} · {entry.extractionCount} {entry.extractionCount === 1 ? "extracción" : "extracciones"}
+                    </span>
+                  </button>
+                );
+              })}
+            </div>
+          )}
+          <p className="muted text-xs">
+            Este historial permite consultar campañas acreditadas, no comparar resultados entre vuelos.
+            La comparabilidad de calibración, unidades espaciales y fórmulas sigue pendiente de validación.
+          </p>
+        </section>
+      )}
+      {current && !current.error && items.length > 0 && selectedMapDate && !selected && (
+        <p role="status" className="rounded-xl border border-amber-300/60 bg-amber-50 p-3 text-sm text-amber-950 dark:border-amber-600/50 dark:bg-amber-950/20 dark:text-amber-200">
+          La fecha seleccionada en el mapa no identifica una única Campaign MULTI verificada.
+          Selecciona un vuelo concreto en el historial para consultar sus estadísticas,
+          o cambia la fecha del mapa. No se muestran cifras de otro levantamiento.
+        </p>
+      )}
       {selected && payload && (
         <div className="space-y-5">
-          <section className="space-y-2" aria-label="Historial de vuelos multiespectrales verificados">
-            <div className="flex flex-wrap items-center justify-between gap-2">
-              <h3 className="text-sm font-semibold">Historial de vuelos con Campaign verificada</h3>
-              <span className="muted text-xs">{verifiedHistory.length} campañas verificadas · máximo 20 extracciones revisadas</span>
-            </div>
-            {verifiedHistory.length === 0 ? (
-              <p className="muted rounded-xl border border-slate-200 p-3 text-sm dark:border-slate-700">
-                Todavía no hay vuelos con procedencia Campaign verificada para este lote.
-                Las extracciones sin vínculo siguen disponibles en el selector inferior.
-              </p>
-            ) : (
-              <div className="flex flex-wrap gap-2" role="group" aria-label="Elegir vuelo verificado">
-                {verifiedHistory.map(entry => {
-                  const active = selected.campaign_linkage === "verified_job_chain"
-                    && selected.campaign_id === entry.campaignId;
-                  return (
-                    <button key={entry.campaignId} type="button"
-                      aria-pressed={active}
-                      onClick={() => setSelectedId(entry.latestExtractionId)}
-                      className={`rounded-xl border px-3 py-2 text-left text-sm transition-colors focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-emerald-600 ${
-                        active
-                          ? "border-emerald-600 bg-emerald-50 text-emerald-950 dark:bg-emerald-950/30 dark:text-emerald-100"
-                          : "border-slate-200 hover:border-emerald-500 dark:border-slate-700"
-                      }`}>
-                      <span className="block font-medium">{date(entry.capturedAt)}</span>
-                      <span className="block text-xs opacity-75">
-                        Campaign {entry.campaignId.slice(0, 8)} · {entry.extractionCount} {entry.extractionCount === 1 ? "extracción" : "extracciones"}
-                      </span>
-                    </button>
-                  );
-                })}
-              </div>
-            )}
-            <p className="muted text-xs">
-              Este historial permite consultar campañas acreditadas, no comparar resultados entre vuelos.
-              La comparabilidad de calibración, unidades espaciales y fórmulas sigue pendiente de validación.
-            </p>
-          </section>
           <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
             <label className="text-sm font-medium" htmlFor="multi-extraction-select">
               Extracciones recientes por fecha de registro (máximo 20)
             </label>
             <select id="multi-extraction-select" className="w-full sm:max-w-lg"
               value={selected.extraction_id}
-              onChange={event => setSelectedId(event.target.value)}>
+              onChange={event => {
+                const item = items.find(row => row.extraction_id === event.target.value);
+                if (!item) return;
+                setSelectedId(item.extraction_id);
+                if (item.campaign_linkage === "verified_job_chain"
+                  && item.campaign_id && item.captured_at
+                  && verifiedHistory.some(row => row.campaignId === item.campaign_id
+                    && Date.parse(row.capturedAt) === Date.parse(item.captured_at!))) {
+                  onChooseVerifiedCampaign(item.campaign_id, item.captured_at);
+                } else {
+                  onClearMapSelection();
+                }
+              }}>
               {items.map(item => (
                 <option key={item.extraction_id} value={item.extraction_id}>
                   Campo: {date(item.observed_at)} · Registro: {date(item.created_at)} · {item.payload.support_mode === "copa_up" ? "Copa UP" : "Ventana"} · {item.extraction_id.slice(0, 8)}
