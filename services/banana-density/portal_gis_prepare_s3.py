@@ -8,6 +8,7 @@ from __future__ import annotations
 import argparse
 from importlib.util import find_spec
 import os
+import stat
 import subprocess
 import sys
 from pathlib import Path
@@ -64,11 +65,26 @@ def preflight(values: Mapping[str, str]) -> tuple[str, Path]:
         raise GISWorkerPreflightError("El workspace GIS debe estar fuera del repositorio.")
     if Path(root_raw).is_symlink():
         raise GISWorkerPreflightError("Workspace GIS no admite raíz simbólica.")
+    if root.exists():
+        _require_private_workspace(root)
     if not CONVERTER.is_file():
         raise GISWorkerPreflightError("El conversor GIS no está instalado.")
     if sys.platform != "linux":
         raise GISWorkerPreflightError("Esta entrada exige Linux para aislar CPU y tamaño de archivos.")
     return tenant, root
+
+
+def _require_private_workspace(root: Path) -> None:
+    """Exige directorio del usuario del worker sin permisos a grupo/otros."""
+    if root.is_symlink() or not root.is_dir():
+        raise GISWorkerPreflightError("Workspace GIS debe ser un directorio privado.")
+    metadata = root.stat()
+    if os.name != "posix" or metadata.st_uid != os.getuid() or (
+        stat.S_IMODE(metadata.st_mode) & 0o077
+    ):
+        raise GISWorkerPreflightError(
+            "Workspace GIS debe pertenecer al proceso y tener permisos 0700."
+        )
 
 
 def _set_limits() -> None:
@@ -144,6 +160,7 @@ def run_once(values: Mapping[str, str] | None = None) -> str | None:
         raise GISWorkerPreflightError("No se configuró un almacenamiento S3 válido.")
 
     root.mkdir(parents=True, mode=0o700, exist_ok=True)
+    _require_private_workspace(root)
     runtime = DBIRuntime()
     runtime.start()
     try:
