@@ -120,7 +120,7 @@ test("tracking is an accessible tab INSIDE map viewer and MULTI remains mounted"
 });
 
 test("tracking only describes authorized visible entries and GIS, not diagnoses", () => {
-  assert.match(tracking, /import type \{ MapTimelineEntry \}/);
+  assert.match(tracking, /import type \{ MapTimelineEntry, PlotMapTimelineLocator \}/);
   assert.match(tracking, /import type \{ VectorLayerInfo \}/);
   assert.match(tracking, /visibleMapEntries: readonly MapTimelineEntry\[\]/);
   assert.match(tracking, /associatedGISLayers: readonly VectorLayerInfo\[\]/);
