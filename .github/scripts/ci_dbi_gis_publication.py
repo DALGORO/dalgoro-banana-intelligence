@@ -45,16 +45,21 @@ class FakeSession:
         sql = str(statement.compile(compile_kwargs={"literal_binds": True}))
         row = self.row
         # Solo los IDs solicitados explícitamente satisfacen el mock.
-        scoped = all(key in sql for key in (
-            row.tenant_ref, row.organization_ref,
-            str(row.farm_id), str(row.plot_id),
-        ))
+        def has_uuid(identifier):
+            return str(identifier) in sql or identifier.hex in sql
+
+        scoped = (
+            row.tenant_ref in sql
+            and row.organization_ref in sql
+            and has_uuid(row.farm_id)
+            and has_uuid(row.plot_id)
+        )
         if "FROM dbi_campaigns" in sql:
-            found = object() if scoped and str(row.campaign_id) in sql else None
+            found = object() if scoped and has_uuid(row.campaign_id) else None
         elif "FROM dbi_portal_gis_imports" in sql:
-            found = row if scoped and str(row.id) in sql else None
+            found = row if scoped and has_uuid(row.id) else None
         elif "FROM dbi_portal_vector_layers" in sql:
-            found = self.layer if scoped and str(row.campaign_id) in sql else None
+            found = self.layer if row.tenant_ref in sql and has_uuid(row.campaign_id) else None
         else:
             raise AssertionError(f"SQL inesperado: {sql}")
         return type("One", (), {"scalar_one_or_none": lambda self: found})()
