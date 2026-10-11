@@ -86,7 +86,7 @@ def test_schema() -> None:
         ROOT / "apps" / "platform-web" / "backend" / "dbi_alembic" /
         "versions" / "20261011_27_inspect_campaign_signatures.py"
     ).read_text(encoding="utf-8")
-    assert 'revision: str = "dbi_0027_inspect_campaign_signatures"' in migration
+    assert 'revision: str = "dbi_0027_inspect_dual_sign"' in migration
     assert 'down_revision: str | None = "dbi_0026_gpkg_layer_choice"' in migration
     assert "UPDATE dbi_field_observations" not in migration
     assert "UPDATE dbi_campaigns" not in migration
