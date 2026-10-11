@@ -209,6 +209,11 @@ jobs:
           PYTHONPATH: .
         run: python ../../../.github/scripts/ci_dbi_fastapi_lifecycle.py
 
+      - name: Validar GET MULTI scoped READ y provenance intacto
+        env:
+          PYTHONPATH: .
+        run: python ../../../.github/scripts/ci_dbi_multi_http.py
+
       - name: Validar capas vectoriales seguras para el portal
         env:
           PYTHONPATH: .
