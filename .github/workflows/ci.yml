@@ -64,6 +64,9 @@ jobs:
       - name: Validar lint sin aumentar la línea base
         run: npm run lint -- --max-warnings 115
 
+      - name: Validar historial multiespectral solo con Campaign verificada
+        run: node --test tests/multispectralCampaignHistory.test.mjs
+
       - name: Compilar frontend
         run: npm run build
 
