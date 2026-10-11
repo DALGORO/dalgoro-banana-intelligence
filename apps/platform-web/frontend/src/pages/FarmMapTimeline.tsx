@@ -759,7 +759,7 @@ export default function FarmMapTimeline() {
                 </div>
               )}
 
-              {!loading && !error && visibleEntries.length === 0 && (
+              {!loading && !error && visibleEntries.length === 0 && visibleVectorMeta.length === 0 && (
                 <div className="empty-state pointer-events-auto shadow-lg">
                   <div className="font-medium">
                     No hay campañas cartográficas visibles
