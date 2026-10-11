@@ -150,7 +150,7 @@ def main():
             setattr(row, attr, value)
             # La query podría rechazar primero los campos del ámbito.
             expected = 404 if attr in {
-                "id", "tenant_ref", "organization_ref", "farm_id", "plot_id"
+                "tenant_ref", "organization_ref", "farm_id", "plot_id"
             } else 409
             denied(expected, lambda: call())
             setattr(row, attr, original)
