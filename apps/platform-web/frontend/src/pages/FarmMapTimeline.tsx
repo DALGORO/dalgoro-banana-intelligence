@@ -775,6 +775,7 @@ function FarmMapTimelineView() {
           </select>
           <div className="dbi-mobile-shortcuts">
             <a href="#dbi-map-view">Ir al mapa</a>
+            <a href="#dbi-tab-tracking" onClick={() => setInfoTab("tracking")}>Ficha del lote</a>
             {realLocator && <a href="#dbi-multi-evidence" onClick={() => setInfoTab("multi")}>Ver evidencia MULTI</a>}
           </div>
           <p className="muted text-xs">
