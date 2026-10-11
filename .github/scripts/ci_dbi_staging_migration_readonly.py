@@ -30,7 +30,7 @@ VALUES = {
     "DBI_STAGING_VERIFY_HOST": "staging-db.example.org",
     "DBI_STAGING_VERIFY_CONFIRM": "VERIFY dbi_staging READ ONLY",
 }
-HEAD = "dbi_0026_gpkg_layer_choice"
+HEAD = "dbi_0027_inspect_dual_sign"
 
 
 class Connection(_FakeConnection):
