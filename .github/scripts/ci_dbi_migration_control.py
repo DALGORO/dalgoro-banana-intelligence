@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import ci_dbi_migration_control_base as base
 
-base.HEAD = "dbi_0022_portal_gis_imports"
+base.HEAD = "dbi_0023_gis_previews"
 base.KNOWN = set(base.KNOWN) | {
     "dbi_0014_analysis_results",
     "dbi_0015_raster_products",
@@ -12,6 +12,7 @@ base.KNOWN = set(base.KNOWN) | {
     "dbi_0019_campaign_domain",
     "dbi_0020_campaign_artifacts",
     "dbi_0021_portal_vectors",
+    "dbi_0022_portal_gis_imports",
     base.HEAD,
 }
 
