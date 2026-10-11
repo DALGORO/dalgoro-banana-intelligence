@@ -209,6 +209,7 @@ class DBIMultispectralExtractionRepository:
         *,
         extraction_id: UUID,
         tenant_ref: str,
+        organization_ref: str,
         farm_id: UUID,
         plot_id: UUID,
     ) -> DBIMultispectralExtractionRecord | None:
@@ -216,6 +217,7 @@ class DBIMultispectralExtractionRepository:
             select(DBIMultispectralExtractionRecord).where(
                 DBIMultispectralExtractionRecord.id == extraction_id,
                 DBIMultispectralExtractionRecord.tenant_ref == tenant_ref,
+                DBIMultispectralExtractionRecord.organization_ref == organization_ref,
                 DBIMultispectralExtractionRecord.farm_id == farm_id,
                 DBIMultispectralExtractionRecord.plot_id == plot_id,
             )
