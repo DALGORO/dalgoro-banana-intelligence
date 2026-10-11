@@ -10,6 +10,7 @@ base.KNOWN = set(base.KNOWN) | {
     "dbi_0015_raster_products",
     "dbi_0016_sampling_plans",
     "dbi_0019_campaign_domain",
+    "dbi_0020_campaign_artifacts",
     base.HEAD,
 }
 
