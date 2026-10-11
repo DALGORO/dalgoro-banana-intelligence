@@ -40,6 +40,8 @@ class GISClaim:
     sha256: str
     size_bytes: int
     created_at: datetime
+    selected_layer: str | None = None
+    available_layers: tuple[str, ...] | None = None
 
 
 @dataclass(frozen=True)
@@ -55,7 +57,7 @@ class DBIPortalGISPreparationWorker:
         self,
         session_factory: Callable[[], Session],
         store: DBIPrivateObjectStore,
-        converter: Callable[[Path, Path], tuple[Path, Path] | GISLayersPendingSelection],
+        converter: Callable[..., tuple[Path, Path] | GISLayersPendingSelection],
         *,
         workspace_root: Path,
         clock: Callable[[], datetime] = lambda: datetime.now(timezone.utc),
@@ -81,6 +83,11 @@ class DBIPortalGISPreparationWorker:
                     or_(
                         DBIPortalGISImport.status == "received",
                         and_(
+                            DBIPortalGISImport.status == "needs_selection",
+                            DBIPortalGISImport.source_format == "gpkg",
+                            DBIPortalGISImport.selected_layer.is_not(None),
+                        ),
+                        and_(
                             DBIPortalGISImport.status == "processing",
                             DBIPortalGISImport.processing_started_at < now - STALE_AFTER,
                         ),
@@ -101,11 +108,22 @@ class DBIPortalGISPreparationWorker:
                 tenant_ref=row.tenant_ref, source_object_id=row.source_object_id,
                 source_format=row.source_format, sha256=row.sha256,
                 size_bytes=row.size_bytes, created_at=row.created_at,
+                selected_layer=row.selected_layer,
+                available_layers=tuple(row.available_layers) if isinstance(row.available_layers, list) else None,
             )
             session.commit()
             return claim
 
     def _prepare(self, claim: GISClaim) -> tuple[str, str, int] | GISLayersPendingSelection:
+        if claim.selected_layer is not None and (
+            claim.source_format != "gpkg"
+            or claim.available_layers is None
+            or not 2 <= len(claim.available_layers) <= 20
+            or claim.selected_layer not in claim.available_layers
+            or not 1 <= len(claim.selected_layer) <= 100
+            or any(ord(c) < 32 or ord(c) == 127 for c in claim.selected_layer)
+        ):
+            raise DBIPortalGISWorkerFailure("Selección GIS no corresponde al catálogo verificado.")
         self.workspace_root.mkdir(parents=True, exist_ok=True)
         address = DBIStoragePolicy.build_address(
             tenant_ref=claim.tenant_ref,
@@ -135,8 +153,10 @@ class DBIPortalGISPreparationWorker:
                     raise DBIPortalGISWorkerFailure("Integridad SHA256 del origen inválida.")
             output_dir = root / "out"
             output_dir.mkdir(mode=0o700)
-            conversion = self.converter(source, output_dir)
+            conversion = self.converter(source, output_dir, layer=claim.selected_layer)
             if isinstance(conversion, GISLayersPendingSelection):
+                if claim.selected_layer is not None:
+                    raise DBIPortalGISWorkerFailure("Conversión de capa elegida no entregó un derivado.")
                 layers = conversion.layers
                 if (
                     claim.source_format != "gpkg"
@@ -178,6 +198,8 @@ class DBIPortalGISPreparationWorker:
                 or manifest.get("output_crs") != "EPSG:4326"
                 or manifest.get("feature_count") != parsed.feature_count
                 or manifest.get("captured_at") is not None
+                or (claim.selected_layer is not None
+                    and manifest.get("source_layer") != claim.selected_layer)
             ):
                 raise DBIPortalGISWorkerFailure("Manifiesto de conversión no concuerda.")
             return parsed.geojson_text, sha256(parsed.geojson_text.encode("utf-8")).hexdigest(), parsed.feature_count
@@ -196,6 +218,9 @@ class DBIPortalGISPreparationWorker:
                 or row.processing_ref != claim.processing_ref
                 or row.source_object_id != claim.source_object_id
                 or row.sha256 != claim.sha256
+                or row.selected_layer != claim.selected_layer
+                or (tuple(row.available_layers) if isinstance(row.available_layers, list) else None)
+                    != claim.available_layers
             ):
                 return False
             if result is None:
