@@ -1,5 +1,5 @@
 import type { MapTimelineEntry, PlotMapTimelineLocator } from "@/features/mapTimeline";
-import { InspectionObservationLookup } from "@/components/InspectionObservationLookup";
+
 import type { VectorLayerInfo } from "@/features/portalVectors";
 
 type Props = {
@@ -116,10 +116,19 @@ export function FarmTrackingPanel({
             </p>
           </section>
           {locator && (
-            <InspectionObservationLookup
-              key={JSON.stringify([locator.tenantRef, locator.organizationRef, locator.farmId, locator.plotId])}
-              locator={locator}
-            />
+            <section className="dbi-inspect-lookup space-y-2" aria-label="Publicación de observaciones INSPECT">
+              <h4 className="text-sm font-semibold">INSPECT · publicación controlada</h4>
+              <p className="muted text-sm">
+                Las observaciones de campo se consultarán aquí por levantamiento
+                únicamente cuando cuenten con validación técnica y autorización
+                administrativa independientes. Ninguna observación pendiente se
+                ofrece al cliente mediante búsqueda por ID.
+              </p>
+              <p className="muted text-xs">
+                El personal autorizado utiliza el módulo interno INSPECT para
+                consultar y corregir versiones en su ámbito de trabajo.
+              </p>
+            </section>
           )}
         </>
       )}

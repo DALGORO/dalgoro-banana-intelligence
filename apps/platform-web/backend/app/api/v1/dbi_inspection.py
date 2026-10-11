@@ -159,6 +159,15 @@ def get_field_observation(
         plot_id=plot_id,
         permission=DBIPermission.READ,
     )
+    # Hasta disponer de la publicación doblemente aprobada, READ-only no puede
+    # consultar versiones INSPECT por UUID ni enumerar su historial.
+    _require_plot(
+        context,
+        organization_ref=organization_ref,
+        farm_id=farm_id,
+        plot_id=plot_id,
+        permission=DBIPermission.WRITE,
+    )
     return _read(
         lambda: DBIFieldObservationService(session).get_latest(
             context,
@@ -188,6 +197,15 @@ def list_field_observation_versions(
         farm_id=farm_id,
         plot_id=plot_id,
         permission=DBIPermission.READ,
+    )
+    # Hasta disponer de la publicación doblemente aprobada, READ-only no puede
+    # consultar versiones INSPECT por UUID ni enumerar su historial.
+    _require_plot(
+        context,
+        organization_ref=organization_ref,
+        farm_id=farm_id,
+        plot_id=plot_id,
+        permission=DBIPermission.WRITE,
     )
     values = _read(
         lambda: DBIFieldObservationService(session).list_versions(

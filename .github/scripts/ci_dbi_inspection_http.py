@@ -458,6 +458,59 @@ def validate_routes_registered_and_hide_unauthorized_scope() -> None:
         service.assert_not_called()
 
 
+def validate_pending_inspect_reads_are_internal_only() -> None:
+    """READ-only no obtiene borradores por UUID ni historial, aun con scope válido."""
+    repository = _Repository()
+    assets = _AssetRepository()
+    observation_patch, asset_patch = _service(repository, assets)
+    with observation_patch, asset_patch:
+        service = DBIFieldObservationService(object())
+        original = service.create(
+            _context(write=True),
+            organization_ref=ORG,
+            farm_id=FARM,
+            plot_id=PLOT,
+            request=DBIFieldObservationCreateRequest(observation=_body()),
+        )
+        assert original.version_id == VERSION_1
+
+        for query in (service.get_latest, service.list_versions):
+            try:
+                query(
+                    _context(write=False),
+                    organization_ref=ORG,
+                    farm_id=FARM,
+                    plot_id=PLOT,
+                    observation_id=OBSERVATION,
+                )
+            except DBIAccessDenied:
+                pass
+            else:
+                raise AssertionError("INSPECT pendiente no debe salir con solo READ.")
+
+        assert service.get_latest(
+            _context(write=True), organization_ref=ORG, farm_id=FARM,
+            plot_id=PLOT, observation_id=OBSERVATION,
+        ).version_id == VERSION_1
+        assert len(service.list_versions(
+            _context(write=True), organization_ref=ORG, farm_id=FARM,
+            plot_id=PLOT, observation_id=OBSERVATION,
+        )) == 1
+
+    with patch.object(dbi_inspection, "DBIFieldObservationService") as mocked:
+        for query in (
+            dbi_inspection.get_field_observation,
+            dbi_inspection.list_field_observation_versions,
+        ):
+            try:
+                query(ORG, FARM, PLOT, OBSERVATION, object(), _context(write=False))
+            except HTTPException as error:
+                assert error.status_code == 404
+            else:
+                raise AssertionError("GET INSPECT no debe permitir READ-only.")
+        mocked.assert_not_called()
+
+
 def validate_static_boundaries() -> None:
     sources = "\n".join(
         (
@@ -498,6 +551,7 @@ def main() -> None:
     validate_service_correction_is_latest_and_scoped()
     validate_service_authorization_precedes_repository_write()
     validate_routes_registered_and_hide_unauthorized_scope()
+    validate_pending_inspect_reads_are_internal_only()
     validate_static_boundaries()
     print(
         "DBI-INSPECT-001 HTTP aprobado: autoridad servidor, fotos privadas y versionado seguro."

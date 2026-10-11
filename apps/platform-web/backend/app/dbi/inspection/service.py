@@ -292,6 +292,29 @@ class DBIFieldObservationService:
             recorded_by_ref=context.principal_ref,
         )
 
+    @classmethod
+    def _require_internal_read(
+        cls,
+        context: DBIAccessContext,
+        *,
+        organization_ref: str,
+        farm_id: UUID,
+        plot_id: UUID,
+    ) -> None:
+        """Deniega INSPECT pendiente a READ-only hasta disponer de publicación dual.
+
+        WRITE scoped identifica provisionalmente el acceso de trabajo interno;
+        no reemplaza la auditoría de membresías de técnicos/administradores.
+        """
+        for permission in (DBIPermission.READ, DBIPermission.WRITE):
+            cls._require_plot(
+                context,
+                organization_ref=organization_ref,
+                farm_id=farm_id,
+                plot_id=plot_id,
+                permission=permission,
+            )
+
     def get_latest(
         self,
         context: DBIAccessContext,
@@ -301,12 +324,11 @@ class DBIFieldObservationService:
         plot_id: UUID,
         observation_id: UUID,
     ) -> DBIFieldObservationVersion:
-        self._require_plot(
+        self._require_internal_read(
             context,
             organization_ref=organization_ref,
             farm_id=farm_id,
             plot_id=plot_id,
-            permission=DBIPermission.READ,
         )
         result = self._repository.get_latest(
             observation_id=observation_id,
@@ -327,12 +349,11 @@ class DBIFieldObservationService:
         plot_id: UUID,
         observation_id: UUID,
     ) -> tuple[DBIFieldObservationVersion, ...]:
-        self._require_plot(
+        self._require_internal_read(
             context,
             organization_ref=organization_ref,
             farm_id=farm_id,
             plot_id=plot_id,
-            permission=DBIPermission.READ,
         )
         values = self._repository.list_versions(
             observation_id=observation_id,
