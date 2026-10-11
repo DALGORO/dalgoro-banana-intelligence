@@ -214,6 +214,11 @@ jobs:
           PYTHONPATH: .
         run: python ../../../.github/scripts/ci_dbi_portal_vectors.py
 
+      - name: Validar recepción privada GIS del portal
+        env:
+          PYTHONPATH: .
+        run: python ../../../.github/scripts/ci_dbi_portal_gis_imports.py
+
       - name: Validar catálogo seguro de clientes DBI
         env:
           PYTHONPATH: .
