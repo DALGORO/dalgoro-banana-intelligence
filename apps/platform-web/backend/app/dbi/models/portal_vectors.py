@@ -4,7 +4,7 @@ from __future__ import annotations
 from datetime import datetime, timezone
 from uuid import UUID, uuid4
 
-from sqlalchemy import CheckConstraint, DateTime, ForeignKey, ForeignKeyConstraint, Index, Integer, String, Text, UniqueConstraint, Uuid
+from sqlalchemy import CheckConstraint, DateTime, ForeignKey, ForeignKeyConstraint, Index, Integer, LargeBinary, String, Text, UniqueConstraint, Uuid
 from sqlalchemy.orm import Mapped, mapped_column
 
 from app.db.dbi_base import DBIBase
@@ -27,6 +27,7 @@ class DBIPortalVectorLayer(DBIBase):
         ),
         CheckConstraint("feature_count > 0 AND feature_count <= 2500", name="ck_dbi_portal_vector_features"),
         CheckConstraint("octet_length(geojson_text) BETWEEN 20 AND 2097152", name="ck_dbi_portal_vector_size"),
+        CheckConstraint("octet_length(source_bytes) BETWEEN 20 AND 2097152", name="ck_dbi_portal_vector_source_size"),
         CheckConstraint("source_sha256 ~ '^[0-9a-f]{64}$'", name="ck_dbi_portal_vector_sha"),
         Index("ix_dbi_portal_vector_scope", "tenant_ref", "farm_id", "plot_id", "campaign_id"),
     )
@@ -42,6 +43,7 @@ class DBIPortalVectorLayer(DBIBase):
     crs: Mapped[str] = mapped_column(String(16), nullable=False, default="EPSG:4326")
     source_sha256: Mapped[str] = mapped_column(String(64), nullable=False)
     geojson_text: Mapped[str] = mapped_column(Text, nullable=False)
+    source_bytes: Mapped[bytes] = mapped_column(LargeBinary, nullable=False)
     feature_count: Mapped[int] = mapped_column(Integer, nullable=False)
     created_by_ref: Mapped[str] = mapped_column(String(128), nullable=False)
     created_at: Mapped[datetime] = mapped_column(
