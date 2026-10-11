@@ -94,7 +94,7 @@ una fase independiente con pruebas e inspección de privilegios.
 
 ## Validación de este PR
 
-- Alembic `dbi_0027_inspect_campaign_signatures` sigue a `dbi_0026`.
+- Alembic `dbi_0027_inspect_dual_sign` sigue a `dbi_0026`.
   Cambios exclusivamente aditivos en DBI.
 - CI de migraciones crea el esquema en PostGIS **efímero de pruebas**.
 - `ci_dbi_inspect_campaign_schema.py` verifica FKs scoped,
