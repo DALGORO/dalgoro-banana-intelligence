@@ -93,12 +93,16 @@ def test_schema() -> None:
     assert "op.create_table(" in migration
     assert "op.drop_table(" in migration
 
-    from app.api.v1 import dbi_inspection
-    from app.dbi.inspection.service import DBIFieldObservationService
-
-    # Esta migración no abre endpoints cliente, ni activa visibilidad.
-    assert not hasattr(dbi_inspection, "approve_inspection_for_client")
-    assert not hasattr(DBIFieldObservationService, "approve_for_publication")
+    # Prueba estática para no cargar runtime web ni secretos del entorno CI.
+    # Esta migración no abre endpoints cliente ni activa visibilidad.
+    api = (ROOT / "apps" / "platform-web" / "backend" /
+           "app" / "api" / "v1" / "dbi_inspection.py").read_text(encoding="utf-8")
+    service = (ROOT / "apps" / "platform-web" / "backend" /
+               "app" / "dbi" / "inspection" / "service.py").read_text(encoding="utf-8")
+    assert "approve_inspection_for_client" not in api
+    assert "approve_for_publication" not in service
+    assert "permission=DBIPermission.WRITE" in api
+    assert "def _require_internal_read(" in service
 
 
 if __name__ == "__main__":
