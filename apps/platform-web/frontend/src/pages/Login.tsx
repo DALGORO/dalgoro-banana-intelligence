@@ -14,7 +14,7 @@ export default function Login(){
     setErr(undefined); setLoading(true);
     try {
       await login(email, password);
-      nav("/companies", { replace: true });
+      nav("/portal", { replace: true });
 
     } catch (e:any) {
       setErr(e?.response?.data?.detail ?? "Credenciales inválidas");
