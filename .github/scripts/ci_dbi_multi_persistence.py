@@ -340,12 +340,21 @@ def _validate_repository() -> UUID:
             assert repository.get_scoped(
                 extraction_id=expected_id,
                 tenant_ref=TENANT,
+                organization_ref=ORGANIZATION,
                 farm_id=FARM_ID,
                 plot_id=PLOT_ID,
             ) is not None
             assert repository.get_scoped(
                 extraction_id=expected_id,
                 tenant_ref="tenant-crossed",
+                organization_ref=ORGANIZATION,
+                farm_id=FARM_ID,
+                plot_id=PLOT_ID,
+            ) is None
+            assert repository.get_scoped(
+                extraction_id=expected_id,
+                tenant_ref=TENANT,
+                organization_ref="organization-foreign",
                 farm_id=FARM_ID,
                 plot_id=PLOT_ID,
             ) is None
