@@ -1,5 +1,14 @@
 # DBI-CLIENT-VIEW-008 · Consulta INSPECT autorizada por ID en la ficha de lote (Hito 11)
 
+> **Actualización de producto (11-10-2026):** la consulta INSPECT por UUID de este
+> microhito queda como mecanismo provisional de soporte. La experiencia objetivo
+> exige asociar cada nueva INSPECT a una **Campaign multiespectral real** y
+> consultar automáticamente sus observaciones verificadas desde el mapa, con
+> clientes solo READ y gestión reservada a técnicos/administradores.
+> Ver [decisión DBI-H11-DEC-001](77_DBI_CAMPAIGN_INSPECT_SUPERVISED_LEARNING_AND_ROLES.md).
+> Este documento describe el comportamiento ya implementado, no el objetivo final.
+
+
 ## Descubrimiento del contrato existente
 
 La API actual `dbi_inspection.py` **NO expone un listado GET de observaciones por lote**.
