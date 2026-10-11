@@ -283,12 +283,12 @@ export function MultispectralEvidencePanel({
                   ? date(selected.captured_at) : "Fecha de vuelo no verificada"}</dd>
               </div>
               <div>
-                <dt>Datos disponibles</dt>
+                <dt>Variables registradas en la extracción</dt>
                 <dd>{payload.summaries.filter(item => item.variable_kind === "index").length} índices
                   {" · "}{payload.summaries.filter(item => item.variable_kind === "band").length} bandas</dd>
               </div>
               <div>
-                <dt>Área realmente analizada</dt>
+                <dt>Soporte espacial de la muestra</dt>
                 <dd>{payload.support_mode === "copa_up"
                   ? "Follaje atribuible a la unidad productiva"
                   : "Ventana de muestreo sustituta"}</dd>
