@@ -38,6 +38,7 @@ class PortalFarm(BaseModel):
     name: str
     code: str
     plots: list[PortalPlot]
+    can_publish_layers: bool
 
 
 class PortalAccount(BaseModel):
@@ -143,6 +144,7 @@ def read_portal_accounts(session: Session, *, authenticated_user_id: int) -> lis
                         name=farm.name,
                         code=farm.code,
                         plots=plots_by_farm[farm.id],
+                        can_publish_layers=DBIPermission.MANAGE in context.permissions,
                     )
                     for farm in farms
                 ],

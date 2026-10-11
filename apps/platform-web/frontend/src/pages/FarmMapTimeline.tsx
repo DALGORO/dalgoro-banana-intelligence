@@ -8,6 +8,11 @@ import {
 } from "maplibre-gl";
 import "maplibre-gl/dist/maplibre-gl.css";
 import { GoogleSatelliteViewer } from "@/components/GoogleSatelliteViewer";
+import { api } from "@/app/api";
+import {
+  getVectorLayer, listVectorLayers, publishGeoJSON,
+  type VectorLayerInfo, type VectorLayerKind, type VectorLayerDetail,
+} from "@/features/portalVectors";
 import mapWorkerUrl from "maplibre-gl/dist/maplibre-gl-worker.mjs?worker&url";
 
 import {
@@ -76,6 +81,7 @@ export default function FarmMapTimeline() {
   const mapContainerRef = useRef<HTMLDivElement | null>(null);
   const mapRef = useRef<MapLibreMap | null>(null);
   const activeRasterIdsRef = useRef<string[]>([]);
+  const activeVectorIdsRef = useRef<string[]>([]);
   const fittedRef = useRef<string | null>(null);
 
   const [mapReady, setMapReady] = useState(false);
@@ -87,6 +93,16 @@ export default function FarmMapTimeline() {
   const [comparisonDate, setComparisonDate] = useState("");
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [farmLabel, setFarmLabel] = useState("Finca");
+  const [plotLabel, setPlotLabel] = useState("Lote");
+  const [vectorLayers, setVectorLayers] = useState<VectorLayerInfo[]>([]);
+  const [vectorDetails, setVectorDetails] = useState<Record<string, VectorLayerDetail>>({});
+  const [selectedVectorIds, setSelectedVectorIds] = useState<Set<string>>(new Set());
+  const [canPublish, setCanPublish] = useState(false);
+  const [uploadFile, setUploadFile] = useState<File | null>(null);
+  const [uploadKind, setUploadKind] = useState<VectorLayerKind>("density_hexagons");
+  const [uploading, setUploading] = useState(false);
+  const [uploadNotice, setUploadNotice] = useState<string | null>(null);
 
   const realLocator = useMemo(() => {
     if (!organizationRef || !farmId || !plotId || !tenantRef) return null;
@@ -99,6 +115,56 @@ export default function FarmMapTimeline() {
   }, [farmId, organizationRef, plotId, tenantRef]);
 
   const useGoogleBase = Boolean(import.meta.env.VITE_GOOGLE_MAPS_API_KEY?.trim()) && Boolean(realLocator);
+
+  useEffect(() => {
+    let active = true;
+    if (!realLocator) return;
+    const base = `/api/v1/dbi/organizations/${encodeURIComponent(realLocator.organizationRef)}/farms/${encodeURIComponent(realLocator.farmId)}`;
+    const config = { headers: { "X-DBI-Tenant": realLocator.tenantRef } };
+    Promise.all([
+      api.get<{ name: string }>(base, config),
+      api.get<{ name: string }>(`${base}/plots/${encodeURIComponent(realLocator.plotId)}`, config),
+    ]).then(([farm, plot]) => {
+      if (!active) return;
+      setFarmLabel(farm.data.name);
+      setPlotLabel(plot.data.name);
+    }).catch(() => {
+      if (!active) return;
+      setFarmLabel("Finca");
+      setPlotLabel("Lote");
+    });
+    return () => { active = false; };
+  }, [realLocator]);
+
+
+  useEffect(() => {
+    let active = true;
+    if (!realLocator) return;
+    listVectorLayers(realLocator).then(layers => {
+      if (!active) return;
+      setVectorLayers(layers);
+      setSelectedVectorIds(new Set(layers.map(item => item.id)));
+    }).catch(() => { if (active) setVectorLayers([]); });
+
+    api.get<Array<{
+      tenant_ref: string;
+      farms: Array<{ id: string; organization_ref: string; can_publish_layers: boolean; plots: Array<{ id: string }> }>;
+    }>>("/api/v1/dbi/portal/accounts")
+      .then(({ data: accounts }) => {
+        if (!active) return;
+        setCanPublish(accounts.some(account =>
+          account.tenant_ref === realLocator.tenantRef &&
+          account.farms.some(farm =>
+            farm.id === realLocator.farmId &&
+            farm.organization_ref === realLocator.organizationRef &&
+            farm.can_publish_layers &&
+            farm.plots.some(plot => plot.id === realLocator.plotId)
+          )
+        ));
+      }).catch(() => { if (active) setCanPublish(false); });
+    return () => { active = false; };
+  }, [realLocator]);
+
 
   useEffect(() => {
     if (useGoogleBase || !mapContainerRef.current || mapRef.current) return;
@@ -125,6 +191,7 @@ export default function FarmMapTimeline() {
       map.remove();
       mapRef.current = null;
       activeRasterIdsRef.current = [];
+      activeVectorIdsRef.current = [];
       fittedRef.current = null;
       setMapReady(false);
     };
@@ -219,6 +286,80 @@ export default function FarmMapTimeline() {
     [data?.timeline, selectedDate, selectedLayers],
   );
 
+
+  const activeCampaignIds = useMemo(() => new Set(
+    isPlotTimeline(data)
+      ? data.timeline.filter(entry =>
+          !selectedDate || entry.captured_at === selectedDate
+        ).map(entry => entry.campaign_id)
+      : []
+  ), [data, selectedDate]);
+
+  const visibleVectorMeta = useMemo(() =>
+    vectorLayers.filter(layer => activeCampaignIds.has(layer.campaign_id)),
+    [vectorLayers, activeCampaignIds],
+  );
+
+  useEffect(() => {
+    let active = true;
+    if (!realLocator) return;
+    const toLoad = visibleVectorMeta.filter(item =>
+      selectedVectorIds.has(item.id) && !vectorDetails[item.id]
+    );
+    if (toLoad.length) {
+      Promise.all(toLoad.map(item => getVectorLayer(realLocator, item.id)))
+        .then(details => {
+          if (!active) return;
+          setVectorDetails(current => ({
+            ...current, ...Object.fromEntries(details.map(detail => [detail.layer.id, detail])),
+          }));
+        }).catch(() => {
+          // La consulta sigue protegida por tenant y lote; una capa fallida no se dibuja.
+        });
+    }
+    return () => { active = false; };
+  }, [realLocator, visibleVectorMeta, selectedVectorIds, vectorDetails]);
+
+  const visibleVectorDetails = useMemo(() =>
+    visibleVectorMeta.filter(meta => selectedVectorIds.has(meta.id))
+      .map(meta => vectorDetails[meta.id])
+      .filter((detail): detail is VectorLayerDetail => Boolean(detail)),
+    [visibleVectorMeta, selectedVectorIds, vectorDetails],
+  );
+
+  const uploadCampaignId = useMemo(() =>
+    isPlotTimeline(data)
+      ? data.timeline.find(entry => !selectedDate || entry.captured_at === selectedDate)?.campaign_id ?? null
+      : null,
+    [data, selectedDate],
+  );
+
+  async function uploadSelectedGeoJSON() {
+    if (!realLocator || !uploadCampaignId || !uploadFile) return;
+    if (!/\.(geojson|json)$/i.test(uploadFile.name) || uploadFile.size > 2 * 1024 * 1024) {
+      setUploadNotice("Usa un GeoJSON WGS84 de máximo 2 MB.");
+      return;
+    }
+    setUploading(true);
+    setUploadNotice(null);
+    try {
+      const saved = await publishGeoJSON(
+        realLocator, uploadFile, uploadCampaignId, uploadKind,
+        uploadFile.name.replace(/\.(geojson|json)$/i, ""),
+      );
+      const layers = await listVectorLayers(realLocator);
+      setVectorLayers(layers);
+      setSelectedVectorIds(current => new Set([...current, saved.id]));
+      setUploadFile(null);
+      setUploadNotice("Capa publicada para los usuarios autorizados de este lote.");
+    } catch (err: unknown) {
+      const detail = (err as { response?: { data?: { detail?: string } } })?.response?.data?.detail;
+      setUploadNotice(typeof detail === "string" ? detail : "No se pudo publicar la capa.");
+    } finally {
+      setUploading(false);
+    }
+  }
+
   const displayEntries = useMemo(() => {
     const selected = new Map<MapLayerType, RasterTileTimelineEntry>();
     const ordered = [...visibleEntries].sort((a, b) =>
@@ -260,7 +401,57 @@ export default function FarmMapTimeline() {
       });
       activeRasterIdsRef.current.push(id);
     }
+    for (const vectorId of activeVectorIdsRef.current) {
+      for (const suffix of ["-fill", "-line", "-point"]) {
+        const id = `${vectorId}${suffix}`;
+        if (map.getLayer(id)) map.moveLayer(id);
+      }
+    }
   }, [displayEntries, mapReady]);
+
+
+  useEffect(() => {
+    const map = mapRef.current;
+    if (!map || !mapReady) return;
+    for (const id of activeVectorIdsRef.current) {
+      for (const suffix of ["-point", "-line", "-fill"]) {
+        if (map.getLayer(id + suffix)) map.removeLayer(id + suffix);
+      }
+      if (map.getSource(id)) map.removeSource(id);
+    }
+    activeVectorIdsRef.current = [];
+
+    for (const vector of visibleVectorDetails) {
+      const id = `dbi-vector-${vector.layer.id}`;
+      map.addSource(id, {
+        type: "geojson",
+        data: vector.geojson as unknown as string,
+      });
+      map.addLayer({
+        id: id + "-fill", type: "fill", source: id,
+        filter: ["==", ["geometry-type"], "Polygon"],
+        paint: {
+          "fill-color": vector.layer.layer_kind === "density_hexagons" ? "#d97706" : "#0d9488",
+          "fill-opacity": 0.25,
+        },
+      });
+      map.addLayer({
+        id: id + "-line", type: "line", source: id,
+        paint: { "line-color": "#047857", "line-width": 2 },
+      });
+      map.addLayer({
+        id: id + "-point", type: "circle", source: id,
+        filter: ["==", ["geometry-type"], "Point"],
+        paint: {
+          "circle-radius": 5,
+          "circle-color": "#059669",
+          "circle-stroke-color": "#ffffff",
+          "circle-stroke-width": 1,
+        },
+      });
+      activeVectorIdsRef.current.push(id);
+    }
+  }, [mapReady, visibleVectorDetails]);
 
   useEffect(() => {
     const map = mapRef.current;
@@ -306,13 +497,13 @@ export default function FarmMapTimeline() {
       <div className="status-banner status-banner-info">
         <div className="font-medium">
           {isPlotTimeline(data)
-            ? "Visor cronológico Raster DBI"
-            : "Visor cronológico v1"}
+            ? "Mapa histórico de tu finca"
+            : "Mapa de la finca"}
         </div>
         <p className="mt-1 text-sm">
           {isPlotTimeline(data)
-            ? "Las imágenes visibles provienen de campañas reales y tiles privados autorizados; el navegador no recibe la ruta del COG."
-            : "El catálogo indica qué capas admite la plataforma. Una capa solo aparecerá cuando exista una campaña real registrada."}
+            ? "Elige una fecha y activa las capas disponibles para explorar tu finca. Fuera de la ortofoto puedes ver el fondo satelital si Google Maps está habilitado."
+            : "Los levantamientos aparecerán cuando estén disponibles en tu cuenta."}
         </p>
       </div>
 
@@ -320,13 +511,11 @@ export default function FarmMapTimeline() {
         <aside className="card space-y-5">
           <div>
             <div className="eyebrow">Finca / lote</div>
-            <h2 className="mt-1 break-all">{effectiveFarmId || "Sin identificar"}</h2>
+            <h2 className="mt-1 text-lg font-semibold">{realLocator ? farmLabel : "Mapa de finca"}</h2>
             {isPlotTimeline(data) && (
-              <p className="muted mt-1 break-all text-xs">Lote: {data.plot_id}</p>
+              <p className="muted mt-1 text-sm">Lote: {plotLabel}</p>
             )}
-            <p className="muted mt-2">
-              Contrato: {data?.schema_version ?? "pendiente de carga"}
-            </p>
+
           </div>
 
           <div className="divider pt-4">
@@ -383,6 +572,56 @@ export default function FarmMapTimeline() {
             </div>
           </div>
 
+          {realLocator && (
+            <div className="divider space-y-3 pt-4">
+              <div className="text-sm font-semibold">Resultados GIS del levantamiento</div>
+              {visibleVectorMeta.length === 0 ? (
+                <p className="muted text-sm">Todavía no hay capas GIS publicadas en esta fecha.</p>
+              ) : visibleVectorMeta.map(layer => (
+                <label key={layer.id} className="flex items-start gap-2 text-sm">
+                  <input
+                    type="checkbox"
+                    checked={selectedVectorIds.has(layer.id)}
+                    onChange={() => setSelectedVectorIds(current => {
+                      const next = new Set(current);
+                      if (next.has(layer.id)) next.delete(layer.id);
+                      else next.add(layer.id);
+                      return next;
+                    })}
+                  />
+                  <span>
+                    <span className="font-medium">{layer.name}</span>
+                    <span className="muted block text-xs">{layer.feature_count} elementos cartográficos</span>
+                  </span>
+                </label>
+              ))}
+            </div>
+          )}
+
+          {canPublish && uploadCampaignId && realLocator && (
+            <div className="divider space-y-3 pt-4">
+              <div className="text-sm font-semibold">Añadir resultado cartográfico</div>
+              <p className="muted text-xs">GeoJSON WGS84, máximo 2 MB. SHP y GeoPackage requieren conversión controlada.</p>
+              <select className="w-full" aria-label="Tipo de capa" value={uploadKind}
+                onChange={event => setUploadKind(event.target.value as VectorLayerKind)}>
+                <option value="density_hexagons">Densidad por sectores</option>
+                <option value="plants">Ubicación de plantas</option>
+                <option value="planting_candidates">Oportunidades de siembra</option>
+                <option value="boundaries">Límites</option>
+                <option value="observations">Inspecciones</option>
+                <option value="other">Otra información GIS</option>
+              </select>
+              <input aria-label="Seleccionar GeoJSON" type="file" accept=".geojson,.json,application/geo+json"
+                className="block w-full text-xs" onChange={event => setUploadFile(event.target.files?.[0] ?? null)} />
+              <button type="button" className="btn-primary w-full"
+                disabled={!uploadFile || uploading}
+                onClick={() => void uploadSelectedGeoJSON()}>
+                {uploading ? "Publicando capa…" : "Publicar en este lote"}
+              </button>
+              {uploadNotice && <p role="status" className="muted text-xs">{uploadNotice}</p>}
+            </div>
+          )}
+
           <div className="divider pt-4">
             <label className="text-sm font-medium" htmlFor="comparison-date">
               Comparar con
@@ -416,6 +655,7 @@ export default function FarmMapTimeline() {
                 tenantRef={realLocator.tenantRef}
                 entries={displayEntries}
                 bounds={isPlotTimeline(data) ? data.viewport_bounds : null}
+                vectors={visibleVectorDetails}
               />
             ) : (
               <div
