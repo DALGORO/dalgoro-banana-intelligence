@@ -359,6 +359,28 @@ def _validate_repository() -> UUID:
                 plot_id=PLOT_ID,
             ) is None
 
+            assert [item.id for item in repository.list_scoped(
+                tenant_ref=TENANT, organization_ref=ORGANIZATION,
+                farm_id=FARM_ID, plot_id=PLOT_ID,
+            )] == [expected_id]
+            assert repository.list_scoped(
+                tenant_ref="tenant-crossed", organization_ref=ORGANIZATION,
+                farm_id=FARM_ID, plot_id=PLOT_ID,
+            ) == []
+            assert repository.list_scoped(
+                tenant_ref=TENANT, organization_ref="organization-foreign",
+                farm_id=FARM_ID, plot_id=PLOT_ID,
+            ) == []
+            assert repository.list_scoped(
+                tenant_ref=TENANT, organization_ref=ORGANIZATION,
+                farm_id=FARM_ID, plot_id=UUID("20000000-0000-4000-8000-000000000081"),
+            ) == []
+            assert repository.list_scoped(
+                tenant_ref=TENANT, organization_ref=ORGANIZATION,
+                farm_id=UUID("10000000-0000-4000-8000-000000000081"),
+                plot_id=PLOT_ID,
+            ) == []
+
             _expect_conflict(lambda: repository.persist(_candidate(tenant_ref="tenant-crossed")))
             _expect_conflict(
                 lambda: repository.persist(
