@@ -229,6 +229,11 @@ jobs:
           PYTHONPATH: .
         run: python ../../../.github/scripts/ci_dbi_gis_s3_worker.py
 
+      - name: Validar cruce E2/E3 y evidencias staging sin aplicar migraciones
+        env:
+          PYTHONPATH: .
+        run: python ../../../.github/scripts/ci_dbi_staging_migration_gate_simulation.py
+
       - name: Validar expediente previo a migración staging 100% offline
         env:
           PYTHONPATH: .
