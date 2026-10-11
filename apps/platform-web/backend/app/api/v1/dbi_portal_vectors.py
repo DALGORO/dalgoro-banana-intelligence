@@ -205,6 +205,7 @@ async def publish_vector_layer(
         name=normalized_name, layer_kind=layer_kind, crs="EPSG:4326",
         source_sha256=parsed.source_sha256,
         geojson_text=parsed.geojson_text,
+        source_bytes=bytes(raw),
         feature_count=parsed.feature_count,
         created_by_ref=context.principal_ref,
     )
