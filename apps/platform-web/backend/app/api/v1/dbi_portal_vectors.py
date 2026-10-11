@@ -174,11 +174,18 @@ async def publish_vector_layer(
 
     if request.headers.get("content-type", "").split(";", 1)[0].lower() != "application/geo+json":
         raise HTTPException(status_code=415, detail="Sube un archivo .geojson válido.")
+    declared_length = request.headers.get("content-length")
+    if declared_length:
+        try:
+            if int(declared_length) > MAX_VECTOR_BYTES:
+                raise HTTPException(status_code=413, detail="GeoJSON máximo 2 MB.")
+        except ValueError as error:
+            raise HTTPException(status_code=400, detail="Content-Length inválido.") from error
     raw = bytearray()
     async for chunk in request.stream():
-        raw.extend(chunk)
-        if len(raw) > MAX_VECTOR_BYTES:
+        if len(raw) + len(chunk) > MAX_VECTOR_BYTES:
             raise HTTPException(status_code=413, detail="GeoJSON máximo 2 MB.")
+        raw.extend(chunk)
     try:
         parsed = validate_portal_geojson(bytes(raw))
     except DBIPortalVectorInvalid as error:
