@@ -200,6 +200,103 @@ def validate_plot_scope_for_jobs() -> None:
     assert result[0].plot_id == allowed_plot_id
 
 
+
+def validate_campaign_tenant_plot_isolation() -> None:
+    """El portal nunca devuelve Campaigns técnicas ajenas al tenant/lote."""
+    from sqlalchemy.dialects import postgresql
+    from app.dbi.repositories import CampaignRepository
+
+    context, farm_id, plot_id = _context()
+    now = datetime.now(timezone.utc)
+
+    class RecordingSession:
+        statement = None
+
+        def execute(self, statement):
+            self.statement = statement
+            return SimpleNamespace(scalars=lambda: SimpleNamespace(all=lambda: []))
+
+    sql_session = RecordingSession()
+    assert CampaignRepository(sql_session).list_scoped_technical_by_farm(
+        tenant_ref=context.tenant_ref,
+        organization_ref="organization-1",
+        farm_id=farm_id,
+        allowed_plot_ids=frozenset({plot_id}),
+    ) == []
+    compiled = sql_session.statement.compile(dialect=postgresql.dialect())
+    sql = str(compiled).lower()
+    assert "dbi_campaigns.tenant_ref" in sql
+    assert "dbi_campaigns.organization_ref" in sql
+    assert "dbi_campaigns.plot_id in" in sql
+    assert "dbi_campaigns.analysis_type is not null" in sql
+    assert "limit" in sql
+    for value in ("tenant-1", "organization-1", farm_id):
+        assert value in compiled.params.values()
+
+    empty = RecordingSession()
+    assert CampaignRepository(empty).list_scoped_technical_by_farm(
+        tenant_ref="tenant-1", organization_ref="organization-1",
+        farm_id=farm_id, allowed_plot_ids=frozenset(),
+    ) == ()
+    assert empty.statement is None
+
+    def campaign(tenant, plot, analysis_type="density"):
+        return SimpleNamespace(
+            id=uuid4(), tenant_ref=tenant, organization_ref="organization-1",
+            farm_id=farm_id, plot_id=plot, analysis_type=analysis_type,
+            code="C-001", name="Campaña", starts_at=now, ends_at=None,
+            status="ANALYZED", created_at=now, updated_at=now,
+        )
+
+    class FakeCampaignRepository:
+        value = None
+
+        def __init__(self, session):
+            pass
+
+        def list_scoped_technical_by_farm(self, **kwargs):
+            assert kwargs == {
+                "tenant_ref": "tenant-1",
+                "organization_ref": "organization-1",
+                "farm_id": farm_id,
+                "allowed_plot_ids": frozenset({plot_id}),
+            }
+            return [campaign("tenant-1", plot_id)]
+
+        def get_by_id(self, **kwargs):
+            assert kwargs["organization_ref"] == "organization-1"
+            return self.value
+
+    with patch.object(dbi_reads, "CampaignRepository", FakeCampaignRepository):
+        visible = dbi_reads.list_campaigns(
+            "organization-1", farm_id, SimpleNamespace(), context
+        )
+        assert len(visible) == 1
+        for hidden in (
+            campaign("tenant-2", plot_id),
+            campaign("tenant-1", uuid4()),
+            campaign("tenant-1", plot_id, None),
+        ):
+            FakeCampaignRepository.value = hidden
+            try:
+                dbi_reads.get_campaign(
+                    "organization-1", farm_id, hidden.id,
+                    SimpleNamespace(), context,
+                )
+            except HTTPException as error:
+                assert (error.status_code, error.detail) == (
+                    404, "Recurso DBI no encontrado."
+                )
+            else:
+                raise AssertionError("Campaign ajena no debe ser visible.")
+
+        own = campaign("tenant-1", plot_id)
+        FakeCampaignRepository.value = own
+        assert dbi_reads.get_campaign(
+            "organization-1", farm_id, own.id,
+            SimpleNamespace(), context,
+        ).id == own.id
+
 def validate_static_boundaries() -> None:
     router_source = inspect.getsource(dbi_reads)
     repositories_source = inspect.getsource(sys.modules["app.dbi.repositories"])
@@ -217,7 +314,7 @@ def validate_static_boundaries() -> None:
     assert "AnalysisJob.tenant_ref == tenant_ref" in repositories_source
     assert "AnalysisInputAsset.tenant_ref == tenant_ref" in repositories_source
     assert "DBI_READ_LIST_LIMIT = 100" in repositories_source
-    assert repositories_source.count(".limit(DBI_READ_LIST_LIMIT)") == 6
+    assert repositories_source.count(".limit(DBI_READ_LIST_LIMIT)") == 7
 
 
 if __name__ == "__main__":
@@ -226,5 +323,6 @@ if __name__ == "__main__":
     validate_non_enumerable_denial()
     validate_scope_filtering()
     validate_plot_scope_for_jobs()
+    validate_campaign_tenant_plot_isolation()
     validate_static_boundaries()
     print("Consultas DBI autorizadas validadas offline.")

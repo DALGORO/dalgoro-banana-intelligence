@@ -200,9 +200,11 @@ def list_campaigns(
     context: AccessDependency,
 ) -> list[CampaignRead]:
     _require_farm(context, organization_ref, farm_id)
-    campaigns = CampaignRepository(session).list_by_farm(
+    campaigns = CampaignRepository(session).list_scoped_technical_by_farm(
+        tenant_ref=context.tenant_ref,
         organization_ref=organization_ref,
         farm_id=farm_id,
+        allowed_plot_ids=_authorized_plot_ids(context, organization_ref, farm_id),
     )
     return [CampaignRead.model_validate(campaign) for campaign in campaigns]
 
@@ -223,7 +225,16 @@ def get_campaign(
         organization_ref=organization_ref,
         campaign_id=campaign_id,
     )
-    if campaign is None or campaign.farm_id != farm_id:
+    if (
+        campaign is None
+        or campaign.farm_id != farm_id
+        or campaign.organization_ref != organization_ref
+        or campaign.tenant_ref != context.tenant_ref
+        or campaign.analysis_type is None
+        or campaign.plot_id not in _authorized_plot_ids(
+            context, organization_ref, farm_id
+        )
+    ):
         raise _not_found()
     return CampaignRead.model_validate(campaign)
 
