@@ -282,26 +282,26 @@ def publish_reviewed_gis_import(
         return _info(existing)
 
     existing = _find_layer()
-    if existing is None:
-        existing = DBIPortalVectorLayer(
-            id=uuid4(),
-            tenant_ref=context.tenant_ref, organization_ref=organization_ref,
-            farm_id=farm_id, plot_id=plot_id, campaign_id=row.campaign_id,
-            name=row.name, layer_kind=row.layer_kind, crs="EPSG:4326",
-            source_sha256=preview.sha256,
-            geojson_text=parsed.geojson_text, source_bytes=raw,
-            feature_count=parsed.feature_count,
-            created_by_ref=context.principal_ref,
-        )
-        session.add(existing)
-    row.status = "published"
-    row.approved_at = datetime.now(timezone.utc)
-    row.approved_by_ref = context.principal_ref
-    # La FK debe estar definida ANTES del flush: la CHECK 'published' no
-    # admite una fila publicada sin su capa incluso temporalmente.
-    row.published_layer_id = existing.id
     try:
-        session.flush()
+        if existing is None:
+            existing = DBIPortalVectorLayer(
+                id=uuid4(),
+                tenant_ref=context.tenant_ref, organization_ref=organization_ref,
+                farm_id=farm_id, plot_id=plot_id, campaign_id=row.campaign_id,
+                name=row.name, layer_kind=row.layer_kind, crs="EPSG:4326",
+                source_sha256=preview.sha256,
+                geojson_text=parsed.geojson_text, source_bytes=raw,
+                feature_count=parsed.feature_count,
+                created_by_ref=context.principal_ref,
+            )
+            session.add(existing)
+            # Inserta la capa dentro de la transacción, ANTES de marcar como
+            # publicada la importación: la FK y CHECK se mantienen válidas.
+            session.flush()
+        row.published_layer_id = existing.id
+        row.status = "published"
+        row.approved_at = datetime.now(timezone.utc)
+        row.approved_by_ref = context.principal_ref
         session.commit()
     except IntegrityError as error:
         session.rollback()
