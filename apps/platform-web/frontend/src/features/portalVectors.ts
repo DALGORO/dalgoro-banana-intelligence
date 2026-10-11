@@ -22,7 +22,8 @@ export type GISImportReceipt = {
   source_format: "gpkg" | "shp_zip";
   layer_kind: VectorLayerKind;
   size_bytes: number;
-  status: "received" | "processing" | "prepared" | "failed";
+  status: "received" | "processing" | "prepared" | "published" | "failed";
+  published_layer_id: string | null;
   created_at: string;
 };
 
@@ -129,6 +130,28 @@ export async function stageGISOriginal(
     {
       headers: { ...headers(locator.tenantRef), "Content-Type": "application/octet-stream" },
     },
+  );
+  return data;
+}
+
+export type GISImportPreview = {
+  receipt: GISImportReceipt;
+  feature_count: number;
+  geojson: GeoJSONFeatureCollection;
+};
+
+export async function getGISImportPreview(locator: PlotMapTimelineLocator, importId: string) {
+  const { data } = await api.get<GISImportPreview>(
+    `${importsUrl(locator)}/${encodeURIComponent(importId)}/preview`,
+    { headers: headers(locator.tenantRef) },
+  );
+  return data;
+}
+
+export async function publishReviewedGISImport(locator: PlotMapTimelineLocator, importId: string) {
+  const { data } = await api.post<VectorLayerInfo>(
+    `${importsUrl(locator)}/${encodeURIComponent(importId)}/publish`,
+    null, { headers: headers(locator.tenantRef) },
   );
   return data;
 }

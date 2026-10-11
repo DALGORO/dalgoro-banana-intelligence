@@ -224,6 +224,11 @@ jobs:
           PYTHONPATH: .
         run: python ../../../.github/scripts/ci_dbi_gis_preparation.py
 
+      - name: Validar publicación GIS tras revisión autorizada
+        env:
+          PYTHONPATH: .
+        run: python ../../../.github/scripts/ci_dbi_gis_approval.py
+
       - name: Validar catálogo seguro de clientes DBI
         env:
           PYTHONPATH: .

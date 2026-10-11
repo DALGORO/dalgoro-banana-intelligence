@@ -18,7 +18,8 @@ class DBIPortalGISImport(DBIBase):
         ),
         UniqueConstraint("source_object_id", name="uq_dbi_portal_gis_import_object"),
         CheckConstraint("source_format IN ('gpkg', 'shp_zip')", name="ck_dbi_portal_gis_import_format"),
-        CheckConstraint("status IN ('received', 'processing', 'prepared', 'failed')", name="ck_dbi_portal_gis_import_status"),
+        CheckConstraint("status IN ('received', 'processing', 'prepared', 'published', 'failed')", name="ck_dbi_portal_gis_import_status"),
+        CheckConstraint("status != 'published' OR published_layer_id IS NOT NULL", name="ck_dbi_portal_gis_import_published"),
         CheckConstraint("size_bytes > 0 AND size_bytes <= 31457280", name="ck_dbi_portal_gis_import_size"),
         CheckConstraint("sha256 ~ '^[0-9a-f]{64}$'", name="ck_dbi_portal_gis_import_sha"),
         CheckConstraint(
@@ -45,6 +46,9 @@ class DBIPortalGISImport(DBIBase):
     processing_started_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
     processing_ref: Mapped[UUID | None] = mapped_column(Uuid, nullable=True)
     attempt_count: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
+    published_layer_id: Mapped[UUID | None] = mapped_column(Uuid, ForeignKey("dbi_portal_vector_layers.id", ondelete="RESTRICT"), nullable=True)
+    approved_by_ref: Mapped[str | None] = mapped_column(String(128), nullable=True)
+    approved_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
     created_by_ref: Mapped[str] = mapped_column(String(128), nullable=False)
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), nullable=False,
