@@ -238,7 +238,7 @@ def convert_vector(source: Path, output_dir: Path, *, layer: str | None = None) 
             )
 
         output_dir.mkdir(parents=True, exist_ok=True)
-        stem = _safe_stem(source.stem) + "-" + original_hash[:12]
+        stem = _safe_stem(source.stem) + "-" + _safe_stem(layer_name) + "-" + original_hash[:12]
         output_path = output_dir / f"{stem}.geojson"
         manifest_path = output_dir / f"{stem}.manifest.json"
         manifest = {
