@@ -12,7 +12,7 @@ import "maplibre-gl/dist/maplibre-gl.css";
 import { GoogleSatelliteViewer } from "@/components/GoogleSatelliteViewer";
 import { api } from "@/app/api";
 import {
-  getVectorLayer, listVectorLayers, listVectorCampaigns, listGISImports, getGISImportPreview, publishReviewedGISImport, publishGeoJSON, stageGISOriginal, vectorExtent,
+  getVectorLayer, listVectorLayers, listVectorCampaigns, listGISImports, getGISImportPreview, publishReviewedGISImport, publishGeoJSON, stageGISOriginal, selectGISImportLayer, vectorExtent,
   type VectorLayerInfo, type VectorLayerKind, type VectorLayerDetail, type VectorCampaign, type GISImportReceipt,
 } from "@/features/portalVectors";
 import mapWorkerUrl from "maplibre-gl/dist/maplibre-gl-worker.mjs?worker&url";
@@ -111,6 +111,8 @@ export default function FarmMapTimeline() {
     items: GISImportReceipt[];
   } | null>(null);
   const [gisRefreshBusy, setGISRefreshBusy] = useState(false);
+  const [gisChoice, setGISChoice] = useState<{ scopeKey: string; values: Record<string, string> } | null>(null);
+  const [gisChoiceBusyId, setGISChoiceBusyId] = useState<string | null>(null);
   const [reviewedImportId, setReviewedImportId] = useState<string | null>(null);
   const [gisPreviewVector, setGISPreviewVector] = useState<VectorLayerDetail | null>(null);
   const [gisReviewBusy, setGISReviewBusy] = useState(false);
@@ -473,6 +475,25 @@ export default function FarmMapTimeline() {
       setUploadNotice(typeof detail === "string" ? detail : "No se pudo aprobar la capa GIS.");
     } finally {
       setGISReviewBusy(false);
+    }
+  }
+
+  async function saveGISLayerChoice(item: GISImportReceipt) {
+    const layer = gisChoice?.scopeKey === gisScopeKey ? gisChoice.values[item.id] : undefined;
+    if (!realLocator || !canPublish || item.status !== "needs_selection"
+      || item.selected_layer || !layer || !item.available_layers?.includes(layer)
+      || gisChoiceBusyId) return;
+    setGISChoiceBusyId(item.id);
+    setUploadNotice(null);
+    try {
+      await selectGISImportLayer(realLocator, item.id, layer);
+      setGISImportCache({ scopeKey: gisScopeKey, items: await listGISImports(realLocator) });
+      setUploadNotice("Elección guardada. La conversión de esa capa aún no está habilitada.");
+    } catch (error: unknown) {
+      const detail = (error as { response?: { data?: { detail?: string } } }).response?.data?.detail;
+      setUploadNotice(typeof detail === "string" ? detail : "No se pudo guardar la elección GIS.");
+    } finally {
+      setGISChoiceBusyId(null);
     }
   }
 
@@ -855,11 +876,50 @@ export default function FarmMapTimeline() {
                       <span className="muted block">
                         {item.status === "received" ? "Recibido · pendiente de conversión"
                           : item.status === "processing" ? "En conversión"
-                          : item.status === "needs_selection" ? "Capas detectadas · pendiente de elección" 
+                          : item.status === "needs_selection" ? (item.selected_layer ? "Capa elegida · pendiente de conversión" : "Capas detectadas · pendiente de elección")
                           : item.status === "prepared" ? "Convertido · pendiente de aprobación"
                           : item.status === "published" ? "Revisado · publicado en el lote"
                           : "Conversión fallida"}
                       </span>
+                      {item.status === "needs_selection" && item.selected_layer && (
+                        <span className="muted block">
+                          Capa seleccionada: <strong>{item.selected_layer}</strong>. Todavía no se ha convertido ni publicado.
+                        </span>
+                      )}
+                      {item.status === "needs_selection" && !item.selected_layer && item.available_layers && (
+                        <div className="space-y-2">
+                          <label htmlFor={`dbi-layer-choice-${item.id}`} className="block font-medium">
+                            Elegir una capa geométrica del GeoPackage
+                          </label>
+                          <select
+                            id={`dbi-layer-choice-${item.id}`}
+                            className="w-full"
+                            value={gisChoice?.scopeKey === gisScopeKey ? (gisChoice.values[item.id] ?? "") : ""}
+                            disabled={gisChoiceBusyId !== null}
+                            onChange={event => setGISChoice(current => ({
+                              scopeKey: gisScopeKey,
+                              values: {
+                                ...(current?.scopeKey === gisScopeKey ? current.values : {}),
+                                [item.id]: event.target.value,
+                              },
+                            }))}
+                          >
+                            <option value="">Selecciona una capa detectada</option>
+                            {item.available_layers.map(layer => (
+                              <option key={layer} value={layer}>{layer}</option>
+                            ))}
+                          </select>
+                          <button type="button" className="btn-primary w-full"
+                            disabled={gisChoiceBusyId !== null
+                              || !item.available_layers.includes(
+                                gisChoice?.scopeKey === gisScopeKey ? (gisChoice.values[item.id] ?? "") : "",
+                              )}
+                            onClick={() => void saveGISLayerChoice(item)}>
+                            {gisChoiceBusyId === item.id ? "Guardando elección…" : "Guardar elección de capa"}
+                          </button>
+                          <p className="muted">La elección será única. Guardarla no inicia conversión ni publicación.</p>
+                        </div>
+                      )}
                       {item.status === "prepared" && (
                         <button type="button" className="text-xs font-medium underline"
                           disabled={gisReviewBusy}
