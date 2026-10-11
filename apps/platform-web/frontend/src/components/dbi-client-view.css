@@ -629,3 +629,34 @@
     grid-template-columns: minmax(0, 1fr);
   }
 }
+
+/* Consulta INSPECT bajo demanda; sin catálogo ni estados inferidos. */
+.dbi-inspect-lookup {
+  min-width: 0;
+  padding: 14px;
+  border: 1px solid #dbe7e1;
+  border-radius: 14px;
+  background: #f6faf8;
+}
+
+.dbi-inspect-lookup input {
+  min-width: 0;
+  min-height: 44px;
+  border-radius: 10px;
+  overflow-wrap: anywhere;
+}
+
+.dbi-inspect-lookup input:focus-visible,
+.dbi-inspect-lookup button:focus-visible {
+  outline: 3px solid #b57548;
+  outline-offset: 2px;
+}
+
+.dbi-inspect-lookup .dbi-tracking-facts dd {
+  overflow-wrap: anywhere;
+}
+
+.dark .dbi-inspect-lookup {
+  border-color: rgba(255, 255, 255, 0.16);
+  background: rgba(255, 255, 255, 0.055);
+}
