@@ -15,13 +15,16 @@ from fastapi import APIRouter, Depends, HTTPException, Query, Request
 from starlette.concurrency import run_in_threadpool
 from pydantic import BaseModel, ConfigDict
 from sqlalchemy import select
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
 from app.api.v1.dbi_assets import get_dbi_asset_object_store
-from app.api.v1.dbi_portal_vectors import _campaign, _require_scope, LayerKind
+from app.api.v1.dbi_portal_vectors import _campaign, _require_scope, _info, LayerKind, VectorLayerInfo
 from app.dbi.authorization import DBIAccessContext
 from app.dbi.dependencies import get_dbi_access_context, get_dbi_session
 from app.dbi.models.portal_gis_imports import DBIPortalGISImport, DBIPortalGISPreview
+from app.dbi.models.portal_vectors import DBIPortalVectorLayer
+from app.dbi.portal_vector_validation import DBIPortalVectorInvalid, validate_portal_geojson
 from app.dbi.portal_gis_staging import (
     MAX_GIS_UPLOAD_BYTES, PortalGISSourceInvalid,
     normalize_upload_filename, validate_staged_source,
@@ -47,6 +50,7 @@ class PortalGISImportInfo(BaseModel):
     layer_kind: LayerKind
     size_bytes: int
     status: str
+    published_layer_id: UUID | None = None
     created_at: datetime
 
 
@@ -55,7 +59,8 @@ def _response(row: DBIPortalGISImport) -> PortalGISImportInfo:
         id=row.id, campaign_id=row.campaign_id, name=row.name,
         original_filename=row.original_filename,
         source_format=row.source_format, layer_kind=row.layer_kind,
-        size_bytes=row.size_bytes, status=row.status, created_at=row.created_at,
+        size_bytes=row.size_bytes, status=row.status,
+        published_layer_id=row.published_layer_id, created_at=row.created_at,
     )
 
 
@@ -203,7 +208,7 @@ def get_gis_import_preview(
             DBIPortalGISImport.plot_id == plot_id,
         )
     ).scalar_one_or_none()
-    if row is None or row.status != "prepared":
+    if row is None or row.status not in {"prepared", "published"}:
         raise HTTPException(status_code=404, detail="Vista previa GIS no disponible.")
     preview = session.get(DBIPortalGISPreview, row.id)
     if preview is None:
@@ -214,3 +219,88 @@ def get_gis_import_preview(
         feature_count=preview.feature_count,
         geojson=json.loads(preview.geojson_text),
     )
+
+
+@router.post(
+    "/organizations/{organization_ref}/farms/{farm_id}/plots/{plot_id}/map/gis-imports/{import_id}/publish",
+    response_model=VectorLayerInfo,
+    status_code=201,
+)
+def publish_reviewed_gis_import(
+    organization_ref: str, farm_id: UUID, plot_id: UUID, import_id: UUID,
+    session: SessionDep, context: AccessDep,
+) -> VectorLayerInfo:
+    """Solo MANAGE aprueba un derivado ya preparado; jamás publica el ZIP/GPKG."""
+    _require_scope(context, organization_ref, farm_id, plot_id, publish=True)
+    row = session.execute(
+        select(DBIPortalGISImport).where(
+            DBIPortalGISImport.id == import_id,
+            DBIPortalGISImport.tenant_ref == context.tenant_ref,
+            DBIPortalGISImport.organization_ref == organization_ref,
+            DBIPortalGISImport.farm_id == farm_id,
+            DBIPortalGISImport.plot_id == plot_id,
+        ).with_for_update()
+    ).scalar_one_or_none()
+    if row is None:
+        raise HTTPException(status_code=404, detail="Importación GIS no disponible.")
+    if row.status not in {"prepared", "published"}:
+        raise HTTPException(status_code=409, detail="El archivo requiere conversión y revisión previa.")
+
+    # Recomprueba la Campaign actual bajo el scope MANAGE en el instante de publicación.
+    _campaign(session, context, organization_ref, farm_id, plot_id, row.campaign_id)
+    preview = session.get(DBIPortalGISPreview, row.id)
+    if preview is None:
+        raise HTTPException(status_code=409, detail="La vista previa validada no está disponible.")
+    raw = preview.geojson_text.encode("utf-8")
+    try:
+        parsed = validate_portal_geojson(raw)
+    except DBIPortalVectorInvalid as error:
+        raise HTTPException(status_code=409, detail="La vista previa requiere nueva validación.") from error
+    if (
+        parsed.source_sha256 != preview.sha256
+        or parsed.geojson_text != preview.geojson_text
+        or parsed.feature_count != preview.feature_count
+    ):
+        raise HTTPException(status_code=409, detail="La vista previa no coincide con su huella.")
+
+    def _find_layer(layer_id: UUID | None = None) -> DBIPortalVectorLayer | None:
+        clause = [DBIPortalVectorLayer.tenant_ref == context.tenant_ref,
+                  DBIPortalVectorLayer.organization_ref == organization_ref,
+                  DBIPortalVectorLayer.farm_id == farm_id,
+                  DBIPortalVectorLayer.plot_id == plot_id,
+                  DBIPortalVectorLayer.campaign_id == row.campaign_id,
+                  DBIPortalVectorLayer.layer_kind == row.layer_kind,
+                  DBIPortalVectorLayer.source_sha256 == preview.sha256]
+        if layer_id is not None:
+            clause.append(DBIPortalVectorLayer.id == layer_id)
+        return session.execute(select(DBIPortalVectorLayer).where(*clause)).scalar_one_or_none()
+
+    if row.status == "published":
+        existing = _find_layer(row.published_layer_id)
+        if existing is None or row.published_layer_id is None:
+            raise HTTPException(status_code=409, detail="La publicación anterior no coincide.")
+        return _info(existing)
+
+    existing = _find_layer()
+    if existing is None:
+        existing = DBIPortalVectorLayer(
+            tenant_ref=context.tenant_ref, organization_ref=organization_ref,
+            farm_id=farm_id, plot_id=plot_id, campaign_id=row.campaign_id,
+            name=row.name, layer_kind=row.layer_kind, crs="EPSG:4326",
+            source_sha256=preview.sha256,
+            geojson_text=parsed.geojson_text, source_bytes=raw,
+            feature_count=parsed.feature_count,
+            created_by_ref=context.principal_ref,
+        )
+        session.add(existing)
+    row.status = "published"
+    row.approved_at = datetime.now(timezone.utc)
+    row.approved_by_ref = context.principal_ref
+    try:
+        session.flush()
+        row.published_layer_id = existing.id
+        session.commit()
+    except IntegrityError as error:
+        session.rollback()
+        raise HTTPException(status_code=409, detail="Conflicto durante la publicación GIS.") from error
+    return _info(existing)
