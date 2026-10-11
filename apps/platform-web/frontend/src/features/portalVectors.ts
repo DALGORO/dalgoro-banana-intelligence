@@ -24,6 +24,7 @@ export type GISImportReceipt = {
   size_bytes: number;
   status: "received" | "processing" | "needs_selection" | "prepared" | "published" | "failed";
   available_layers: string[] | null;
+  selected_layer: string | null;
   published_layer_id: string | null;
   created_at: string;
 };
@@ -131,6 +132,17 @@ export async function stageGISOriginal(
     {
       headers: { ...headers(locator.tenantRef), "Content-Type": "application/octet-stream" },
     },
+  );
+  return data;
+}
+
+export async function selectGISImportLayer(
+  locator: PlotMapTimelineLocator, importId: string, layer: string,
+) {
+  const { data } = await api.post<GISImportReceipt>(
+    `${importsUrl(locator)}/${encodeURIComponent(importId)}/select-layer`,
+    { layer },
+    { headers: headers(locator.tenantRef) },
   );
   return data;
 }
