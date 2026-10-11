@@ -313,7 +313,7 @@ export default function FarmMapTimeline() {
 
   async function uploadSelectedGeoJSON() {
     if (!realLocator || !uploadCampaignId || !uploadFile) return;
-    if (!/\\.(geojson|json)$/i.test(uploadFile.name) || uploadFile.size > 2 * 1024 * 1024) {
+    if (!/\.(geojson|json)$/i.test(uploadFile.name) || uploadFile.size > 2 * 1024 * 1024) {
       setUploadNotice("Usa un GeoJSON WGS84 de máximo 2 MB.");
       return;
     }
@@ -322,7 +322,7 @@ export default function FarmMapTimeline() {
     try {
       const saved = await publishGeoJSON(
         realLocator, uploadFile, uploadCampaignId, uploadKind,
-        uploadFile.name.replace(/\\.(geojson|json)$/i, ""),
+        uploadFile.name.replace(/\.(geojson|json)$/i, ""),
       );
       const layers = await listVectorLayers(realLocator);
       setVectorLayers(layers);
