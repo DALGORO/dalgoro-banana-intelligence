@@ -209,6 +209,11 @@ jobs:
           PYTHONPATH: .
         run: python ../../../.github/scripts/ci_dbi_fastapi_lifecycle.py
 
+      - name: Validar selección y aislamiento de S3 DBI
+        env:
+          PYTHONPATH: .
+        run: python ../../../.github/scripts/ci_dbi_s3_bootstrap.py
+
       - name: Validar capas vectoriales seguras para el portal
         env:
           PYTHONPATH: .
