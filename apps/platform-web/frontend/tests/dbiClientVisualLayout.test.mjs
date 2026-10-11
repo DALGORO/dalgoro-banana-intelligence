@@ -1,6 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
+import { coverageLabel, INDEX_EXPLANATIONS } from "../src/features/producerEvidenceReadout.ts";
 
 const file = (relative) => readFileSync(new URL(relative, import.meta.url), "utf8");
 const shell = file("../src/components/AppShell.tsx");
@@ -31,7 +32,7 @@ test("map and MULTI use responsive columns without moving scientific calculation
 test("client only sees real derived summary; management still requires publish access", () => {
   assert.match(multi, /payload\.summaries\.filter\(item => item\.variable_kind === "index"\)\.map/);
   assert.match(multi, /\{number\(item\.median\)\}/);
-  assert.match(multi, /sin comparación temporal/);
+  assert.match(multi, /no se deben comparar directamente entre vuelos/);
   assert.match(multi, /verifiedMultispectralCampaigns\(items, locator\)/);
   assert.match(map, /\{canPublish && realLocator && \(\s*<details/);
   assert.match(map, /{selectedMapCampaignId && \(/);
@@ -58,4 +59,38 @@ test("mobile controls are visibly accessible only at phone breakpoint", () => {
   assert.match(styles, /\.dbi-mobile-toolbar select \{[\s\S]*?min-height: 44px;/);
   assert.match(styles, /\.dbi-mobile-shortcuts a:focus-visible/);
   assert.match(styles, /\.dbi-map-stage,[\s\S]*?\.dbi-multi-panel \{\s*scroll-margin-top: 16px;/);
+});
+
+test("producer sees factual readout, not an inferred health score", () => {
+  assert.match(multi, /aria-label="Lectura rápida para el productor"/);
+  assert.match(multi, /Fecha de vuelo no verificada/);
+  assert.match(multi, /verifiedFlight && selected\.captured_at/);
+  assert.match(multi, /payload\.support_mode === "copa_up"/);
+  assert.match(multi, /no representa hectáreas ni porcentaje/);
+  assert.match(multi, /coverageLabel\(item\)/);
+  assert.match(multi, /INDEX_EXPLANATIONS\[item\.variable_ref\]/);
+  assert.match(multi, /<details className="dbi-producer-details">/);
+  assert.match(multi, /P10–P90 = intervalo/);
+  assert.match(styles, /\.dbi-producer-facts/);
+});
+
+test("coverage only reports valid source pixel counts; no hectare or plant inference", () => {
+  assert.match(coverageLabel({ selected_count: 100, valid_count: 80, valid_fraction: 0.8 }), /80 de 100 píxeles válidos \(80%\)/);
+  assert.equal(coverageLabel({ selected_count: 0, valid_count: 0, valid_fraction: 0 }),
+    "Cobertura de píxeles no disponible");
+  assert.equal(coverageLabel({ selected_count: 2, valid_count: 3, valid_fraction: 1 }),
+    "Cobertura de píxeles no disponible");
+  assert.equal(coverageLabel({ selected_count: 5, valid_count: -1, valid_fraction: 0 }),
+    "Cobertura de píxeles no disponible");
+  assert.equal(coverageLabel({ selected_count: Number.NaN, valid_count: 1, valid_fraction: 0.5 }),
+    "Cobertura de píxeles no disponible");
+  assert.equal(coverageLabel({ selected_count: 10, valid_count: 5, valid_fraction: Number.NaN }),
+    "5 de 10 píxeles válidos");
+  assert.equal(coverageLabel({ selected_count: 10, valid_count: 5, valid_fraction: 1.2 }),
+    "5 de 10 píxeles válidos");
+  assert.equal(Object.keys(INDEX_EXPLANATIONS).length, 6);
+  for (const value of Object.values(INDEX_EXPLANATIONS)) {
+    assert.ok(value.length > 20, "Debe haber explicación por índice");
+    assert.doesNotMatch(value, /tratamiento recomendado|cultivo enfermo|cultivo sano/i);
+  }
 });
