@@ -850,8 +850,10 @@ function FarmMapTimelineView() {
           )}
 
           {canPublish && realLocator && (
-            <div className="divider space-y-3 pt-4">
-              <div className="text-sm font-semibold">Añadir resultado cartográfico</div>
+            <details className="divider dbi-manage-details pt-4">
+              <summary className="cursor-pointer text-sm font-semibold">Gestionar y publicar capas GIS</summary>
+              <div className="space-y-3 pt-3">
+                <p className="muted text-xs">Solo usuarios con permiso de publicación.</p>
               <p className="muted text-xs">GeoJSON (hasta 2 MiB) se publica directamente. GeoPackage o Shapefile ZIP (hasta 30 MiB) se reciben de forma privada y quedan pendientes de conversión y revisión.</p>
               <label htmlFor="dbi-upload-campaign" className="block text-xs font-medium">Levantamiento al que pertenece la capa</label>
               <select id="dbi-upload-campaign" className="w-full" value={chosenUploadCampaign}
@@ -980,7 +982,8 @@ function FarmMapTimelineView() {
                     <p className="muted text-xs">No hay originales GIS recibidos en este lote.</p>
                   )}
                 </div>
-            </div>
+              </div>
+            </details>
           )}
 
           <div className="divider pt-4">
