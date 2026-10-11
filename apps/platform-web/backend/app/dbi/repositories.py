@@ -198,6 +198,35 @@ class CampaignRepository(_DBIRepository[Campaign]):
         )
 
 
+    def list_scoped_technical_by_farm(
+        self,
+        *,
+        tenant_ref: str,
+        organization_ref: str,
+        farm_id: UUID,
+        allowed_plot_ids: frozenset[UUID],
+    ) -> Sequence[Campaign]:
+        """Campaigns técnicas visibles, filtradas en SQL antes del límite."""
+
+        if not allowed_plot_ids:
+            return ()
+
+        return self._all(
+            select(Campaign)
+            .join(Farm, Campaign.farm_id == Farm.id)
+            .where(
+                Campaign.tenant_ref == tenant_ref,
+                Campaign.organization_ref == organization_ref,
+                Campaign.farm_id == farm_id,
+                Farm.organization_ref == organization_ref,
+                Campaign.plot_id.in_(allowed_plot_ids),
+                Campaign.analysis_type.is_not(None),
+            )
+            .order_by(Campaign.captured_at.desc(), Campaign.id)
+            .limit(DBI_READ_LIST_LIMIT)
+        )
+
+
 class AnalysisJobRepository(_DBIRepository[AnalysisJob]):
     """Acceso a trabajos limitado por tenant e idempotencia."""
 
