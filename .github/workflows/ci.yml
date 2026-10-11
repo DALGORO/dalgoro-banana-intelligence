@@ -229,6 +229,11 @@ jobs:
           PYTHONPATH: .
         run: python ../../../.github/scripts/ci_dbi_gis_s3_worker.py
 
+      - name: Validar preflight OFFLINE GIS staging y bloqueos de despliegue
+        env:
+          PYTHONPATH: .
+        run: python ../../../.github/scripts/ci_dbi_gis_staging_readiness.py
+
       - name: Validar preparación GIS privada por worker aislado
         env:
           PYTHONPATH: .
