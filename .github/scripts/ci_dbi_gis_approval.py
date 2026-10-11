@@ -79,8 +79,9 @@ class Session:
         self.additions += 1
 
     def flush(self):
-        if self.layer is not None and self.layer.id is None:
-            self.layer.id = uuid4()
+        # Simula la CHECK PostgreSQL: status published exige FK antes del flush.
+        assert self.row.status != "published" or self.row.published_layer_id is not None
+        if self.layer is not None and self.layer.created_at is None:
             self.layer.created_at = datetime.now(timezone.utc)
 
     def commit(self):
