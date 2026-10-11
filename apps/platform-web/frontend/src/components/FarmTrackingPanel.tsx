@@ -1,4 +1,5 @@
-import type { MapTimelineEntry } from "@/features/mapTimeline";
+import type { MapTimelineEntry, PlotMapTimelineLocator } from "@/features/mapTimeline";
+import { InspectionObservationLookup } from "@/components/InspectionObservationLookup";
 import type { VectorLayerInfo } from "@/features/portalVectors";
 
 type Props = {
@@ -11,6 +12,7 @@ type Props = {
   loading: boolean;
   timelineError: string | null;
   hasScopedPlot: boolean;
+  locator: PlotMapTimelineLocator | null;
   onOpenEvidence: () => void;
 };
 
@@ -28,7 +30,7 @@ function capturedTime(value: string): string {
 export function FarmTrackingPanel({
   farmName, plotName, selectedMapDate, selectedCampaignId,
   visibleMapEntries, associatedGISLayers, loading, timelineError,
-  hasScopedPlot, onOpenEvidence,
+  hasScopedPlot, locator, onOpenEvidence,
 }: Props) {
   const visibleObservations = visibleMapEntries.filter(
     entry => entry.layer_type === "inspections",
@@ -113,6 +115,12 @@ export function FarmTrackingPanel({
               ni unidades productivas enfermas. No se deduce su relación por proximidad o fecha.
             </p>
           </section>
+          {locator && (
+            <InspectionObservationLookup
+              key={JSON.stringify([locator.tenantRef, locator.organizationRef, locator.farmId, locator.plotId])}
+              locator={locator}
+            />
+          )}
         </>
       )}
 
