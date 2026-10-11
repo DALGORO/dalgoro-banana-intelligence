@@ -170,7 +170,7 @@ def discover_vector_layers(source: Path) -> list[str]:
     ):
         raise PortalGISConversionError("Selecciona un GeoPackage privado válido.")
     with source.open("rb") as file:
-        if file.read(16) != b"SQLite format 3\\x00":
+        if file.read(16) != b"SQLite format 3\x00":
             raise PortalGISConversionError("Cabecera GeoPackage inválida.")
     try:
         found = pyogrio.list_layers(source)
@@ -335,7 +335,7 @@ def main() -> None:
         try:
             names = discover_vector_layers(args.source)
         except PortalGISConversionError as error:
-            parser.exit(2, f"Error de descubrimiento: {error}\\n")
+            parser.exit(2, f"Error de descubrimiento: {error}\n")
         print(json.dumps({"layers": names}, ensure_ascii=False))
         return
     if args.output_dir is None:
