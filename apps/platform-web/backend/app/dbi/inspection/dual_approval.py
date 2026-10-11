@@ -27,7 +27,7 @@ def _canonical_actor(value: str) -> bool:
         and 0 < len(value) <= 128
         and value == value.strip()
         and "*" not in value
-        and all(32 <= ord(char) < 127 for char in value)
+        and all(ord(char) >= 32 and ord(char) != 127 for char in value)
     )
 
 
