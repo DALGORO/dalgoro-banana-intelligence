@@ -284,6 +284,7 @@ def publish_reviewed_gis_import(
     existing = _find_layer()
     if existing is None:
         existing = DBIPortalVectorLayer(
+            id=uuid4(),
             tenant_ref=context.tenant_ref, organization_ref=organization_ref,
             farm_id=farm_id, plot_id=plot_id, campaign_id=row.campaign_id,
             name=row.name, layer_kind=row.layer_kind, crs="EPSG:4326",
@@ -296,9 +297,11 @@ def publish_reviewed_gis_import(
     row.status = "published"
     row.approved_at = datetime.now(timezone.utc)
     row.approved_by_ref = context.principal_ref
+    # La FK debe estar definida ANTES del flush: la CHECK 'published' no
+    # admite una fila publicada sin su capa incluso temporalmente.
+    row.published_layer_id = existing.id
     try:
         session.flush()
-        row.published_layer_id = existing.id
         session.commit()
     except IntegrityError as error:
         session.rollback()
