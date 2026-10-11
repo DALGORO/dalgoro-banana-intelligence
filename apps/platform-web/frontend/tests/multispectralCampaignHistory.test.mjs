@@ -2,6 +2,7 @@ import test from "node:test";
 import assert from "node:assert/strict";
 
 import { verifiedMultispectralCampaigns, extractionForMapCampaign } from "../src/features/multispectralCampaignHistory.ts";
+import { belongsToSelectedMapCampaign } from "../src/features/mapCampaignSelection.ts";
 
 const scope = {
   tenantRef: "tenant-ci",
@@ -136,4 +137,36 @@ test("unverified and scope-crossing records never appear as map-linked evidence"
   assert.equal(extractionForMapCampaign(
     rows, scope, "", null, id(2),
   )?.extraction_id, id(2), "Una extracción no vinculada se consulta solo sin fecha de mapa");
+});
+
+
+test("map renders only the matching Campaign when two share the same instant", () => {
+  const moment = "2026-09-15T09:00:00Z";
+  const selected = campaign(2);
+  assert.equal(belongsToSelectedMapCampaign(moment, campaign(1), moment, selected), false);
+  assert.equal(belongsToSelectedMapCampaign(moment, selected, moment, selected), true);
+  assert.equal(belongsToSelectedMapCampaign("2026-09-15T04:00:00-05:00", selected, moment, selected), true);
+  assert.equal(belongsToSelectedMapCampaign("2026-09-16T09:00:00Z", selected, moment, selected), false);
+  assert.equal(belongsToSelectedMapCampaign(moment, campaign(1), moment, null), true);
+  assert.equal(belongsToSelectedMapCampaign(moment, campaign(1), "", null), true);
+  assert.equal(belongsToSelectedMapCampaign(moment, campaign(1), "", selected), false);
+});
+
+test("map/MULTI synchronization never substitutes data from another flight", () => {
+  const a = item({index: 1, campaignId: campaign(1)});
+  const b = item({index: 2, campaignId: campaign(2)});
+  assert.equal(extractionForMapCampaign(
+    [a, b], scope, "2026-09-15T09:00:00Z", null, id(1),
+  ), null, "Una fecha ambigua no autoriza seleccionar el elemento previo");
+  const second = extractionForMapCampaign(
+    [a, b], scope, "2026-09-15T09:00:00Z", campaign(2), id(1),
+  );
+  assert.equal(second?.extraction_id, id(2));
+  assert.equal(belongsToSelectedMapCampaign(
+    "2026-09-15T09:00:00Z", campaign(1), "2026-09-15T09:00:00Z", campaign(2),
+  ), false);
+  const noMapProduct = extractionForMapCampaign(
+    [a, b], scope, "2026-09-20T09:00:00Z", null, "",
+  );
+  assert.equal(noMapProduct, null, "No se pueden presentar índices de una fecha anterior");
 });
