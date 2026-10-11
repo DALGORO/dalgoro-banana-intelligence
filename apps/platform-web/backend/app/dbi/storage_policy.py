@@ -68,6 +68,8 @@ _ALLOWED_CONTENT_TYPES: dict[DBIStoragePurpose, frozenset[str]] = {
     DBIStoragePurpose.RASTER_PRODUCT: frozenset({"image/tiff"}),
     DBIStoragePurpose.TECHNICAL_SOURCE: frozenset(
         {
+            "application/geopackage+sqlite3",
+            "application/zip",
             "application/json",
             "application/pdf",
             "text/markdown",

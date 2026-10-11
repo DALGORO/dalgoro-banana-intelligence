@@ -12,8 +12,8 @@ import "maplibre-gl/dist/maplibre-gl.css";
 import { GoogleSatelliteViewer } from "@/components/GoogleSatelliteViewer";
 import { api } from "@/app/api";
 import {
-  getVectorLayer, listVectorLayers, listVectorCampaigns, publishGeoJSON, vectorExtent,
-  type VectorLayerInfo, type VectorLayerKind, type VectorLayerDetail, type VectorCampaign,
+  getVectorLayer, listVectorLayers, listVectorCampaigns, listGISImports, publishGeoJSON, stageGISOriginal, vectorExtent,
+  type VectorLayerInfo, type VectorLayerKind, type VectorLayerDetail, type VectorCampaign, type GISImportReceipt,
 } from "@/features/portalVectors";
 import mapWorkerUrl from "maplibre-gl/dist/maplibre-gl-worker.mjs?worker&url";
 
@@ -105,6 +105,7 @@ export default function FarmMapTimeline() {
   const [farmLabel, setFarmLabel] = useState("Finca");
   const [plotLabel, setPlotLabel] = useState("Lote");
   const [vectorLayers, setVectorLayers] = useState<VectorLayerInfo[]>([]);
+  const [gisImports, setGISImports] = useState<GISImportReceipt[]>([]);
   const [vectorCampaigns, setVectorCampaigns] = useState<VectorCampaign[]>([]);
   const [campaignLoadError, setCampaignLoadError] = useState(false);
   const [chosenUploadCampaign, setChosenUploadCampaign] = useState("");
@@ -160,6 +161,9 @@ export default function FarmMapTimeline() {
     }).catch(() => {
       if (active) setCampaignLoadError(true);
     });
+    listGISImports(realLocator).then(receipts => {
+      if (active) setGISImports(receipts);
+    }).catch(() => { if (active) setGISImports([]); });
     listVectorLayers(realLocator).then(layers => {
       if (!active) return;
       setVectorLayers(layers);
@@ -362,22 +366,39 @@ export default function FarmMapTimeline() {
 
   async function uploadSelectedGeoJSON() {
     if (!realLocator || !uploadCampaignId || !uploadFile) return;
-    if (!/\.(geojson|json)$/i.test(uploadFile.name) || uploadFile.size > 2 * 1024 * 1024) {
-      setUploadNotice("Usa un GeoJSON WGS84 de máximo 2 MB.");
+    const isGeoJSON = /\.(geojson|json)$/i.test(uploadFile.name);
+    const isGISOriginal = /\.(gpkg|zip)$/i.test(uploadFile.name);
+    if (
+      (!isGeoJSON && !isGISOriginal)
+      || uploadFile.size < 1
+      || uploadFile.size > (isGeoJSON ? 2 : 30) * 1024 * 1024
+    ) {
+      setUploadNotice("Selecciona GeoJSON de máximo 2 MiB o GPKG/SHP ZIP de máximo 30 MiB.");
       return;
     }
     setUploading(true);
     setUploadNotice(null);
     try {
-      const saved = await publishGeoJSON(
-        realLocator, uploadFile, uploadCampaignId, uploadKind,
-        uploadFile.name.replace(/\.(geojson|json)$/i, ""),
-      );
-      const layers = await listVectorLayers(realLocator);
-      setVectorLayers(layers);
-      setSelectedVectorIds(current => new Set([...current, saved.id]));
+      if (isGISOriginal) {
+        await stageGISOriginal(
+          realLocator, uploadFile, uploadCampaignId, uploadKind,
+          uploadFile.name.replace(/\.(gpkg|zip)$/i, ""),
+        );
+        setGISImports(await listGISImports(realLocator));
+        setUploadNotice(
+          "Archivo original recibido en almacenamiento privado. Sigue pendiente la conversión y revisión; aún no está publicado.",
+        );
+      } else {
+        const saved = await publishGeoJSON(
+          realLocator, uploadFile, uploadCampaignId, uploadKind,
+          uploadFile.name.replace(/\.(geojson|json)$/i, ""),
+        );
+        const layers = await listVectorLayers(realLocator);
+        setVectorLayers(layers);
+        setSelectedVectorIds(current => new Set([...current, saved.id]));
+        setUploadNotice("Capa GeoJSON publicada para los usuarios autorizados de este lote.");
+      }
       setUploadFile(null);
-      setUploadNotice("Capa publicada para los usuarios autorizados de este lote.");
     } catch (err: unknown) {
       const detail = (err as { response?: { data?: { detail?: string } } })?.response?.data?.detail;
       setUploadNotice(typeof detail === "string" ? detail : "No se pudo publicar la capa.");
@@ -665,7 +686,7 @@ export default function FarmMapTimeline() {
           {canPublish && realLocator && (
             <div className="divider space-y-3 pt-4">
               <div className="text-sm font-semibold">Añadir resultado cartográfico</div>
-              <p className="muted text-xs">GeoJSON WGS84, máximo 2 MB. SHP y GeoPackage requieren conversión controlada.</p>
+              <p className="muted text-xs">GeoJSON (hasta 2 MiB) se publica directamente. GeoPackage o Shapefile ZIP (hasta 30 MiB) se reciben de forma privada y quedan pendientes de conversión y revisión.</p>
               <label htmlFor="dbi-upload-campaign" className="block text-xs font-medium">Levantamiento al que pertenece la capa</label>
               <select id="dbi-upload-campaign" className="w-full" value={chosenUploadCampaign}
                 onChange={event => setChosenUploadCampaign(event.target.value)}>
@@ -692,14 +713,30 @@ export default function FarmMapTimeline() {
                 <option value="observations">Inspecciones</option>
                 <option value="other">Otra información GIS</option>
               </select>
-              <input aria-label="Seleccionar GeoJSON" type="file" accept=".geojson,.json,application/geo+json"
+              <input aria-label="Seleccionar GeoJSON" type="file" accept=".geojson,.json,.gpkg,.zip,application/geo+json"
                 className="block w-full text-xs" onChange={event => setUploadFile(event.target.files?.[0] ?? null)} />
               <button type="button" className="btn-primary w-full"
                 disabled={!uploadFile || !uploadCampaignId || uploading}
                 onClick={() => void uploadSelectedGeoJSON()}>
-                {uploading ? "Publicando capa…" : "Publicar en este lote"}
+                {uploading ? "Procesando recepción…" : /\.(zip|gpkg)$/i.test(uploadFile?.name ?? "") ? "Guardar original privado" : "Publicar GeoJSON en el lote"}
               </button>
               {uploadNotice && <p role="status" className="muted text-xs">{uploadNotice}</p>}
+              {gisImports.length > 0 && (
+                <div className="space-y-2" aria-label="Archivos GIS recibidos">
+                  <p className="text-xs font-medium">Originales privados recibidos (sin publicar)</p>
+                  {gisImports.slice(0, 8).map(item => (
+                    <div key={item.id} className="rounded-lg border border-slate-300/40 p-2 text-xs">
+                      <span className="block font-medium">{item.original_filename}</span>
+                      <span className="muted">
+                        {item.status === "received" ? "Recibido · pendiente de conversión"
+                          : item.status === "processing" ? "En conversión"
+                          : item.status === "prepared" ? "Convertido · pendiente de revisión"
+                          : "Conversión fallida"}
+                      </span>
+                    </div>
+                  ))}
+                </div>
+              )}
             </div>
           )}
 

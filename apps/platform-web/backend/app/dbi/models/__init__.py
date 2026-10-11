@@ -38,6 +38,7 @@ from app.dbi.models.model_registry import (
 from app.dbi.models.multispectral import DBIMultispectralExtractionRecord
 from app.dbi.models.raster_products import DBIRasterProduct
 from app.dbi.models.portal_vectors import DBIPortalVectorLayer
+from app.dbi.models.portal_gis_imports import DBIPortalGISImport
 from app.dbi.models.sampling import DBISamplingPlanRecord, DBISamplingPointRecord
 
 __all__ = [
@@ -73,6 +74,7 @@ __all__ = [
     "DBIPrincipalStatus",
     "DBIRasterProduct",
     "DBIPortalVectorLayer",
+    "DBIPortalGISImport",
     "DBISamplingPlanRecord",
     "DBISamplingPointRecord",
     "Farm",
