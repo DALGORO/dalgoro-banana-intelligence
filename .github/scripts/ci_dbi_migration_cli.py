@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import ci_dbi_migration_cli_base as base
 
-base.HEAD = "dbi_0022_portal_gis_imports"
+base.HEAD = "dbi_0023_gis_previews"
 
 
 if __name__ == "__main__":
