@@ -13,9 +13,9 @@ from uuid import UUID, uuid4
 
 from fastapi import APIRouter, Depends, HTTPException, Query, Request
 from starlette.concurrency import run_in_threadpool
-from pydantic import BaseModel, ConfigDict
+from pydantic import BaseModel, ConfigDict, Field
 from sqlalchemy import select
-from sqlalchemy.exc import IntegrityError
+from sqlalchemy.exc import IntegrityError, SQLAlchemyError
 from sqlalchemy.orm import Session
 
 from app.api.v1.dbi_assets import get_dbi_asset_object_store
@@ -51,6 +51,7 @@ class PortalGISImportInfo(BaseModel):
     size_bytes: int
     status: str
     available_layers: list[str] | None = None
+    selected_layer: str | None = None
     published_layer_id: UUID | None = None
     created_at: datetime
 
@@ -61,7 +62,7 @@ def _response(row: DBIPortalGISImport) -> PortalGISImportInfo:
         original_filename=row.original_filename,
         source_format=row.source_format, layer_kind=row.layer_kind,
         size_bytes=row.size_bytes, status=row.status,
-        available_layers=row.available_layers,
+        available_layers=row.available_layers, selected_layer=row.selected_layer,
         published_layer_id=row.published_layer_id, created_at=row.created_at,
     )
 
@@ -181,6 +182,53 @@ async def receive_gis_import(
         except DBIStorageError:
             pass  # Seguirá siendo un objeto privado no enumerable.
         raise HTTPException(status_code=503, detail="No se pudo registrar la recepción GIS.")
+    return _response(row)
+
+
+class PortalGISLayerChoice(BaseModel):
+    """Elegir exactamente uno de los nombres descubiertos por el worker."""
+    model_config = ConfigDict(extra="forbid")
+    layer: str = Field(min_length=1, max_length=100, strict=True)
+
+
+@router.post(
+    "/organizations/{organization_ref}/farms/{farm_id}/plots/{plot_id}/map/gis-imports/{import_id}/select-layer",
+    response_model=PortalGISImportInfo,
+)
+def select_gis_import_layer(
+    organization_ref: str, farm_id: UUID, plot_id: UUID, import_id: UUID,
+    choice: PortalGISLayerChoice,
+    session: SessionDep, context: AccessDep,
+) -> PortalGISImportInfo:
+    """MANAGE guarda una única elección; el worker queda inactivo en este hito."""
+    _require_scope(context, organization_ref, farm_id, plot_id, publish=True)
+    row = session.execute(
+        select(DBIPortalGISImport).where(
+            DBIPortalGISImport.id == import_id,
+            DBIPortalGISImport.tenant_ref == context.tenant_ref,
+            DBIPortalGISImport.organization_ref == organization_ref,
+            DBIPortalGISImport.farm_id == farm_id,
+            DBIPortalGISImport.plot_id == plot_id,
+        ).with_for_update()
+    ).scalar_one_or_none()
+    if row is None:
+        raise HTTPException(status_code=404, detail="Importación GIS no disponible.")
+    # La Campaign se vuelve a validar en el servidor; el navegador no decide su alcance.
+    _campaign(session, context, organization_ref, farm_id, plot_id, row.campaign_id)
+    if row.status != "needs_selection" or row.source_format != "gpkg":
+        raise HTTPException(status_code=409, detail="La importación no admite elegir una capa.")
+    if not isinstance(row.available_layers, list) or choice.layer not in row.available_layers:
+        raise HTTPException(status_code=422, detail="La capa indicada no pertenece al GeoPackage validado.")
+    if row.selected_layer is not None:
+        if row.selected_layer != choice.layer:
+            raise HTTPException(status_code=409, detail="Este original ya tiene una capa elegida.")
+        return _response(row)  # Reintento exacto: sin escritura ni conversión.
+    row.selected_layer = choice.layer
+    try:
+        session.commit()
+    except SQLAlchemyError as error:
+        session.rollback()
+        raise HTTPException(status_code=503, detail="No fue posible guardar la selección GIS.") from error
     return _response(row)
 
 
