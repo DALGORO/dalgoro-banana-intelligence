@@ -8,7 +8,7 @@
 5. Cada carga se ancla a una **Campaign técnica real** del tenant/lote, registra SHA-256 del archivo de origen y almacena una representación normalizada para visualización; no modifica la fuente científica ni recalcula Density.
 
 ## Datos admitidos inicialmente
-GeoJSON `FeatureCollection` WGS84, geometrías Point/MultiPoint, LineString/MultiLineString, Polygon/MultiPolygon, 1 a 2500 entidades y máximo 50.000 vértices. Atributos visibles escalares (texto corto/número/bool) con campos sensibles excluidos. El archivo de fuente original debe conservarse fuera de la capa derivada, para reprocesamiento trazable.
+GeoJSON `FeatureCollection` WGS84, geometrías Point/MultiPoint, LineString/MultiLineString, Polygon/MultiPolygon, 1 a 2500 entidades y máximo 50.000 vértices. Atributos visibles escalares (texto corto/número/bool) con campos sensibles excluidos. Se preservan también los bytes originales de cada GeoJSON cargado en PostgreSQL DBI (no expuestos al navegador), con SHA-256 de origen; la capa que ve el cliente es una proyección saneada. Para archivos GIS grandes se usará almacenamiento privado de objetos.
 
 **No subir** directamente SHP/GeoPackage a este endpoint. Primero habrá que validar y convertirlos en un worker GDAL/OGR independiente, con fuente privada e índice/paginación para capas extensas; issue #160 continúa activo.
 
