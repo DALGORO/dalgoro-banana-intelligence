@@ -131,6 +131,9 @@ export default function FarmMapTimeline() {
 
   const useGoogleBase = Boolean(import.meta.env.VITE_GOOGLE_MAPS_API_KEY?.trim()) && Boolean(realLocator);
 
+  // Nunca conservar previews privadas si cambia la organización, finca, lote o tenant.
+  useEffect(() => { setPrivatePreview(null); }, [realLocator]);
+
   useEffect(() => {
     let active = true;
     if (!realLocator) return;
