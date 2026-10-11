@@ -1,6 +1,6 @@
 """Tablas aditivas para emparejar Campaign MULTI, INSPECT y firmas independientes.
 
-Revision ID: dbi_0027_inspect_campaign_signatures
+Revision ID: dbi_0027_inspect_dual_sign
 Revises: dbi_0026_gpkg_layer_choice
 
 No modifica observaciones históricas ni habilita publicación al cliente.
@@ -12,7 +12,7 @@ from collections.abc import Sequence
 from alembic import op
 import sqlalchemy as sa
 
-revision: str = "dbi_0027_inspect_campaign_signatures"
+revision: str = "dbi_0027_inspect_dual_sign"
 down_revision: str | None = "dbi_0026_gpkg_layer_choice"
 branch_labels: str | Sequence[str] | None = None
 depends_on: str | Sequence[str] | None = None
