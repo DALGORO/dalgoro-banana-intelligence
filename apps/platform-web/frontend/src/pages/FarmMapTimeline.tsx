@@ -12,6 +12,7 @@ import "maplibre-gl/dist/maplibre-gl.css";
 import { Layers3, MapPinned } from "lucide-react";
 import { GoogleSatelliteViewer } from "@/components/GoogleSatelliteViewer";
 import { MultispectralEvidencePanel } from "@/components/MultispectralEvidencePanel";
+import { FarmTrackingPanel } from "@/components/FarmTrackingPanel";
 import { belongsToSelectedMapCampaign, mapTimelineViewKey } from "@/features/mapCampaignSelection";
 import { api } from "@/app/api";
 import {
@@ -102,6 +103,7 @@ function FarmMapTimelineView() {
     new Set(),
   );
   const [selectedDate, setSelectedDate] = useState("");
+  const [infoTab, setInfoTab] = useState<"multi" | "tracking">("multi");
   const [specificMapCampaign, setSpecificMapCampaign] = useState<{
     scopeKey: string; campaignId: string;
   } | null>(null);
@@ -773,7 +775,7 @@ function FarmMapTimelineView() {
           </select>
           <div className="dbi-mobile-shortcuts">
             <a href="#dbi-map-view">Ir al mapa</a>
-            {realLocator && <a href="#dbi-multi-evidence">Ver evidencia MULTI</a>}
+            {realLocator && <a href="#dbi-multi-evidence" onClick={() => setInfoTab("multi")}>Ver evidencia MULTI</a>}
           </div>
           <p className="muted text-xs">
             Elegir otra fecha limpia la selección de vuelo específico. No combina Campaign distintas.
@@ -1097,24 +1099,97 @@ function FarmMapTimelineView() {
             </div>
           </div>
         </section>
-      {realLocator && (
-        <MultispectralEvidencePanel
-          key={gisScopeKey}
-          locator={realLocator}
-          selectedMapDate={selectedDate}
-          selectedMapCampaignId={selectedMapCampaignId}
-          onChooseVerifiedCampaign={(campaignId, capturedAt) => {
-            setSpecificMapCampaign({ scopeKey: gisScopeKey, campaignId });
-            setSelectedDate(capturedAt);
-            setComparisonDate("");
-          }}
-          onClearMapSelection={() => {
-            setSpecificMapCampaign(null);
-            setSelectedDate("");
-            setComparisonDate("");
-          }}
-        />
-      )}
+      <section className="dbi-info-tabs" aria-label="Información y seguimiento del lote">
+        <div className="dbi-info-tab-buttons" role="tablist" aria-label="Pestañas de información agrícola">
+          <button
+            type="button"
+            role="tab"
+            id="dbi-tab-multi"
+            aria-controls="dbi-panel-multi"
+            aria-selected={infoTab === "multi"}
+            tabIndex={infoTab === "multi" ? 0 : -1}
+            onClick={() => setInfoTab("multi")}
+            onKeyDown={event => {
+              if (event.key !== "ArrowRight" && event.key !== "ArrowLeft") return;
+              event.preventDefault();
+              setInfoTab("tracking");
+              document.getElementById("dbi-tab-tracking")?.focus();
+            }}
+          >
+            Evidencia MULTI
+          </button>
+          <button
+            type="button"
+            role="tab"
+            id="dbi-tab-tracking"
+            aria-controls="dbi-panel-tracking"
+            aria-selected={infoTab === "tracking"}
+            tabIndex={infoTab === "tracking" ? 0 : -1}
+            onClick={() => setInfoTab("tracking")}
+            onKeyDown={event => {
+              if (event.key !== "ArrowRight" && event.key !== "ArrowLeft") return;
+              event.preventDefault();
+              setInfoTab("multi");
+              document.getElementById("dbi-tab-multi")?.focus();
+            }}
+          >
+            Seguimiento del lote
+          </button>
+        </div>
+        <div
+          id="dbi-panel-multi"
+          role="tabpanel"
+          aria-labelledby="dbi-tab-multi"
+          className="dbi-info-tab-panel"
+          hidden={infoTab !== "multi"}
+        >
+          {realLocator ? (
+            <MultispectralEvidencePanel
+              key={gisScopeKey}
+              locator={realLocator}
+              selectedMapDate={selectedDate}
+              selectedMapCampaignId={selectedMapCampaignId}
+              onChooseVerifiedCampaign={(campaignId, capturedAt) => {
+                setSpecificMapCampaign({ scopeKey: gisScopeKey, campaignId });
+                setSelectedDate(capturedAt);
+                setComparisonDate("");
+              }}
+              onClearMapSelection={() => {
+                setSpecificMapCampaign(null);
+                setSelectedDate("");
+                setComparisonDate("");
+              }}
+            />
+          ) : (
+            <p className="muted p-4 text-sm">
+              La evidencia MULTI requiere una ruta privada con tenant, organización, finca y lote.
+            </p>
+          )}
+        </div>
+        <div
+          id="dbi-panel-tracking"
+          role="tabpanel"
+          aria-labelledby="dbi-tab-tracking"
+          className="dbi-info-tab-panel"
+          hidden={infoTab !== "tracking"}
+        >
+          <FarmTrackingPanel
+            farmName={farmLabel}
+            plotName={plotLabel}
+            selectedMapDate={selectedDate}
+            selectedCampaignId={selectedMapCampaignId}
+            visibleMapEntries={visibleEntries}
+            associatedGISLayers={visibleVectorMeta}
+            loading={loading}
+            timelineError={error}
+            hasScopedPlot={Boolean(realLocator)}
+            onOpenEvidence={() => {
+              setInfoTab("multi");
+              document.getElementById("dbi-tab-multi")?.focus();
+            }}
+          />
+        </div>
+      </section>
       </div>
     </div>
   );
