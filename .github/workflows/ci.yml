@@ -219,6 +219,11 @@ jobs:
           PYTHONPATH: .
         run: python ../../../.github/scripts/ci_dbi_portal_gis_imports.py
 
+      - name: Validar preparación GIS privada por worker aislado
+        env:
+          PYTHONPATH: .
+        run: python ../../../.github/scripts/ci_dbi_gis_preparation.py
+
       - name: Validar catálogo seguro de clientes DBI
         env:
           PYTHONPATH: .
