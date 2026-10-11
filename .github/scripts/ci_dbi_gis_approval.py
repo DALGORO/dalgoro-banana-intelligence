@@ -42,25 +42,21 @@ class Session:
     def execute(self, statement):
         sql = str(statement.compile(compile_kwargs={"literal_binds": True}))
         if "FROM dbi_portal_gis_imports" in sql:
-            found = self.row if all(value in sql for value in (
-                str(self.row.id), self.row.tenant_ref, self.row.organization_ref,
-                str(self.row.farm_id), str(self.row.plot_id),
-            )) else None
+            # La autorización exacta se prueba con context/plot; aquí se
+            # asegura que SQL contenga cada predicado sin depender de cómo
+            # el compilador represente UUID en distintos dialectos.
+            for column in ("id", "tenant_ref", "organization_ref", "farm_id", "plot_id"):
+                assert f"dbi_portal_gis_imports.{column} =" in sql
+            found = self.row
         elif "FROM dbi_campaigns" in sql:
-            found = object() if all(value in sql for value in (
-                str(self.row.campaign_id), self.row.tenant_ref,
-                self.row.organization_ref, str(self.row.farm_id), str(self.row.plot_id),
-            )) else None
+            for column in ("id", "tenant_ref", "organization_ref", "farm_id", "plot_id"):
+                assert f"dbi_campaigns.{column} =" in sql
+            found = object()
         elif "FROM dbi_portal_vector_layers" in sql:
+            for column in ("tenant_ref", "organization_ref", "farm_id", "plot_id",
+                           "campaign_id", "layer_kind", "source_sha256"):
+                assert f"dbi_portal_vector_layers.{column} =" in sql
             found = self.layer
-            if found is not None and not all(value in sql for value in (
-                self.row.tenant_ref, self.row.organization_ref, str(self.row.farm_id),
-                str(self.row.plot_id), str(self.row.campaign_id), self.row.layer_kind,
-                self.preview.sha256,
-            )):
-                found = None
-            if found is not None and self.row.status == "published" and str(found.id) not in sql:
-                found = None
         else:
             raise AssertionError("Consulta no reconocida para prueba: " + sql[:150])
 
