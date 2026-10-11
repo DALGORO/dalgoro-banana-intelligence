@@ -126,6 +126,55 @@ def tests():
             assert called.call_count == 1
             assert not (output / ".gis-layer-options.json").exists()
 
+        # Selección MANAGE persistida: solo --layer explícito dentro del subprocess.
+        selected_output = Path(folder) / "selected"
+        selected_output.mkdir()
+        calls = []
+        def convert_selected(argv, **kwargs):
+            calls.append(argv)
+            assert kwargs["env"]["PROJ_NETWORK"] == "OFF"
+            assert kwargs["env"]["GDAL_PAM_ENABLED"] == "NO"
+            assert "DBI_DATABASE_URL" not in kwargs["env"]
+            assert "DBI_S3_SECRET_ACCESS_KEY" not in kwargs["env"]
+            assert kwargs["timeout"] == 120 and kwargs["start_new_session"]
+            if "--list-layers" in argv:
+                kwargs["stdout"].write(json.dumps({"layers": ["plantas", "limites"]}).encode("utf-8"))
+            else:
+                assert argv[-2:] == ["--layer", "limites"]
+                assert "--output-dir" in argv
+                (selected_output / "valid.geojson").write_bytes(b"{}")
+                (selected_output / "valid.manifest.json").write_bytes(b"{}")
+            return SimpleNamespace(returncode=0)
+
+        with patch.dict(os.environ, secret_vars, clear=True):
+            with patch.object(worker.subprocess, "run", side_effect=convert_selected):
+                geojson, manifest = worker.run_isolated_converter(
+                    source, selected_output, layer="limites",
+                )
+                assert geojson.is_file() and manifest.is_file()
+        assert len(calls) == 2 and "--list-layers" in calls[0]
+        assert "--layer" not in calls[0]
+        assert not (selected_output / ".gis-layer-options.json").exists()
+
+        # Nunca se elige un nombre que no esté presente en el original.
+        with patch.object(worker.subprocess, "run", side_effect=discover_two) as called:
+            try:
+                worker.run_isolated_converter(source, selected_output, layer="inventada")
+            except RuntimeError:
+                pass
+            else:
+                raise AssertionError("Capa inventada admitida")
+            assert called.call_count == 1
+        for wrong in ("limites" + chr(10) + "secretos", "", "x" * 101):
+            with patch.object(worker.subprocess, "run") as called:
+                try:
+                    worker.run_isolated_converter(source, selected_output, layer=wrong)
+                except RuntimeError:
+                    pass
+                else:
+                    raise AssertionError("Selección de capa inválida admitida")
+                assert called.call_count == 0
+
         # La respuesta malformada o con múltiples nombres iguales es rechazada.
         for invalid in ({"layers": ["duplicada", "duplicada"]},
                         {"layers": ["a" + chr(10) + "secreta", "otra"]},

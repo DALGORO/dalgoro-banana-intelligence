@@ -51,7 +51,7 @@ def main() -> None:
         service = DBIPortalGISPreparationWorker(
             runtime.require_session_factory(),
             DBILocalObjectStore(source_root),
-            lambda source, dest: convert_vector(source, dest),
+            lambda source, dest, *, layer=None: convert_vector(source, dest, layer=layer),
             workspace_root=Path(workspace_root),
         )
         result = service.process_one(tenant_ref=args.tenant)

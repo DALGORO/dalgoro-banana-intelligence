@@ -48,7 +48,11 @@ class Session:
         row = self.state.row
         if row.tenant_ref not in sql:
             found = None
-        elif "attempt_count <" in sql and row.status not in {"received", "processing"}:
+        elif "attempt_count <" in sql and not (
+            row.status in {"received", "processing"}
+            or (row.status == "needs_selection" and row.source_format == "gpkg"
+                and row.selected_layer is not None)
+        ):
             found = None
         else:
             found = row
@@ -92,9 +96,10 @@ def manager(row):
     )
 
 
-def converter(expected_hash: str, *, corrupt=False):
-    def run(source: Path, output_dir: Path):
+def converter(expected_hash: str, *, corrupt=False, manifest_layer=None, expected_layer=None):
+    def run(source: Path, output_dir: Path, *, layer=None):
         assert sha256(source.read_bytes()).hexdigest() == expected_hash
+        assert layer == expected_layer
         raw = json.dumps(
             {"type": "FeatureCollection", "features": [
                 {"type": "Feature", "geometry": {"type": "Point", "coordinates": [-79.8, -3.3]},
@@ -111,6 +116,7 @@ def converter(expected_hash: str, *, corrupt=False):
             "output_sha256": sha256(raw).hexdigest(),
             "output_crs": "EPSG:4326",
             "feature_count": 1, "captured_at": None,
+            "source_layer": manifest_layer if manifest_layer is not None else layer,
         }), encoding="utf-8")
         return preview, manifest
     return run
@@ -168,7 +174,8 @@ def run():
         multi = make_receipt(payload)
         stage(store, multi, payload)
         multi_state = State(multi)
-        def discovery(source: Path, output_dir: Path):
+        def discovery(source: Path, output_dir: Path, *, layer=None):
+            assert layer is None
             assert sha256(source.read_bytes()).hexdigest() == multi.sha256
             return GISLayersPendingSelection(("plantas", "limites"))
         multi_worker = DBIPortalGISPreparationWorker(
@@ -190,13 +197,64 @@ def run():
         else:
             raise AssertionError("Importación sin selección no debe tener preview")
 
+        # Solo el worker posterior puede reclamar la selección MANAGE confirmada.
+        multi.selected_layer = "limites"
+        chosen_worker = DBIPortalGISPreparationWorker(
+            lambda: Session(multi_state), store,
+            converter(multi.sha256, expected_layer="limites"),
+            workspace_root=Path(root),
+        )
+        assert chosen_worker.process_one(tenant_ref="otro-tenant") is None
+        assert chosen_worker.process_one(tenant_ref=multi.tenant_ref) == "prepared"
+        assert multi.status == "prepared" and multi.selected_layer == "limites"
+        assert multi.attempt_count == 2 and multi.processing_ref is None
+        assert multi_state.preview is not None
+        assert chosen_worker.process_one(tenant_ref=multi.tenant_ref) is None
+        assert list(Path(root).iterdir()) == []
+        assert get_gis_import_preview(
+            "org-gis", multi.farm_id, multi.plot_id, multi.id,
+            Session(multi_state), manager(multi),
+        ).feature_count == 1
+
+        # El manifiesto debe identificar exactamente la capa elegida.
+        wrong = make_receipt(payload)
+        wrong.status, wrong.attempt_count = "needs_selection", 1
+        wrong.available_layers, wrong.selected_layer = ["plantas", "limites"], "plantas"
+        stage(store, wrong, payload)
+        wrong_state = State(wrong)
+        wrong_worker = DBIPortalGISPreparationWorker(
+            lambda: Session(wrong_state), store,
+            converter(wrong.sha256, expected_layer="plantas", manifest_layer="limites"),
+            workspace_root=Path(root),
+        )
+        assert wrong_worker.process_one(tenant_ref=wrong.tenant_ref) == "failed"
+        assert wrong_state.preview is None and wrong.status == "failed"
+
+        # Fencing: si la selección cambia durante el procesamiento, no se guarda preview.
+        raced = make_receipt(payload)
+        raced.status, raced.attempt_count = "needs_selection", 1
+        raced.available_layers, raced.selected_layer = ["plantas", "limites"], "plantas"
+        stage(store, raced, payload)
+        race_state = State(raced)
+        race_worker = DBIPortalGISPreparationWorker(
+            lambda: Session(race_state), store,
+            converter(raced.sha256, expected_layer="plantas"),
+            workspace_root=Path(root),
+        )
+        claim = race_worker.claim_one(tenant_ref=raced.tenant_ref)
+        assert claim and claim.selected_layer == "plantas"
+        preview_result = race_worker._prepare(claim)
+        raced.selected_layer = "limites"
+        assert race_worker._complete(claim, preview_result) is False
+        assert race_state.preview is None and raced.status == "processing"
+
         # Se rechazan opciones inválidas sin almacenarlas ni publicarlas.
         invalid = make_receipt(payload)
         stage(store, invalid, payload)
         invalid_state = State(invalid)
         invalid_worker = DBIPortalGISPreparationWorker(
             lambda: Session(invalid_state), store,
-            lambda source, dest: GISLayersPendingSelection(("same", "same")),
+            lambda source, dest, *, layer=None: GISLayersPendingSelection(("same", "same")),
             workspace_root=Path(root),
         )
         assert invalid_worker.process_one(tenant_ref=invalid.tenant_ref) == "failed"

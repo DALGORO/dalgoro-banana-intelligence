@@ -134,14 +134,21 @@ def _run_converter(source: Path, output_dir: Path, arguments: list[str], *, stdo
         raise RuntimeError("El conversor GIS rechazó la fuente.")
 
 
-def run_isolated_converter(source: Path, output_dir: Path):
-    """Descubre primero GPKG multicapa sin publicar ni autoelegir."""
+def run_isolated_converter(source: Path, output_dir: Path, *, layer: str | None = None):
+    """Descubre y solo convierte una capa geométrica elegida y verificada."""
     source = Path(source)
     output_dir = Path(output_dir)
     if source.suffix.lower() not in {".gpkg", ".zip"} or not source.is_file():
         raise RuntimeError("Origen GIS local inválido.")
     if not output_dir.is_dir() or source.parent == output_dir:
         raise RuntimeError("Destino GIS no aislado.")
+    if layer is not None and (
+        source.suffix.lower() != ".gpkg"
+        or not isinstance(layer, str)
+        or not 1 <= len(layer) <= 100
+        or any(ord(char) < 32 or ord(char) == 127 for char in layer)
+    ):
+        raise RuntimeError("Selección de capa GIS inválida.")
 
     if source.suffix.lower() == ".gpkg":
         options_file = output_dir / ".gis-layer-options.json"
@@ -164,10 +171,16 @@ def run_isolated_converter(source: Path, output_dir: Path):
             raise RuntimeError("Respuesta inválida del descubridor GIS.") from None
         finally:
             options_file.unlink(missing_ok=True)
-        if len(layers) > 1:
+        if layer is not None:
+            if len(layers) < 2 or layer not in layers:
+                raise RuntimeError("La capa seleccionada no pertenece al GeoPackage.")
+        elif len(layers) > 1:
             return GISLayersPendingSelection(tuple(layers))
 
-    _run_converter(source, output_dir, ["--output-dir", str(output_dir)], stdout=subprocess.DEVNULL)
+    arguments = ["--output-dir", str(output_dir)]
+    if layer is not None:
+        arguments.extend(["--layer", layer])
+    _run_converter(source, output_dir, arguments, stdout=subprocess.DEVNULL)
     derivatives = list(output_dir.glob("*.geojson"))
     manifests = list(output_dir.glob("*.manifest.json"))
     if len(derivatives) != 1 or len(manifests) != 1:
