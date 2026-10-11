@@ -175,6 +175,10 @@ class Campaign(DBIBase):
             "code",
             name="uq_dbi_campaigns_farm_code",
         ),
+        UniqueConstraint(
+            "id", "tenant_ref", "organization_ref", "farm_id", "plot_id",
+            "analysis_type", name="uq_dbi_campaigns_inspect_multispectral_scope",
+        ),
         CheckConstraint(
             "(analysis_type IS NULL AND status IN "
             "('planned', 'active', 'completed', 'cancelled')) OR "
