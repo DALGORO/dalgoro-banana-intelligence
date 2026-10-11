@@ -69,6 +69,8 @@ class Repo:
 
     def get_scoped(self, **kwargs):
         self.queries.append(kwargs)
+        if self.row is None:
+            return None
         return self.row if all(getattr(self.row, {
             "extraction_id": "id"
         }.get(key, key)) == value for key, value in kwargs.items()) else None
