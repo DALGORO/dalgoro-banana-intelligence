@@ -3,7 +3,9 @@ import { useParams, useSearchParams } from "react-router-dom";
 import {
   Map as MapLibreMap,
   NavigationControl,
+  Popup,
   setWorkerUrl,
+  type MapMouseEvent,
   type StyleSpecification,
 } from "maplibre-gl";
 import "maplibre-gl/dist/maplibre-gl.css";
@@ -25,6 +27,7 @@ import {
   type PlotMapTimelineResponse,
   type RasterTileTimelineEntry,
 } from "@/features/mapTimeline";
+import { createGISFeatureDetails, GIS_KIND_COLORS, GIS_KIND_LABELS } from "@/features/gisPresentation";
 
 setWorkerUrl(mapWorkerUrl);
 
@@ -431,26 +434,57 @@ export default function FarmMapTimeline() {
         id: id + "-fill", type: "fill", source: id,
         filter: ["==", ["geometry-type"], "Polygon"],
         paint: {
-          "fill-color": vector.layer.layer_kind === "density_hexagons" ? "#d97706" : "#0d9488",
+          "fill-color": GIS_KIND_COLORS[vector.layer.layer_kind],
           "fill-opacity": 0.25,
         },
       });
       map.addLayer({
         id: id + "-line", type: "line", source: id,
-        paint: { "line-color": "#047857", "line-width": 2 },
+        paint: { "line-color": GIS_KIND_COLORS[vector.layer.layer_kind], "line-width": 2 },
       });
       map.addLayer({
         id: id + "-point", type: "circle", source: id,
         filter: ["==", ["geometry-type"], "Point"],
         paint: {
-          "circle-radius": 5,
-          "circle-color": "#059669",
+          "circle-radius": 6,
+          "circle-color": GIS_KIND_COLORS[vector.layer.layer_kind],
           "circle-stroke-color": "#ffffff",
           "circle-stroke-width": 1,
         },
       });
       activeVectorIdsRef.current.push(id);
     }
+  }, [mapReady, visibleVectorDetails]);
+
+  useEffect(() => {
+    const map = mapRef.current;
+    if (!map || !mapReady) return;
+
+    let currentPopup: Popup | null = null;
+    const inspect = (event: MapMouseEvent) => {
+      const layerIds = activeVectorIdsRef.current.flatMap(id =>
+        ["-point", "-line", "-fill"].map(suffix => id + suffix)
+      ).filter(id => Boolean(map.getLayer(id)));
+      if (!layerIds.length) return;
+      const feature = map.queryRenderedFeatures(event.point, { layers: layerIds })[0];
+      if (!feature) return;
+      const layerId = feature.source.replace(/^dbi-vector-/, "");
+      const details = visibleVectorDetails.find(item => item.layer.id === layerId);
+      if (!details) return;
+      currentPopup?.remove();
+      currentPopup = new Popup({ closeButton: true, maxWidth: "320px", offset: 12 })
+        .setLngLat(event.lngLat)
+        .setDOMContent(createGISFeatureDetails(
+          document, details.layer.name,
+          (feature.properties ?? {}) as Record<string, unknown>,
+        ))
+        .addTo(map);
+    };
+    map.on("click", inspect);
+    return () => {
+      map.off("click", inspect);
+      currentPopup?.remove();
+    };
   }, [mapReady, visibleVectorDetails]);
 
   useEffect(() => {
@@ -575,6 +609,7 @@ export default function FarmMapTimeline() {
           {realLocator && (
             <div className="divider space-y-3 pt-4">
               <div className="text-sm font-semibold">Resultados GIS del levantamiento</div>
+              <p className="muted text-xs">Activa las capas y pulsa un elemento del mapa para consultar sus datos.</p>
               {visibleVectorMeta.length === 0 ? (
                 <p className="muted text-sm">Todavía no hay capas GIS publicadas en esta fecha.</p>
               ) : visibleVectorMeta.map(layer => (
@@ -590,8 +625,14 @@ export default function FarmMapTimeline() {
                     })}
                   />
                   <span>
-                    <span className="font-medium">{layer.name}</span>
-                    <span className="muted block text-xs">{layer.feature_count} elementos cartográficos</span>
+                    <span className="flex items-center gap-2">
+                      <span aria-hidden="true" className="inline-block h-3 w-3 rounded-full border border-white/70"
+                        style={{ backgroundColor: GIS_KIND_COLORS[layer.layer_kind] }} />
+                      <span className="font-medium">{layer.name}</span>
+                    </span>
+                    <span className="muted block text-xs">
+                      {GIS_KIND_LABELS[layer.layer_kind]} · {layer.feature_count} elementos
+                    </span>
                   </span>
                 </label>
               ))}
