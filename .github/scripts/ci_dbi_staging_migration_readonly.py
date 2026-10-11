@@ -191,7 +191,9 @@ def run():
         from contextlib import redirect_stderr
         with patch.dict(os.environ, VALUES, clear=True), redirect_stdout(out), redirect_stderr(err):
             code = migration_cli.main(["verify"])
-        assert code == 2 and "development" in err.getvalue()
+        assert code == 2 and out.getvalue() == ""
+        assert "SENSITIVE_PASSWORD" not in err.getvalue()
+        assert "staging-db.example.org" not in err.getvalue()
     print("Staging migration auditor: READ ONLY, SSL, tenant DBI, CI blocked, secrets safe.")
 
 
