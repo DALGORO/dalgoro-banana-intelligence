@@ -15,6 +15,7 @@ from app.dbi.raster.local_tile_renderer import DBILocalSubprocessRasterTileRende
 from app.dbi.raster.tiles import DBIRasterTileCache
 from app.dbi.runtime import DBIRuntime
 from app.dbi.storage_local import DBILocalObjectStore
+from app.dbi.storage_bootstrap import create_configured_object_store
 from app.models.subscription import Subscription
 from app.models.user import User
 
@@ -140,15 +141,16 @@ async def lifespan(application: FastAPI):
     application.state.dbi_runtime = runtime
     application.state.dbi_raster_tile_cache = DBIRasterTileCache()
     runtime.start()
-
-    object_store = _local_object_store()
-    if object_store is not None:
-        application.state.dbi_object_store = object_store
-        tile_renderer = _local_raster_tile_renderer(object_store)
-        if tile_renderer is not None:
-            application.state.dbi_raster_tile_renderer = tile_renderer
-
     try:
+        # Nunca sustituir S3 faltante o inválido por el disco efímero de Render.
+        # La configuración sólo da de alta el puerto privado opt-in.
+        object_store = create_configured_object_store()
+        if object_store is not None:
+            application.state.dbi_object_store = object_store
+            if isinstance(object_store, DBILocalObjectStore):
+                tile_renderer = _local_raster_tile_renderer(object_store)
+                if tile_renderer is not None:
+                    application.state.dbi_raster_tile_renderer = tile_renderer
         yield
     finally:
         if hasattr(application.state, "dbi_raster_tile_renderer"):

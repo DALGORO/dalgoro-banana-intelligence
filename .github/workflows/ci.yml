@@ -219,6 +219,11 @@ jobs:
           PYTHONPATH: .
         run: python ../../../.github/scripts/ci_dbi_portal_gis_imports.py
 
+      - name: Validar activación opcional S3 DBI sin fallback local
+        env:
+          PYTHONPATH: .
+        run: python ../../../.github/scripts/ci_dbi_s3_bootstrap.py
+
       - name: Validar preparación GIS privada por worker aislado
         env:
           PYTHONPATH: .
