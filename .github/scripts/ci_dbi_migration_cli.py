@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import ci_dbi_migration_cli_base as base
 
-base.HEAD = "dbi_0021_portal_vectors"
+base.HEAD = "dbi_0022_portal_gis_imports"
 
 
 if __name__ == "__main__":
