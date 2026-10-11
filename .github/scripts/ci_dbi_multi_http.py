@@ -68,6 +68,9 @@ class Repo:
         self.queries = []
         self.observed_at = datetime(2026, 9, 15, 8, 30, tzinfo=timezone.utc)
         self.return_observation = True
+        self.campaign_enabled = False
+        self.campaign_id = UUID("90000000-0000-4000-8000-000000000081")
+        self.captured_at = datetime(2026, 9, 14, 9, 0, tzinfo=timezone.utc)
 
     def get_scoped(self, **kwargs):
         self.queries.append(kwargs)
@@ -94,6 +97,16 @@ class Repo:
                    in kwargs.items() if key != "extraction_ids"):
             return {}
         return {self.row.id: self.observed_at}
+
+    def campaign_provenance_by_extraction_scoped(self, **kwargs):
+        self.queries.append(kwargs)
+        if (not self.campaign_enabled or self.row is None
+                or self.row.id not in kwargs["extraction_ids"]):
+            return {}
+        if not all(getattr(self.row, key) == value for key, value in kwargs.items()
+                   if key != "extraction_ids"):
+            return {}
+        return {self.row.id: (self.campaign_id, self.captured_at)}
 
 
 def denied(status_code, operation):
@@ -128,8 +141,15 @@ def main():
         assert len(listed) == 1 and listed[0].payload == candidate
         assert listed[0].observed_at == repo.observed_at
         assert listed[0].observed_at < listed[0].created_at
+        assert listed[0].campaign_linkage == "unverified"
+        assert listed[0].campaign_id is None and listed[0].captured_at is None
         assert repo.queries == [
             {
+                "tenant_ref": TENANT, "organization_ref": ORG,
+                "farm_id": FARM, "plot_id": PLOT,
+            },
+            {
+                "extraction_ids": [row.id],
                 "tenant_ref": TENANT, "organization_ref": ORG,
                 "farm_id": FARM, "plot_id": PLOT,
             },
@@ -148,9 +168,16 @@ def main():
         assert len(data.payload.summaries) == 10
         assert data.created_at == row.created_at
         assert data.observed_at == repo.observed_at
-        assert repo.queries[-2:] == [
+        assert repo.queries[-3:] == [
             {
                 "extraction_id": row.id,
+                "tenant_ref": TENANT,
+                "organization_ref": ORG,
+                "farm_id": FARM,
+                "plot_id": PLOT,
+            },
+            {
+                "extraction_ids": [row.id],
                 "tenant_ref": TENANT,
                 "organization_ref": ORG,
                 "farm_id": FARM,
@@ -166,6 +193,19 @@ def main():
         ]
         assert "object_key" not in data.model_dump_json()
         assert "S3_SECRET" not in data.model_dump_json()
+        assert call() == data
+
+        repo.campaign_enabled = True
+        linked = call()
+        assert linked.campaign_linkage == "verified_job_chain"
+        assert linked.campaign_id == repo.campaign_id
+        assert linked.captured_at == repo.captured_at
+        assert listing()[0] == linked
+        repo.captured_at = datetime(2026, 9, 14, 9, 0)
+        denied(409, lambda: call())
+        denied(409, lambda: listing())
+        repo.captured_at = datetime(2026, 9, 14, 9, 0, tzinfo=timezone.utc)
+        repo.campaign_enabled = False
         assert call() == data
 
         denied(404, lambda: listing(ctx=context(read=False)))
@@ -254,7 +294,7 @@ def main():
     assert len(listing_routes) == 1
     assert listing_routes[0].methods == {"GET"}
     session.close()
-    print("Hito 11 MULTI READ: fechas observadas INSPECT seguras, scopes y provenance OK.")
+    print("Hito 11 MULTI READ: Campaign solo con cadena verificada, scope y fechas seguras OK.")
 
 
 if __name__ == "__main__":
