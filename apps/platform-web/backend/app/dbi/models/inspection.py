@@ -35,6 +35,10 @@ class DBIFieldObservationRecord(DBIBase):
 
     __tablename__ = "dbi_field_observations"
     __table_args__ = (
+        UniqueConstraint(
+            "id", "tenant_ref", "organization_ref", "farm_id", "plot_id",
+            name="uq_dbi_field_observations_inspect_scope",
+        ),
         ForeignKeyConstraint(
             ["plot_id", "farm_id"],
             ["dbi_plots.id", "dbi_plots.farm_id"],

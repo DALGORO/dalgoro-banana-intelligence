@@ -27,7 +27,7 @@ from app.dbi.models import (  # noqa: E402
     AssetMultipartSession,
 )
 
-HEAD = "dbi_0026_gpkg_layer_choice"
+HEAD = "dbi_0027_inspect_dual_sign"
 MULTIPART_REVISION = "dbi_0010_asset_multipart"
 SESSION_TABLE = "dbi_asset_multipart_sessions"
 PART_TABLE = "dbi_asset_multipart_parts"

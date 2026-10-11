@@ -29,6 +29,10 @@ from app.dbi.models.inspection import (
     DBIFieldObservationRecord,
     DBIFieldObservationVersionRecord,
 )
+from app.dbi.models.inspection_campaign import (
+    DBIInspectionApprovalEventRecord,
+    DBIInspectionCampaignLinkRecord,
+)
 from app.dbi.models.model_registry import (
     DBIAnalysisProfile,
     DBIModelGovernanceEvent,
@@ -61,6 +65,8 @@ __all__ = [
     "DBIDeliveryMessage",
     "DBIFieldObservationRecord",
     "DBIFieldObservationVersionRecord",
+    "DBIInspectionApprovalEventRecord",
+    "DBIInspectionCampaignLinkRecord",
     "DBIMembership",
     "DBIMembershipPermission",
     "DBIMembershipScope",

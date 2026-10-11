@@ -8,7 +8,7 @@ from __future__ import annotations
 
 import ci_dbi_migration_integration_base as base
 
-base.EXPECTED_HEAD = "dbi_0026_gpkg_layer_choice"
+base.EXPECTED_HEAD = "dbi_0027_inspect_dual_sign"
 
 
 if __name__ == "__main__":
