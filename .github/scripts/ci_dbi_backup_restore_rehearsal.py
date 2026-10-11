@@ -26,6 +26,12 @@ IMAGE = (
     "4be58fcb1b50df187e73536e663149c2b3b2da2a541c2f518cfb6adebc65ed91"
 )
 HEX_CONTAINER = re.compile(r"[a-f0-9]{12,64}\Z")
+_SAFE_STAGE = "initial" 
+
+
+def _stage(value):
+    global _SAFE_STAGE
+    _SAFE_STAGE = value
 
 
 class RehearsalBlocked(RuntimeError):
@@ -152,7 +158,9 @@ def _setup_fixture(src):
 
 
 def rehearse():
+    _stage("guard")
     check_runtime(os.environ)
+    _stage("docker_identify")
     cid = _container()
     token = uuid4().hex[:12]
     source = "dbi_e6_src_" + token
@@ -166,9 +174,11 @@ def rehearse():
         with _sql_conn("postgres") as admin:
             admin.autocommit = True
             try:
+                _stage("create_databases")
                 for name in (source, dest):
                     _db_action(admin, "CREATE DATABASE {}", name)
                     created.append(name)
+                _stage("populate_fixture")
                 _setup_fixture(source)
                 expected_hash, original_rows, original_indexes = _fixture_fingerprint(source)
                 if (len(original_rows) != 3
@@ -176,14 +186,17 @@ def rehearse():
                         != {"tenant-alpha", "tenant-beta"}
                         or not any("USING gist" in item[1] for item in original_indexes)):
                     raise RehearsalBlocked("fixture invalid before backup")
+                _stage("dump_archive")
                 _docker("exec", "--user", "postgres", cid,
                         "pg_dump", "-h", "/var/run/postgresql", "-U", "postgres",
                         "-d", source, "-n", "dbi", "-Fc",
                         "--no-owner", "--no-privileges", "-f", archive, timeout=45)
+                _stage("read_archive")
                 dump = _docker("exec", "--user", "postgres", cid, "cat", archive, timeout=35)
                 if not dump.startswith(b"PGDMP") or not 256 <= len(dump) <= 2_000_000:
                     raise RehearsalBlocked("invalid backup archive")
                 archive_sha = sha256(dump).hexdigest()
+                _stage("reject_corrupted_archive")
                 with tempfile.TemporaryDirectory(prefix="dbi-e6-corrupt-") as scratch:
                     broken = Path(scratch) / "broken.dump"
                     broken.write_bytes(dump[:16])
@@ -198,12 +211,15 @@ def rehearse():
                 if _fixture_fingerprint(source)[0] == expected_hash:
                     raise RehearsalBlocked("source mutation unexpectedly preserved")
 
+                _stage("prepare_restore")
                 with _sql_conn(dest) as conn:
                     conn.execute("CREATE EXTENSION postgis")
+                _stage("run_restore")
                 _docker("exec", "--user", "postgres", cid,
                         "pg_restore", "-h", "/var/run/postgresql", "-U", "postgres",
                         "-d", dest, "--exit-on-error", "--no-owner", "--no-privileges",
                         archive, timeout=45)
+                _stage("compare_restored")
                 restored_hash, restored_rows, restored_indexes = _fixture_fingerprint(dest)
                 if (restored_hash != expected_hash or restored_rows != original_rows
                         or restored_indexes != original_indexes):
@@ -232,6 +248,7 @@ def rehearse():
                     except Exception:
                         cleanup_failed = True
     finally:
+        _stage("cleanup_archive")
         for name in (archive, corrupt):
             try:
                 _docker("exec", "--user", "postgres", cid, "rm", "-f", name)
@@ -302,10 +319,11 @@ def main():
         report = test_guards() if args.check_guards_offline else rehearse()
         code = 0
     except Exception:
-        # Nunca exponer detalles de PG, Docker, rutas o credenciales.
+        # Solo identificadores internos de etapa; no errores PG/Docker/credenciales.
         report = {
             "operation": "ci-ephemeral-postgis-restore-rehearsal",
             "result": "BLOCKED",
+            "diagnostic_stage": _SAFE_STAGE,
             "migration_apply": "BLOCKED",
             "deployment_readiness": "NOT_VERIFIED",
         }
