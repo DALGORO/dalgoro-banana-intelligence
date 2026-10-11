@@ -9,6 +9,7 @@ import {
   type StyleSpecification,
 } from "maplibre-gl";
 import "maplibre-gl/dist/maplibre-gl.css";
+import { Layers3, MapPinned } from "lucide-react";
 import { GoogleSatelliteViewer } from "@/components/GoogleSatelliteViewer";
 import { MultispectralEvidencePanel } from "@/components/MultispectralEvidencePanel";
 import { belongsToSelectedMapCampaign, mapTimelineViewKey } from "@/features/mapCampaignSelection";
@@ -718,24 +719,35 @@ function FarmMapTimelineView() {
   };
 
   return (
-    <div className="space-y-4">
-      <div className="status-banner status-banner-info">
-        <div className="font-medium">
-          {isPlotTimeline(data)
-            ? "Mapa histórico de tu finca"
-            : "Mapa de la finca"}
+    <div className="dbi-map-workspace space-y-4">
+      <div className="dbi-map-intro">
+        <span className="dbi-section-icon" aria-hidden="true"><MapPinned size={22} /></span>
+        <div className="min-w-0 flex-1">
+          <div className="eyebrow">DALGORO · Visor agrícola privado</div>
+          <h2 className="mt-1 text-lg font-semibold">
+            {isPlotTimeline(data) ? "Mapa histórico del lote" : "Mapa de la finca"}
+          </h2>
+          <p className="muted mt-1 text-sm">
+            Selecciona una fecha y consulta exclusivamente capas y evidencia autorizadas.
+            El fondo satelital aparece solo cuando está configurado.
+          </p>
         </div>
-        <p className="mt-1 text-sm">
-          {isPlotTimeline(data)
-            ? "Elige una fecha y activa las capas disponibles para explorar tu finca. Fuera de la ortofoto puedes ver el fondo satelital si Google Maps está habilitado."
-            : "Los levantamientos aparecerán cuando estén disponibles en tu cuenta."}
-        </p>
+        <div className="dbi-map-intro-meta" aria-label="Estado del mapa">
+          <span className="dbi-info-chip"><Layers3 size={15} aria-hidden="true" />
+            {visibleEntries.length + visibleVectorMeta.length} capas disponibles en la selección
+          </span>
+          {selectedMapCampaignId && (
+            <span className="dbi-info-chip dbi-info-chip-accent" title={selectedMapCampaignId}>
+              Campaign {selectedMapCampaignId.slice(0, 8)}
+            </span>
+          )}
+        </div>
       </div>
 
-      <div className="grid gap-4 xl:grid-cols-[320px_minmax(0,1fr)]">
-        <aside className="card space-y-5">
+      <div className="dbi-visual-grid">
+        <aside className="card dbi-map-controls space-y-5">
           <div>
-            <div className="eyebrow">Finca / lote</div>
+            <div className="eyebrow">Control de campaña y capas</div>
             <h2 className="mt-1 text-lg font-semibold">{realLocator ? farmLabel : "Mapa de finca"}</h2>
             {isPlotTimeline(data) && (
               <p className="muted mt-1 text-sm">Lote: {plotLabel}</p>
@@ -997,8 +1009,12 @@ function FarmMapTimelineView() {
           </div>
         </aside>
 
-        <section className="card p-0 overflow-hidden">
+        <section className="card dbi-map-stage p-0 overflow-hidden" aria-label="Mapa de la campaña seleccionada">
           <div className="relative min-h-[560px]">
+            <div className="dbi-map-stage-label" aria-hidden="true">
+              <MapPinned size={16} />
+              <span>{selectedDate ? formatDate(selectedDate) : "Todas las fechas"}</span>
+            </div>
             {useGoogleBase && realLocator ? (
               <GoogleSatelliteViewer
                 tenantRef={realLocator.tenantRef}
@@ -1044,7 +1060,6 @@ function FarmMapTimelineView() {
             </div>
           </div>
         </section>
-      </div>
       {realLocator && (
         <MultispectralEvidencePanel
           key={gisScopeKey}
@@ -1063,6 +1078,7 @@ function FarmMapTimelineView() {
           }}
         />
       )}
+      </div>
     </div>
   );
 }
