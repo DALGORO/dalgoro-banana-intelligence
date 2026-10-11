@@ -18,6 +18,7 @@ BACKEND = ROOT / "apps" / "platform-web" / "backend"
 sys.path.insert(0, str(BACKEND))
 
 from app.dbi.models.multispectral import DBIMultispectralExtractionRecord  # noqa: E402
+from app.dbi.models.inspection import DBIFieldObservationVersionRecord  # noqa: E402
 from app.dbi.multispectral import (  # noqa: E402
     DBIMultispectralExtractionCandidate,
     DBIMultispectralExtractionRepository,
@@ -371,6 +372,45 @@ def _validate_repository() -> UUID:
                 tenant_ref=TENANT, organization_ref="organization-foreign",
                 farm_id=FARM_ID, plot_id=PLOT_ID,
             ) == []
+            observed = repository.observed_at_by_extraction_scoped(
+                extraction_ids=[expected_id],
+                tenant_ref=TENANT, organization_ref=ORGANIZATION,
+                farm_id=FARM_ID, plot_id=PLOT_ID,
+            )
+            assert set(observed) == {expected_id}
+            observed_at = session.execute(
+                select(DBIFieldObservationVersionRecord.observed_at).where(
+                    DBIFieldObservationVersionRecord.id == OBSERVATION_VERSION_ID,
+                )
+            ).scalar_one()
+            assert observed[expected_id] == observed_at
+            assert observed[expected_id].tzinfo is not None
+            assert repository.observed_at_by_extraction_scoped(
+                extraction_ids=[], tenant_ref=TENANT,
+                organization_ref=ORGANIZATION, farm_id=FARM_ID, plot_id=PLOT_ID,
+            ) == {}
+            for scope in (
+                {"tenant_ref": "tenant-crossed", "organization_ref": ORGANIZATION,
+                 "farm_id": FARM_ID, "plot_id": PLOT_ID},
+                {"tenant_ref": TENANT, "organization_ref": "organization-foreign",
+                 "farm_id": FARM_ID, "plot_id": PLOT_ID},
+                {"tenant_ref": TENANT, "organization_ref": ORGANIZATION,
+                 "farm_id": FARM_ID, "plot_id": UUID("20000000-0000-4000-8000-000000000081")},
+                {"tenant_ref": TENANT, "organization_ref": ORGANIZATION,
+                 "farm_id": UUID("10000000-0000-4000-8000-000000000081"), "plot_id": PLOT_ID},
+            ):
+                assert repository.observed_at_by_extraction_scoped(
+                    extraction_ids=[expected_id], **scope,
+                ) == {}
+            try:
+                repository.observed_at_by_extraction_scoped(
+                    extraction_ids=[expected_id] * 21, tenant_ref=TENANT,
+                    organization_ref=ORGANIZATION, farm_id=FARM_ID, plot_id=PLOT_ID,
+                )
+            except DBIMultispectralPersistenceConflict:
+                pass
+            else:
+                raise AssertionError("El lote temporal debe limitar IDs a 20 distintos.")
             assert repository.list_scoped(
                 tenant_ref=TENANT, organization_ref=ORGANIZATION,
                 farm_id=FARM_ID, plot_id=UUID("20000000-0000-4000-8000-000000000081"),
