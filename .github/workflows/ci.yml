@@ -229,6 +229,11 @@ jobs:
           PYTHONPATH: .
         run: python ../../../.github/scripts/ci_dbi_gis_s3_worker.py
 
+      - name: Validar auditoría staging DBI READ ONLY sin conexión remota
+        env:
+          PYTHONPATH: .
+        run: python ../../../.github/scripts/ci_dbi_staging_migration_readonly.py
+
       - name: Validar preflight OFFLINE GIS staging y bloqueos de despliegue
         env:
           PYTHONPATH: .
