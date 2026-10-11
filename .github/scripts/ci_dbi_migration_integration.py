@@ -8,7 +8,7 @@ from __future__ import annotations
 
 import ci_dbi_migration_integration_base as base
 
-base.EXPECTED_HEAD = "dbi_0023_gis_previews"
+base.EXPECTED_HEAD = "dbi_0024_gis_approval"
 
 
 if __name__ == "__main__":
