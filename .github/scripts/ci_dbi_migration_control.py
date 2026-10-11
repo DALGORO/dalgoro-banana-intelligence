@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import ci_dbi_migration_control_base as base
 
-base.HEAD = "dbi_0020_campaign_artifacts"
+base.HEAD = "dbi_0021_portal_vectors"
 base.KNOWN = set(base.KNOWN) | {
     "dbi_0014_analysis_results",
     "dbi_0015_raster_products",
