@@ -764,7 +764,7 @@ export default function FarmMapTimeline() {
                 <option key={date} value={date}>
                   {formatDate(date)}
                   {selectedMapCampaignId && sameCapture(selectedDate, date)
-                    ? " · Campaign MULTI seleccionada" : ""}
+                    ? " · Campaign seleccionada" : ""}
                 </option>
               ))}
             </select>
