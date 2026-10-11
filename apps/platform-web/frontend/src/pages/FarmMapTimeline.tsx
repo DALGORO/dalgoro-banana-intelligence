@@ -105,7 +105,12 @@ export default function FarmMapTimeline() {
   const [farmLabel, setFarmLabel] = useState("Finca");
   const [plotLabel, setPlotLabel] = useState("Lote");
   const [vectorLayers, setVectorLayers] = useState<VectorLayerInfo[]>([]);
-  const [gisImports, setGISImports] = useState<GISImportReceipt[]>([]);
+  // La vista descarta recibos de otro tenant/lote incluso durante navegación.
+  const [gisImportCache, setGISImportCache] = useState<{
+    scopeKey: string;
+    items: GISImportReceipt[];
+  } | null>(null);
+  const [gisRefreshBusy, setGISRefreshBusy] = useState(false);
   const [reviewedImportId, setReviewedImportId] = useState<string | null>(null);
   const [gisPreviewVector, setGISPreviewVector] = useState<VectorLayerDetail | null>(null);
   const [gisReviewBusy, setGISReviewBusy] = useState(false);
@@ -130,6 +135,13 @@ export default function FarmMapTimeline() {
     };
   }, [farmId, organizationRef, plotId, tenantRef]);
 
+  const gisScopeKey = realLocator
+    ? JSON.stringify([realLocator.tenantRef, realLocator.organizationRef, realLocator.farmId, realLocator.plotId])
+    : "";
+  const gisImports = gisImportCache?.scopeKey === gisScopeKey ? gisImportCache.items : [];
+  const hasPendingGISImports = gisImports.some(item =>
+    item.status === "received" || item.status === "processing"
+  );
   const useGoogleBase = Boolean(import.meta.env.VITE_GOOGLE_MAPS_API_KEY?.trim()) && Boolean(realLocator);
 
   useEffect(() => {
@@ -167,8 +179,10 @@ export default function FarmMapTimeline() {
       if (active) setCampaignLoadError(true);
     });
     listGISImports(realLocator).then(receipts => {
-      if (active) setGISImports(receipts);
-    }).catch(() => { if (active) setGISImports([]); });
+      if (active) setGISImportCache({ scopeKey: gisScopeKey, items: receipts });
+    }).catch(() => {
+      if (active) setGISImportCache({ scopeKey: gisScopeKey, items: [] });
+    });
     listVectorLayers(realLocator).then(layers => {
       if (!active) return;
       setVectorLayers(layers);
@@ -192,7 +206,7 @@ export default function FarmMapTimeline() {
         ));
       }).catch(() => { if (active) setCanPublish(false); });
     return () => { active = false; };
-  }, [realLocator]);
+  }, [realLocator, gisScopeKey]);
 
 
   useEffect(() => {
@@ -371,6 +385,41 @@ export default function FarmMapTimeline() {
   const mapBounds = isPlotTimeline(data) && data.viewport_bounds
     ? data.viewport_bounds : gisBounds;
 
+  // Reconsulta solo mientras el worker pueda cambiar el estado; sin polling para lectores.
+  useEffect(() => {
+    if (!realLocator || !canPublish || !hasPendingGISImports) return;
+    let active = true;
+    let inFlight = false;
+    const interval = window.setInterval(() => {
+      if (inFlight) return;
+      inFlight = true;
+      void listGISImports(realLocator).then(receipts => {
+        if (active) setGISImportCache({ scopeKey: gisScopeKey, items: receipts });
+      }).catch(() => {
+        // Conserva el último estado conocido; se volverá a intentar.
+      }).finally(() => {
+        inFlight = false;
+      });
+    }, 15_000);
+    return () => {
+      active = false;
+      window.clearInterval(interval);
+    };
+  }, [realLocator, gisScopeKey, canPublish, hasPendingGISImports]);
+
+  async function refreshGISImportStatus() {
+    if (!realLocator || !canPublish) return;
+    setGISRefreshBusy(true);
+    try {
+      const receipts = await listGISImports(realLocator);
+      setGISImportCache({ scopeKey: gisScopeKey, items: receipts });
+    } catch {
+      setUploadNotice("No se pudieron actualizar los archivos GIS. Intenta nuevamente.");
+    } finally {
+      setGISRefreshBusy(false);
+    }
+  }
+
   async function inspectGISImport(item: GISImportReceipt) {
     if (!realLocator || !canPublish) return;
     setGISReviewBusy(true);
@@ -414,7 +463,7 @@ export default function FarmMapTimeline() {
         listVectorLayers(realLocator), listGISImports(realLocator),
       ]);
       setVectorLayers(layers);
-      setGISImports(receipts);
+      setGISImportCache({ scopeKey: gisScopeKey, items: receipts });
       setSelectedVectorIds(current => new Set([...current, layer.id]));
       setGISPreviewVector(null);
       setReviewedImportId(null);
@@ -447,7 +496,7 @@ export default function FarmMapTimeline() {
           realLocator, uploadFile, uploadCampaignId, uploadKind,
           uploadFile.name.replace(/\.(gpkg|zip)$/i, ""),
         );
-        setGISImports(await listGISImports(realLocator));
+        setGISImportCache({ scopeKey: gisScopeKey, items: await listGISImports(realLocator) });
         setUploadNotice(
           "Archivo original recibido en almacenamiento privado. Sigue pendiente la conversión y revisión; aún no está publicado.",
         );
@@ -784,9 +833,22 @@ export default function FarmMapTimeline() {
                 {uploading ? "Procesando recepción…" : /\.(zip|gpkg)$/i.test(uploadFile?.name ?? "") ? "Guardar original privado" : "Publicar GeoJSON en el lote"}
               </button>
               {uploadNotice && <p role="status" className="muted text-xs">{uploadNotice}</p>}
-              {gisImports.length > 0 && (
-                <div className="space-y-2" aria-label="Archivos GIS recibidos">
-                  <p className="text-xs font-medium">Archivos GIS y estado de revisión</p>
+              <div className="space-y-2" aria-label="Archivos GIS recibidos">
+                  <div className="flex items-center justify-between gap-2">
+                    <p className="text-xs font-medium">Archivos GIS y estado de revisión</p>
+                    <button
+                      type="button"
+                      className="text-xs font-medium underline disabled:opacity-50"
+                      onClick={() => void refreshGISImportStatus()}
+                      disabled={gisRefreshBusy}
+                      aria-label="Actualizar estados de archivos GIS"
+                    >
+                      {gisRefreshBusy ? "Actualizando…" : "Actualizar"}
+                    </button>
+                  </div>
+                  {hasPendingGISImports && (
+                    <p className="muted text-xs">Los estados pendientes se actualizan automáticamente cada 15 segundos mientras esta página esté abierta.</p>
+                  )}
                   {gisImports.slice(0, 8).map(item => (
                     <div key={item.id} className="space-y-2 rounded-lg border border-slate-300/40 p-2 text-xs">
                       <span className="block font-medium">{item.original_filename}</span>
@@ -820,8 +882,10 @@ export default function FarmMapTimeline() {
                         )}
                     </div>
                   ))}
+                  {gisImports.length === 0 && (
+                    <p className="muted text-xs">No hay originales GIS recibidos en este lote.</p>
+                  )}
                 </div>
-              )}
             </div>
           )}
 
