@@ -12,8 +12,8 @@ import "maplibre-gl/dist/maplibre-gl.css";
 import { GoogleSatelliteViewer } from "@/components/GoogleSatelliteViewer";
 import { api } from "@/app/api";
 import {
-  getVectorLayer, listVectorLayers, listVectorCampaigns, listGISImports, publishGeoJSON, stageGISOriginal, vectorExtent,
-  type VectorLayerInfo, type VectorLayerKind, type VectorLayerDetail, type VectorCampaign, type GISImportReceipt,
+  getVectorLayer, listVectorLayers, listVectorCampaigns, listGISImports, getGISImportPreview, publishReviewedGIS, publishGeoJSON, stageGISOriginal, vectorExtent,
+  type VectorLayerInfo, type VectorLayerKind, type VectorLayerDetail, type VectorCampaign, type GISImportReceipt, type GISImportPreview,
 } from "@/features/portalVectors";
 import mapWorkerUrl from "maplibre-gl/dist/maplibre-gl-worker.mjs?worker&url";
 
@@ -116,6 +116,8 @@ export default function FarmMapTimeline() {
   const [uploadKind, setUploadKind] = useState<VectorLayerKind>("density_hexagons");
   const [uploading, setUploading] = useState(false);
   const [uploadNotice, setUploadNotice] = useState<string | null>(null);
+  const [privatePreview, setPrivatePreview] = useState<GISImportPreview | null>(null);
+  const [reviewBusy, setReviewBusy] = useState(false);
 
   const realLocator = useMemo(() => {
     if (!organizationRef || !farmId || !plotId || !tenantRef) return null;
@@ -342,12 +344,26 @@ export default function FarmMapTimeline() {
     return () => { active = false; };
   }, [realLocator, visibleVectorMeta, selectedVectorIds, vectorDetails]);
 
-  const visibleVectorDetails = useMemo(() =>
-    visibleVectorMeta.filter(meta => selectedVectorIds.has(meta.id))
+  const visibleVectorDetails = useMemo(() => {
+    const published = visibleVectorMeta.filter(meta => selectedVectorIds.has(meta.id))
       .map(meta => vectorDetails[meta.id])
-      .filter((detail): detail is VectorLayerDetail => Boolean(detail)),
-    [visibleVectorMeta, selectedVectorIds, vectorDetails],
-  );
+      .filter((detail): detail is VectorLayerDetail => Boolean(detail));
+    // Exclusivamente en la sesión MANAGE actual: nunca se guarda en capas publicadas.
+    if (canPublish && privatePreview && activeCampaignIds.has(privatePreview.receipt.campaign_id)) {
+      published.push({
+        layer: {
+          id: `private-review-${privatePreview.receipt.id}`,
+          campaign_id: privatePreview.receipt.campaign_id,
+          name: `Vista previa privada: ${privatePreview.receipt.name}`,
+          layer_kind: privatePreview.receipt.layer_kind,
+          feature_count: privatePreview.feature_count,
+          created_at: privatePreview.receipt.created_at,
+        },
+        geojson: privatePreview.geojson,
+      });
+    }
+    return published;
+  }, [visibleVectorMeta, selectedVectorIds, vectorDetails, canPublish, privatePreview, activeCampaignIds]);
 
   const uploadCampaignChoices = useMemo(() =>
     vectorCampaigns.filter(campaign =>
@@ -404,6 +420,40 @@ export default function FarmMapTimeline() {
       setUploadNotice(typeof detail === "string" ? detail : "No se pudo publicar la capa.");
     } finally {
       setUploading(false);
+    }
+  }
+
+  async function inspectPrivateGIS(id: string) {
+    if (!realLocator || !canPublish) return;
+    setReviewBusy(true);
+    setUploadNotice(null);
+    try {
+      const preview = await getGISImportPreview(realLocator, id);
+      setPrivatePreview(preview);
+      setUploadNotice("Vista previa privada en el mapa. Revisa ubicación, entidades y atributos antes de aprobar.");
+    } catch {
+      setPrivatePreview(null);
+      setUploadNotice("No se pudo consultar la vista previa privada.");
+    } finally {
+      setReviewBusy(false);
+    }
+  }
+
+  async function approvePrivateGIS(id: string) {
+    if (!realLocator || !canPublish || privatePreview?.receipt.id !== id) return;
+    setReviewBusy(true);
+    setUploadNotice(null);
+    try {
+      const layer = await publishReviewedGIS(realLocator, id);
+      setVectorLayers(await listVectorLayers(realLocator));
+      setGISImports(await listGISImports(realLocator));
+      setSelectedVectorIds(current => new Set([...current, layer.id]));
+      setPrivatePreview(null);
+      setUploadNotice("Aprobado: la capa ahora es visible para los usuarios autorizados de este lote.");
+    } catch {
+      setUploadNotice("No se pudo publicar. La vista previa sigue siendo privada; comprueba la campaña y permisos.");
+    } finally {
+      setReviewBusy(false);
     }
   }
 
@@ -723,16 +773,46 @@ export default function FarmMapTimeline() {
               {uploadNotice && <p role="status" className="muted text-xs">{uploadNotice}</p>}
               {gisImports.length > 0 && (
                 <div className="space-y-2" aria-label="Archivos GIS recibidos">
-                  <p className="text-xs font-medium">Originales privados recibidos (sin publicar)</p>
+                  <p className="text-xs font-medium">Originales GIS y aprobación</p>
                   {gisImports.slice(0, 8).map(item => (
                     <div key={item.id} className="rounded-lg border border-slate-300/40 p-2 text-xs">
                       <span className="block font-medium">{item.original_filename}</span>
-                      <span className="muted">
+                      <span className="muted block">
                         {item.status === "received" ? "Recibido · pendiente de conversión"
-                          : item.status === "processing" ? "En conversión"
-                          : item.status === "prepared" ? "Convertido · pendiente de revisión"
-                          : "Conversión fallida"}
+                          : item.status === "processing" ? "En conversión privada"
+                          : item.status === "prepared" ? "Convertido · requiere revisión"
+                          : item.status === "published" ? "Publicado por un gestor"
+                          : "Conversión fallida · revisión técnica"}
                       </span>
+                      {item.status === "prepared" && (
+                        <button type="button" className="btn-secondary mt-2"
+                          disabled={reviewBusy} onClick={() => void inspectPrivateGIS(item.id)}>
+                          Revisar geometrías y atributos
+                        </button>
+                      )}
+                      {item.status === "prepared" && privatePreview?.receipt.id === item.id && (
+                        <div className="mt-2 space-y-2 rounded border border-amber-500/50 p-2">
+                          <p className="font-semibold">Vista previa privada · NO publicada</p>
+                          <p>{privatePreview.feature_count} entidades · {GIS_KIND_LABELS[item.layer_kind]}</p>
+                          <p className="muted">Comprueba que la ubicación corresponda al levantamiento elegido. Pulsa los elementos del mapa para revisar sus datos.</p>
+                          <p className="muted">Ejemplo de atributos:</p>
+                          <dl className="space-y-1">
+                            {Object.entries(privatePreview.geojson.features[0]?.properties ?? {})
+                              .slice(0, 6).map(([key, value]) => (
+                                <div key={key}><dt className="font-medium">{key}</dt>
+                                  <dd>{value === null ? "—" : String(value)}</dd></div>
+                              ))}
+                          </dl>
+                          <button type="button" className="btn-primary w-full"
+                            disabled={reviewBusy} onClick={() => void approvePrivateGIS(item.id)}>
+                            Aprobar y publicar en el lote
+                          </button>
+                          <button type="button" className="btn-secondary w-full"
+                            disabled={reviewBusy} onClick={() => setPrivatePreview(null)}>
+                            Cerrar vista previa sin publicar
+                          </button>
+                        </div>
+                      )}
                     </div>
                   ))}
                 </div>
@@ -796,7 +876,7 @@ export default function FarmMapTimeline() {
                 </div>
               )}
 
-              {!loading && !error && visibleEntries.length === 0 && visibleVectorMeta.length === 0 && (
+              {!loading && !error && visibleEntries.length === 0 && visibleVectorMeta.length === 0 && visibleVectorDetails.length === 0 && (
                 <div className="empty-state pointer-events-auto shadow-lg">
                   <div className="font-medium">
                     No hay campañas cartográficas visibles
