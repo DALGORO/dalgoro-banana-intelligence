@@ -14,7 +14,6 @@ from uuid import UUID, uuid4
 from fastapi import APIRouter, Depends, HTTPException, Query, Request
 from pydantic import BaseModel, ConfigDict
 from sqlalchemy import select
-from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
 from app.api.v1.dbi_assets import get_dbi_asset_object_store
@@ -100,6 +99,8 @@ async def receive_gis_import(
         original_filename, source_format, mime = normalize_upload_filename(filename)
     except PortalGISSourceInvalid as error:
         raise HTTPException(status_code=422, detail=str(error)) from error
+    if not hasattr(store, "put") or not hasattr(store, "retire"):
+        raise HTTPException(status_code=503, detail="Almacenamiento GIS privado no disponible.")
     if name != name.strip() or not name.strip():
         raise HTTPException(status_code=422, detail="El nombre de capa es obligatorio.")
     if request.headers.get("content-type", "").split(";", 1)[0].lower() != "application/octet-stream":
@@ -162,7 +163,7 @@ async def receive_gis_import(
     try:
         session.commit()
         session.refresh(row)
-    except (IntegrityError, Exception):
+    except Exception:
         session.rollback()
         # Compensa si falla el registro: evita exponer un original huérfano.
         try:
