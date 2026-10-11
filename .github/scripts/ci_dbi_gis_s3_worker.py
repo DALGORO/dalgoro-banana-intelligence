@@ -128,7 +128,7 @@ def tests():
 
         # La respuesta malformada o con múltiples nombres iguales es rechazada.
         for invalid in ({"layers": ["duplicada", "duplicada"]},
-                        {"layers": ["a\\nsecreta", "otra"]},
+                        {"layers": ["a" + chr(10) + "secreta", "otra"]},
                         {"not_layers": ["a", "b"]}):
             def discover_invalid(argv, **kwargs):
                 kwargs["stdout"].write(json.dumps(invalid).encode("utf-8"))
