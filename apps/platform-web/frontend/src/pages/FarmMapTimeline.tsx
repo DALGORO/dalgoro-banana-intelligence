@@ -855,6 +855,7 @@ export default function FarmMapTimeline() {
                       <span className="muted block">
                         {item.status === "received" ? "Recibido · pendiente de conversión"
                           : item.status === "processing" ? "En conversión"
+                          : item.status === "needs_selection" ? "Capas detectadas · pendiente de elección" 
                           : item.status === "prepared" ? "Convertido · pendiente de aprobación"
                           : item.status === "published" ? "Revisado · publicado en el lote"
                           : "Conversión fallida"}
