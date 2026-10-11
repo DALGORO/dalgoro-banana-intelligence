@@ -141,16 +141,15 @@ async def lifespan(application: FastAPI):
     application.state.dbi_runtime = runtime
     application.state.dbi_raster_tile_cache = DBIRasterTileCache()
     runtime.start()
-
-    object_store = resolve_dbi_object_store(os.environ, _local_object_store)
-    if object_store is not None:
-        application.state.dbi_object_store = object_store
-        if isinstance(object_store, DBILocalObjectStore):
-            tile_renderer = _local_raster_tile_renderer(object_store)
-            if tile_renderer is not None:
-                application.state.dbi_raster_tile_renderer = tile_renderer
-
     try:
+        # El cleanup también debe ejecutarse cuando la configuración S3 falla.
+        object_store = resolve_dbi_object_store(os.environ, _local_object_store)
+        if object_store is not None:
+            application.state.dbi_object_store = object_store
+            if isinstance(object_store, DBILocalObjectStore):
+                tile_renderer = _local_raster_tile_renderer(object_store)
+                if tile_renderer is not None:
+                    application.state.dbi_raster_tile_renderer = tile_renderer
         yield
     finally:
         if hasattr(application.state, "dbi_raster_tile_renderer"):
