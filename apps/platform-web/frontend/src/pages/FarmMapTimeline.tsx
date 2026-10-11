@@ -1184,6 +1184,7 @@ function FarmMapTimelineView() {
             loading={loading}
             timelineError={error}
             hasScopedPlot={Boolean(realLocator)}
+            locator={realLocator}
             onOpenEvidence={() => {
               setInfoTab("multi");
               document.getElementById("dbi-tab-multi")?.focus();
