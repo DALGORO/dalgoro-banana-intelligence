@@ -44,8 +44,20 @@ class Session:
 
     def execute(self, statement):
         sql = str(statement.compile(compile_kwargs={"literal_binds": True}))
-        assert "dbi_portal_gis_imports" in sql
         row = self.state.row
+        if "FROM dbi_campaigns" in sql:
+            for name in ("id", "tenant_ref", "organization_ref", "farm_id", "plot_id"):
+                assert f"dbi_campaigns.{name} =" in sql
+            # Un campaign de otro scope no autoriza la preview privada.
+            return type("CampaignResult", (), {
+                "scalar_one_or_none": lambda self: (
+                    object() if all(str(value) in sql for value in (
+                        row.campaign_id, row.tenant_ref, row.organization_ref,
+                        row.farm_id, row.plot_id,
+                    )) else None
+                )
+            })()
+        assert "dbi_portal_gis_imports" in sql
         if row.tenant_ref not in sql:
             found = None
         elif "attempt_count <" in sql and not (
