@@ -248,7 +248,8 @@ def rehearse():
                     except Exception:
                         cleanup_failed = True
     finally:
-        _stage("cleanup_archive")
+        if answer is not None:
+            _stage("cleanup_archive")
         for name in (archive, corrupt):
             try:
                 _docker("exec", "--user", "postgres", cid, "rm", "-f", name)
