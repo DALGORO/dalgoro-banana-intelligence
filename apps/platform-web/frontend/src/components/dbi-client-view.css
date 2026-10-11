@@ -419,3 +419,72 @@
 @media (prefers-reduced-motion: reduce) {
   .dbi-campaign-strip { scroll-behavior: auto; }
 }
+
+
+/* Resultados de lectura directa: sin semáforos de salud ni umbrales agronómicos. */
+.dbi-producer-readout {
+  border: 1px solid #dce6e1;
+  border-radius: 16px;
+  padding: 14px;
+  background: #f7faf8;
+  color: #243b3b;
+}
+
+.dbi-producer-facts {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.dbi-producer-facts > div {
+  min-width: 0;
+  border: 1px solid #e2e9e6;
+  background: #fff;
+  border-radius: 12px;
+  padding: 10px;
+  overflow-wrap: anywhere;
+}
+
+.dbi-producer-facts dt {
+  color: #596f70;
+  font-size: 11px;
+}
+
+.dbi-producer-facts dd {
+  margin-top: 4px;
+  font-size: 12px;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+}
+
+.dbi-producer-details {
+  border-top: 1px solid #dce6e1;
+  padding-top: 14px;
+  min-width: 0;
+}
+
+.dbi-producer-details summary:focus-visible {
+  outline: 3px solid #b57548;
+  outline-offset: 4px;
+}
+
+.dark .dbi-producer-readout {
+  background: rgba(255,255,255,0.055);
+  border-color: rgba(255,255,255,0.16);
+  color: #f1f6f3;
+}
+
+.dark .dbi-producer-facts > div {
+  background: rgba(255,255,255,0.04);
+  border-color: rgba(255,255,255,0.13);
+}
+
+.dark .dbi-producer-facts dt {
+  color: #b7c9c7;
+}
+
+@media (max-width: 390px) {
+  .dbi-producer-facts {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
