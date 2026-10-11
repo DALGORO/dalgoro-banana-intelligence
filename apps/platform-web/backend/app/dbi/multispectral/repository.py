@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import hashlib
 import json
+from datetime import datetime
 from uuid import UUID
 
 from sqlalchemy import and_, or_, select
@@ -245,3 +246,57 @@ class DBIMultispectralExtractionRepository:
                 ).limit(20)
             ).scalars().all()
         )
+
+    def observed_at_by_extraction_scoped(
+        self,
+        *,
+        extraction_ids: list[UUID],
+        tenant_ref: str,
+        organization_ref: str,
+        farm_id: UUID,
+        plot_id: UUID,
+    ) -> dict[UUID, datetime]:
+        """Fechas reales INSPECT, con joins y scope explícito; nunca fecha de vuelo."""
+        if not extraction_ids:
+            return {}
+        if len(extraction_ids) > 20 or len(extraction_ids) != len(set(extraction_ids)):
+            raise DBIMultispectralPersistenceConflict("La consulta temporal excede el límite.")
+        rows = self._session.execute(
+            select(
+                DBIMultispectralExtractionRecord.id,
+                DBIFieldObservationVersionRecord.observed_at,
+            )
+            .join(
+                DBIFieldObservationVersionRecord,
+                and_(
+                    DBIFieldObservationVersionRecord.id
+                    == DBIMultispectralExtractionRecord.observation_version_id,
+                    DBIFieldObservationVersionRecord.observation_id
+                    == DBIMultispectralExtractionRecord.observation_id,
+                    DBIFieldObservationVersionRecord.evidence_kind == "observed",
+                ),
+            )
+            .join(
+                DBIFieldObservationRecord,
+                and_(
+                    DBIFieldObservationRecord.id
+                    == DBIMultispectralExtractionRecord.observation_id,
+                    DBIFieldObservationRecord.tenant_ref
+                    == DBIMultispectralExtractionRecord.tenant_ref,
+                    DBIFieldObservationRecord.organization_ref
+                    == DBIMultispectralExtractionRecord.organization_ref,
+                    DBIFieldObservationRecord.farm_id
+                    == DBIMultispectralExtractionRecord.farm_id,
+                    DBIFieldObservationRecord.plot_id
+                    == DBIMultispectralExtractionRecord.plot_id,
+                ),
+            )
+            .where(
+                DBIMultispectralExtractionRecord.id.in_(extraction_ids),
+                DBIMultispectralExtractionRecord.tenant_ref == tenant_ref,
+                DBIMultispectralExtractionRecord.organization_ref == organization_ref,
+                DBIMultispectralExtractionRecord.farm_id == farm_id,
+                DBIMultispectralExtractionRecord.plot_id == plot_id,
+            )
+        ).all()
+        return {extraction_id: observed_at for extraction_id, observed_at in rows}
