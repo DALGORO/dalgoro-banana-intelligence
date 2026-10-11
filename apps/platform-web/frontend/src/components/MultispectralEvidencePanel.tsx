@@ -124,7 +124,7 @@ export function MultispectralEvidencePanel({ locator }: { locator: PlotMapTimeli
           Se mostrarán únicamente cuando existan datos científicos persistidos y autorizados.
         </p>
       )}
-      {payload && (
+      {selected && payload && (
         <div className="space-y-5">
           <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
             <label className="text-sm font-medium" htmlFor="multi-extraction-select">
