@@ -95,6 +95,14 @@ jobs:
           DBI_DATABASE_URL: postgresql+psycopg://dbi_test_migrator@127.0.0.1:5432/dbi_test
         run: python ../../../.github/scripts/ci_dbi_migration_integration.py
 
+      - name: Ensayar respaldo y restauración PostGIS E6 solo en contenedor efímero CI
+        env:
+          PYTHONPATH: .
+          DBI_ENVIRONMENT: test
+          DBI_DATABASE_URL: postgresql+psycopg://dbi_test_migrator@127.0.0.1:5432/dbi_test
+          DBI_E6_EPHEMERAL_RESTORE: "1"
+        run: python ../../../.github/scripts/ci_dbi_backup_restore_rehearsal.py --rehearse-ci
+
       - name: Validar persistencia real de Campaign DBI
         env:
           PYTHONPATH: .
