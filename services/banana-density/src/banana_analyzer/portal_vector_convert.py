@@ -199,8 +199,8 @@ def convert_vector_for_portal(source: Path, output: Path, *, layer: str | None =
     No publica automáticamente la capa: un administrador autorizado debe
     vincular el GeoJSON a la Campaign real en el portal.
     """
-    source = source.resolve(strict=True)
     _validate_source_file(source)
+    source = source.resolve(strict=True)
     if output.suffix.lower() != ".geojson":
         raise PortalConversionError("El archivo resultante debe terminar en .geojson.")
     if output.exists() or output.with_suffix(".manifest.json").exists():
