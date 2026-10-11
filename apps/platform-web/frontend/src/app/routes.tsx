@@ -10,6 +10,7 @@ import PaymentPage from '../pages/PaymentPage';
 import Signup from '../pages/Signup';
 import AdminPage from '../pages/AdminPage';
 
+const ClientPortal = lazy(() => import('../pages/ClientPortal'));
 const FarmMapTimeline = lazy(() => import('../pages/FarmMapTimeline'));
 const SamplingFieldPage = lazy(() => import('../pages/SamplingFieldPage'));
 const InspectionFieldPage = lazy(() => import('../pages/InspectionFieldPage'));
@@ -26,7 +27,8 @@ export const router = createBrowserRouter([
     path: '/',
     element: <Protected element={<AppShell />} />,
     children: [
-      { index: true, element: <Navigate to="companies" replace /> },
+      { index: true, element: <Navigate to="portal" replace /> },
+      { path: 'portal', element: <Suspense fallback={<div className="card">Cargando tus fincas…</div>}><ClientPortal /></Suspense> },
       { path: 'companies', element: <Companies /> },
       { path: 'companies/:id', element: <CompanyDetailWithDbi /> },
       { path: 'companies/:id/agricultura', element: <Protected element={<DbiPilotPage />} /> },
