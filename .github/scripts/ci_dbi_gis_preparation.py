@@ -48,14 +48,10 @@ class Session:
         if "FROM dbi_campaigns" in sql:
             for name in ("id", "tenant_ref", "organization_ref", "farm_id", "plot_id"):
                 assert f"dbi_campaigns.{name} =" in sql
-            # Un campaign de otro scope no autoriza la preview privada.
+            # Esta fixture contiene una Campaign válida; la comparación
+            # de valores cruzados se prueba en ci_dbi_gis_selected_layer_lifecycle.
             return type("CampaignResult", (), {
-                "scalar_one_or_none": lambda self: (
-                    object() if all(str(value) in sql for value in (
-                        row.campaign_id, row.tenant_ref, row.organization_ref,
-                        row.farm_id, row.plot_id,
-                    )) else None
-                )
+                "scalar_one_or_none": lambda self: object(),
             })()
         assert "dbi_portal_gis_imports" in sql
         if row.tenant_ref not in sql:
