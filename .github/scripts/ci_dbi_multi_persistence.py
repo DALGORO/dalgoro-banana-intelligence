@@ -537,6 +537,42 @@ def _validate_repository() -> UUID:
     return expected_id
 
 
+def _validate_campaign_chain_fail_closed(extraction_id: UUID) -> None:
+    """Cualquier desacuerdo de la cadena produce vínculo desconocido, no otra campaña."""
+    drift_cases = (
+        ("dbi_campaigns", "source_job_id", CAMPAIGN_ID, None, JOB_ID),
+        ("dbi_campaigns", "organization_ref", CAMPAIGN_ID,
+         "organization-foreign", ORGANIZATION),
+        ("dbi_analysis_jobs", "status", JOB_ID, "failed", "succeeded"),
+        ("dbi_raster_products", "source_sha256", SCIENTIFIC_RASTER_ID,
+         "e" * 64, "1" * 64),
+    )
+    engine = create_engine(_url(), poolclass=NullPool, future=True)
+    try:
+        with _admin_connect() as admin:
+            with admin.cursor() as cursor:
+                for table, field, key, tampered, original in drift_cases:
+                    # Tabla/columna proceden de constantes internas, no de usuario.
+                    statement = sql.SQL("UPDATE dbi.{} SET {} = %s WHERE id = %s").format(
+                        sql.Identifier(table), sql.Identifier(field),
+                    )
+                    cursor.execute(statement, (tampered, key))
+                    try:
+                        with sessionmaker(bind=engine, future=True)() as session:
+                            result = DBIMultispectralExtractionRepository(
+                                session
+                            ).campaign_provenance_by_extraction_scoped(
+                                extraction_ids=[extraction_id],
+                                tenant_ref=TENANT, organization_ref=ORGANIZATION,
+                                farm_id=FARM_ID, plot_id=PLOT_ID,
+                            )
+                            assert result == {}, (table, field)
+                    finally:
+                        cursor.execute(statement, (original, key))
+    finally:
+        engine.dispose()
+
+
 def _validate_append_only(extraction_id: UUID) -> None:
     connection = psycopg.connect(
         host=HOST,
@@ -569,6 +605,7 @@ def main() -> None:
     _provision_role_and_fixture()
     extraction_id = _validate_repository()
     _validate_append_only(extraction_id)
+    _validate_campaign_chain_fail_closed(extraction_id)
     print(
         "DBI-MULTI-001 persistencia y Campaign auténtica: INSPECT + Raster + job, "
         "idempotencia, scope tenant, replay divergente rechazado y UPDATE denegado."
