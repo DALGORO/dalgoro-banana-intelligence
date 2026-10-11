@@ -14,6 +14,14 @@ export type GeoJSONFeatureCollection = {
   }>;
 };
 
+export type VectorCampaign = {
+  id: string;
+  name: string;
+  captured_at: string;
+  analysis_type: "density" | "multispectral";
+  status: string;
+};
+
 export type VectorLayerInfo = {
   id: string;
   campaign_id: string;
@@ -38,6 +46,14 @@ function url(locator: PlotMapTimelineLocator) {
   ].join("/");
 }
 const headers = (tenantRef: string) => ({ "X-DBI-Tenant": tenantRef });
+
+export async function listVectorCampaigns(locator: PlotMapTimelineLocator) {
+  const campaignsUrl = url(locator).replace(/\/vector-layers$/, "/vector-campaigns");
+  const { data } = await api.get<VectorCampaign[]>(campaignsUrl, {
+    headers: headers(locator.tenantRef),
+  });
+  return data;
+}
 
 export async function listVectorLayers(locator: PlotMapTimelineLocator) {
   const { data } = await api.get<VectorLayerInfo[]>(url(locator), {
