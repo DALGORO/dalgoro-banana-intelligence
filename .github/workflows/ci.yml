@@ -67,6 +67,9 @@ jobs:
       - name: Validar historial multiespectral solo con Campaign verificada
         run: node --test tests/multispectralCampaignHistory.test.mjs
 
+      - name: Validar contrato visual DBI sin resultados ficticios
+        run: node --test tests/dbiClientVisualLayout.test.mjs
+
       - name: Compilar frontend
         run: npm run build
 
