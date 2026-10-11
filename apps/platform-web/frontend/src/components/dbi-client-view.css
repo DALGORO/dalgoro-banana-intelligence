@@ -1,0 +1,348 @@
+/*
+ * DALGORO Banana Intelligence · cliente Hito 11
+ * Reorganización exclusivamente visual. El mapa, los permisos y la procedencia
+ * se alimentan de componentes y endpoints existentes; ningún dato de demostración.
+ */
+.dbi-client-shell {
+  background: #f3f5f3;
+}
+
+@media (min-width: 768px) {
+  .dbi-client-shell {
+    grid-template-columns: 244px minmax(0, 1fr);
+  }
+
+  .dbi-client-shell .app-sidebar {
+    position: sticky;
+    top: 0;
+    height: 100vh;
+    overflow-y: auto;
+  }
+}
+
+.dbi-client-shell .app-sidebar {
+  background: linear-gradient(165deg, #152e32 0%, #10262b 58%, #162e32 100%);
+  border-color: rgba(255, 255, 255, 0.12);
+  color: #f7f8f5;
+}
+
+.dbi-client-shell .app-sidebar > div:first-child {
+  background: transparent;
+  border-color: rgba(255, 255, 255, 0.12);
+  box-shadow: none;
+}
+
+.dbi-client-shell .app-sidebar .brand,
+.dbi-client-shell .app-sidebar .text-slate-900,
+.dbi-client-shell .app-sidebar .nav-item-active {
+  color: #fff;
+}
+
+.dbi-client-shell .app-sidebar .text-slate-600 {
+  color: #c1cece;
+}
+
+.dbi-client-shell .app-sidebar .nav-item {
+  color: #d7e1e1;
+  border: 1px solid transparent;
+}
+
+.dbi-client-shell .app-sidebar .nav-item:hover,
+.dbi-client-shell .app-sidebar .nav-item:focus-visible {
+  color: #fff;
+  background: rgba(255, 255, 255, 0.1);
+}
+
+.dbi-client-shell .app-sidebar .nav-item-active {
+  background: linear-gradient(90deg, #966746, #b57b50);
+  border: 1px solid rgba(255, 255, 255, 0.13);
+  box-shadow: none;
+}
+
+.dbi-client-shell .app-sidebar .sidebar-panel {
+  background: rgba(255, 255, 255, 0.065);
+  border-color: rgba(255, 255, 255, 0.12);
+  box-shadow: none;
+}
+
+.dbi-client-shell .app-sidebar .sidebar-panel :is(.text-slate-500, .text-slate-700, .text-slate-600) {
+  color: #d7e1e1;
+}
+
+.dbi-client-shell > main {
+  min-width: 0;
+  padding: 18px;
+}
+
+.dbi-client-shell .topbar {
+  background: #fff;
+  border-color: #e5e9e8;
+  box-shadow: 0 6px 24px rgba(15, 35, 39, 0.045);
+}
+
+.dbi-client-shell .page-kicker {
+  color: #9f643c;
+}
+
+.dbi-map-workspace {
+  min-width: 0;
+}
+
+.dbi-map-intro {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 14px;
+  padding: 16px 20px;
+  background: #fff;
+  border: 1px solid #e3e9e7;
+  border-radius: 20px;
+  box-shadow: 0 5px 22px rgba(15, 35, 39, 0.045);
+}
+
+.dbi-section-icon {
+  display: inline-flex;
+  flex: none;
+  align-items: center;
+  justify-content: center;
+  width: 43px;
+  height: 43px;
+  border-radius: 13px;
+  color: #fff;
+  background: #17343a;
+  box-shadow: 0 6px 14px rgba(15, 35, 39, 0.15);
+}
+
+.dbi-map-intro-meta {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 7px;
+}
+
+.dbi-info-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  border: 1px solid #dbe5e1;
+  border-radius: 11px;
+  background: #f3f7f4;
+  padding: 7px 10px;
+  color: #24433d;
+  font-size: 12px;
+  font-weight: 500;
+}
+
+.dbi-info-chip-accent {
+  background: #fff6ee;
+  color: #9f643c;
+  border-color: #ead9ca;
+}
+
+.dbi-visual-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  align-items: start;
+  gap: 16px;
+}
+
+.dbi-visual-grid > * {
+  min-width: 0;
+}
+
+.dbi-map-controls,
+.dbi-map-stage,
+.dbi-multi-panel {
+  border-radius: 20px;
+  border-color: #e1e8e6;
+}
+
+.dbi-map-controls {
+  max-height: 680px;
+  overflow-y: auto;
+  scrollbar-width: thin;
+  scrollbar-color: #bdceca transparent;
+}
+
+.dbi-map-controls label,
+.dbi-map-controls select,
+.dbi-map-controls summary {
+  overflow-wrap: anywhere;
+}
+
+.dbi-map-controls summary:focus-visible,
+.dbi-campaign-strip button:focus-visible {
+  outline: 3px solid #b57548;
+  outline-offset: 3px;
+}
+
+.dbi-map-stage {
+  position: relative;
+  isolation: isolate;
+}
+
+.dbi-map-stage-label {
+  position: absolute;
+  z-index: 3;
+  top: 14px;
+  left: 14px;
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  max-width: calc(100% - 92px);
+  padding: 9px 12px;
+  border: 1px solid rgba(255, 255, 255, 0.6);
+  border-radius: 12px;
+  background: rgba(21, 46, 50, 0.9);
+  color: #fff;
+  font-size: 12px;
+  font-weight: 600;
+  box-shadow: 0 6px 18px rgba(12, 28, 29, 0.19);
+  pointer-events: none;
+}
+
+.dbi-multi-panel {
+  min-width: 0;
+}
+
+.dbi-multi-panel .dbi-campaign-strip {
+  display: flex;
+  gap: 8px;
+  overflow-x: auto;
+  padding: 5px 2px 12px;
+  scroll-snap-type: x proximity;
+  scrollbar-width: thin;
+}
+
+.dbi-multi-panel .dbi-campaign-strip button {
+  flex: 0 0 auto;
+  min-width: 150px;
+  max-width: 195px;
+  scroll-snap-align: start;
+}
+
+.dbi-index-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.dbi-index-card {
+  min-width: 0;
+  padding: 12px;
+  border-radius: 14px;
+  border: 1px solid #e2e9e6;
+  background: linear-gradient(180deg, #fff, #f8faf8);
+  overflow-wrap: anywhere;
+}
+
+.dbi-index-card .eyebrow {
+  font-size: 10px;
+}
+
+.dbi-map-controls .dbi-manage-details summary {
+  color: #9f643c;
+}
+
+.dark .dbi-map-intro,
+.dark .dbi-index-card,
+.dark .dbi-client-shell .topbar {
+  background: #21393f;
+  border-color: rgba(255, 255, 255, 0.12);
+}
+
+.dark .dbi-info-chip {
+  background: rgba(255, 255, 255, 0.07);
+  color: #e6f0ea;
+  border-color: rgba(255, 255, 255, 0.12);
+}
+
+.dark .dbi-index-card {
+  background: rgba(255, 255, 255, 0.04);
+}
+
+@media (min-width: 1120px) {
+  .dbi-visual-grid {
+    grid-template-columns: minmax(215px, 265px) minmax(0, 1fr);
+  }
+  .dbi-map-controls { grid-column: 1; }
+  .dbi-map-stage { grid-column: 2; }
+  .dbi-multi-panel { grid-column: 1 / -1; }
+}
+
+@media (min-width: 1560px) {
+  .dbi-client-shell > main {
+    padding: 20px 22px;
+  }
+
+  .dbi-client-shell .dbi-visual-grid {
+    grid-template-columns: minmax(208px, 224px) minmax(360px, 1fr) minmax(322px, 365px);
+  }
+
+  .dbi-client-shell .dbi-map-controls { grid-column: 1; }
+  .dbi-client-shell .dbi-map-stage { grid-column: 2; }
+  .dbi-client-shell .dbi-multi-panel { grid-column: 3; }
+
+  .dbi-client-shell .dbi-multi-panel {
+    padding: 16px;
+  }
+}
+
+@media (max-width: 1119px) {
+  .dbi-map-controls {
+    max-height: none;
+    overflow: visible;
+  }
+}
+
+@media (max-width: 767px) {
+  .dbi-client-shell .app-sidebar {
+    position: static;
+    padding: 12px;
+  }
+
+  .dbi-client-shell .app-sidebar nav {
+    margin-top: 10px;
+    flex-direction: row;
+    flex-wrap: wrap;
+  }
+
+  .dbi-client-shell .app-sidebar .nav-item,
+  .dbi-client-shell .app-sidebar .nav-item-active {
+    width: auto;
+    padding: 8px 11px;
+    font-size: 12px;
+  }
+
+  .dbi-client-shell .app-sidebar .sidebar-panel {
+    display: none;
+  }
+
+  .dbi-client-shell > main {
+    padding: 12px;
+  }
+
+  .dbi-map-intro {
+    padding: 14px;
+  }
+
+  .dbi-map-intro-meta {
+    width: 100%;
+  }
+
+  .dbi-map-stage > .relative {
+    min-height: 420px;
+  }
+
+  .dbi-index-grid {
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  }
+}
+
+@media (max-width: 390px) {
+  .dbi-index-grid { grid-template-columns: minmax(0, 1fr); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .dbi-campaign-strip { scroll-behavior: auto; }
+}
