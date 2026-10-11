@@ -140,7 +140,8 @@ def main():
         denied(404, lambda: listing(org="organization-foreign"))
         denied(404, lambda: listing(plot=uuid4()))
         denied(404, lambda: listing(farm=uuid4()))
-        denied(404, lambda: listing(ctx=context(tenant="tenant-crossed")))
+        # Otro tenant autorizado, pero sin filas propias, recibe catálogo vacío.
+        assert listing(ctx=context(tenant="tenant-crossed")) == []
         denied(404, lambda: listing(ctx=context(organization="org-crossed")))
         assert listing() == [data]
         denied(404, lambda: call(ctx=context(read=False)))
