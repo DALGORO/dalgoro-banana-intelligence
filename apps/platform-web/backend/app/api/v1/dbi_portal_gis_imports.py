@@ -260,6 +260,8 @@ def get_gis_import_preview(
     ).scalar_one_or_none()
     if row is None or row.status not in {"prepared", "published"}:
         raise HTTPException(status_code=404, detail="Vista previa GIS no disponible.")
+    # También la vista previa privada debe mantener vigente la Campaign scoped.
+    _campaign(session, context, organization_ref, farm_id, plot_id, row.campaign_id)
     preview = session.get(DBIPortalGISPreview, row.id)
     if preview is None:
         raise HTTPException(status_code=404, detail="Vista previa GIS no disponible.")
