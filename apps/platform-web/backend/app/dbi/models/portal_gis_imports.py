@@ -27,6 +27,12 @@ class DBIPortalGISImport(DBIBase):
             "AND (status != 'needs_selection' OR available_layers IS NOT NULL)",
             name="ck_dbi_portal_gis_import_options",
         ),
+        CheckConstraint(
+            "selected_layer IS NULL OR (source_format = 'gpkg' "
+            "AND available_layers IS NOT NULL AND char_length(selected_layer) BETWEEN 1 AND 100 "
+            "AND available_layers ? selected_layer)",
+            name="ck_dbi_portal_gis_import_selected_layer",
+        ),
         CheckConstraint("size_bytes > 0 AND size_bytes <= 31457280", name="ck_dbi_portal_gis_import_size"),
         CheckConstraint("sha256 ~ '^[0-9a-f]{64}$'", name="ck_dbi_portal_gis_import_sha"),
         CheckConstraint(
@@ -51,6 +57,7 @@ class DBIPortalGISImport(DBIBase):
     sha256: Mapped[str] = mapped_column(String(64), nullable=False)
     status: Mapped[str] = mapped_column(String(16), nullable=False, default="received")
     available_layers: Mapped[list[str] | None] = mapped_column(JSONB, nullable=True)
+    selected_layer: Mapped[str | None] = mapped_column(String(100), nullable=True)
     processing_started_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
     processing_ref: Mapped[UUID | None] = mapped_column(Uuid, nullable=True)
     attempt_count: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
