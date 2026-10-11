@@ -130,12 +130,16 @@ class DBIPortalGISPreparationWorker:
             output_dir = root / "out"
             output_dir.mkdir(mode=0o700)
             output, manifest_file = self.converter(source, output_dir)
-            output = Path(output).resolve()
-            manifest_file = Path(manifest_file).resolve()
+            output = Path(output)
+            manifest_file = Path(manifest_file)
+            if output.is_symlink() or manifest_file.is_symlink():
+                raise DBIPortalGISWorkerFailure("Derivado simbólico no admitido.")
+            output = output.resolve()
+            manifest_file = manifest_file.resolve()
             if (
                 output.parent != output_dir.resolve()
                 or manifest_file.parent != output_dir.resolve()
-                or output.is_symlink() or manifest_file.is_symlink()
+
                 or not output.is_file() or not manifest_file.is_file()
                 or output.stat().st_size > MAX_VECTOR_BYTES
                 or manifest_file.stat().st_size > 16384
@@ -154,7 +158,7 @@ class DBIPortalGISPreparationWorker:
                 or manifest.get("captured_at") is not None
             ):
                 raise DBIPortalGISWorkerFailure("Manifiesto de conversión no concuerda.")
-            return parsed.geojson_text, parsed.source_sha256, parsed.feature_count
+            return parsed.geojson_text, sha256(parsed.geojson_text.encode("utf-8")).hexdigest(), parsed.feature_count
 
     def _complete(self, claim: GISClaim, result: tuple[str, str, int] | None) -> bool:
         """Fencing: ningún resultado de un intento vencido puede modificar la fila."""
