@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { Layers3, ShieldCheck } from "lucide-react";
+import { coverageLabel, INDEX_EXPLANATIONS } from "@/features/producerEvidenceReadout";
 import { extractionForMapCampaign, verifiedMultispectralCampaigns } from "@/features/multispectralCampaignHistory";
 import type { PlotMapTimelineLocator } from "@/features/mapTimeline";
 import {
@@ -113,6 +114,12 @@ export function MultispectralEvidencePanel({
     items, locator, selectedMapDate, selectedMapCampaignId, selectedId,
   );
   const payload = selected?.payload;
+  const verifiedFlight = Boolean(
+    selected?.campaign_linkage === "verified_job_chain"
+    && selected.campaign_id && selected.captured_at
+    && verifiedHistory.some(entry => entry.campaignId === selected.campaign_id
+      && Date.parse(entry.capturedAt) === Date.parse(selected.captured_at!)),
+  );
   return (
     <section id="dbi-multi-evidence" className="card dbi-multi-panel space-y-4" aria-label="Evidencia multiespectral">
       <div className="flex flex-wrap items-start justify-between gap-3">
@@ -263,6 +270,38 @@ export function MultispectralEvidencePanel({
               <strong>Limitación espacial:</strong> {payload.support_limitation}
             </p>
           )}
+          <section className="dbi-producer-readout space-y-3" aria-label="Lectura rápida para el productor">
+            <h3 className="text-sm font-semibold">Lo esencial de este levantamiento</h3>
+            <dl className="dbi-producer-facts">
+              <div>
+                <dt>Observación en campo (INSPECT)</dt>
+                <dd>{date(selected.observed_at)}</dd>
+              </div>
+              <div>
+                <dt>Vuelo multiespectral</dt>
+                <dd>{verifiedFlight && selected.captured_at
+                  ? date(selected.captured_at) : "Fecha de vuelo no verificada"}</dd>
+              </div>
+              <div>
+                <dt>Variables registradas en la extracción</dt>
+                <dd>{payload.summaries.filter(item => item.variable_kind === "index").length} índices
+                  {" · "}{payload.summaries.filter(item => item.variable_kind === "band").length} bandas</dd>
+              </div>
+              <div>
+                <dt>Soporte espacial de la muestra</dt>
+                <dd>{payload.support_mode === "copa_up"
+                  ? "Follaje atribuible a la unidad productiva"
+                  : "Ventana de muestreo sustituta"}</dd>
+              </div>
+            </dl>
+            <p className="text-xs">
+              <strong>Cómo usar esta información:</strong> revisa cada índice junto con
+              sus píxeles válidos, el soporte espacial y la observación de campo.
+              Una proporción de píxeles válidos no representa hectáreas ni porcentaje
+              de plantas sanas. Para decidir intervenciones, se requiere comprobación
+              técnica en campo; estos índices no identifican enfermedades, causas ni tratamientos.
+            </p>
+          </section>
           <p className="muted text-xs">
             Los índices dependen de bandas, calibración y píxeles válidos; sus cifras
             no se deben comparar directamente entre vuelos sin verificar compatibilidad.
@@ -277,9 +316,10 @@ export function MultispectralEvidencePanel({
                     <span className="eyebrow">Derivado</span>
                   </div>
                   <div className="mt-2 text-lg font-semibold tabular-nums">{number(item.median)}</div>
-                  <div className="muted mt-1 text-xs">
-                    {item.valid_count} píxeles válidos · sin comparación temporal
-                  </div>
+                  <p className="muted mt-1 text-xs">{coverageLabel(item)}</p>
+                  <p className="muted mt-2 text-xs">
+                    {INDEX_EXPLANATIONS[item.variable_ref] ?? "Índice derivado sin descripción divulgativa validada."}
+                  </p>
                 </article>
               ))}
               {payload.summaries.every(item => item.variable_kind !== "index") && (
@@ -287,8 +327,20 @@ export function MultispectralEvidencePanel({
               )}
             </div>
           </section>
-          <Statistics heading="Índices derivados · detalle y procedencia" items={payload.summaries.filter(item => item.variable_kind === "index")} />
-          <Statistics heading="Bandas fuente resumidas" items={payload.summaries.filter(item => item.variable_kind === "band")} />
+          <details className="dbi-producer-details">
+            <summary className="cursor-pointer text-sm font-semibold">
+              Ver estadísticas completas, bandas y procedencia científica
+            </summary>
+            <div className="mt-4 space-y-5">
+              <p className="muted text-xs">
+                Mediana = valor central de los píxeles válidos. P10–P90 = intervalo
+                entre percentiles 10 y 90, no un umbral de enfermedad.
+                Se muestran las versiones de fórmula y fuentes cuando están registradas.
+              </p>
+              <Statistics heading="Índices derivados · detalle y procedencia" items={payload.summaries.filter(item => item.variable_kind === "index")} />
+              <Statistics heading="Bandas fuente resumidas" items={payload.summaries.filter(item => item.variable_kind === "band")} />
+            </div>
+          </details>
         </div>
       )}
     </section>
