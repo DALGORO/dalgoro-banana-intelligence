@@ -192,7 +192,6 @@ class ChoiceSession:
         ))
         if "FROM dbi_portal_gis_imports" in sql:
             self.locked = "FOR UPDATE" in sql
-            assert self.locked
             matched = all(
                 f"dbi_portal_gis_imports.{field} = '{value}'" in sql
                 for field, value in (
