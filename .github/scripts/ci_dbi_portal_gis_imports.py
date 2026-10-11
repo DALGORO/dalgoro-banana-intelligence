@@ -86,6 +86,8 @@ class Session:
         return SimpleNamespace(scalars=lambda: SimpleNamespace(all=lambda: self.rows))
 
     def add(self, row):
+        if row.id is None:
+            row.id = uuid4()
         self.rows.append(row)
 
     def commit(self):
