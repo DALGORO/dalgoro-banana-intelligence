@@ -128,20 +128,29 @@ export function MultispectralEvidencePanel({ locator }: { locator: PlotMapTimeli
         <div className="space-y-5">
           <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
             <label className="text-sm font-medium" htmlFor="multi-extraction-select">
-              Extracción disponible (últimas 20)
+              Extracciones recientes por fecha de registro (máximo 20)
             </label>
             <select id="multi-extraction-select" className="w-full sm:max-w-lg"
               value={selected.extraction_id}
               onChange={event => setSelectedId(event.target.value)}>
               {items.map(item => (
                 <option key={item.extraction_id} value={item.extraction_id}>
-                  {date(item.created_at)} · {item.payload.support_mode === "copa_up" ? "Copa UP" : "Ventana"} · {item.extraction_id.slice(0, 8)}
+                  Campo: {date(item.observed_at)} · Registro: {date(item.created_at)} · {item.payload.support_mode === "copa_up" ? "Copa UP" : "Ventana"} · {item.extraction_id.slice(0, 8)}
                 </option>
               ))}
             </select>
           </div>
 
+          <p className="muted text-xs">
+            Fecha INSPECT = observación de campo; registro = cálculo persistido.
+            Ninguna de estas fechas identifica por sí sola la campaña ni la fecha de vuelo.
+            Sin vinculación verificable a Campaign no se muestran comparaciones de vuelos.
+          </p>
           <dl className="grid gap-3 text-xs sm:grid-cols-2 lg:grid-cols-3">
+            <div><dt className="muted">Observación de campo (INSPECT)</dt>
+              <dd className="mt-1 font-medium">{date(selected.observed_at)}</dd></div>
+            <div><dt className="muted">Registro de la extracción</dt>
+              <dd className="mt-1 font-medium">{date(selected.created_at)}</dd></div>
             <div><dt className="muted">Tipo de evidencia</dt>
               <dd className="mt-1 font-medium">Derivada · no observada ni inferida</dd></div>
             <div><dt className="muted">Soporte espacial</dt>
