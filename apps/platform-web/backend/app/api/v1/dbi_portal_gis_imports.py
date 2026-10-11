@@ -12,6 +12,7 @@ from typing import Annotated
 from uuid import UUID, uuid4
 
 from fastapi import APIRouter, Depends, HTTPException, Query, Request
+from starlette.concurrency import run_in_threadpool
 from pydantic import BaseModel, ConfigDict
 from sqlalchemy import select
 from sqlalchemy.orm import Session
@@ -145,7 +146,9 @@ async def receive_gis_import(
         )
         staged.seek(0)
         try:
-            written = store.put(DBIStorageWriteRequest(metadata=metadata), staged)
+            written = await run_in_threadpool(
+                store.put, DBIStorageWriteRequest(metadata=metadata), staged,
+            )
             if written.record.metadata != metadata:
                 raise DBIStorageError("La fuente almacenada no coincide con el manifiesto.")
         except DBIStorageError as error:
