@@ -754,7 +754,7 @@ export default function FarmMapTimeline() {
               onChange={(event) => {
                 setSelectedDate(event.target.value);
                 setSpecificMapCampaign(null);
-              }
+              }}
               disabled={dates.length === 0}
             >
               <option value="">
