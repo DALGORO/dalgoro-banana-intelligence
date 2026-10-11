@@ -11,6 +11,7 @@ import {
 import "maplibre-gl/dist/maplibre-gl.css";
 import { GoogleSatelliteViewer } from "@/components/GoogleSatelliteViewer";
 import { MultispectralEvidencePanel } from "@/components/MultispectralEvidencePanel";
+import { belongsToSelectedMapCampaign } from "@/features/mapCampaignSelection";
 import { api } from "@/app/api";
 import {
   getVectorLayer, listVectorLayers, listVectorCampaigns, listGISImports, getGISImportPreview, publishReviewedGISImport, publishGeoJSON, stageGISOriginal, selectGISImportLayer, vectorExtent,
@@ -334,9 +335,11 @@ export default function FarmMapTimeline() {
       (data?.timeline ?? []).filter(
         (entry) =>
           selectedLayers.has(entry.layer_type) &&
-          (selectedDate === "" || sameCapture(entry.captured_at, selectedDate)) &&
-          (!selectedMapCampaignId ||
-            (isRasterEntry(entry) && entry.campaign_id === selectedMapCampaignId)),
+          (isRasterEntry(entry)
+            ? belongsToSelectedMapCampaign(entry.captured_at, entry.campaign_id,
+                selectedDate, selectedMapCampaignId)
+            : !selectedMapCampaignId &&
+              (selectedDate === "" || sameCapture(entry.captured_at, selectedDate))),
       ),
     [data?.timeline, selectedDate, selectedLayers, selectedMapCampaignId],
   );
@@ -344,9 +347,9 @@ export default function FarmMapTimeline() {
 
   const activeCampaignIds = useMemo(() => new Set(
     vectorCampaigns
-      .filter(campaign =>
-        (!selectedDate || sameCapture(campaign.captured_at, selectedDate)) &&
-        (!selectedMapCampaignId || campaign.id === selectedMapCampaignId))
+      .filter(campaign => belongsToSelectedMapCampaign(
+        campaign.captured_at, campaign.id, selectedDate, selectedMapCampaignId,
+      ))
       .map(campaign => campaign.id)
   ), [vectorCampaigns, selectedDate, selectedMapCampaignId]);
 
@@ -385,10 +388,9 @@ export default function FarmMapTimeline() {
   }, [visibleVectorMeta, selectedVectorIds, vectorDetails, gisPreviewVector, activeCampaignIds]);
 
   const uploadCampaignChoices = useMemo(() =>
-    vectorCampaigns.filter(campaign =>
-      (!selectedDate || sameCapture(campaign.captured_at, selectedDate)) &&
-      (!selectedMapCampaignId || campaign.id === selectedMapCampaignId)
-    ),
+    vectorCampaigns.filter(campaign => belongsToSelectedMapCampaign(
+      campaign.captured_at, campaign.id, selectedDate, selectedMapCampaignId,
+    )),
     [vectorCampaigns, selectedDate, selectedMapCampaignId],
   );
   const uploadCampaignId = uploadCampaignChoices.some(campaign => campaign.id === chosenUploadCampaign)
