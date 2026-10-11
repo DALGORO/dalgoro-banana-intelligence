@@ -27,7 +27,7 @@ from app.dbi.models.admin_audit import (  # noqa: E402
     DBIAdminAuditResourceType,
 )
 
-HEAD = "dbi_0025_gpkg_layer_options"
+HEAD = "dbi_0026_gpkg_layer_choice"
 HIERARCHY_REVISION = "dbi_0008_scope_hierarchy"
 AUDIT_REVISION = "dbi_0007_admin_audit"
 TABLE = "dbi_admin_audit_events"
