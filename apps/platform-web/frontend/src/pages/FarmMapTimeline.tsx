@@ -136,7 +136,7 @@ export default function FarmMapTimeline() {
   }, [farmId, organizationRef, plotId, tenantRef]);
 
   const gisScopeKey = realLocator
-    ? [realLocator.tenantRef, realLocator.organizationRef, realLocator.farmId, realLocator.plotId].join("|")
+    ? JSON.stringify([realLocator.tenantRef, realLocator.organizationRef, realLocator.farmId, realLocator.plotId])
     : "";
   const gisImports = gisImportCache?.scopeKey === gisScopeKey ? gisImportCache.items : [];
   const hasPendingGISImports = gisImports.some(item =>
