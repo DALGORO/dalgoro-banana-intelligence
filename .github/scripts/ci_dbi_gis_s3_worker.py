@@ -59,6 +59,14 @@ def tests():
     else:
         raise AssertionError("Worker sin opt-in no debe ejecutar nada.")
 
+    with patch.object(worker, "find_spec", return_value=None):
+        try:
+            worker.run_once({**VALUES, "DBI_GIS_WORKER_ENABLED": "1"})
+        except worker.GISWorkerPreflightError as error:
+            assert "geoespaciales" in str(error)
+        else:
+            raise AssertionError("Faltan módulos GIS y no debe reclamarse un trabajo.")
+
     with TemporaryDirectory(prefix="dbi-gis-s3-worker-test-") as folder:
         source = Path(folder) / "source.gpkg"
         source.write_bytes(b"SQLite format 3\x00" + b"synthetic")
