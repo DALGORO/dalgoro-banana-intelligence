@@ -68,7 +68,7 @@ aislamiento de red externo, ni supervisión.
 
 ## Próximos bloqueadores operativos
 
-1. Provisionar staging: PostGIS migrado a `dbi_0024_gis_approval`,
+1. Provisionar staging: PostGIS migrado a `dbi_0026_gpkg_layer_choice`,
    bucket S3 verdaderamente privado con compatibilidad HEAD/GET/PUT/tags.
 2. Empaquetar backend DBI + bibliotecas geoespaciales en imagen exclusiva
    del worker, probar Pyogrio/GDAL del proveedor exacto.
@@ -82,3 +82,10 @@ aislamiento de red externo, ni supervisión.
 
 No se ha desplegado este ejecutor ni se ha comprobado el servidor real.
 No se modifica GOLD, segmentación ni el pipeline Density.
+
+
+> **Nota operativa (microhito E1):** la referencia de revisión DBI 26 es
+> requisito del **código**, no comprobación de una base staging real.
+> El controlador de migraciones conectado actual **bloquea staging**;
+> no se autoriza aplicar Alembic directamente. Ver
+> [gate offline y bloqueos](59_DBI_GIS_STAGING_OFFLINE_READINESS.md).
