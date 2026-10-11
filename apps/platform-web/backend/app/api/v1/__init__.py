@@ -27,6 +27,7 @@ from .dbi_flight_source_manifests import (
     router as dbi_flight_source_manifests_router,
 )
 from .dbi_inspection import router as dbi_inspection_router
+from .dbi_multispectral import router as dbi_multispectral_router
 from .dbi_local_storage import router as dbi_local_storage_router
 from .dbi_map import router as dbi_map_router
 from .dbi_portal import router as dbi_portal_router
@@ -66,6 +67,7 @@ def get_api_router() -> APIRouter:
     api.include_router(dbi_density_candidate_review_local_router)
     api.include_router(dbi_flight_source_manifests_router)
     api.include_router(dbi_inspection_router)
+    api.include_router(dbi_multispectral_router)
     api.include_router(dbi_local_storage_router)
     api.include_router(dbi_map_router)
     api.include_router(dbi_portal_router)
