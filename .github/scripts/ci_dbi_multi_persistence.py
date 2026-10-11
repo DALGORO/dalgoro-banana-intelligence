@@ -41,6 +41,10 @@ OBSERVATION_VERSION_ID = UUID("70000000-0000-4000-8000-000000000081")
 SCIENTIFIC_RASTER_ID = UUID("80000000-0000-4000-8000-000000000080")
 RGB_RASTER_ID = UUID("80000000-0000-4000-8000-000000000081")
 STACK_FINGERPRINT = "a" * 64
+CAMPAIGN_ID = UUID("a0000000-0000-4000-8000-000000000080")
+JOB_ID = UUID("b0000000-0000-4000-8000-000000000080")
+ATTEMPT_ID = UUID("c0000000-0000-4000-8000-000000000080")
+ARTIFACT_ID = UUID("81000000-0000-4000-8000-000000000080")
 EMPTY_PAYLOAD_SHA256 = "44136fa355b3678a1146ad16f7e8649e94fb4fc21fe77e8310c060f61caaff8a"
 BOUNDARY_WKT = (
     "MULTIPOLYGON((("
@@ -158,6 +162,10 @@ def _provision_role_and_fixture() -> None:
                 "dbi_field_observation_versions",
                 "dbi_raster_products",
                 "dbi_multispectral_extractions",
+                "dbi_campaigns",
+                "dbi_analysis_jobs",
+                "dbi_analysis_job_attempts",
+                "dbi_analysis_artifacts",
             ):
                 cursor.execute(
                     sql.SQL("GRANT SELECT ON dbi.{} TO {}").format(
@@ -240,6 +248,55 @@ def _provision_role_and_fixture() -> None:
                 raster_id=RGB_RASTER_ID,
                 product_kind="rgb_visual",
                 suffix="81",
+            )
+            # Cadena explícita única raster→artefacto→attempt→job→Campaign.
+            # Datos 100% sintéticos en DB PostGIS efímera GitHub.
+            cursor.execute(
+                """
+                INSERT INTO dbi.dbi_campaigns (
+                    id, tenant_ref, organization_ref, farm_id, plot_id, code, name,
+                    analysis_type, captured_at, starts_at, status, source_job_id
+                ) VALUES (%s,%s,%s,%s,%s,'CI-MULTI-FLIGHT','Vuelo ficticio MULTI',
+                          'multispectral', TIMESTAMPTZ '2026-09-14 09:00:00+00',
+                          TIMESTAMPTZ '2026-09-14 09:00:00+00', 'ANALYZED', %s)
+                ON CONFLICT (id) DO NOTHING
+                """,
+                (CAMPAIGN_ID, TENANT, ORGANIZATION, FARM_ID, PLOT_ID, JOB_ID),
+            )
+            cursor.execute(
+                """
+                INSERT INTO dbi.dbi_analysis_jobs (
+                    id, tenant_ref, request_id, correlation_id, farm_id, plot_id,
+                    campaign_id, orthophoto_asset_ref, boundary_asset_ref,
+                    model_version_ref, pipeline_config_version, requested_by_ref,
+                    command_sha256, status
+                ) VALUES (%s,%s,'ci-multi-flight','ci-multi-flight',%s,%s,%s,
+                          'synthetic-photo','synthetic-boundary','ci-model',
+                          'ci-pipeline','ci-operator',%s,'succeeded')
+                ON CONFLICT (id) DO NOTHING
+                """,
+                (JOB_ID, TENANT, FARM_ID, PLOT_ID, CAMPAIGN_ID, "b" * 64),
+            )
+            cursor.execute(
+                """
+                INSERT INTO dbi.dbi_analysis_job_attempts
+                    (id, job_id, attempt_number, status)
+                VALUES (%s,%s,1,'succeeded')
+                ON CONFLICT (id) DO NOTHING
+                """,
+                (ATTEMPT_ID, JOB_ID),
+            )
+            cursor.execute(
+                """
+                INSERT INTO dbi.dbi_analysis_artifacts (
+                    id, job_id, attempt_id, role, object_key, content_type,
+                    size_bytes, sha256, produced_by_stage
+                ) VALUES (%s,%s,%s,'cartographic_package',
+                          'dbi/ci/multi/campaign-source.tif','image/tiff',
+                          4096,%s,'generate_cartographic_package')
+                ON CONFLICT (id) DO NOTHING
+                """,
+                (ARTIFACT_ID, JOB_ID, ATTEMPT_ID, "1" * 64),
             )
 
 
@@ -385,6 +442,38 @@ def _validate_repository() -> UUID:
             ).scalar_one()
             assert observed[expected_id] == observed_at
             assert observed[expected_id].tzinfo is not None
+            linked = repository.campaign_provenance_by_extraction_scoped(
+                extraction_ids=[expected_id],
+                tenant_ref=TENANT, organization_ref=ORGANIZATION,
+                farm_id=FARM_ID, plot_id=PLOT_ID,
+            )
+            assert set(linked) == {expected_id}
+            assert linked[expected_id][0] == CAMPAIGN_ID
+            assert linked[expected_id][1].isoformat().startswith("2026-09-14T09:00:00")
+            assert linked[expected_id][1].tzinfo is not None
+            assert repository.campaign_provenance_by_extraction_scoped(
+                extraction_ids=[], tenant_ref=TENANT,
+                organization_ref=ORGANIZATION, farm_id=FARM_ID, plot_id=PLOT_ID,
+            ) == {}
+            for scope in (
+                {"tenant_ref": "tenant-crossed", "organization_ref": ORGANIZATION,
+                 "farm_id": FARM_ID, "plot_id": PLOT_ID},
+                {"tenant_ref": TENANT, "organization_ref": "organization-foreign",
+                 "farm_id": FARM_ID, "plot_id": PLOT_ID},
+                {"tenant_ref": TENANT, "organization_ref": ORGANIZATION,
+                 "farm_id": FARM_ID, "plot_id": UUID("20000000-0000-4000-8000-000000000081")},
+                {"tenant_ref": TENANT, "organization_ref": ORGANIZATION,
+                 "farm_id": UUID("10000000-0000-4000-8000-000000000081"),
+                 "plot_id": PLOT_ID},
+            ):
+                assert repository.campaign_provenance_by_extraction_scoped(
+                    extraction_ids=[expected_id], **scope,
+                ) == {}
+            _expect_conflict(lambda: repository.campaign_provenance_by_extraction_scoped(
+                extraction_ids=[expected_id] * 21,
+                tenant_ref=TENANT, organization_ref=ORGANIZATION,
+                farm_id=FARM_ID, plot_id=PLOT_ID,
+            ))
             assert repository.observed_at_by_extraction_scoped(
                 extraction_ids=[], tenant_ref=TENANT,
                 organization_ref=ORGANIZATION, farm_id=FARM_ID, plot_id=PLOT_ID,
@@ -448,6 +537,42 @@ def _validate_repository() -> UUID:
     return expected_id
 
 
+def _validate_campaign_chain_fail_closed(extraction_id: UUID) -> None:
+    """Cualquier desacuerdo de la cadena produce vínculo desconocido, no otra campaña."""
+    drift_cases = (
+        ("dbi_campaigns", "source_job_id", CAMPAIGN_ID, None, JOB_ID),
+        ("dbi_campaigns", "organization_ref", CAMPAIGN_ID,
+         "organization-foreign", ORGANIZATION),
+        ("dbi_analysis_jobs", "status", JOB_ID, "failed", "succeeded"),
+        ("dbi_raster_products", "source_sha256", SCIENTIFIC_RASTER_ID,
+         "e" * 64, "1" * 64),
+    )
+    engine = create_engine(_url(), poolclass=NullPool, future=True)
+    try:
+        with _admin_connect() as admin:
+            with admin.cursor() as cursor:
+                for table, field, key, tampered, original in drift_cases:
+                    # Tabla/columna proceden de constantes internas, no de usuario.
+                    statement = sql.SQL("UPDATE dbi.{} SET {} = %s WHERE id = %s").format(
+                        sql.Identifier(table), sql.Identifier(field),
+                    )
+                    cursor.execute(statement, (tampered, key))
+                    try:
+                        with sessionmaker(bind=engine, future=True)() as session:
+                            result = DBIMultispectralExtractionRepository(
+                                session
+                            ).campaign_provenance_by_extraction_scoped(
+                                extraction_ids=[extraction_id],
+                                tenant_ref=TENANT, organization_ref=ORGANIZATION,
+                                farm_id=FARM_ID, plot_id=PLOT_ID,
+                            )
+                            assert result == {}, (table, field)
+                    finally:
+                        cursor.execute(statement, (original, key))
+    finally:
+        engine.dispose()
+
+
 def _validate_append_only(extraction_id: UUID) -> None:
     connection = psycopg.connect(
         host=HOST,
@@ -480,8 +605,9 @@ def main() -> None:
     _provision_role_and_fixture()
     extraction_id = _validate_repository()
     _validate_append_only(extraction_id)
+    _validate_campaign_chain_fail_closed(extraction_id)
     print(
-        "DBI-MULTI-001 persistencia aprobada: exact INSPECT + scientific Raster, "
+        "DBI-MULTI-001 persistencia y Campaign auténtica: INSPECT + Raster + job, "
         "idempotencia, scope tenant, replay divergente rechazado y UPDATE denegado."
     )
 

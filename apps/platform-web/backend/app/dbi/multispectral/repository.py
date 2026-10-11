@@ -11,6 +11,9 @@ from sqlalchemy import and_, or_, select
 from sqlalchemy.dialects.postgresql import insert as postgresql_insert
 from sqlalchemy.orm import Session
 
+from app.dbi.models.agriculture import Campaign
+from app.dbi.models.analysis_jobs import AnalysisJob, AnalysisJobAttempt
+from app.dbi.models.assets import AnalysisArtifact
 from app.dbi.models.inspection import (
     DBIFieldObservationRecord,
     DBIFieldObservationVersionRecord,
@@ -300,3 +303,93 @@ class DBIMultispectralExtractionRepository:
             )
         ).all()
         return {extraction_id: observed_at for extraction_id, observed_at in rows}
+
+    def campaign_provenance_by_extraction_scoped(
+        self,
+        *,
+        extraction_ids: list[UUID],
+        tenant_ref: str,
+        organization_ref: str,
+        farm_id: UUID,
+        plot_id: UUID,
+    ) -> dict[UUID, tuple[UUID, datetime]]:
+        """Únicamente cadena explícita raster→artefacto→job→Campaign; jamás por fecha."""
+        if not extraction_ids:
+            return {}
+        if len(extraction_ids) > 20 or len(set(extraction_ids)) != len(extraction_ids):
+            raise DBIMultispectralPersistenceConflict("La procedencia Campaign excede el límite.")
+        rows = self._session.execute(
+            select(
+                DBIMultispectralExtractionRecord.id,
+                Campaign.id,
+                Campaign.captured_at,
+            )
+            .join(
+                DBIRasterProduct,
+                and_(
+                    DBIRasterProduct.id
+                    == DBIMultispectralExtractionRecord.source_raster_product_id,
+                    DBIRasterProduct.tenant_ref
+                    == DBIMultispectralExtractionRecord.tenant_ref,
+                    DBIRasterProduct.farm_id
+                    == DBIMultispectralExtractionRecord.farm_id,
+                    DBIRasterProduct.plot_id
+                    == DBIMultispectralExtractionRecord.plot_id,
+                    DBIRasterProduct.product_kind == "scientific",
+                    DBIRasterProduct.status == "ready",
+                    DBIRasterProduct.source_kind == "analysis_artifact",
+                ),
+            )
+            .join(
+                AnalysisArtifact,
+                and_(
+                    AnalysisArtifact.id == DBIRasterProduct.source_ref,
+                    AnalysisArtifact.sha256 == DBIRasterProduct.source_sha256,
+                ),
+            )
+            .join(
+                AnalysisJobAttempt,
+                and_(
+                    AnalysisJobAttempt.id == AnalysisArtifact.attempt_id,
+                    AnalysisJobAttempt.job_id == AnalysisArtifact.job_id,
+                    AnalysisJobAttempt.status == "succeeded",
+                ),
+            )
+            .join(
+                AnalysisJob,
+                and_(
+                    AnalysisJob.id == AnalysisArtifact.job_id,
+                    AnalysisJob.tenant_ref == DBIMultispectralExtractionRecord.tenant_ref,
+                    AnalysisJob.farm_id == DBIMultispectralExtractionRecord.farm_id,
+                    AnalysisJob.plot_id == DBIMultispectralExtractionRecord.plot_id,
+                    AnalysisJob.status == "succeeded",
+                ),
+            )
+            .join(
+                Campaign,
+                and_(
+                    Campaign.id == AnalysisJob.campaign_id,
+                    Campaign.source_job_id == AnalysisJob.id,
+                    Campaign.tenant_ref == DBIMultispectralExtractionRecord.tenant_ref,
+                    Campaign.organization_ref
+                    == DBIMultispectralExtractionRecord.organization_ref,
+                    Campaign.farm_id == DBIMultispectralExtractionRecord.farm_id,
+                    Campaign.plot_id == DBIMultispectralExtractionRecord.plot_id,
+                    Campaign.analysis_type == "multispectral",
+                    Campaign.captured_at.is_not(None),
+                ),
+            )
+            .where(
+                DBIMultispectralExtractionRecord.id.in_(extraction_ids),
+                DBIMultispectralExtractionRecord.tenant_ref == tenant_ref,
+                DBIMultispectralExtractionRecord.organization_ref == organization_ref,
+                DBIMultispectralExtractionRecord.farm_id == farm_id,
+                DBIMultispectralExtractionRecord.plot_id == plot_id,
+            )
+        ).all()
+        result: dict[UUID, tuple[UUID, datetime]] = {}
+        for extraction_id, campaign_id, captured_at in rows:
+            if extraction_id in result:
+                raise DBIMultispectralPersistenceConflict("Procedencia Campaign ambigua.")
+            result[extraction_id] = campaign_id, captured_at
+        return result

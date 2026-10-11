@@ -23,6 +23,9 @@ export type MultispectralExtraction = {
   extraction_id: string;
   created_at: string;
   observed_at: string;
+  campaign_id: string | null;
+  captured_at: string | null;
+  campaign_linkage: "verified_job_chain" | "unverified";
   payload: {
     schema_version: "dbi-multispectral-extraction.v1";
     tenant_ref: string;

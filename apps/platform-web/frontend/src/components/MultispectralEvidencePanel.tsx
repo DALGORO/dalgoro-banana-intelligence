@@ -143,14 +143,21 @@ export function MultispectralEvidencePanel({ locator }: { locator: PlotMapTimeli
 
           <p className="muted text-xs">
             Fecha INSPECT = observación de campo; registro = cálculo persistido.
-            Ninguna de estas fechas identifica por sí sola la campaña ni la fecha de vuelo.
-            Sin vinculación verificable a Campaign no se muestran comparaciones de vuelos.
+            La fecha de vuelo solo se muestra cuando existe una cadena de procedencia verificada
+            entre el ráster científico, su artefacto, el trabajo y Campaign.
+            No se comparan vuelos automáticamente.
           </p>
           <dl className="grid gap-3 text-xs sm:grid-cols-2 lg:grid-cols-3">
             <div><dt className="muted">Observación de campo (INSPECT)</dt>
               <dd className="mt-1 font-medium">{date(selected.observed_at)}</dd></div>
             <div><dt className="muted">Registro de la extracción</dt>
               <dd className="mt-1 font-medium">{date(selected.created_at)}</dd></div>
+            <div><dt className="muted">Campaign / levantamiento</dt>
+              <dd className="mt-1 font-medium">{selected.campaign_linkage === "verified_job_chain"
+                && selected.campaign_id ? selected.campaign_id : "Campaña no verificada"}</dd></div>
+            <div><dt className="muted">Captura del vuelo</dt>
+              <dd className="mt-1 font-medium">{selected.campaign_linkage === "verified_job_chain"
+                && selected.captured_at ? date(selected.captured_at) : "Fecha de vuelo no verificada"}</dd></div>
             <div><dt className="muted">Tipo de evidencia</dt>
               <dd className="mt-1 font-medium">Derivada · no observada ni inferida</dd></div>
             <div><dt className="muted">Soporte espacial</dt>
