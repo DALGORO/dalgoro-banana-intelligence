@@ -12,8 +12,8 @@ import "maplibre-gl/dist/maplibre-gl.css";
 import { GoogleSatelliteViewer } from "@/components/GoogleSatelliteViewer";
 import { api } from "@/app/api";
 import {
-  getVectorLayer, listVectorLayers, publishGeoJSON,
-  type VectorLayerInfo, type VectorLayerKind, type VectorLayerDetail,
+  getVectorLayer, listVectorLayers, listVectorCampaigns, publishGeoJSON, vectorExtent,
+  type VectorLayerInfo, type VectorLayerKind, type VectorLayerDetail, type VectorCampaign,
 } from "@/features/portalVectors";
 import mapWorkerUrl from "maplibre-gl/dist/maplibre-gl-worker.mjs?worker&url";
 
@@ -52,6 +52,12 @@ function formatDate(value: string) {
   return Number.isNaN(date.getTime())
     ? value
     : date.toLocaleDateString("es-EC");
+}
+
+function sameCapture(a: string, b: string): boolean {
+  const first = Date.parse(a), second = Date.parse(b);
+  return Number.isFinite(first) && Number.isFinite(second)
+    ? first === second : a === b;
 }
 
 function isPlotTimeline(data: TimelineData | null): data is PlotMapTimelineResponse {
@@ -99,6 +105,9 @@ export default function FarmMapTimeline() {
   const [farmLabel, setFarmLabel] = useState("Finca");
   const [plotLabel, setPlotLabel] = useState("Lote");
   const [vectorLayers, setVectorLayers] = useState<VectorLayerInfo[]>([]);
+  const [vectorCampaigns, setVectorCampaigns] = useState<VectorCampaign[]>([]);
+  const [campaignLoadError, setCampaignLoadError] = useState(false);
+  const [chosenUploadCampaign, setChosenUploadCampaign] = useState("");
   const [vectorDetails, setVectorDetails] = useState<Record<string, VectorLayerDetail>>({});
   const [selectedVectorIds, setSelectedVectorIds] = useState<Set<string>>(new Set());
   const [canPublish, setCanPublish] = useState(false);
@@ -143,6 +152,14 @@ export default function FarmMapTimeline() {
   useEffect(() => {
     let active = true;
     if (!realLocator) return;
+    setVectorCampaigns([]);
+    setCampaignLoadError(false);
+    setChosenUploadCampaign("");
+    listVectorCampaigns(realLocator).then(campaigns => {
+      if (active) setVectorCampaigns(campaigns);
+    }).catch(() => {
+      if (active) setCampaignLoadError(true);
+    });
     listVectorLayers(realLocator).then(layers => {
       if (!active) return;
       setVectorLayers(layers);
@@ -266,12 +283,12 @@ export default function FarmMapTimeline() {
     realLocator,
   ]);
 
-  const dates = useMemo(
-    () =>
-      Array.from(
-        new Set((data?.timeline ?? []).map((entry) => entry.captured_at)),
-      ).sort(),
-    [data?.timeline],
+  const dates = useMemo(() =>
+    Array.from(new Set([
+      ...(data?.timeline ?? []).map(entry => entry.captured_at),
+      ...vectorCampaigns.map(campaign => campaign.captured_at),
+    ])).sort(),
+    [data?.timeline, vectorCampaigns],
   );
 
   const availableLayerTypes = useMemo(
@@ -284,19 +301,17 @@ export default function FarmMapTimeline() {
       (data?.timeline ?? []).filter(
         (entry) =>
           selectedLayers.has(entry.layer_type) &&
-          (selectedDate === "" || entry.captured_at === selectedDate),
+          (selectedDate === "" || sameCapture(entry.captured_at, selectedDate)),
       ),
     [data?.timeline, selectedDate, selectedLayers],
   );
 
 
   const activeCampaignIds = useMemo(() => new Set(
-    isPlotTimeline(data)
-      ? data.timeline.filter(entry =>
-          !selectedDate || entry.captured_at === selectedDate
-        ).map(entry => entry.campaign_id)
-      : []
-  ), [data, selectedDate]);
+    vectorCampaigns
+      .filter(campaign => !selectedDate || sameCapture(campaign.captured_at, selectedDate))
+      .map(campaign => campaign.id)
+  ), [vectorCampaigns, selectedDate]);
 
   const visibleVectorMeta = useMemo(() =>
     vectorLayers.filter(layer => activeCampaignIds.has(layer.campaign_id)),
@@ -330,12 +345,20 @@ export default function FarmMapTimeline() {
     [visibleVectorMeta, selectedVectorIds, vectorDetails],
   );
 
-  const uploadCampaignId = useMemo(() =>
-    isPlotTimeline(data)
-      ? data.timeline.find(entry => !selectedDate || entry.captured_at === selectedDate)?.campaign_id ?? null
-      : null,
-    [data, selectedDate],
+  const uploadCampaignChoices = useMemo(() =>
+    vectorCampaigns.filter(campaign =>
+      !selectedDate || sameCapture(campaign.captured_at, selectedDate)
+    ),
+    [vectorCampaigns, selectedDate],
   );
+  const uploadCampaignId = uploadCampaignChoices.some(campaign => campaign.id === chosenUploadCampaign)
+    ? chosenUploadCampaign : null;
+  const gisBounds = useMemo(
+    () => vectorExtent(visibleVectorDetails),
+    [visibleVectorDetails],
+  );
+  const mapBounds = isPlotTimeline(data) && data.viewport_bounds
+    ? data.viewport_bounds : gisBounds;
 
   async function uploadSelectedGeoJSON() {
     if (!realLocator || !uploadCampaignId || !uploadFile) return;
@@ -489,17 +512,15 @@ export default function FarmMapTimeline() {
 
   useEffect(() => {
     const map = mapRef.current;
-    if (!map || !mapReady || !isPlotTimeline(data) || !data.viewport_bounds) {
-      return;
-    }
+    if (!map || !mapReady || !mapBounds) return;
 
     const fitKey = [
-      data.plot_id,
-      ...data.viewport_bounds.map((value) => value.toFixed(7)),
+      realLocator?.plotId ?? effectiveFarmId,
+      ...mapBounds.map((value) => value.toFixed(7)),
     ].join(":");
     if (fittedRef.current === fitKey) return;
 
-    const [west, south, east, north] = data.viewport_bounds;
+    const [west, south, east, north] = mapBounds;
     map.fitBounds(
       [
         [west, south],
@@ -508,7 +529,7 @@ export default function FarmMapTimeline() {
       { padding: 36, duration: 0, maxZoom: 19 },
     );
     fittedRef.current = fitKey;
-  }, [data, mapReady]);
+  }, [mapBounds, mapReady, realLocator, effectiveFarmId]);
 
   const comparisonEnabled =
     Boolean(data?.comparison.enabled) &&
@@ -564,7 +585,7 @@ export default function FarmMapTimeline() {
               disabled={dates.length === 0}
             >
               <option value="">
-                {dates.length === 0 ? "Sin campañas registradas" : "Más reciente por capa"}
+                {dates.length === 0 ? "Sin campañas registradas" : "Todas las fechas"}
               </option>
               {dates.map((date) => (
                 <option key={date} value={date}>
@@ -610,7 +631,9 @@ export default function FarmMapTimeline() {
             <div className="divider space-y-3 pt-4">
               <div className="text-sm font-semibold">Resultados GIS del levantamiento</div>
               <p className="muted text-xs">Activa las capas y pulsa un elemento del mapa para consultar sus datos.</p>
-              {visibleVectorMeta.length === 0 ? (
+              {campaignLoadError ? (
+                <p role="alert" className="text-sm text-rose-600">No se pudo consultar las campañas agrícolas autorizadas.</p>
+              ) : visibleVectorMeta.length === 0 ? (
                 <p className="muted text-sm">Todavía no hay capas GIS publicadas en esta fecha.</p>
               ) : visibleVectorMeta.map(layer => (
                 <label key={layer.id} className="flex items-start gap-2 text-sm">
@@ -639,10 +662,27 @@ export default function FarmMapTimeline() {
             </div>
           )}
 
-          {canPublish && uploadCampaignId && realLocator && (
+          {canPublish && realLocator && (
             <div className="divider space-y-3 pt-4">
               <div className="text-sm font-semibold">Añadir resultado cartográfico</div>
               <p className="muted text-xs">GeoJSON WGS84, máximo 2 MB. SHP y GeoPackage requieren conversión controlada.</p>
+              <label htmlFor="dbi-upload-campaign" className="block text-xs font-medium">Levantamiento al que pertenece la capa</label>
+              <select id="dbi-upload-campaign" className="w-full" value={chosenUploadCampaign}
+                onChange={event => setChosenUploadCampaign(event.target.value)}>
+                <option value="">Selecciona un levantamiento real</option>
+                {uploadCampaignChoices.map(campaign => (
+                  <option key={campaign.id} value={campaign.id}>
+                    {formatDate(campaign.captured_at)} · {campaign.analysis_type === "density" ? "Densidad" : "Multiespectral"} · {campaign.name}
+                  </option>
+                ))}
+              </select>
+              {uploadCampaignChoices.length === 0 && (
+                <p className="muted text-xs">
+                  {campaignLoadError
+                    ? "No se pudieron consultar los levantamientos. Verifica la conexión."
+                    : "No hay un levantamiento técnico en esta fecha. Selecciona otra fecha para publicar."}
+                </p>
+              )}
               <select className="w-full" aria-label="Tipo de capa" value={uploadKind}
                 onChange={event => setUploadKind(event.target.value as VectorLayerKind)}>
                 <option value="density_hexagons">Densidad por sectores</option>
@@ -655,7 +695,7 @@ export default function FarmMapTimeline() {
               <input aria-label="Seleccionar GeoJSON" type="file" accept=".geojson,.json,application/geo+json"
                 className="block w-full text-xs" onChange={event => setUploadFile(event.target.files?.[0] ?? null)} />
               <button type="button" className="btn-primary w-full"
-                disabled={!uploadFile || uploading}
+                disabled={!uploadFile || !uploadCampaignId || uploading}
                 onClick={() => void uploadSelectedGeoJSON()}>
                 {uploading ? "Publicando capa…" : "Publicar en este lote"}
               </button>
@@ -695,7 +735,7 @@ export default function FarmMapTimeline() {
               <GoogleSatelliteViewer
                 tenantRef={realLocator.tenantRef}
                 entries={displayEntries}
-                bounds={isPlotTimeline(data) ? data.viewport_bounds : null}
+                bounds={mapBounds}
                 vectors={visibleVectorDetails}
               />
             ) : (
@@ -719,7 +759,7 @@ export default function FarmMapTimeline() {
                 </div>
               )}
 
-              {!loading && !error && visibleEntries.length === 0 && (
+              {!loading && !error && visibleEntries.length === 0 && visibleVectorMeta.length === 0 && (
                 <div className="empty-state pointer-events-auto shadow-lg">
                   <div className="font-medium">
                     No hay campañas cartográficas visibles

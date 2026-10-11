@@ -32,6 +32,17 @@ AccessDep = Annotated[DBIAccessContext, Depends(get_dbi_access_context)]
 LayerKind = Literal["plants", "density_hexagons", "planting_candidates", "boundaries", "observations", "other"]
 
 
+class VectorCampaignInfo(BaseModel):
+    """Campaña técnica visible en este lote, incluso sin ortofoto RGB lista."""
+
+    model_config = ConfigDict(extra="forbid")
+    id: UUID
+    name: str
+    captured_at: datetime
+    analysis_type: Literal["density", "multispectral"]
+    status: str
+
+
 class VectorLayerInfo(BaseModel):
     model_config = ConfigDict(extra="forbid")
     id: UUID
@@ -111,6 +122,40 @@ def _info(layer: DBIPortalVectorLayer) -> VectorLayerInfo:
         name=layer.name, layer_kind=layer.layer_kind,
         feature_count=layer.feature_count, created_at=layer.created_at,
     )
+
+
+@router.get(
+    "/organizations/{organization_ref}/farms/{farm_id}/plots/{plot_id}/map/vector-campaigns",
+    response_model=list[VectorCampaignInfo],
+)
+def list_vector_campaigns(
+    organization_ref: str, farm_id: UUID, plot_id: UUID,
+    session: SessionDep, context: AccessDep,
+) -> list[VectorCampaignInfo]:
+    _require_scope(context, organization_ref, farm_id, plot_id)
+    rows = session.execute(
+        select(Campaign)
+        .where(
+            Campaign.tenant_ref == context.tenant_ref,
+            Campaign.organization_ref == organization_ref,
+            Campaign.farm_id == farm_id,
+            Campaign.plot_id == plot_id,
+            Campaign.analysis_type.in_(("density", "multispectral")),
+            Campaign.captured_at.is_not(None),
+        )
+        .order_by(Campaign.captured_at.desc(), Campaign.id)
+        .limit(100)
+    ).scalars().all()
+    return [
+        VectorCampaignInfo(
+            id=campaign.id,
+            name=campaign.name,
+            captured_at=campaign.captured_at,
+            analysis_type=campaign.analysis_type,
+            status=campaign.status,
+        )
+        for campaign in rows
+    ]
 
 
 @router.get(
