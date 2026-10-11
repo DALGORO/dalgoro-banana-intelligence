@@ -37,3 +37,25 @@ test("client only sees real derived summary; management still requires publish a
   assert.match(map, /{selectedMapCampaignId && \(/);
   assert.match(map, /Sin capas cartográficas para la Campaign MULTI seleccionada/);
 });
+
+test("mobile quick date and side date share Campaign reset, not an inferred flight", () => {
+  assert.match(map, /const selectPrimaryMapDate = \(date: string\) => \{\s*setSelectedDate\(date\);\s*setSpecificMapCampaign\(null\);/);
+  const actions = map.match(/onChange=\{\(event\) => selectPrimaryMapDate\(event\.target\.value\)\}/g) ?? [];
+  assert.equal(actions.length, 2, "El selector rápido y el lateral usan la misma regla de Campaign");
+  assert.match(map, /id="dbi-mobile-date"/);
+  assert.match(map, /disabled=\{dates\.length === 0\}/);
+  assert.match(map, /dates\.map\(date => \(/);
+  assert.match(map, /aria-label="Accesos rápidos del visor"/);
+  assert.match(map, /href="#dbi-map-view"/);
+  assert.match(map, /realLocator && <a href="#dbi-multi-evidence"/);
+  assert.match(map, /id="dbi-map-view"/);
+  assert.match(multi, /id="dbi-multi-evidence"/);
+});
+
+test("mobile controls are visibly accessible only at phone breakpoint", () => {
+  assert.match(styles, /\.dbi-mobile-toolbar \{\s*display: none;/);
+  assert.match(styles, /@media \(max-width: 767px\) \{\s*\.dbi-mobile-toolbar \{\s*display: grid;/);
+  assert.match(styles, /\.dbi-mobile-toolbar select \{[\s\S]*?min-height: 44px;/);
+  assert.match(styles, /\.dbi-mobile-shortcuts a:focus-visible/);
+  assert.match(styles, /\.dbi-map-stage,[\s\S]*?\.dbi-multi-panel \{\s*scroll-margin-top: 16px;/);
+});

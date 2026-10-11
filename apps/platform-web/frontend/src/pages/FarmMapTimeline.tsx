@@ -709,6 +709,13 @@ function FarmMapTimelineView() {
     comparisonDate !== "" &&
     selectedDate !== comparisonDate;
 
+  // El acceso rápido móvil y el selector lateral comparten la misma regla:
+  // elegir una fecha elimina la restricción de ID Campaign, sin inventar vínculo.
+  const selectPrimaryMapDate = (date: string) => {
+    setSelectedDate(date);
+    setSpecificMapCampaign(null);
+  };
+
   const toggleLayer = (layerType: MapLayerType) => {
     setSelectedLayers((current) => {
       const next = new Set(current);
@@ -742,6 +749,36 @@ function FarmMapTimelineView() {
             </span>
           )}
         </div>
+        <nav className="dbi-mobile-toolbar" aria-label="Accesos rápidos del visor">
+          <label className="block text-xs font-semibold" htmlFor="dbi-mobile-date">
+            Fecha principal del mapa
+          </label>
+          <select
+            id="dbi-mobile-date"
+            className="w-full"
+            value={selectedDate}
+            disabled={dates.length === 0}
+            onChange={(event) => selectPrimaryMapDate(event.target.value)}
+          >
+            <option value="">
+              {dates.length === 0 ? "Sin campañas registradas" : "Todas las fechas"}
+            </option>
+            {dates.map(date => (
+              <option key={date} value={date}>
+                {formatDate(date)}
+                {selectedMapCampaignId && sameCapture(selectedDate, date)
+                  ? " · Campaign seleccionada" : ""}
+              </option>
+            ))}
+          </select>
+          <div className="dbi-mobile-shortcuts">
+            <a href="#dbi-map-view">Ir al mapa</a>
+            {realLocator && <a href="#dbi-multi-evidence">Ver evidencia MULTI</a>}
+          </div>
+          <p className="muted text-xs">
+            Elegir otra fecha limpia la selección de vuelo específico. No combina Campaign distintas.
+          </p>
+        </nav>
       </div>
 
       <div className="dbi-visual-grid">
@@ -763,10 +800,7 @@ function FarmMapTimelineView() {
               id="map-date"
               className="mt-2 w-full"
               value={selectedDate}
-              onChange={(event) => {
-                setSelectedDate(event.target.value);
-                setSpecificMapCampaign(null);
-              }}
+              onChange={(event) => selectPrimaryMapDate(event.target.value)}
               disabled={dates.length === 0}
             >
               <option value="">
@@ -1012,7 +1046,7 @@ function FarmMapTimelineView() {
           </div>
         </aside>
 
-        <section className="card dbi-map-stage p-0 overflow-hidden" aria-label="Mapa de la campaña seleccionada">
+        <section id="dbi-map-view" className="card dbi-map-stage p-0 overflow-hidden" aria-label="Mapa de la campaña seleccionada">
           <div className="relative min-h-[560px]">
             <div className="dbi-map-stage-label" aria-hidden="true">
               <MapPinned size={16} />

@@ -114,7 +114,7 @@ export function MultispectralEvidencePanel({
   );
   const payload = selected?.payload;
   return (
-    <section className="card dbi-multi-panel space-y-4" aria-label="Evidencia multiespectral">
+    <section id="dbi-multi-evidence" className="card dbi-multi-panel space-y-4" aria-label="Evidencia multiespectral">
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div className="flex min-w-0 flex-1 items-start gap-3">
           <span className="dbi-section-icon" aria-hidden="true"><Layers3 size={22} /></span>
