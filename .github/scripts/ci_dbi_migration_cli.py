@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import ci_dbi_migration_cli_base as base
 
-base.HEAD = "dbi_0026_gpkg_layer_choice"
+base.HEAD = "dbi_0027_inspect_campaign_signatures"
 
 
 if __name__ == "__main__":
