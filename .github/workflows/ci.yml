@@ -352,6 +352,11 @@ jobs:
           PYTHONPATH: src
         run: python ../../.github/scripts/ci_density_smoke.py
 
+      - name: Validar conversión GIS aislada GPKG y SHP ZIP
+        env:
+          PYTHONPATH: src
+        run: python ../../.github/scripts/ci_portal_gis_converter.py
+
       - name: Auditar dependencias instaladas
         continue-on-error: true
         run: |
