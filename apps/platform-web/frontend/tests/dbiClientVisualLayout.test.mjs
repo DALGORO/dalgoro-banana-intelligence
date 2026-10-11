@@ -8,6 +8,7 @@ const shell = file("../src/components/AppShell.tsx");
 const map = file("../src/pages/FarmMapTimeline.tsx");
 const multi = file("../src/components/MultispectralEvidencePanel.tsx");
 const styles = file("../src/components/dbi-client-view.css");
+const tracking = file("../src/components/FarmTrackingPanel.tsx");
 
 test("approved DBI client visual shell reuses the existing DALGORO PNG brand", () => {
   assert.match(shell, /src="\/logo-white\.png"/);
@@ -48,6 +49,7 @@ test("mobile quick date and side date share Campaign reset, not an inferred flig
   assert.match(map, /dates\.map\(date => \(/);
   assert.match(map, /aria-label="Accesos rápidos del visor"/);
   assert.match(map, /href="#dbi-map-view"/);
+  assert.match(map, /href="#dbi-tab-tracking" onClick=\{\(\) => setInfoTab\("tracking"\)\}/);
   assert.match(map, /realLocator && <a href="#dbi-multi-evidence"/);
   assert.match(map, /id="dbi-map-view"/);
   assert.match(multi, /id="dbi-multi-evidence"/);
@@ -93,4 +95,40 @@ test("coverage only reports valid source pixel counts; no hectare or plant infer
     assert.ok(value.length > 20, "Debe haber explicación por índice");
     assert.doesNotMatch(value, /tratamiento recomendado|cultivo enfermo|cultivo sano/i);
   }
+});
+
+test("tracking is an accessible tab INSIDE map viewer and MULTI remains mounted", () => {
+  assert.match(map, /useState<"multi" \| "tracking">\("multi"\)/);
+  assert.match(map, /className="dbi-info-tabs"/);
+  assert.match(map, /role="tablist" aria-label="Pestañas de información agrícola"/);
+  assert.match(map, /role="tab"\s+id="dbi-tab-multi"/);
+  assert.match(map, /role="tab"\s+id="dbi-tab-tracking"/);
+  assert.match(map, /aria-selected=\{infoTab === "multi"\}/);
+  assert.match(map, /aria-selected=\{infoTab === "tracking"\}/);
+  assert.match(map, /event\.key !== "ArrowRight" && event\.key !== "ArrowLeft"/);
+  assert.match(map, /id="dbi-panel-multi"[\s\S]*?hidden=\{infoTab !== "multi"\}/);
+  assert.match(map, /id="dbi-panel-tracking"[\s\S]*?hidden=\{infoTab !== "tracking"\}/);
+  assert.match(map, /<FarmTrackingPanel[\s\S]*?visibleMapEntries=\{visibleEntries\}/);
+  assert.match(map, /<MultispectralEvidencePanel[\s\S]*?selectedMapCampaignId=\{selectedMapCampaignId\}/);
+  assert.ok(map.indexOf('id="dbi-map-view"') < map.indexOf('className="dbi-info-tabs"'),
+    "El mapa permanece fuera de las pestañas y no se desmonta");
+  assert.match(styles, /\.dbi-info-tab-panel\[hidden\] \{\s*display: none !important;/);
+  assert.match(styles, /\.dbi-info-tabs \{ grid-column: 1 \/ -1; \}/);
+  assert.match(styles, /\.dbi-client-shell \.dbi-info-tabs \{ grid-column: 3; \}/);
+});
+
+test("tracking only describes authorized visible entries and GIS, not diagnoses", () => {
+  assert.match(tracking, /import type \{ MapTimelineEntry \}/);
+  assert.match(tracking, /import type \{ VectorLayerInfo \}/);
+  assert.match(tracking, /visibleMapEntries: readonly MapTimelineEntry\[\]/);
+  assert.match(tracking, /associatedGISLayers: readonly VectorLayerInfo\[\]/);
+  assert.match(tracking, /visibleMapEntries\.filter\([\s\S]*?entry\.layer_type === "inspections"/);
+  assert.match(tracking, /layer\.layer_kind === "observations"/);
+  assert.match(tracking, /No hay registros cartográficos activados para esta selección/);
+  assert.match(tracking, /no inspecciones individuales verificadas/);
+  assert.match(tracking, /Sin Campaign exacta seleccionada/);
+  assert.match(tracking, /onOpenEvidence/);
+  assert.match(tracking, /role="status"/);
+  assert.match(tracking, /role="alert"/);
+  assert.doesNotMatch(tracking, /api\.get\(|fetch\(|localStorage|setInterval/);
 });
