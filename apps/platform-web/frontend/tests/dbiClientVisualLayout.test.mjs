@@ -135,10 +135,12 @@ test("tracking only describes authorized visible entries and GIS, not diagnoses"
   assert.doesNotMatch(tracking, /api\.get\(|fetch\(|localStorage|setInterval/);
 });
 
-test("INSPECT query is explicit, READ scoped, and does not invent list endpoints", () => {
+test("INSPECT UUID lookup is internal-only until dual approval publication", () => {
   assert.match(map, /locator=\{realLocator\}/);
-  assert.match(tracking, /<InspectionObservationLookup/);
-  assert.match(tracking, /key=\{JSON\.stringify\(\[locator\.tenantRef, locator\.organizationRef, locator\.farmId, locator\.plotId\]\)\}/);
+  assert.doesNotMatch(tracking, /<InspectionObservationLookup/);
+  assert.match(tracking, /validación técnica y autorización/);
+  assert.match(tracking, /Ninguna observación pendiente/);
+  assert.match(tracking, /\{locator && \(/);
   assert.match(inspect, /onSubmit=\{event => \{/);
   assert.match(inspect, /isObservationUUID\(observationId\)/);
   assert.match(inspect, /api\.get<INSPECTReadVersion>/);
