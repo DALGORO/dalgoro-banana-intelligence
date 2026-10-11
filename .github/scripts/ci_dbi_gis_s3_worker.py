@@ -47,6 +47,17 @@ def check_fail(data, phrase):
 def tests():
     tenant, root = worker.preflight(VALUES)
     assert tenant == "tenant-ci" and str(root) == "/tmp/dalgoro-private-ci"
+
+    with TemporaryDirectory(prefix="dbi-gis-permissions-") as folder:
+        private_values = {**VALUES, "DBI_GIS_WORKER_ROOT": folder}
+        Path(folder).chmod(0o700)
+        assert worker.preflight(private_values)[1] == Path(folder).resolve()
+        Path(folder).chmod(0o755)
+        check_fail(private_values, "0700")
+        Path(folder).chmod(0o700)
+        link = Path(folder) / "linked"
+        link.symlink_to(folder, target_is_directory=True)
+        check_fail({**private_values, "DBI_GIS_WORKER_ROOT": str(link)}, "simbólica")
     check_fail({**VALUES, "DBI_STORAGE_BACKEND": "local"}, "s3")
     check_fail({**VALUES, "DBI_ENVIRONMENT": "development"}, "staging")
     check_fail({**VALUES, "DBI_S3_ENDPOINT_URL": "http://127.0.0.1:9000"}, "HTTPS")

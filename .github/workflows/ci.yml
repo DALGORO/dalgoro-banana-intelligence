@@ -427,3 +427,35 @@ jobs:
             --no-banner \
             --verbose \
             .
+
+
+  portal-gis-worker:
+    name: GIS · instalación mínima S3/PostGIS y conversión controlada
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    defaults:
+      run:
+        working-directory: services/banana-density
+
+    steps:
+      - name: Descargar código
+        uses: actions/checkout@9f698171ed81b15d1823a05fc7211befd50c8ae0 # v6.0.3
+
+      - name: Configurar Python
+        uses: actions/setup-python@ece7cb06caefa5fff74198d8649806c4678c61a1 # v6.3.0
+        with:
+          python-version: "3.11"
+          cache: pip
+          cache-dependency-path: services/banana-density/requirements-gis-worker.txt
+
+      - name: Instalar worker sin YOLO
+        run: python -m pip install -r requirements-gis-worker.txt
+
+      - name: Verificar coherencia de dependencias GIS
+        run: python -m pip check
+
+      - name: Validar seguridad del worker S3 sin conexiones
+        run: python ../../.github/scripts/ci_dbi_gis_s3_worker.py
+
+      - name: Convertir SHP y GeoPackage sintéticos
+        run: python ../../.github/scripts/ci_portal_gis_converter.py
