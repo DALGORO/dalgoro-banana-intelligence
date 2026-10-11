@@ -1,0 +1,10 @@
+# Entorno de worker GIS privado, separado de YOLO y de FastAPI HTTP.
+# Versiones alineadas con backend DBI y servicio geoespacial.
+boto3==1.43.62
+botocore==1.43.62
+SQLAlchemy==2.0.44
+psycopg[binary]==3.2.12
+pydantic==2.12.3
+geopandas==1.1.4
+shapely==2.1.2
+pyogrio==0.13.0
