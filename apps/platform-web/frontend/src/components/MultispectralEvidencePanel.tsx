@@ -143,8 +143,9 @@ export function MultispectralEvidencePanel({ locator }: { locator: PlotMapTimeli
 
           <p className="muted text-xs">
             Fecha INSPECT = observación de campo; registro = cálculo persistido.
-            Ninguna de estas fechas identifica por sí sola la campaña ni la fecha de vuelo.
-            Sin vinculación verificable a Campaign no se muestran comparaciones de vuelos.
+            La fecha de vuelo solo se muestra cuando existe una cadena de procedencia verificada
+            entre el ráster científico, su artefacto, el trabajo y Campaign.
+            No se comparan vuelos automáticamente.
           </p>
           <dl className="grid gap-3 text-xs sm:grid-cols-2 lg:grid-cols-3">
             <div><dt className="muted">Observación de campo (INSPECT)</dt>
