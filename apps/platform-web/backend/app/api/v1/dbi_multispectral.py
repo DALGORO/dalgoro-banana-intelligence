@@ -32,6 +32,7 @@ class DBIMultispectralExtractionRead(BaseModel):
     model_config = ConfigDict(extra="forbid", frozen=True)
     extraction_id: UUID
     created_at: datetime
+    observed_at: datetime
     payload: DBIMultispectralExtractionCandidate
 
 
@@ -61,7 +62,8 @@ def get_multispectral_extraction(
     except DBIAccessDenied as exc:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=_NOT_FOUND) from exc
 
-    row = DBIMultispectralExtractionRepository(session).get_scoped(
+    repository = DBIMultispectralExtractionRepository(session)
+    row = repository.get_scoped(
         extraction_id=extraction_id,
         tenant_ref=context.tenant_ref,
         organization_ref=organization_ref,
@@ -71,11 +73,19 @@ def get_multispectral_extraction(
     if row is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=_NOT_FOUND)
 
-    return _checked_multispectral_row(row, context, organization_ref, farm_id, plot_id)
+    observed_at = repository.observed_at_by_extraction_scoped(
+        extraction_ids=[row.id],
+        tenant_ref=context.tenant_ref,
+        organization_ref=organization_ref,
+        farm_id=farm_id,
+        plot_id=plot_id,
+    ).get(row.id)
+    return _checked_multispectral_row(row, observed_at, context, organization_ref, farm_id, plot_id)
 
 
 def _checked_multispectral_row(
     row: object,
+    observed_at: datetime | None,
     context: DBIAccessContext,
     organization_ref: str,
     farm_id: UUID,
@@ -104,13 +114,16 @@ def _checked_multispectral_row(
             and row.payload_json == canonical_json(payload.model_dump(mode="json"))
             and row.payload_sha256 == sha256_text(row.payload_json)
         )
-        if not fields_match or row.created_at is None:
+        if (not fields_match or row.created_at is None
+                or observed_at is None or observed_at.tzinfo is None
+                or observed_at.utcoffset() is None):
             raise ValueError("integrity")
     except (ValidationError, ValueError, TypeError, AttributeError) as exc:
         raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail=_CONFLICT) from exc
 
     return DBIMultispectralExtractionRead(
-        extraction_id=row.id, created_at=row.created_at, payload=payload,
+        extraction_id=row.id, created_at=row.created_at,
+        observed_at=observed_at, payload=payload,
     )
 
 
@@ -139,13 +152,23 @@ def list_multispectral_extractions(
     except DBIAccessDenied as exc:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=_NOT_FOUND) from exc
 
-    rows = DBIMultispectralExtractionRepository(session).list_scoped(
+    repository = DBIMultispectralExtractionRepository(session)
+    rows = repository.list_scoped(
+        tenant_ref=context.tenant_ref,
+        organization_ref=organization_ref,
+        farm_id=farm_id,
+        plot_id=plot_id,
+    )
+    observation_times = repository.observed_at_by_extraction_scoped(
+        extraction_ids=[row.id for row in rows],
         tenant_ref=context.tenant_ref,
         organization_ref=organization_ref,
         farm_id=farm_id,
         plot_id=plot_id,
     )
     return [
-        _checked_multispectral_row(row, context, organization_ref, farm_id, plot_id)
+        _checked_multispectral_row(
+            row, observation_times.get(row.id), context, organization_ref, farm_id, plot_id,
+        )
         for row in rows
     ]

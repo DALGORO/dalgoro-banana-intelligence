@@ -66,6 +66,8 @@ class Repo:
     def __init__(self, row):
         self.row = row
         self.queries = []
+        self.observed_at = datetime(2026, 9, 15, 8, 30, tzinfo=timezone.utc)
+        self.return_observation = True
 
     def get_scoped(self, **kwargs):
         self.queries.append(kwargs)
@@ -81,6 +83,17 @@ class Repo:
             return []
         return [self.row] if all(getattr(self.row, key) == value
                                  for key, value in kwargs.items()) else []
+
+    def observed_at_by_extraction_scoped(self, **kwargs):
+        self.queries.append(kwargs)
+        if not self.return_observation or self.row is None:
+            return {}
+        if self.row.id not in kwargs["extraction_ids"]:
+            return {}
+        if not all(getattr(self.row, key) == value for key, value
+                   in kwargs.items() if key != "extraction_ids"):
+            return {}
+        return {self.row.id: self.observed_at}
 
 
 def denied(status_code, operation):
@@ -113,10 +126,19 @@ def main():
     with patch.object(dbi_multispectral, "DBIMultispectralExtractionRepository", return_value=repo):
         listed = listing()
         assert len(listed) == 1 and listed[0].payload == candidate
-        assert repo.queries == [{
-            "tenant_ref": TENANT, "organization_ref": ORG,
-            "farm_id": FARM, "plot_id": PLOT,
-        }]
+        assert listed[0].observed_at == repo.observed_at
+        assert listed[0].observed_at < listed[0].created_at
+        assert repo.queries == [
+            {
+                "tenant_ref": TENANT, "organization_ref": ORG,
+                "farm_id": FARM, "plot_id": PLOT,
+            },
+            {
+                "extraction_ids": [row.id],
+                "tenant_ref": TENANT, "organization_ref": ORG,
+                "farm_id": FARM, "plot_id": PLOT,
+            },
+        ]
         assert "object_key" not in listed[0].model_dump_json()
         data = call()
         assert data.extraction_id == row.id
@@ -125,13 +147,23 @@ def main():
         assert data.payload.support_mode == "window"
         assert len(data.payload.summaries) == 10
         assert data.created_at == row.created_at
-        assert repo.queries[-1:] == [{
-            "extraction_id": row.id,
-            "tenant_ref": TENANT,
-            "organization_ref": ORG,
-            "farm_id": FARM,
-            "plot_id": PLOT,
-        }]
+        assert data.observed_at == repo.observed_at
+        assert repo.queries[-2:] == [
+            {
+                "extraction_id": row.id,
+                "tenant_ref": TENANT,
+                "organization_ref": ORG,
+                "farm_id": FARM,
+                "plot_id": PLOT,
+            },
+            {
+                "extraction_ids": [row.id],
+                "tenant_ref": TENANT,
+                "organization_ref": ORG,
+                "farm_id": FARM,
+                "plot_id": PLOT,
+            },
+        ]
         assert "object_key" not in data.model_dump_json()
         assert "S3_SECRET" not in data.model_dump_json()
         assert call() == data
@@ -189,6 +221,15 @@ def main():
                 assert listing() == []
             setattr(row, attr, original)
 
+        repo.return_observation = False
+        denied(409, lambda: call())
+        denied(409, lambda: listing())
+        repo.return_observation = True
+        repo.observed_at = datetime(2026, 9, 15, 8, 30)
+        denied(409, lambda: call())
+        denied(409, lambda: listing())
+        repo.observed_at = datetime(2026, 9, 15, 8, 30, tzinfo=timezone.utc)
+
         original = row.payload_json
         row.payload_json = '{"schema_version":"untrusted"}'
         denied(409, lambda: call())
@@ -213,7 +254,7 @@ def main():
     assert len(listing_routes) == 1
     assert listing_routes[0].methods == {"GET"}
     session.close()
-    print("Hito 11 MULTI READ: detalle y lista scoped, provenance, sin escritura OK.")
+    print("Hito 11 MULTI READ: fechas observadas INSPECT seguras, scopes y provenance OK.")
 
 
 if __name__ == "__main__":

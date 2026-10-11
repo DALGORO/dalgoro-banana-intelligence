@@ -22,6 +22,7 @@ export type MultispectralSummary = {
 export type MultispectralExtraction = {
   extraction_id: string;
   created_at: string;
+  observed_at: string;
   payload: {
     schema_version: "dbi-multispectral-extraction.v1";
     tenant_ref: string;
