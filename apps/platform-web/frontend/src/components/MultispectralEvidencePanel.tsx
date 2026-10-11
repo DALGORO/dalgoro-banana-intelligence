@@ -152,6 +152,12 @@ export function MultispectralEvidencePanel({ locator }: { locator: PlotMapTimeli
               <dd className="mt-1 font-medium">{date(selected.observed_at)}</dd></div>
             <div><dt className="muted">Registro de la extracción</dt>
               <dd className="mt-1 font-medium">{date(selected.created_at)}</dd></div>
+            <div><dt className="muted">Campaign / levantamiento</dt>
+              <dd className="mt-1 font-medium">{selected.campaign_linkage === "verified_job_chain"
+                && selected.campaign_id ? selected.campaign_id : "Campaña no verificada"}</dd></div>
+            <div><dt className="muted">Captura del vuelo</dt>
+              <dd className="mt-1 font-medium">{selected.campaign_linkage === "verified_job_chain"
+                && selected.captured_at ? date(selected.captured_at) : "Fecha de vuelo no verificada"}</dd></div>
             <div><dt className="muted">Tipo de evidencia</dt>
               <dd className="mt-1 font-medium">Derivada · no observada ni inferida</dd></div>
             <div><dt className="muted">Soporte espacial</dt>
