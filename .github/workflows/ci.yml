@@ -150,6 +150,11 @@ jobs:
           PYTHONPATH: .
         run: python ../../../.github/scripts/ci_dbi_authorization.py
 
+      - name: Validar contrato INSPECT de doble aprobación offline
+        env:
+          PYTHONPATH: .
+        run: python ../../../.github/scripts/ci_dbi_inspection_dual_approval.py
+
       - name: Validar política administrativa DBI offline
         env:
           PYTHONPATH: .
