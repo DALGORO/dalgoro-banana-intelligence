@@ -1,5 +1,8 @@
 import { Outlet, NavLink, useNavigate, useMatch, useLocation } from 'react-router-dom';
 import { useEffect, useMemo, useState } from 'react';
+import { Building2, MapPinned } from 'lucide-react';
+import type { LucideIcon } from 'lucide-react';
+import './dbi-client-view.css';
 import { api } from '@/app/api';
 import { ToastContainer } from 'react-toastify';
 import 'react-toastify/dist/ReactToastify.css';
@@ -95,6 +98,13 @@ function getPageMeta(pathname: string) {
     };
   }
 
+  if (pathname.startsWith('/dbi/organizations/') && pathname.endsWith('/mapa')) {
+    return {
+      title: 'Mapa histórico del lote',
+      subtitle: 'Campañas verificadas, cartografía autorizada y evidencia científica derivada, sin comparaciones ficticias.',
+    };
+  }
+
   if (/^\/fincas\/[^/]+\/mapa$/.test(pathname)) {
     return {
       title: 'Mapa cronológico de la finca',
@@ -157,19 +167,27 @@ function getPageMeta(pathname: string) {
   };
 }
 
-const NavItem = ({ to, label }: { to: string; label: string }) => (
+const NavItem = ({ to, label, icon: Icon }: { to: string; label: string; icon?: LucideIcon }) => (
   <NavLink
     to={to}
     end={to === '/'}
     className={({ isActive }) => (isActive ? 'nav-item-active' : 'nav-item')}
   >
-    {label}
+    <span className="flex items-center gap-3">
+      {Icon && <Icon size={18} aria-hidden="true" />}
+      <span>{label}</span>
+    </span>
   </NavLink>
 );
 
 export default function AppShell() {
   const nav = useNavigate();
   const location = useLocation();
+  const isMapView = (
+    (location.pathname.startsWith('/dbi/organizations/') && location.pathname.endsWith('/mapa')) ||
+    /^\/fincas\/[^/]+\/mapa$/.test(location.pathname)
+  );
+  const isDbiClientView = location.pathname === '/portal' || isMapView;
   const matchCompanyBase = useMatch('/companies/:id');
   const matchCompanyNested = useMatch('/companies/:id/*');
   const companyId = matchCompanyNested?.params?.id ?? matchCompanyBase?.params?.id;
@@ -263,7 +281,7 @@ export default function AppShell() {
   };
 
   return (
-    <div className="min-h-screen grid md:grid-cols-[280px_1fr]">
+    <div className={`min-h-screen grid md:grid-cols-[280px_1fr] ${isDbiClientView ? 'dbi-client-shell' : ''}`}>
       <aside className="app-sidebar border-r p-5">
         <div className="flex items-center gap-3 rounded-2xl border border-black/5 bg-white/40 px-4 py-4 dark:border-white/10 dark:bg-white/5">
           <div className="rounded-xl bg-[#192B2F] p-2 shadow-sm">
@@ -280,8 +298,9 @@ export default function AppShell() {
 
         <nav className="mt-6 flex flex-col gap-1">
           {showLegacySstModules && <NavItem to="/" label="Dashboard legado" />}
-          <NavItem to="/portal" label="Mis fincas" />
-          <NavItem to="/companies" label="Empresas / clientes" />
+          <NavItem to="/portal" label="Mis fincas" icon={MapPinned} />
+          <NavItem to="/companies" label="Empresas / clientes" icon={Building2} />
+          {isMapView && <NavItem to={location.pathname + location.search} label="Mapa del lote" icon={MapPinned} />}
 
           {isAdmin && (
             <NavItem to="/admin" label="Administración de usuarios" />
