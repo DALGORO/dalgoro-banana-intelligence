@@ -15,6 +15,9 @@ base.KNOWN = set(base.KNOWN) | {
     "dbi_0021_portal_vectors",
     "dbi_0022_portal_gis_imports",
     "dbi_0023_gis_previews",
+    "dbi_0024_gis_approval",
+    "dbi_0025_gpkg_layer_options",
+    "dbi_0026_gpkg_layer_choice",
     base.HEAD,
 }
 
