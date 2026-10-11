@@ -224,6 +224,11 @@ jobs:
           PYTHONPATH: .
         run: python ../../../.github/scripts/ci_dbi_gis_preparation.py
 
+      - name: Validar aprobación explícita GIS del portal
+        env:
+          PYTHONPATH: .
+        run: python ../../../.github/scripts/ci_dbi_gis_publication.py
+
       - name: Validar catálogo seguro de clientes DBI
         env:
           PYTHONPATH: .
