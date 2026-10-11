@@ -28,7 +28,7 @@ from app.dbi.models.identity import DBIMembershipScope  # noqa: E402
 
 ORG_A = "organization-a"
 ORG_B = "organization-b"
-HEAD = "dbi_0022_portal_gis_imports"
+HEAD = "dbi_0023_gis_previews"
 HIERARCHY_REVISION = "dbi_0008_scope_hierarchy"
 DOWN_REVISION = "dbi_0007_admin_audit"
 EXPECTED_CONSTRAINTS = {
