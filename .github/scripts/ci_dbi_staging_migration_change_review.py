@@ -110,7 +110,7 @@ def run():
             {"approver_ref": packet["operator_ref"]},
             {"operator_ref": "short"},
             {"change_ticket": "secret://invalid"},
-            {"backup_manifest_sha256": "a" * 64},
+            {"backup_manifest_sha256": "g" * 64},
             {"restore_test_report_sha256": packet["backup_manifest_sha256"]},
             {"window_start_utc": "2000-01-01T00:00:00Z"},
             {"window_start_utc": "tomorrow"},
