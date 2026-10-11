@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { Layers3, ShieldCheck } from "lucide-react";
 import { extractionForMapCampaign, verifiedMultispectralCampaigns } from "@/features/multispectralCampaignHistory";
 import type { PlotMapTimelineLocator } from "@/features/mapTimeline";
 import {
@@ -113,15 +114,18 @@ export function MultispectralEvidencePanel({
   );
   const payload = selected?.payload;
   return (
-    <section className="card space-y-4" aria-label="Evidencia multiespectral">
+    <section className="card dbi-multi-panel space-y-4" aria-label="Evidencia multiespectral">
       <div className="flex flex-wrap items-start justify-between gap-3">
-        <div>
+        <div className="flex min-w-0 flex-1 items-start gap-3">
+          <span className="dbi-section-icon" aria-hidden="true"><Layers3 size={22} /></span>
+          <div className="min-w-0">
           <div className="eyebrow">Multiespectral · evidencia derivada</div>
           <h2 className="mt-1 text-lg font-semibold">Bandas e índices del lote</h2>
           <p className="muted mt-1 text-sm">
             Estadísticas científicas vinculadas a una observación de campo.
             No constituyen un diagnóstico de Sigatoka ni una recomendación de tratamiento.
           </p>
+          </div>
         </div>
         <button type="button" className="btn-secondary"
           onClick={() => { setResult(null); setRefresh(value => value + 1); }}>
@@ -149,7 +153,7 @@ export function MultispectralEvidencePanel({
               Las extracciones sin vínculo siguen disponibles en el selector inferior.
             </p>
           ) : (
-            <div className="flex flex-wrap gap-2" role="group" aria-label="Elegir vuelo verificado">
+            <div className="dbi-campaign-strip" role="group" aria-label="Elegir vuelo verificado">
               {verifiedHistory.map(entry => {
                 const active = selected?.campaign_linkage === "verified_job_chain"
                   && selected.campaign_id === entry.campaignId;
@@ -189,6 +193,13 @@ export function MultispectralEvidencePanel({
       )}
       {selected && payload && (
         <div className="space-y-5">
+          <div className="flex items-center gap-2 text-xs font-medium text-emerald-700 dark:text-emerald-300">
+            <ShieldCheck size={16} aria-hidden="true" />
+            {selected.campaign_linkage === "verified_job_chain" && selected.campaign_id
+              && verifiedHistory.some(entry => entry.campaignId === selected.campaign_id)
+              ? "Campaign con cadena científica verificada"
+              : "Extracción consultable · sin Campaign cartográfica verificada"}
+          </div>
           <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
             <label className="text-sm font-medium" htmlFor="multi-extraction-select">
               Extracciones recientes por fecha de registro (máximo 20)
@@ -256,7 +267,27 @@ export function MultispectralEvidencePanel({
             Los índices dependen de bandas, calibración y píxeles válidos; sus cifras
             no se deben comparar directamente entre vuelos sin verificar compatibilidad.
           </p>
-          <Statistics heading="Índices derivados" items={payload.summaries.filter(item => item.variable_kind === "index")} />
+          <section className="space-y-3" aria-label="Resumen de índices derivados">
+            <h3 className="text-sm font-semibold">Resumen de índices · mediana de píxeles válidos</h3>
+            <div className="dbi-index-grid">
+              {payload.summaries.filter(item => item.variable_kind === "index").map(item => (
+                <article className="dbi-index-card" key={item.variable_ref}>
+                  <div className="flex items-center justify-between gap-2">
+                    <span className="text-xs font-semibold">{INDEX_LABELS[item.variable_ref] ?? item.variable_ref}</span>
+                    <span className="eyebrow">Derivado</span>
+                  </div>
+                  <div className="mt-2 text-lg font-semibold tabular-nums">{number(item.median)}</div>
+                  <div className="muted mt-1 text-xs">
+                    {item.valid_count} píxeles válidos · sin comparación temporal
+                  </div>
+                </article>
+              ))}
+              {payload.summaries.every(item => item.variable_kind !== "index") && (
+                <p className="muted text-xs">Sin índices derivados autorizados en esta extracción.</p>
+              )}
+            </div>
+          </section>
+          <Statistics heading="Índices derivados · detalle y procedencia" items={payload.summaries.filter(item => item.variable_kind === "index")} />
           <Statistics heading="Bandas fuente resumidas" items={payload.summaries.filter(item => item.variable_kind === "band")} />
         </div>
       )}
