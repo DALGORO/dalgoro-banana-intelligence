@@ -6,6 +6,7 @@ Nunca importa GDAL/Pyogrio en FastAPI y no publica capas automáticamente.
 from __future__ import annotations
 
 import argparse
+from importlib.util import find_spec
 import os
 import subprocess
 import sys
@@ -134,6 +135,9 @@ def run_once(values: Mapping[str, str] | None = None) -> str | None:
     tenant, root = preflight(source)
     if source.get("DBI_GIS_WORKER_ENABLED", "") != "1":
         raise GISWorkerPreflightError("El worker GIS está deshabilitado por defecto.")
+    # Sin entorno geoespacial completo, NO reclamar ni fallar archivos válidos.
+    if any(find_spec(module) is None for module in ("pyogrio", "geopandas", "shapely")):
+        raise GISWorkerPreflightError("Faltan dependencias geoespaciales del worker.")
     # No se inicia sesión ni se reclama un archivo sin comprobar el proveedor.
     store = create_configured_object_store(source)
     if not isinstance(store, DBIS3ObjectStore):
