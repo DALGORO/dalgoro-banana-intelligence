@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { verifiedMultispectralCampaigns } from "@/features/multispectralCampaignHistory";
 import type { PlotMapTimelineLocator } from "@/features/mapTimeline";
 import {
   listMultispectralExtractions, multispectralScopeKey,
@@ -97,6 +98,7 @@ export function MultispectralEvidencePanel({ locator }: { locator: PlotMapTimeli
   // Nunca mostrar resultados de otro tenant/lote durante navegación o recarga.
   const current = result?.scopeKey === scopeKey ? result : null;
   const items = current?.items ?? [];
+  const verifiedHistory = verifiedMultispectralCampaigns(items, locator);
   const selected = items.find(item => item.extraction_id === selectedId) ?? items[0];
   const payload = selected?.payload;
   return (
@@ -126,6 +128,44 @@ export function MultispectralEvidencePanel({ locator }: { locator: PlotMapTimeli
       )}
       {selected && payload && (
         <div className="space-y-5">
+          <section className="space-y-2" aria-label="Historial de vuelos multiespectrales verificados">
+            <div className="flex flex-wrap items-center justify-between gap-2">
+              <h3 className="text-sm font-semibold">Historial de vuelos con Campaign verificada</h3>
+              <span className="muted text-xs">{verifiedHistory.length} campañas verificadas · máximo 20 extracciones revisadas</span>
+            </div>
+            {verifiedHistory.length === 0 ? (
+              <p className="muted rounded-xl border border-slate-200 p-3 text-sm dark:border-slate-700">
+                Todavía no hay vuelos con procedencia Campaign verificada para este lote.
+                Las extracciones sin vínculo siguen disponibles en el selector inferior.
+              </p>
+            ) : (
+              <div className="flex flex-wrap gap-2" role="group" aria-label="Elegir vuelo verificado">
+                {verifiedHistory.map(entry => {
+                  const active = selected.campaign_linkage === "verified_job_chain"
+                    && selected.campaign_id === entry.campaignId;
+                  return (
+                    <button key={entry.campaignId} type="button"
+                      aria-pressed={active}
+                      onClick={() => setSelectedId(entry.latestExtractionId)}
+                      className={`rounded-xl border px-3 py-2 text-left text-sm transition-colors focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-emerald-600 ${
+                        active
+                          ? "border-emerald-600 bg-emerald-50 text-emerald-950 dark:bg-emerald-950/30 dark:text-emerald-100"
+                          : "border-slate-200 hover:border-emerald-500 dark:border-slate-700"
+                      }`}>
+                      <span className="block font-medium">{date(entry.capturedAt)}</span>
+                      <span className="block text-xs opacity-75">
+                        Campaign {entry.campaignId.slice(0, 8)} · {entry.extractionCount} {entry.extractionCount === 1 ? "extracción" : "extracciones"}
+                      </span>
+                    </button>
+                  );
+                })}
+              </div>
+            )}
+            <p className="muted text-xs">
+              Este historial permite consultar campañas acreditadas, no comparar resultados entre vuelos.
+              La comparabilidad de calibración, unidades espaciales y fórmulas sigue pendiente de validación.
+            </p>
+          </section>
           <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
             <label className="text-sm font-medium" htmlFor="multi-extraction-select">
               Extracciones recientes por fecha de registro (máximo 20)
