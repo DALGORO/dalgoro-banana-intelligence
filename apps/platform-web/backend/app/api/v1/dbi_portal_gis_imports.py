@@ -50,6 +50,7 @@ class PortalGISImportInfo(BaseModel):
     layer_kind: LayerKind
     size_bytes: int
     status: str
+    available_layers: list[str] | None = None
     published_layer_id: UUID | None = None
     created_at: datetime
 
@@ -60,6 +61,7 @@ def _response(row: DBIPortalGISImport) -> PortalGISImportInfo:
         original_filename=row.original_filename,
         source_format=row.source_format, layer_kind=row.layer_kind,
         size_bytes=row.size_bytes, status=row.status,
+        available_layers=row.available_layers,
         published_layer_id=row.published_layer_id, created_at=row.created_at,
     )
 
