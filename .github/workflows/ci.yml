@@ -209,6 +209,11 @@ jobs:
           PYTHONPATH: .
         run: python ../../../.github/scripts/ci_dbi_fastapi_lifecycle.py
 
+      - name: Validar catálogo seguro de clientes DBI
+        env:
+          PYTHONPATH: .
+        run: python ../../../.github/scripts/ci_dbi_portal.py
+
       - name: Validar consultas DBI autorizadas offline
         env:
           PYTHONPATH: .

@@ -88,7 +88,7 @@ function healthLabel(health: 'online' | 'offline' | 'checking') {
 }
 
 function getPageMeta(pathname: string) {
-  if (pathname === '/') {
+  if (pathname === '/' || pathname.startsWith('/portal')) {
     return {
       title: 'Inicio geoespacial',
       subtitle: 'Accede a empresas, fincas, lotes, ortofotos e inspecciones de campo desde DALGORO Banana Intelligence.',
@@ -280,6 +280,7 @@ export default function AppShell() {
 
         <nav className="mt-6 flex flex-col gap-1">
           {showLegacySstModules && <NavItem to="/" label="Dashboard legado" />}
+          <NavItem to="/portal" label="Mis fincas" />
           <NavItem to="/companies" label="Empresas / clientes" />
 
           {isAdmin && (
