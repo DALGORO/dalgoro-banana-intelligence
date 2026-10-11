@@ -27,7 +27,7 @@ from app.dbi.models import (  # noqa: E402
     AssetMultipartSession,
 )
 
-HEAD = "dbi_0020_campaign_artifacts"
+HEAD = "dbi_0021_portal_vectors"
 MULTIPART_REVISION = "dbi_0010_asset_multipart"
 SESSION_TABLE = "dbi_asset_multipart_sessions"
 PART_TABLE = "dbi_asset_multipart_parts"
