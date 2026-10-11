@@ -389,11 +389,16 @@ export default function FarmMapTimeline() {
   useEffect(() => {
     if (!realLocator || !canPublish || !hasPendingGISImports) return;
     let active = true;
+    let inFlight = false;
     const interval = window.setInterval(() => {
+      if (inFlight) return;
+      inFlight = true;
       void listGISImports(realLocator).then(receipts => {
         if (active) setGISImportCache({ scopeKey: gisScopeKey, items: receipts });
       }).catch(() => {
         // Conserva el último estado conocido; se volverá a intentar.
+      }).finally(() => {
+        inFlight = false;
       });
     }, 15_000);
     return () => {
