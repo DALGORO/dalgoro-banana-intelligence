@@ -93,6 +93,8 @@ export default function FarmMapTimeline() {
   const [comparisonDate, setComparisonDate] = useState("");
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [farmLabel, setFarmLabel] = useState("Finca");
+  const [plotLabel, setPlotLabel] = useState("Lote");
   const [vectorLayers, setVectorLayers] = useState<VectorLayerInfo[]>([]);
   const [vectorDetails, setVectorDetails] = useState<Record<string, VectorLayerDetail>>({});
   const [selectedVectorIds, setSelectedVectorIds] = useState<Set<string>>(new Set());
@@ -113,6 +115,27 @@ export default function FarmMapTimeline() {
   }, [farmId, organizationRef, plotId, tenantRef]);
 
   const useGoogleBase = Boolean(import.meta.env.VITE_GOOGLE_MAPS_API_KEY?.trim()) && Boolean(realLocator);
+
+  useEffect(() => {
+    let active = true;
+    if (!realLocator) return;
+    const base = `/api/v1/dbi/organizations/${encodeURIComponent(realLocator.organizationRef)}/farms/${encodeURIComponent(realLocator.farmId)}`;
+    const config = { headers: { "X-DBI-Tenant": realLocator.tenantRef } };
+    Promise.all([
+      api.get<{ name: string }>(base, config),
+      api.get<{ name: string }>(`${base}/plots/${encodeURIComponent(realLocator.plotId)}`, config),
+    ]).then(([farm, plot]) => {
+      if (!active) return;
+      setFarmLabel(farm.data.name);
+      setPlotLabel(plot.data.name);
+    }).catch(() => {
+      if (!active) return;
+      setFarmLabel("Finca");
+      setPlotLabel("Lote");
+    });
+    return () => { active = false; };
+  }, [realLocator]);
+
 
   useEffect(() => {
     let active = true;
@@ -474,13 +497,13 @@ export default function FarmMapTimeline() {
       <div className="status-banner status-banner-info">
         <div className="font-medium">
           {isPlotTimeline(data)
-            ? "Visor cronológico Raster DBI"
-            : "Visor cronológico v1"}
+            ? "Mapa histórico de tu finca"
+            : "Mapa de la finca"}
         </div>
         <p className="mt-1 text-sm">
           {isPlotTimeline(data)
-            ? "Las imágenes visibles provienen de campañas reales y tiles privados autorizados; el navegador no recibe la ruta del COG."
-            : "El catálogo indica qué capas admite la plataforma. Una capa solo aparecerá cuando exista una campaña real registrada."}
+            ? "Elige una fecha y activa las capas disponibles para explorar tu finca. Fuera de la ortofoto puedes ver el fondo satelital si Google Maps está habilitado."
+            : "Los levantamientos aparecerán cuando estén disponibles en tu cuenta."}
         </p>
       </div>
 
@@ -488,13 +511,11 @@ export default function FarmMapTimeline() {
         <aside className="card space-y-5">
           <div>
             <div className="eyebrow">Finca / lote</div>
-            <h2 className="mt-1 break-all">{effectiveFarmId || "Sin identificar"}</h2>
+            <h2 className="mt-1 text-lg font-semibold">{realLocator ? farmLabel : "Mapa de finca"}</h2>
             {isPlotTimeline(data) && (
-              <p className="muted mt-1 break-all text-xs">Lote: {data.plot_id}</p>
+              <p className="muted mt-1 text-sm">Lote: {plotLabel}</p>
             )}
-            <p className="muted mt-2">
-              Contrato: {data?.schema_version ?? "pendiente de carga"}
-            </p>
+
           </div>
 
           <div className="divider pt-4">
