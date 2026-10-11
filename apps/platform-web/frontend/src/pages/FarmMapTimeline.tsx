@@ -100,6 +100,9 @@ export default function FarmMapTimeline() {
     new Set(),
   );
   const [selectedDate, setSelectedDate] = useState("");
+  const [specificMapCampaign, setSpecificMapCampaign] = useState<{
+    scopeKey: string; campaignId: string;
+  } | null>(null);
   const [comparisonDate, setComparisonDate] = useState("");
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -141,6 +144,8 @@ export default function FarmMapTimeline() {
   const gisScopeKey = realLocator
     ? JSON.stringify([realLocator.tenantRef, realLocator.organizationRef, realLocator.farmId, realLocator.plotId])
     : "";
+  const selectedMapCampaignId = specificMapCampaign?.scopeKey === gisScopeKey
+    ? specificMapCampaign.campaignId : null;
   const gisImports = gisImportCache?.scopeKey === gisScopeKey ? gisImportCache.items : [];
   const hasPendingGISImports = gisImports.some(item =>
     item.status === "received" || item.status === "processing"
@@ -285,6 +290,7 @@ export default function FarmMapTimeline() {
           new Set(response.timeline.map((entry) => entry.captured_at)),
         ).sort();
         setSelectedDate(dates.at(-1) ?? "");
+        setSpecificMapCampaign(null);
         setComparisonDate("");
       })
       .catch((requestError) => {
@@ -313,8 +319,9 @@ export default function FarmMapTimeline() {
     Array.from(new Set([
       ...(data?.timeline ?? []).map(entry => entry.captured_at),
       ...vectorCampaigns.map(campaign => campaign.captured_at),
+      ...(selectedMapCampaignId && selectedDate ? [selectedDate] : []),
     ])).sort(),
-    [data?.timeline, vectorCampaigns],
+    [data?.timeline, vectorCampaigns, selectedMapCampaignId, selectedDate],
   );
 
   const availableLayerTypes = useMemo(
@@ -327,17 +334,21 @@ export default function FarmMapTimeline() {
       (data?.timeline ?? []).filter(
         (entry) =>
           selectedLayers.has(entry.layer_type) &&
-          (selectedDate === "" || sameCapture(entry.captured_at, selectedDate)),
+          (selectedDate === "" || sameCapture(entry.captured_at, selectedDate)) &&
+          (!selectedMapCampaignId ||
+            (isRasterEntry(entry) && entry.campaign_id === selectedMapCampaignId)),
       ),
-    [data?.timeline, selectedDate, selectedLayers],
+    [data?.timeline, selectedDate, selectedLayers, selectedMapCampaignId],
   );
 
 
   const activeCampaignIds = useMemo(() => new Set(
     vectorCampaigns
-      .filter(campaign => !selectedDate || sameCapture(campaign.captured_at, selectedDate))
+      .filter(campaign =>
+        (!selectedDate || sameCapture(campaign.captured_at, selectedDate)) &&
+        (!selectedMapCampaignId || campaign.id === selectedMapCampaignId))
       .map(campaign => campaign.id)
-  ), [vectorCampaigns, selectedDate]);
+  ), [vectorCampaigns, selectedDate, selectedMapCampaignId]);
 
   const visibleVectorMeta = useMemo(() =>
     vectorLayers.filter(layer => activeCampaignIds.has(layer.campaign_id)),
@@ -375,9 +386,10 @@ export default function FarmMapTimeline() {
 
   const uploadCampaignChoices = useMemo(() =>
     vectorCampaigns.filter(campaign =>
-      !selectedDate || sameCapture(campaign.captured_at, selectedDate)
+      (!selectedDate || sameCapture(campaign.captured_at, selectedDate)) &&
+      (!selectedMapCampaignId || campaign.id === selectedMapCampaignId)
     ),
-    [vectorCampaigns, selectedDate],
+    [vectorCampaigns, selectedDate, selectedMapCampaignId],
   );
   const uploadCampaignId = uploadCampaignChoices.some(campaign => campaign.id === chosenUploadCampaign)
     ? chosenUploadCampaign : null;
@@ -433,6 +445,7 @@ export default function FarmMapTimeline() {
       const result = await getGISImportPreview(realLocator, item.id);
       setReviewedImportId(item.id);
       setSelectedDate(campaign.captured_at);
+      setSpecificMapCampaign({ scopeKey: gisScopeKey, campaignId: item.campaign_id });
       setGISPreviewVector({
         layer: {
           id: `preview-${item.id}`,
@@ -736,7 +749,10 @@ export default function FarmMapTimeline() {
               id="map-date"
               className="mt-2 w-full"
               value={selectedDate}
-              onChange={(event) => setSelectedDate(event.target.value)}
+              onChange={(event) => {
+                setSelectedDate(event.target.value);
+                setSpecificMapCampaign(null);
+              }
               disabled={dates.length === 0}
             >
               <option value="">
@@ -745,6 +761,8 @@ export default function FarmMapTimeline() {
               {dates.map((date) => (
                 <option key={date} value={date}>
                   {formatDate(date)}
+                  {selectedMapCampaignId && sameCapture(selectedDate, date)
+                    ? " · Campaign MULTI seleccionada" : ""}
                 </option>
               ))}
             </select>
@@ -1010,7 +1028,9 @@ export default function FarmMapTimeline() {
               {!loading && !error && visibleEntries.length === 0 && visibleVectorDetails.length === 0 && (
                 <div className="empty-state pointer-events-auto shadow-lg">
                   <div className="font-medium">
-                    No hay campañas cartográficas visibles
+                    {selectedMapCampaignId
+                      ? "Sin capas cartográficas para la Campaign MULTI seleccionada"
+                      : "No hay campañas cartográficas visibles"}
                   </div>
                   <p className="muted mt-2">
                     No se muestran geometrías, índices ni recomendaciones
@@ -1023,7 +1043,24 @@ export default function FarmMapTimeline() {
           </div>
         </section>
       </div>
-      {realLocator && <MultispectralEvidencePanel key={gisScopeKey} locator={realLocator} />}
+      {realLocator && (
+        <MultispectralEvidencePanel
+          key={gisScopeKey}
+          locator={realLocator}
+          selectedMapDate={selectedDate}
+          selectedMapCampaignId={selectedMapCampaignId}
+          onChooseVerifiedCampaign={(campaignId, capturedAt) => {
+            setSpecificMapCampaign({ scopeKey: gisScopeKey, campaignId });
+            setSelectedDate(capturedAt);
+            setComparisonDate("");
+          }}
+          onClearMapSelection={() => {
+            setSpecificMapCampaign(null);
+            setSelectedDate("");
+            setComparisonDate("");
+          }}
+        />
+      )}
     </div>
   );
 }
