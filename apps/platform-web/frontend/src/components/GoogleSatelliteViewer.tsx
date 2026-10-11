@@ -3,6 +3,7 @@ import {
   apiResourceUrl, mapLibreDbiHeaders, type RasterTileTimelineEntry,
 } from "@/features/mapTimeline";
 import type { VectorLayerDetail } from "@/features/portalVectors";
+import { createGISFeatureDetails, GIS_KIND_COLORS } from "@/features/gisPresentation";
 
 type Position = { lat: number; lng: number };
 type TilePoint = { x: number; y: number };
@@ -11,9 +12,22 @@ type MapType = {
   getTile: (coord: TilePoint, zoom: number, document: Document) => HTMLElement;
   releaseTile: (node: HTMLElement) => void;
 };
+type DataFeature = {
+  setProperty: (key: string, value: string) => void;
+  getProperty: (key: string) => unknown;
+  forEachProperty: (callback: (value: unknown, key: string) => void) => void;
+};
+type DataMouseEvent = { feature: DataFeature; latLng: Position };
+type MapsListener = { remove: () => void };
+type InfoWindow = {
+  setContent: (content: HTMLElement) => void;
+  open: (options: { map: SatelliteMap; position: Position }) => void;
+  close: () => void;
+};
 type SatelliteMap = {
   data: {
-    addGeoJson: (geojson: object) => Array<{ setProperty: (key: string, value: string) => void }>;
+    addListener: (event: "click", handler: (event: DataMouseEvent) => void) => MapsListener;
+    addGeoJson: (geojson: object) => DataFeature[];
     forEach: (callback: (feature: object) => void) => void;
     remove: (feature: object) => void;
     setStyle: (style: (feature: { getProperty: (name: string) => string }) => object) => void;
@@ -29,6 +43,7 @@ type GoogleSDK = {
       streetViewControl: boolean;
     }) => SatelliteMap;
     Size: new (width: number, height: number) => object;
+    InfoWindow: new (options: { maxWidth: number }) => InfoWindow;
   };
 };
 
@@ -128,6 +143,7 @@ export function GoogleSatelliteViewer({
 }) {
   const elementRef = useRef<HTMLDivElement | null>(null);
   const mapRef = useRef<SatelliteMap | null>(null);
+  const infoWindowRef = useRef<InfoWindow | null>(null);
   const [ready, setReady] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const apiKey = import.meta.env.VITE_GOOGLE_MAPS_API_KEY?.trim() ?? "";
@@ -153,6 +169,8 @@ export function GoogleSatelliteViewer({
     return () => {
       active = false;
       mapRef.current?.overlayMapTypes.clear();
+      infoWindowRef.current?.close();
+      infoWindowRef.current = null;
       mapRef.current = null;
     };
   }, [apiKey]);
@@ -175,26 +193,51 @@ export function GoogleSatelliteViewer({
     for (const vector of vectors) {
       for (const feature of map.data.addGeoJson(vector.geojson)) {
         feature.setProperty("__dbi_layer_kind", vector.layer.layer_kind);
+        feature.setProperty("__dbi_layer_name", vector.layer.name);
       }
     }
     map.data.setStyle((feature) => {
       const kind = feature.getProperty("__dbi_layer_kind");
-      const isDensity = kind === "density_hexagons";
       const isBoundary = kind === "boundaries";
+      const palette = GIS_KIND_COLORS;
+      const color = typeof kind === "string" && kind in palette
+        ? palette[kind as keyof typeof palette]
+        : palette.other;
       return {
-        fillColor: isDensity ? "#d97706" : "#0d9488",
+        fillColor: color,
         fillOpacity: isBoundary ? 0.06 : 0.23,
-        strokeColor: isDensity ? "#b45309" : "#047857",
+        strokeColor: color,
         strokeWeight: isBoundary ? 3 : 2,
         icon: {
-          path: 0, scale: 4,
-          fillColor: "#059669", fillOpacity: 1,
+          path: 0, scale: 5,
+          fillColor: color, fillOpacity: 1,
           strokeColor: "#ffffff", strokeWeight: 1,
         },
       };
     });
     return () => { map.data.forEach(feature => map.data.remove(feature)); };
   }, [ready, vectors]);
+
+  useEffect(() => {
+    const map = mapRef.current;
+    const google = window.google;
+    if (!ready || !map || !google?.maps) return;
+    const info = new google.maps.InfoWindow({ maxWidth: 320 });
+    infoWindowRef.current = info;
+    const listener = map.data.addListener("click", (event) => {
+      const fields: Record<string, unknown> = {};
+      event.feature.forEachProperty((value, key) => { fields[key] = value; });
+      const label = typeof fields.__dbi_layer_name === "string"
+        ? fields.__dbi_layer_name : "Resultado cartográfico";
+      info.setContent(createGISFeatureDetails(document, label, fields));
+      info.open({ map, position: event.latLng });
+    });
+    return () => {
+      listener.remove();
+      info.close();
+      infoWindowRef.current = null;
+    };
+  }, [ready]);
 
   useEffect(() => {
     if (!ready || !mapRef.current || !bounds) return;
