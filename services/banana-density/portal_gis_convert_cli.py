@@ -117,6 +117,11 @@ def _safe_properties(properties: dict) -> dict:
         raise PortalGISConversionError("Demasiados atributos en la capa.")
     result: dict = {}
     for key, value in properties.items():
+        if not isinstance(value, (type(None), bool, int, float, str)) and hasattr(value, "item"):
+            try:
+                value = value.item()
+            except (TypeError, ValueError):
+                continue
         if not isinstance(key, str) or not re.fullmatch(r"[\w -]{1,60}", key, flags=re.UNICODE):
             continue
         if any(frag in key.lower() for frag in PRIVATE_PROPERTY_FRAGMENTS):
@@ -257,8 +262,17 @@ def convert_vector(source: Path, output_dir: Path, *, layer: str | None = None) 
         if output_path.exists() and output_path.read_bytes() != payload:
             raise PortalGISConversionError("Conflicto con un derivado existente; no se sobrescribe.")
         if not output_path.exists():
-            output_path.write_bytes(payload)
-        manifest_path.write_bytes(manifest_bytes)
+            with tempfile.NamedTemporaryFile(
+                dir=output_dir, prefix=".dbi-", suffix=".tmp", delete=False
+            ) as temporary:
+                temporary.write(payload)
+                staging = Path(temporary.name)
+            try:
+                staging.replace(output_path)
+            finally:
+                staging.unlink(missing_ok=True)
+        if not manifest_path.exists():
+            manifest_path.write_bytes(manifest_bytes)
         return output_path, manifest_path
 
 
