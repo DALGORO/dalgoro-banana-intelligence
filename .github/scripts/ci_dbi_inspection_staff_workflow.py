@@ -144,9 +144,24 @@ def verify() -> None:
         denied(lambda: propose(tech, object()))
         assert len(tech_directory.calls) == before
 
+        # Una fuente con apariencia de directorio pero sin lock obligatorio
+        # NO es autorizada: no existen bypass silenciosos.
+        class UnguardedDirectory:
+            def list_assignments(self, **kwargs):
+                return (appointment(TECH_ID, DBIInspectionStaffRole.TECHNICIAN),)
+
+            def list_active_administrators(self):
+                return (ADMIN_ID,)
+
+        denied(lambda: propose(DBIInspectionStaffWorkflow(
+            session, staff_directory=UnguardedDirectory(),
+        )))
+        assert tech_directory.lock_calls == 0
+
         # Un cargo técnico solo permite firma técnica, no administrativa.
         assert propose(tech) == ("link-created", True)
         assert tech.validate_technical(TECH, **parameters()) == "tech-signed"
+        assert tech_directory.lock_calls == 2
         denied(lambda: tech.authorize_administrative(
             context(TECH_ID, ADMIN.permissions), **parameters(),
         ))
