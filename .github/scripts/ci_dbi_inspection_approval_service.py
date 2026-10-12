@@ -121,11 +121,23 @@ def verify_link_and_permissions():
     session.execute.assert_not_called()
     denied(
         lambda: service.register_link(
-            principal("cross-tenant", {DBIPermission.WRITE}, tenant="other"),
+            principal("cross-plot", {DBIPermission.WRITE}, plot=NEW_VERSION),
             **params(campaign_id=CAMPAIGN, observation_id=OBS, observation_version_id=VERSION),
         ), DBIAccessDenied,
     )
     session.execute.assert_not_called()
+
+    # Tenant fuera del ámbito: la identidad se resuelve EXCLUSIVAMENTE
+    # desde el contexto servidor. La consulta scoped no encontrará registro.
+    session.execute.return_value = result(scalar=None)
+    denied(
+        lambda: service.register_link(
+            principal("cross-tenant", {DBIPermission.WRITE}, tenant="other"),
+            **params(campaign_id=CAMPAIGN, observation_id=OBS, observation_version_id=VERSION),
+        ), DBIInspectionApprovalConflict,
+    )
+    session.add.assert_not_called()
+    session.reset_mock()
 
     bind(result(scalar=observation), result(scalar=latest),
          result(scalar=campaign), result(many=[]))
