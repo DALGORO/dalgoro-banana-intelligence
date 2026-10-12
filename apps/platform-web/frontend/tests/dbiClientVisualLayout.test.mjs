@@ -12,6 +12,7 @@ const styles = file("../src/components/dbi-client-view.css");
 const tracking = file("../src/components/FarmTrackingPanel.tsx");
 const inspect = file("../src/components/InspectionObservationLookup.tsx");
 const clientHome = file("../src/pages/ClientPortal.tsx");
+const approvedInspect = file("../src/components/ApprovedInspectionCampaignPanel.tsx");
 
 test("approved DBI client visual shell reuses the existing DALGORO PNG brand", () => {
   assert.match(shell, /src="\/logo-white\.png"/);
@@ -222,4 +223,20 @@ test("client landing view uses DALGORO brand and safe retry of authorized catalo
   assert.match(clientHome, /loading \|\| error \? "—" : totalPlots/);
   assert.match(clientHome, /mapLink\(account, farm, plot\)/);
   assert.doesNotMatch(clientHome, /Math\.random|fakeCampaign|mockPlots|api\.post\(/);
+});
+
+test("approved INSPECT panel only reads public Campaign-specific values without user UUID", () => {
+  assert.match(tracking, /<ApprovedInspectionCampaignPanel/);
+  assert.match(tracking, /campaignId=\{selectedCampaignId\}/);
+  assert.match(approvedInspect, /published-inspections/);
+  assert.match(approvedInspect, /"X-DBI-Tenant": tenantRef/);
+  assert.match(approvedInspect, /if \(!campaignId\)/);
+  assert.match(approvedInspect, /sequence\.current !== current/);
+  assert.match(approvedInspect, /setRefreshKey\(key => key \+ 1\)/);
+  assert.match(approvedInspect, /No hay inspecciones publicadas disponibles/);
+  assert.match(approvedInspect, /observedNumberLabel/);
+  assert.match(approvedInspect, /No medido/);
+  assert.match(approvedInspect, /role="alert"/);
+  assert.doesNotMatch(approvedInspect, /field-observations|observation_id|version_id|gps_fix|payload_json/);
+  assert.doesNotMatch(approvedInspect, /api\.post\(|Math\.random\(|mockInspection/);
 });
