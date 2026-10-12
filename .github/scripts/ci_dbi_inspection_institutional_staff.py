@@ -210,7 +210,7 @@ def main() -> None:
                     "DELETE FROM dbi.dbi_inspect_staff_roles WHERE id=%s",
                     (TECH2_ROLE,),
                 ),
-                (psycopg.errors.RaiseException,),
+                (psycopg.errors.RaiseException, psycopg.errors.ForeignKeyViolation),
             )
 
         with Session(engine) as session:
