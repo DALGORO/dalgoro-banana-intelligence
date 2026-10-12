@@ -157,6 +157,37 @@ def validate() -> None:
          patch.object(DBIInspectionCampaignApprovalService, "_verified_scientific_chain", return_value=False):
         denied(lambda: get(service))
 
+    # Aprobación unipersonal válida: un solo administrador con ambos cargos
+    # produce dos eventos bajo una sola acción; publicación conserva demás filtros.
+    self_state = DBIInspectionApprovalState(
+        tenant_ref="tenant-241", organization_ref="org-241",
+        farm_id=FARM, plot_id=PLOT, campaign_id=CAMPAIGN,
+        observation_id=OBS, observation_version_id=VERSION,
+        technical_by="owner-241", technical_at=NOW,
+        administrative_by="owner-241", administrative_at=NOW,
+    )
+    service, session = session_fixture()
+    with patch.object(
+        DBIInspectionCampaignApprovalService, "_state",
+        return_value=self_state,
+    ), patch.object(
+        DBIInspectionCampaignApprovalService, "_verified_scientific_chain",
+        return_value=True,
+    ), patch.object(
+        DBIFieldObservationPayload, "model_validate_json",
+        return_value=sample_payload(),
+    ):
+        assert get(service).version_id == VERSION
+    service, session = session_fixture()
+    with patch.object(
+        DBIInspectionCampaignApprovalService, "_state",
+        return_value=self_state,
+    ), patch.object(
+        DBIInspectionCampaignApprovalService, "_verified_scientific_chain",
+        return_value=False,
+    ):
+        denied(lambda: get(service))
+
     service, session = session_fixture(digest_ok=False)
     with patch.object(DBIInspectionCampaignApprovalService, "_state", return_value=approved_state()), \
          patch.object(DBIInspectionCampaignApprovalService, "_verified_scientific_chain", return_value=True):
@@ -203,4 +234,4 @@ def validate() -> None:
 
 if __name__ == "__main__":
     validate()
-    print("OK: lectura INSPECT fail-closed por Campaign, dos firmas y versión vigente; DTO mínimo.")
+    print("OK: INSPECT publicado por doble o única aprobación institucional; DTO mínimo.")
