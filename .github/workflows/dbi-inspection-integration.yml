@@ -57,6 +57,11 @@ jobs:
           PYTHONPATH: apps/platform-web/backend
         run: python .github/scripts/ci_dbi_inspection_http.py
 
+      - name: Validar servicio interno de dos firmas por Campaign
+        env:
+          PYTHONPATH: apps/platform-web/backend
+        run: python .github/scripts/ci_dbi_inspection_approval_service.py
+
       - name: Validar asociación posterior a UP inequívoca
         env:
           PYTHONPATH: apps/platform-web/backend
