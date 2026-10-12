@@ -62,6 +62,11 @@ jobs:
           PYTHONPATH: apps/platform-web/backend
         run: python .github/scripts/ci_dbi_inspection_approval_service.py
 
+      - name: Validar cargos institucionales para INSPECT sin API
+        env:
+          PYTHONPATH: apps/platform-web/backend
+        run: python .github/scripts/ci_dbi_inspection_staff_workflow.py
+
       - name: Validar lectura publicada INSPECT fail-closed sin ruta cliente
         env:
           PYTHONPATH: apps/platform-web/backend
