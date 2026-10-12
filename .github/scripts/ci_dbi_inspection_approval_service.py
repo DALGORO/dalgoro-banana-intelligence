@@ -192,6 +192,47 @@ def verify_signatures():
         )
     session.add.assert_not_called()
 
+    # Un SOLO clic admin+técnico crea ambos eventos auditables en
+    # una transacción y con el MISMO UUID de principal (no finge dos personas).
+    session.reset_mock()
+    bind_for_signatures(bind, link, observation, latest, [])
+    with patch.object(service, "_verified_scientific_chain", return_value=True):
+        one_action = service.authorize_administrative(
+            same, **params(link_id=LINK), _staff_dual_role_verified=True,
+        )
+    assert one_action.stage == "self_approved"
+    assert one_action.administrative_by == one_action.technical_by == "tech-one"
+    assert session.add.call_count == 2
+    events_one_action = [call.args[0] for call in session.add.call_args_list]
+    assert [e.event_kind for e in events_one_action] == [
+        "technical_validated", "administrative_authorized",
+    ]
+    assert all(e.actor_ref == "tech-one" for e in events_one_action)
+    assert events_one_action[0].decided_at == events_one_action[1].decided_at
+    session.flush.assert_called_once()
+
+    # Si ese actor validó antes como técnico, sólo se registra el acto admin.
+    session.reset_mock()
+    bind_for_signatures(bind, link, observation, latest, [technical])
+    with patch.object(service, "_verified_scientific_chain", return_value=True):
+        self_after_technical = service.authorize_administrative(
+            same, **params(link_id=LINK), _staff_dual_role_verified=True,
+        )
+    assert self_after_technical.stage == "self_approved"
+    session.add.assert_called_once()
+    assert session.add.call_args.args[0].event_kind == "administrative_authorized"
+
+    # Sin la procedencia MULTI no se registran eventos en modo unipersonal.
+    session.reset_mock()
+    bind_for_signatures(bind, link, observation, latest, [])
+    with patch.object(service, "_verified_scientific_chain", return_value=False):
+        denied(
+            lambda: service.authorize_administrative(
+                same, **params(link_id=LINK), _staff_dual_role_verified=True,
+            ), DBIInspectionApprovalConflict,
+        )
+    session.add.assert_not_called()
+
     # El administrador necesita AMBOS privilegios scoped.
     for permissions in ({DBIPermission.MANAGE}, {DBIPermission.APPROVE_AGRONOMIC}):
         session.reset_mock()
@@ -242,4 +283,4 @@ def verify_server_only_provenance():
 if __name__ == "__main__":
     verify_signatures()
     verify_server_only_provenance()
-    print("OK: dos firmas INSPECT sobre vínculo existente scoped/serializadas, sin API pública.")
+    print("OK: INSPECT con dos actores o autoaprobación institucional, sin API.")
