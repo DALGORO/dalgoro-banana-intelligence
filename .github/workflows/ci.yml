@@ -70,6 +70,9 @@ jobs:
       - name: Validar contrato visual DBI sin resultados ficticios
         run: node --test tests/dbiClientVisualLayout.test.mjs
 
+      - name: Validar búsqueda exacta de fincas y lotes autorizados
+        run: node --test tests/clientPortalSearch.test.mjs
+
       - name: Compilar frontend
         run: npm run build
 
