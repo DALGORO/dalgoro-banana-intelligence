@@ -213,6 +213,24 @@ def main() -> None:
                 (psycopg.errors.RaiseException, psycopg.errors.ForeignKeyViolation),
             )
 
+            # El libro de auditoría permanece inmutable incluso si alguien
+            # intenta alterar una fila; sólo el migrador puede retirar trigger.
+            _assert_denied(
+                lambda: cur.execute(
+                    "UPDATE dbi.dbi_inspect_staff_audit_events "
+                    "SET actor_ref='spoofed' WHERE role_id=%s",
+                    (TECH2_ROLE,),
+                ),
+                (psycopg.errors.RaiseException,),
+            )
+            _assert_denied(
+                lambda: cur.execute(
+                    "DELETE FROM dbi.dbi_inspect_staff_audit_events "
+                    "WHERE role_id=%s", (TECH2_ROLE,),
+                ),
+                (psycopg.errors.RaiseException,),
+            )
+
         with Session(engine) as session:
             directory = DBIInspectionInstitutionalStaffDirectory(session)
             assert not directory.list_assignments(
