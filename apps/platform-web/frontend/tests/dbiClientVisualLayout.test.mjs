@@ -11,6 +11,7 @@ const multi = file("../src/components/MultispectralEvidencePanel.tsx");
 const styles = file("../src/components/dbi-client-view.css");
 const tracking = file("../src/components/FarmTrackingPanel.tsx");
 const inspect = file("../src/components/InspectionObservationLookup.tsx");
+const clientHome = file("../src/pages/ClientPortal.tsx");
 
 test("approved DBI client visual shell reuses the existing DALGORO PNG brand", () => {
   assert.match(shell, /src="\/logo-white\.png"/);
@@ -201,4 +202,24 @@ test("INSPECT missing data remain missing rather than healthy or diseased", () =
   assert.equal(observedNumberLabel({ state: "not_measured", value: null, reason: "not_visited" }), "No medido");
   assert.equal(observedNumberLabel({ state: "not_applicable", value: null, reason: "no_bunch" }), "No aplicable");
   assert.equal(observedNumberLabel({ state: "observed", value: Number.NaN, reason: null }), "Dato no disponible");
+});
+
+test("client landing view uses DALGORO brand and safe retry of authorized catalogue", () => {
+  assert.match(clientHome, /className="dbi-portal-hero/);
+  assert.match(styles, /\.dbi-portal-home \.dbi-portal-hero/);
+  assert.match(styles, /#152e32/);
+  assert.match(styles, /#b57b50/);
+  assert.match(clientHome, /api\.get<Account\[\]>\(/);
+  assert.match(clientHome, /"\/api\/v1\/dbi\/portal\/accounts"/);
+  assert.match(clientHome, /setLoading\(true\);[\s\S]*?setError\(null\);/);
+  assert.match(clientHome, /\}, \[reloadKey\]\);/);
+  assert.match(clientHome, /onClick=\{retry\}/);
+  assert.match(clientHome, /Reintentar consulta/);
+  assert.match(clientHome, /role="alert"/);
+  assert.match(clientHome, /aria-live="polite"/);
+  assert.match(clientHome, /const totalPlots = farms\.reduce/);
+  assert.match(clientHome, /loading \|\| error \? "—" : farms\.length/);
+  assert.match(clientHome, /loading \|\| error \? "—" : totalPlots/);
+  assert.match(clientHome, /mapLink\(account, farm, plot\)/);
+  assert.doesNotMatch(clientHome, /Math\.random|fakeCampaign|mockPlots|api\.post\(/);
 });
