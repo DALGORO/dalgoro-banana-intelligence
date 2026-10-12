@@ -25,4 +25,15 @@ Aunque la tabla admite atribuir una misma observación con distintas versiones a
 
 `.github/scripts/ci_dbi_inspect_campaign_link_service.py` comprueba permisos, rechazo cross-tenant y cross-plot, Campaign/observación ausentes, versiones incorrectas, `evidence_kind` distinto de observed, conflicto entre campañas, replay idempotente, contrato FOR UPDATE y ausencia de escrituras ante errores.
 
-**Pendiente de la siguiente fase:** pruebas SQL reales de flujo completo bajo PostGIS efímero con roles del staff, idempotencia bajo concurrencia, firma técnica, firma administrativa y separación READ interno vs READ publicado. CI del servicio por dobles de sesión no equivale a una validación productiva.
+**Actualización de verificación PostGIS:** el CI incorpora una prueba real de
+asociación con un rol INSPECT de privilegios limitados, tras el fixture de
+observación/versiones. Comprueba scope, READ-only denegado, Campaign tipo
+Density rechazada, versión antigua, replay y conflicto de Campaign,
+y persiste una fila con `linked_by_ref`. Se conserva el bloqueo
+`FOR UPDATE` de la identidad INSPECT para serializar correcciones;
+se elimina el segundo bloqueo redundante del vínculo, evitando exigir
+permiso UPDATE sobre registros append-only.
+
+**Pendiente de la siguiente fase:** pruebas SQL reales del flujo de doble
+firma, idempotencia bajo concurrencia de varios escritores, verificación
+científica profunda, revocación y separación READ interno/publicado. CI del servicio por dobles de sesión no equivale a una validación productiva.
