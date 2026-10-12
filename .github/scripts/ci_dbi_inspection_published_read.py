@@ -84,6 +84,7 @@ def session_fixture(*, campaign=True, link=True, latest_version=VERSION,
                     observed=True, digest_ok=True):
     row_campaign = SimpleNamespace(id=CAMPAIGN) if campaign else None
     row_link = SimpleNamespace(
+        id=UUID("60000000-0000-4000-8000-000000000241"),
         tenant_ref="tenant-241", organization_ref="org-241",
         farm_id=FARM, plot_id=PLOT, campaign_id=CAMPAIGN,
         observation_id=OBS, observation_version_id=VERSION,
@@ -114,7 +115,11 @@ def validate() -> None:
     # READ es obligatorio, incluso antes de consultar la base de datos.
     service, session = session_fixture()
     denied(lambda: get(service, access({DBIPermission.WRITE})), DBIAccessDenied)
-    denied(lambda: get(service, access({DBIPermission.READ}, tenant="another")), DBIAccessDenied)
+    # El tenant procede de la identidad autenticada; la consulta SQL se
+    # filtra por él. El mock de DB simula ausencia en ese tenant, no denegación
+    # RBAC por el mero hecho de que el tenant sea diferente del fixture.
+    foreign_service, _foreign_session = session_fixture(campaign=False)
+    denied(lambda: get(foreign_service, access({DBIPermission.READ}, tenant="another")))
     denied(lambda: get(service, access({DBIPermission.READ}, plot=NEW_VERSION)), DBIAccessDenied)
     session.execute.assert_not_called()
 
