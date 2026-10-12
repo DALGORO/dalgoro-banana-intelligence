@@ -660,3 +660,56 @@
   border-color: rgba(255, 255, 255, 0.16);
   background: rgba(255, 255, 255, 0.055);
 }
+
+/* Inicio cliente: misma identidad petróleo/cobre que el visor, sin tocar GIS. */
+.dbi-portal-home .dbi-portal-hero {
+  background: linear-gradient(123deg, #152e32 0%, #17383b 64%, #365a55 100%);
+  border: 1px solid rgba(181, 123, 80, 0.36);
+}
+
+.dbi-portal-home .dbi-portal-farm-header {
+  background: #eff4f1;
+  border-color: #d9e4df;
+}
+
+.dbi-portal-home .dbi-portal-plot-link:hover {
+  background: #f3f7f5;
+}
+
+.dbi-portal-home .dbi-portal-plot-link:focus-visible,
+.dbi-portal-home .dbi-portal-search:focus-visible,
+.dbi-portal-home .dbi-portal-retry:focus-visible {
+  outline: 3px solid #b57b50;
+  outline-offset: 3px;
+}
+
+.dbi-portal-home .dbi-portal-error {
+  color: #802e35;
+  background: #fff5f4;
+  border-color: #e9b8b2;
+}
+
+.dbi-portal-home .dbi-portal-retry {
+  background: #17383b;
+  color: white;
+  min-height: 44px;
+}
+
+.dbi-portal-home .dbi-portal-retry:hover {
+  background: #244e50;
+}
+
+.dark .dbi-portal-home .dbi-portal-farm-header {
+  background: #21393f;
+  border-color: rgba(255,255,255,0.13);
+}
+
+.dark .dbi-portal-home .dbi-portal-plot-link:hover {
+  background: rgba(255,255,255,0.07);
+}
+
+.dark .dbi-portal-home .dbi-portal-error {
+  background: rgba(128, 46, 53, 0.15);
+  color: #ffd4d0;
+  border-color: #aa7778;
+}
