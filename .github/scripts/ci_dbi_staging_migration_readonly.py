@@ -30,7 +30,7 @@ VALUES = {
     "DBI_STAGING_VERIFY_HOST": "staging-db.example.org",
     "DBI_STAGING_VERIFY_CONFIRM": "VERIFY dbi_staging READ ONLY",
 }
-HEAD = "dbi_0028_institutional_staff"
+HEAD = "dbi_0029_staff_approval_guard"
 
 
 class Connection(_FakeConnection):
