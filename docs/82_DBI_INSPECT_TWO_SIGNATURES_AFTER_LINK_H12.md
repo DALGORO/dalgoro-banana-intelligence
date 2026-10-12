@@ -1,4 +1,13 @@
-# DBI-H12-SVC-002 · Dos firmas sobre vínculo Campaign–INSPECT existente
+# DBI-H12-SVC-002 · Firmas y auditoría sobre vínculo Campaign–INSPECT existente
+
+> **Regla vigente a partir de H12-AUTH-002:** ver [doc. 85](85_DBI_INSPECT_SINGLE_ADMIN_DUAL_ROLE_H12.md).
+> Un único administrador DALGORO puede ser también técnico y completar
+> **una sola acción de aprobación** cuando ambas acreditaciones están
+> verificadas por el servidor. El historial conserva dos eventos atómicos
+> con el mismo principal, sin simular independencia. Si un técnico distinto
+> valida, se mantiene el flujo técnico→administrador de dos personas.
+> Las afirmaciones históricas de dos principales distintos en este documento
+> describen exclusivamente ese flujo de dos personas.
 
 ## Integración conservadora posterior a #218
 
@@ -28,7 +37,9 @@ siempre con la versión INSPECT vigente y sin publicación al cliente.
 `authorize_administrative(context, link_id, org, farm, plot)`:
 - Exige `APPROVE_AGRONOMIC` y `MANAGE` scoped.
 - Requiere validación técnica previa de **otra persona** sobre el mismo
-  vínculo y la misma versión vigente; no basta tener ambos roles.
+  vínculo y la misma versión vigente en la modalidad de dos personas.
+  La modalidad unipersonal exige dos acreditaciones institucionales vigentes
+  al MISMO UUID canónico y se registra en un acto del administrador.
 - Antes de firmar, verifica que exista una extracción MULTI para esa
   versión INSPECT y que la cadena explícita
   `raster científico → artefacto → job finalizado → Campaign MULTI`
@@ -45,7 +56,8 @@ siempre con la versión INSPECT vigente y sin publicación al cliente.
 Una corrección INSPECT añade una nueva versión; el vínculo firmado de
 la versión antigua sigue siendo auditable, pero **no es válido como
 aprobación de la versión actual**. La nueva versión requiere nueva
-propuesta de asociación y las dos firmas. El servicio #218 permanece
+propuesta de asociación y una nueva aprobación según la modalidad.
+El servicio #218 permanece
 la autoridad sobre cómo se propone ese vínculo.
 
 ### Límites de seguridad y despliegue
@@ -54,7 +66,8 @@ la autoridad sobre cómo se propone ese vínculo.
   cliente, ni UI de aprobación, ni publicación**.
 - Los permisos `WRITE` / `MANAGE` no certifican por sí solos que el actor
   sea empleado/técnico DALGORO: la API interna futura **deberá** confirmar
-  membership institucional confiable y distintos principales.
+  membresía institucional confiable: principal único en modo unipersonal,
+  dos principales distintos cuando revisa otro técnico.
 - El servicio usa la sesión que recibe, hace `flush`, pero el llamador
   controla commit/rollback; eventos y vínculos no precisan privilegios
   `UPDATE`/`DELETE`. El rol de CI conserva permiso de actualización

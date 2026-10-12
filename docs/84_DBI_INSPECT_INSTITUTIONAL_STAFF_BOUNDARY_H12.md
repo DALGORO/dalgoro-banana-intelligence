@@ -1,5 +1,9 @@
 # DBI-H12-AUTH-001 — Frontera institucional de personal INSPECT (sin API)
 
+> **Actualización de política:** [doc. 85](85_DBI_INSPECT_SINGLE_ADMIN_DUAL_ROLE_H12.md)
+> permite una sola persona con doble cargo explícito y exige un único
+> administrador DALGORO, sin limitar la cantidad de técnicos.
+
 ## Antecedente verificado
 `main` ya contiene #217 (migración 27), #218 (vínculos), #221 (doble firma),
 #223 (persistencia del vínculo), #224 (lectura doblemente aprobada sin endpoint)
@@ -25,13 +29,16 @@ para las futuras rutas seguras de vínculo y firmas. Por cada operación:
    delimitada por UUID canónico del principal, tenant y organización.
    El contrato `DBIInspectionStaffDirectoryPort` NO admite un booleano del
    navegador ni reutiliza permisos generales como prueba de pertenencia.
-4. Exige exactamente una acreditación `active`, sin duplicados, válida
-   para el cargo requerido: `technician` en revisión técnica,
-   `administrator` en autorización administrativa. El vínculo puede
+4. Exige de una a dos acreditaciones `active`, como máximo una por cargo,
+   todas del mismo principal/tenant/organización. El cargo `technician`
+   revisa; el `administrator` autoriza, y el titular de ambos cargos
+   puede aprobar con una única acción. El directorio debe acreditar que
+   hay **exactamente un administrador DALGORO global**. El vínculo puede
    proponerlo cualquiera de ambos cargos si además dispone de `WRITE`.
 5. Delega en los servicios de #218 y #221, que conservan los locks,
    versiones exactas, firma por actor, orden técnico→administrativo,
-   separación de principales y procedencia de ráster→artefacto→job→Campaign.
+   separación de principales cuando son dos personas, o identidad común
+   explícita en modo unipersonal; procedencia ráster→artefacto→job→Campaign.
 
 El workflow usa la misma sesión DBI y **no hace commit/rollback**.
 La frontera no reemplaza `DBIInspectionCampaignApprovalService` ni cambia

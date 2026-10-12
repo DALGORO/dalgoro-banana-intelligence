@@ -1,4 +1,4 @@
-"""Preparación de lectura cliente INSPECT: sólo evidencia doblemente firmada.
+"""Preparación de lectura cliente INSPECT: sólo evidencia validada y autorizada institucionalmente.
 
 NO hay endpoint FastAPI ni publicación habilitada. El controlador futuro deberá
 resolver READ scoped del servidor y exponer exclusivamente el DTO mínimo.
@@ -130,7 +130,7 @@ class DBIInspectionPublishedReadService:
             state = approval._state(link)
         except DBIInspectionApprovalConflict as error:
             raise DBIInspectionPublishedUnavailable() from error
-        if state.stage != "dual_approved":
+        if state.stage not in {"dual_approved", "self_approved"}:
             raise DBIInspectionPublishedUnavailable()
         if not state.eligible_for_client_read(
             current_version_id=latest.id,

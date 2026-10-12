@@ -1,4 +1,4 @@
-"""Contrato PURO de doble aprobación INSPECT por Campaign y versión.
+"""Contrato PURO INSPECT: firma única administrador-técnico o dos actores.
 
 No se conecta a API ni base de datos en este hito: primero se prueba la política
 fail-closed antes de diseñar la migración y los endpoints de aprobación.
@@ -37,7 +37,7 @@ def _aware(value: datetime) -> bool:
 
 @dataclass(frozen=True, slots=True)
 class DBIInspectionApprovalState:
-    """Aprobaciones independientes sobre UNA versión y UNA Campaign exactas."""
+    """Aprobaciones trazables sobre UNA versión y UNA Campaign exactas."""
 
     tenant_ref: str
     organization_ref: str
@@ -72,17 +72,20 @@ class DBIInspectionApprovalState:
         if self.administrative_by is not None:
             if (
                 self.technical_by is None
-                or self.administrative_by == self.technical_by
                 or not _canonical_actor(self.administrative_by)
                 or not _aware(self.administrative_at)
                 or self.administrative_at < self.technical_at
             ):
-                raise DBIInspectionApprovalConflict("Las dos firmas deben ser distintas y ordenadas.")
+                raise DBIInspectionApprovalConflict("Las aprobaciones deben ser ordenadas y válidas.")
 
     @property
     def stage(self) -> str:
         if self.administrative_by is not None:
-            return "dual_approved"
+            return (
+                "self_approved"
+                if self.administrative_by == self.technical_by
+                else "dual_approved"
+            )
         if self.technical_by is not None:
             return "technical_validated"
         return "pending"
@@ -139,6 +142,51 @@ class DBIInspectionApprovalState:
             )
         return replace(self, administrative_by=context.principal_ref, administrative_at=at)
 
+    def approve_self_administrative(
+        self,
+        context: DBIAccessContext,
+        *,
+        at: datetime,
+        current_version_id: UUID,
+        campaign_link_verified: bool,
+    ) -> "DBIInspectionApprovalState":
+        """Una acción del administrador TAMBIÉN acreditado como técnico.
+
+        Solo llamar tras validar ambos cargos desde un directorio institucional
+        confiable del servidor. No aceptar esta decisión desde un payload HTTP.
+        Si no hubo paso técnico, se crea simultáneamente en la misma transacción.
+        """
+        for permission in (
+            DBIPermission.WRITE,
+            DBIPermission.APPROVE_AGRONOMIC,
+            DBIPermission.MANAGE,
+        ):
+            self._require_scoped(context, permission)
+        self._require_latest(current_version_id)
+        if (
+            not _aware(at)
+            or campaign_link_verified is not True
+            or self.stage not in {"pending", "technical_validated"}
+            or (
+                self.stage == "technical_validated"
+                and self.technical_by != context.principal_ref
+            )
+            or (
+                self.technical_at is not None
+                and at < self.technical_at
+            )
+        ):
+            raise DBIInspectionApprovalConflict(
+                "Aprobación propia sin acreditación o evidencia vigente."
+            )
+        return replace(
+            self,
+            technical_by=context.principal_ref,
+            technical_at=self.technical_at or at,
+            administrative_by=context.principal_ref,
+            administrative_at=at,
+        )
+
     def eligible_for_client_read(
         self,
         *,
@@ -148,7 +196,7 @@ class DBIInspectionApprovalState:
     ) -> bool:
         """Fail-closed: esta evidencia NO es un guard API hasta integrarse."""
         return (
-            self.stage == "dual_approved"
+            self.stage in {"dual_approved", "self_approved"}
             and current_version_id == self.observation_version_id
             and campaign_id == self.campaign_id
             and campaign_link_verified is True

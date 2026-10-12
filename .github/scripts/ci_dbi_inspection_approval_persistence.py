@@ -201,6 +201,48 @@ def _validate(engine) -> None:
         primary = link.id
         session.commit()
 
+    # El propietario de ambos cargos aprueba con UNA acción y DOS eventos
+    # auditables en un mismo COMMIT potencial. Rollback deja el fixture original
+    # libre para probar después la secuencia de dos personas distintas.
+    owner = _context(
+        "unique-admin-also-technician-ci",
+        {DBIPermission.WRITE, DBIPermission.MANAGE,
+         DBIPermission.APPROVE_AGRONOMIC},
+    )
+    with Session(engine) as session:
+        service = DBIInspectionCampaignApprovalService(session)
+        _expect(
+            lambda: service.authorize_administrative(
+                owner, **_params(primary),
+            ), DBIInspectionApprovalConflict,
+        )
+        state = service.authorize_administrative(
+            owner, **_params(primary), _staff_dual_role_verified=True,
+        )
+        assert state.stage == "self_approved"
+        assert state.technical_by == state.administrative_by == owner.principal_ref
+        events = session.execute(
+            select(DBIInspectionApprovalEventRecord).where(
+                DBIInspectionApprovalEventRecord.link_id == primary
+            )
+        ).scalars().all()
+        assert len(events) == 2
+        assert {event.event_kind for event in events} == {
+            "technical_validated", "administrative_authorized",
+        }
+        assert all(event.actor_ref == owner.principal_ref for event in events)
+        assert events[0].decided_at == events[1].decided_at
+        assert service._state(session.get(
+            DBIInspectionCampaignLinkRecord, primary,
+        )).stage == "self_approved"
+        session.rollback()
+    with Session(engine) as session:
+        assert session.scalar(
+            select(func.count(DBIInspectionApprovalEventRecord.id)).where(
+                DBIInspectionApprovalEventRecord.link_id == primary
+            )
+        ) == 0
+
     # Dos firmas en transacciones reales, cada una derivada del principal
     # autenticado (no de un parámetro actor_ref de frontend).
     with Session(engine) as session:
@@ -364,4 +406,4 @@ if __name__ == "__main__":
         _validate(engine)
     finally:
         engine.dispose()
-    print("OK: 2 firmas PostGIS persistidas, actores distintos, versión y MULTI verificadas.")
+    print("OK: firmas de dos actores y autoaprobación única ensayadas en PostGIS.")
