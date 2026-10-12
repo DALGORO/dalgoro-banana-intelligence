@@ -177,14 +177,89 @@ def validate_contract() -> None:
     assert not approved.eligible_for_client_read(
         current_version_id=VERSION_2, campaign_id=CAMPAIGN, campaign_link_verified=True
     )
+    # Una sola acción con administrador Y técnico, acreditaciones por separado.
+    owner = context("owner-unique", {
+        DBIPermission.READ, DBIPermission.WRITE,
+        DBIPermission.APPROVE_AGRONOMIC, DBIPermission.MANAGE,
+    })
+    self_approved = original.approve_self_administrative(
+        owner, at=NOW, current_version_id=VERSION_1,
+        campaign_link_verified=True,
+    )
+    assert self_approved.stage == "self_approved"
+    assert self_approved.technical_by == self_approved.administrative_by
+    assert self_approved.technical_at == self_approved.administrative_at
+    assert self_approved.eligible_for_client_read(
+        current_version_id=VERSION_1, campaign_id=CAMPAIGN,
+        campaign_link_verified=True,
+    )
+    from_review = original.validate_technical(
+        owner, at=NOW, current_version_id=VERSION_1,
+    ).approve_self_administrative(
+        owner, at=NOW + timedelta(minutes=1),
+        current_version_id=VERSION_1, campaign_link_verified=True,
+    )
+    assert from_review.stage == "self_approved"
+    assert from_review.technical_at == NOW
+    for permissions in (
+        {DBIPermission.WRITE, DBIPermission.MANAGE},
+        {DBIPermission.WRITE, DBIPermission.APPROVE_AGRONOMIC},
+        {DBIPermission.MANAGE, DBIPermission.APPROVE_AGRONOMIC},
+    ):
+        denied(
+            lambda p=permissions: original.approve_self_administrative(
+                context("owner-unique", p),
+                at=NOW, current_version_id=VERSION_1,
+                campaign_link_verified=True,
+            ),
+            DBIAccessDenied,
+        )
+    denied(
+        lambda: original.approve_self_administrative(
+            owner, at=NOW, current_version_id=VERSION_1,
+            campaign_link_verified=False,
+        ), DBIInspectionApprovalConflict,
+    )
+    denied(
+        lambda: original.approve_self_administrative(
+            owner, at=NOW, current_version_id=VERSION_2,
+            campaign_link_verified=True,
+        ), DBIInspectionApprovalConflict,
+    )
+    denied(
+        lambda: reviewed.approve_self_administrative(
+            owner, at=NOW + timedelta(minutes=1),
+            current_version_id=VERSION_1,
+            campaign_link_verified=True,
+        ), DBIInspectionApprovalConflict,
+    )
+    denied(
+        lambda: self_approved.approve_self_administrative(
+            owner, at=NOW + timedelta(minutes=1),
+            current_version_id=VERSION_1,
+            campaign_link_verified=True,
+        ), DBIInspectionApprovalConflict,
+    )
+    assert not self_approved.eligible_for_client_read(
+        current_version_id=VERSION_2, campaign_id=CAMPAIGN,
+        campaign_link_verified=True,
+    )
     corrected = pending(VERSION_2)
     assert corrected.stage == "pending"
     assert not corrected.eligible_for_client_read(
         current_version_id=VERSION_2, campaign_id=CAMPAIGN, campaign_link_verified=True
     )
+    # Estado con mismo principal representa un cargo doble, nunca
+    # dos identidades: el servicio real exige acreditación institucional.
+    assert replace(
+        reviewed, administrative_by="tech-A",
+        administrative_at=NOW + timedelta(minutes=1),
+    ).stage == "self_approved"
     denied(
-        lambda: replace(reviewed, administrative_by="tech-A",
-                        administrative_at=NOW + timedelta(minutes=1)),
+        lambda: replace(
+            reviewed, administrative_by="tech-A",
+            administrative_at=NOW - timedelta(minutes=1),
+        ),
         DBIInspectionApprovalConflict,
     )
     denied(
@@ -202,4 +277,4 @@ def validate_contract() -> None:
 
 if __name__ == "__main__":
     validate_contract()
-    print("OK: política dual INSPECT fail-closed, dos actores y versión exacta.")
+    print("OK: INSPECT 2 actores o 1 admin-técnico, versión exacta y fail-closed.")
