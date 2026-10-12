@@ -169,7 +169,6 @@ def verify() -> None:
         variants = (
             (),
             (appointment(TECH_ID, DBIInspectionStaffRole.TECHNICIAN, status="revoked"),),
-            (appointment(TECH_ID, DBIInspectionStaffRole.ADMINISTRATOR),),
             (appointment(ADMIN_ID, DBIInspectionStaffRole.TECHNICIAN),),
             (appointment(TECH_ID, DBIInspectionStaffRole.TECHNICIAN, tenant_ref="other"),),
             (appointment(TECH_ID, DBIInspectionStaffRole.TECHNICIAN,
@@ -183,12 +182,15 @@ def verify() -> None:
             )
             denied(lambda w=candidate: propose(w))
         assert link.return_value.propose_link.call_count == 1
+        # Administrador acreditado también puede proponer vínculo con WRITE.
+        assert propose(admin, ADMIN) == ("link-created", True)
+        assert link.return_value.propose_link.call_count == 2
 
         # Un JWT/permisos coherentes NO suplantan un principal que DBI ya revocó.
         resolver.return_value.resolve.side_effect = DBIAdminConflict()
         denied(lambda: propose(tech))
         denied(lambda: admin.authorize_administrative(ADMIN, **parameters()))
-        assert link.return_value.propose_link.call_count == 1
+        assert link.return_value.propose_link.call_count == 2
         assert approval.return_value.authorize_administrative.call_count == 1
 
         # Una divergencia entre identidad declarada y DBI persistido bloquea.
@@ -197,7 +199,7 @@ def verify() -> None:
             principal_id=ADMIN_ID,
         )
         denied(lambda: propose(tech))
-        assert link.return_value.propose_link.call_count == 1
+        assert link.return_value.propose_link.call_count == 2
 
     # Contrato estático: no habrá rutas ni migraciones en este microhito.
     source = (
