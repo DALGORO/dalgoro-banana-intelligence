@@ -57,6 +57,8 @@ class DBIInspectionStaffDirectoryPort(Protocol):
 
     def list_active_administrators(self) -> Sequence[UUID]: ...
 
+    def acquire_approval_snapshot(self) -> None: ...
+
 
 class DBIInspectionStaffWorkflow:
     """Única fachada prevista para futuras rutas de vínculo y firmas INSPECT.
@@ -97,6 +99,11 @@ class DBIInspectionStaffWorkflow:
             raise DBIAccessDenied()
 
         try:
+            # Shared xact advisory lock blocks all INSERT/UPDATE/DELETE of
+            # institutional roles (migration 29 BEFORE trigger). It must
+            # remain held until the caller COMMITs the INSPECT audit events.
+            # Missing/invalid guard always denies, never silently falls back.
+            self._staff_directory.acquire_approval_snapshot()
             principal_id = UUID(context.principal_ref)
             # Verifica desde DBI en esta transacción: principal/membresía
             # activos y TODOS los permisos/ámbitos idénticos al contexto.
@@ -142,7 +149,7 @@ class DBIInspectionStaffWorkflow:
             if not active_roles.intersection(roles):
                 raise DBIAccessDenied()
             return frozenset(active_roles)
-        except (DBIAdminConflict, TypeError, ValueError) as error:
+        except (DBIAdminConflict, TypeError, ValueError, AttributeError) as error:
             raise DBIAccessDenied() from error
 
     def propose_link(
