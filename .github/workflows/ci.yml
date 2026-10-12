@@ -170,6 +170,11 @@ jobs:
           PYTHONPATH: .
         run: python ../../../.github/scripts/ci_dbi_inspection_approval_service.py
 
+      - name: Validar filtro cliente de INSPECT publicado en backend
+        env:
+          PYTHONPATH: .
+        run: python ../../../.github/scripts/ci_dbi_inspection_published_read.py
+
       - name: Validar política administrativa DBI offline
         env:
           PYTHONPATH: .
