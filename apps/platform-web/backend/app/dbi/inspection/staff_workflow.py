@@ -55,6 +55,8 @@ class DBIInspectionStaffDirectoryPort(Protocol):
         self, *, principal_id: UUID, tenant_ref: str, organization_ref: str,
     ) -> Sequence[DBIInspectionStaffAssignment]: ...
 
+    def list_active_administrators(self) -> Sequence[UUID]: ...
+
 
 class DBIInspectionStaffWorkflow:
     """Única fachada prevista para futuras rutas de vínculo y firmas INSPECT.
@@ -82,7 +84,7 @@ class DBIInspectionStaffWorkflow:
         plot_id: UUID,
         permission: DBIPermission,
         roles: frozenset[DBIInspectionStaffRole],
-    ) -> None:
+    ) -> frozenset[DBIInspectionStaffRole]:
         if not isinstance(context, DBIAccessContext):
             raise DBIAccessDenied()
         # Antes de leer afiliación institucional, comprobar scope exacto.
@@ -108,21 +110,38 @@ class DBIInspectionStaffWorkflow:
                 tenant_ref=context.tenant_ref,
                 organization_ref=organization_ref,
             ))
-            # Exactamente una autorización: duplicados, roles simultáneos,
-            # inactivos, tenant u organización cruzados fallan cerrados.
-            if len(assignments) != 1:
-                raise DBIAccessDenied()
-            assignment = assignments[0]
+            # El administrador es ÚNICO en DALGORO, no uno por cliente/tenant.
+            # Dos cargos del MISMO principal son válidos y se acreditan
+            # individualmente; jamás se infiere "técnico" por ser administrador.
+            administrators = tuple(
+                self._staff_directory.list_active_administrators()
+            )
             if (
-                not isinstance(assignment, DBIInspectionStaffAssignment)
-                or assignment.principal_id != principal_id
-                or assignment.tenant_ref != context.tenant_ref
-                or assignment.organization_ref != organization_ref
-                or not isinstance(assignment.role, DBIInspectionStaffRole)
-                or assignment.role not in roles
-                or assignment.status != "active"
+                len(administrators) != 1
+                or not isinstance(administrators[0], UUID)
+                or not (1 <= len(assignments) <= 2)
             ):
                 raise DBIAccessDenied()
+            active_roles: set[DBIInspectionStaffRole] = set()
+            for assignment in assignments:
+                if (
+                    not isinstance(assignment, DBIInspectionStaffAssignment)
+                    or assignment.principal_id != principal_id
+                    or assignment.tenant_ref != context.tenant_ref
+                    or assignment.organization_ref != organization_ref
+                    or not isinstance(assignment.role, DBIInspectionStaffRole)
+                    or assignment.role in active_roles
+                    or assignment.status != "active"
+                    or (
+                        assignment.role is DBIInspectionStaffRole.ADMINISTRATOR
+                        and administrators[0] != principal_id
+                    )
+                ):
+                    raise DBIAccessDenied()
+                active_roles.add(assignment.role)
+            if not active_roles.intersection(roles):
+                raise DBIAccessDenied()
+            return frozenset(active_roles)
         except (DBIAdminConflict, TypeError, ValueError) as error:
             raise DBIAccessDenied() from error
 
@@ -186,7 +205,7 @@ class DBIInspectionStaffWorkflow:
         link_id: UUID,
     ):
         # Se exigen AMBOS permisos, no sólo MANAGE.
-        self._require_staff(
+        active_roles = self._require_staff(
             context, organization_ref=organization_ref,
             farm_id=farm_id, plot_id=plot_id,
             permission=DBIPermission.APPROVE_AGRONOMIC,
@@ -202,4 +221,7 @@ class DBIInspectionStaffWorkflow:
         ).authorize_administrative(
             context, organization_ref=organization_ref,
             farm_id=farm_id, plot_id=plot_id, link_id=link_id,
+            _staff_dual_role_verified=(
+                DBIInspectionStaffRole.TECHNICIAN in active_roles
+            ),
         )
