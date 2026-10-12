@@ -122,7 +122,6 @@ class DBIInspectionCampaignLinkService:
                 DBIInspectionCampaignLinkRecord.observation_version_id
                 == observation_version_id,
             )
-            .with_for_update()
         ).scalar_one_or_none()
         if linked is not None:
             if (
