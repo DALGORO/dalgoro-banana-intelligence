@@ -66,7 +66,8 @@ def upgrade() -> None:
             "(status = 'active' AND revoked_by_ref IS NULL AND revoked_at IS NULL "
             "AND revocation_reason IS NULL) OR "
             "(status = 'revoked' AND revoked_by_ref IS NOT NULL "
-            "AND revoked_at IS NOT NULL AND revocation_reason IS NOT NULL)",
+            "AND revoked_at IS NOT NULL AND revoked_at >= accredited_at "
+            "AND revocation_reason IS NOT NULL)",
             name="ck_dbi_inspect_staff_revocation",
         ),
         sa.CheckConstraint(
@@ -163,9 +164,30 @@ def upgrade() -> None:
         FOR EACH ROW EXECUTE FUNCTION dbi.dbi_inspect_staff_transition_audit()
     """))
 
+    op.execute(sa.text("""
+        CREATE FUNCTION dbi.dbi_inspect_staff_audit_immutable()
+        RETURNS trigger LANGUAGE plpgsql AS $body$
+        BEGIN
+            RAISE EXCEPTION 'Libro de acreditaciones DALGORO es inmutable';
+        END;
+        $body$
+    """))
+    op.execute(sa.text("""
+        CREATE TRIGGER dbi_inspect_staff_audit_immutable
+        BEFORE UPDATE OR DELETE ON dbi_inspect_staff_audit_events
+        FOR EACH ROW EXECUTE FUNCTION dbi.dbi_inspect_staff_audit_immutable()
+    """))
+
 
 def downgrade() -> None:
     # Sólo para entornos desechables o rollback expresamente autorizado.
+    op.execute(sa.text(
+        "DROP TRIGGER IF EXISTS dbi_inspect_staff_audit_immutable "
+        "ON dbi_inspect_staff_audit_events"
+    ))
+    op.execute(sa.text(
+        "DROP FUNCTION IF EXISTS dbi.dbi_inspect_staff_audit_immutable()"
+    ))
     op.execute(sa.text(
         "DROP TRIGGER IF EXISTS dbi_inspect_staff_audit_transition "
         "ON dbi_inspect_staff_roles"
