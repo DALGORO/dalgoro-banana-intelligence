@@ -137,11 +137,11 @@ test("tracking only describes authorized visible entries and GIS, not diagnoses"
   assert.doesNotMatch(tracking, /api\.get\(|fetch\(|localStorage|setInterval/);
 });
 
-test("INSPECT UUID lookup is internal-only until dual approval publication", () => {
+test("INSPECT public view is Campaign-scoped while UUID lookup remains internal", () => {
   assert.match(map, /locator=\{realLocator\}/);
   assert.doesNotMatch(tracking, /<InspectionObservationLookup/);
-  assert.match(tracking, /validación técnica y autorización/);
-  assert.match(tracking, /Ninguna observación pendiente/);
+  assert.match(tracking, /<ApprovedInspectionCampaignPanel/);
+  assert.match(approvedInspect, /No hay inspecciones publicadas disponibles/);
   assert.match(tracking, /\{locator && \(/);
   assert.match(inspect, /onSubmit=\{event => \{/);
   assert.match(inspect, /isObservationUUID\(observationId\)/);
