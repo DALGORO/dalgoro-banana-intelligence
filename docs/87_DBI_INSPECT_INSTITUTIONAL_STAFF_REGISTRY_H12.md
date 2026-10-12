@@ -51,8 +51,17 @@ un PostgreSQL/PostGIS desechable llamado `dbi_test`, con guard estricto
 `GITHUB_ACTIONS=true`, `DBI_ENVIRONMENT=test`, rol/host/DB exactos y
 bandera de prueba. Verifica tabla inicialmente vacía, rechazo de dos
 administradores, múltiples técnicos, dos cargos del mismo principal,
-eventos de alta/revocación, no reactivación, no borrado y adaptador real
+eventos de alta/revocación, no reactivación, no borrado, inmutabilidad de los eventos y adaptador real
 operando con un rol que sólo tiene SELECT.
 
 No se alteran INSPECT clínico, Campaign, GIS, IA, portal cliente,
 endpoints HTTP ni despliegues.
+
+## Brecha de activación conocida
+
+El campo `accredited_by_ref` es una anotación de auditoría y **no demuestra
+por sí mismo** que el acreditador sea un funcionario autorizado. El alta real
+sigue pendiente de control institucional fuera de la API de clientes.
+Además, las consultas `SELECT` ordinarias de la fachada todavía no
+serializan firmas frente a revocaciones concurrentes; antes de activar
+operaciones HTTP debe ensayarse un protocolo de bloqueo común o equivalente.
