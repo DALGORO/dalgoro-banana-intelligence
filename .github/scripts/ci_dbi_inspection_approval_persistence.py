@@ -218,7 +218,7 @@ def _validate(engine) -> None:
                 _context(TECH.principal_ref, TECH.permissions, tenant="cross-tenant"),
                 **_params(primary),
             ),
-            DBIAccessDenied,
+            DBIInspectionApprovalConflict,  # ocultar vínculo de otro tenant
         )
         _expect(
             lambda: service.validate_technical(
