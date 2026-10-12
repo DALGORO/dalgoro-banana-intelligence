@@ -46,7 +46,8 @@ class DBIInspectionInstitutionalStaffRoleRecord(DBIBase):
             "(status = 'active' AND revoked_by_ref IS NULL AND revoked_at IS NULL "
             "AND revocation_reason IS NULL) OR "
             "(status = 'revoked' AND revoked_by_ref IS NOT NULL "
-            "AND revoked_at IS NOT NULL AND revocation_reason IS NOT NULL)",
+            "AND revoked_at IS NOT NULL AND revoked_at >= accredited_at "
+            "AND revocation_reason IS NOT NULL)",
             name="ck_dbi_inspect_staff_revocation",
         ),
         CheckConstraint(
