@@ -46,7 +46,7 @@ def access(perms: set[DBIPermission], *, tenant: str = "tenant-281",
 
 def call(service, context, **changes):
     args = dict(
-        organization_ref="org-281", farm_id=FARM, plot_id=PLOT,
+        tenant_ref="tenant-281", organization_ref="org-281", farm_id=FARM, plot_id=PLOT,
         campaign_id=CAMPAIGN, observation_id=OBS,
         observation_version_id=VERSION,
     )
