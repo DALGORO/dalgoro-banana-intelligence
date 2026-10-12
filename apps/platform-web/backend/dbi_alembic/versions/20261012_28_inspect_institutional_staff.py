@@ -133,7 +133,7 @@ def upgrade() -> None:
                 INSERT INTO dbi.dbi_inspect_staff_audit_events
                     (id, role_id, event_kind, actor_ref, recorded_at)
                 VALUES
-                    (gen_random_uuid(), NEW.id, 'accredited',
+                    (md5(NEW.id::text || 'accredited')::uuid, NEW.id, 'accredited',
                      NEW.accredited_by_ref, CURRENT_TIMESTAMP);
             ELSIF TG_OP = 'UPDATE' THEN
                 IF OLD.status <> 'active' OR NEW.status <> 'revoked'
@@ -151,7 +151,7 @@ def upgrade() -> None:
                 INSERT INTO dbi.dbi_inspect_staff_audit_events
                     (id, role_id, event_kind, actor_ref, recorded_at)
                 VALUES
-                    (gen_random_uuid(), NEW.id, 'revoked',
+                    (md5(NEW.id::text || 'revoked')::uuid, NEW.id, 'revoked',
                      NEW.revoked_by_ref, CURRENT_TIMESTAMP);
             END IF;
             RETURN NEW;
