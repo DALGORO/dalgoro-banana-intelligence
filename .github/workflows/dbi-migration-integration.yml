@@ -77,6 +77,7 @@ jobs:
           python -m py_compile ../../../.github/scripts/ci_dbi_inspection_persistence.py
           python -m py_compile ../../../.github/scripts/ci_dbi_inspect_campaign_link_persistence.py
           python -m py_compile ../../../.github/scripts/ci_dbi_inspection_approval_persistence.py
+          python -m py_compile ../../../.github/scripts/ci_dbi_inspection_institutional_staff.py
           python -m py_compile ../../../.github/scripts/ci_dbi_inspection_photo_persistence.py
           python -m py_compile ../../../.github/scripts/ci_dbi_multi_persistence.py
 
@@ -172,6 +173,14 @@ jobs:
           DBI_DATABASE_URL: postgresql+psycopg://dbi_test_inspect_signatures@127.0.0.1:5432/dbi_test
           DBI_INSPECT_APPROVAL_RUN_INTEGRATION: "1"
         run: python ../../../.github/scripts/ci_dbi_inspection_approval_persistence.py
+
+      - name: Verificar único administrador DALGORO y revocación institucional en PostGIS
+        env:
+          PYTHONPATH: .
+          DBI_ENVIRONMENT: test
+          DBI_DATABASE_URL: postgresql+psycopg://dbi_ci_staff_reader@127.0.0.1:5432/dbi_test
+          DBI_STAFF_RUN_INTEGRATION: "1"
+        run: python ../../../.github/scripts/ci_dbi_inspection_institutional_staff.py
 
       - name: Validar ACL exacta del rol API DBI
         env:
