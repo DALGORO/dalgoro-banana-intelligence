@@ -170,6 +170,11 @@ jobs:
           PYTHONPATH: .
         run: python ../../../.github/scripts/ci_dbi_inspection_approval_service.py
 
+      - name: Validar guardia institucional de firmas INSPECT sin endpoint
+        env:
+          PYTHONPATH: .
+        run: python ../../../.github/scripts/ci_dbi_inspection_staff_workflow.py
+
       - name: Validar filtro cliente de INSPECT publicado en backend
         env:
           PYTHONPATH: .
