@@ -8,6 +8,7 @@ from unittest.mock import MagicMock, patch
 from uuid import UUID
 
 from sqlalchemy.orm import Session
+from sqlalchemy.dialects import postgresql
 
 ROOT = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(ROOT / "apps" / "platform-web" / "backend"))
@@ -117,7 +118,7 @@ def validate() -> None:
         assert "dbi_field_observations.organization_ref" in sql[1]
         assert "FOR UPDATE" in str(
             ex.call_args_list[1].args[0].compile(
-                dialect=__import__("sqlalchemy").dialects.postgresql.dialect()
+                dialect=postgresql.dialect()
             )
         )
         assert "dbi_field_observation_versions.version DESC" in sql[2]
