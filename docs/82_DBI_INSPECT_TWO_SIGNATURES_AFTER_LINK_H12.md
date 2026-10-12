@@ -18,8 +18,10 @@ siempre con la versión INSPECT vigente y sin publicación al cliente.
   `SELECT ... FOR UPDATE`; la corrección append-only existente toma el
   mismo lock, de modo que no puede intercalarse una nueva versión durante
   la validación.
-- Bloquea también el vínculo y comprueba que apunta a la última versión
-  `observed`. Reconstruye las firmas previas; rechaza replays de firma.
+- Consulta el vínculo dentro del candado ya adquirido sobre la identidad INSPECT
+  y comprueba que apunta a la última versión `observed`. No usa `FOR UPDATE`
+  sobre el vínculo append-only (evita exigir `UPDATE`); reconstruye las firmas
+  previas y rechaza replays.
 - Registra un evento separado `technical_validated`, sin mutar INSPECT.
 
 ### Autorización administrativa
@@ -54,11 +56,17 @@ la autoridad sobre cómo se propone ese vínculo.
   sea empleado/técnico DALGORO: la API interna futura **deberá** confirmar
   membership institucional confiable y distintos principales.
 - El servicio usa la sesión que recibe, hace `flush`, pero el llamador
-  debe controlar commit/rollback; requiere pruebas de concurrencia
-  PostgreSQL real, roles DB mínimos, inmutabilidad de eventos y revocación
-  antes de abrir endpoints.
-- `ci_dbi_inspection_approval_service.py` es una prueba offline de sesión
-  simulada, no una validación completa de transacciones PostGIS.
+  controla commit/rollback; eventos y vínculos no precisan privilegios
+  `UPDATE`/`DELETE`. El rol de CI conserva permiso de actualización
+  únicamente sobre `created_at` de la identidad INSPECT, necesario para
+  obtener `FOR UPDATE` en PostgreSQL. Falta implementar garantías DB de
+  inmutabilidad y revocación antes de abrir endpoints.
+- `ci_dbi_inspection_approval_service.py` cubre política con mocks.
+  `ci_dbi_inspection_approval_persistence.py` prueba después del fixture
+  MULTI dos transacciones de firmas sobre procedencia científica real,
+  separación de identidades, ACL, falta de evidencia, versión obsoleta y
+  lock concurrente en PostGIS efímero. No reemplaza pruebas UAT ni
+  auditoría de membresías reales.
 - El portal cliente sigue sin mostrar INSPECT pendiente por el bloqueo
   READ-only del PR #216. Las firmas internas todavía **no** hacen
   observaciones visibles ni entrenan modelos Sigatoka.
@@ -67,9 +75,11 @@ la autoridad sobre cómo se propone ese vínculo.
 
 ## Próximo microhito
 
-1. Test PostGIS real de dos actores, dos transacciones y corrección concurrente.
-2. API técnica con membresía DALGORO verificada, actor derivado del servidor.
-3. Separar lectura interna de lectura publicada y construir filtros
-   `Campaign + versión vigente + doble firma + procedencia + estado publicado`.
-4. Solo entonces mostrar observaciones aprobadas al cliente, de forma READ
-   en la pestaña Seguimiento, y estudiar datasets ML validados aparte.
+1. Certificar membresía institucional DALGORO de técnico y administrador
+   desde fuentes confiables, con principal resuelto por servidor.
+2. Añadir pruebas de escritura concurrente real de corrección + firma y
+   controles DB de inmutabilidad de eventos y revocación auditada.
+3. Integrar lectura publicada ya preparada en #224 mediante catálogo y API
+   con autorización, sin abrir el GET privado legado.
+4. Ejecutar UAT de privacidad antes de mostrar evidencia READ a clientes
+   y, por separado, QA de datasets Sigatoka.

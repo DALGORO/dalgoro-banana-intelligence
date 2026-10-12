@@ -167,6 +167,9 @@ class DBIInspectionCampaignApprovalService:
             observation_id=observation_id,
             expected_version_id=version_id,
         )
+        # La identidad INSPECT ya está bloqueada arriba. Evitar FOR UPDATE
+        # adicional en vínculo append-only: PG exigiría UPDATE sobre esa tabla.
+        # Todas las firmas usan el lock de observación en el mismo orden.
         link = self._session.execute(
             select(DBIInspectionCampaignLinkRecord).where(
                 DBIInspectionCampaignLinkRecord.id == link_id,
@@ -176,7 +179,7 @@ class DBIInspectionCampaignApprovalService:
                 DBIInspectionCampaignLinkRecord.plot_id == plot_id,
                 DBIInspectionCampaignLinkRecord.observation_id == observation_id,
                 DBIInspectionCampaignLinkRecord.observation_version_id == version_id,
-            ).with_for_update()
+            )
         ).scalar_one_or_none()
         if link is None:
             raise DBIInspectionApprovalConflict("Vínculo INSPECT cambió de identidad.")

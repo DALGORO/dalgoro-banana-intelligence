@@ -76,6 +76,7 @@ jobs:
           python -m py_compile ../../../.github/scripts/ci_dbi_admin_creation_integration_runner.py
           python -m py_compile ../../../.github/scripts/ci_dbi_inspection_persistence.py
           python -m py_compile ../../../.github/scripts/ci_dbi_inspect_campaign_link_persistence.py
+          python -m py_compile ../../../.github/scripts/ci_dbi_inspection_approval_persistence.py
           python -m py_compile ../../../.github/scripts/ci_dbi_inspection_photo_persistence.py
           python -m py_compile ../../../.github/scripts/ci_dbi_multi_persistence.py
 
@@ -163,6 +164,14 @@ jobs:
           DBI_DATABASE_URL: postgresql+psycopg://dbi_test_multispectral@127.0.0.1:5432/dbi_test
           DBI_MULTI_RUN_INTEGRATION: "1"
         run: python ../../../.github/scripts/ci_dbi_multi_persistence.py
+
+      - name: Verificar dos firmas INSPECT persistidas con cadena MULTI real en PostGIS
+        env:
+          PYTHONPATH: .
+          DBI_ENVIRONMENT: test
+          DBI_DATABASE_URL: postgresql+psycopg://dbi_test_inspect_signatures@127.0.0.1:5432/dbi_test
+          DBI_INSPECT_APPROVAL_RUN_INTEGRATION: "1"
+        run: python ../../../.github/scripts/ci_dbi_inspection_approval_persistence.py
 
       - name: Validar ACL exacta del rol API DBI
         env:
