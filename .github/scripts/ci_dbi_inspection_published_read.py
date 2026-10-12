@@ -1,6 +1,7 @@
 """INSPECT: lectura fail-closed por Campaign y dos firmas, sin red ni datos reales."""
 from __future__ import annotations
 
+import os
 import sys
 from dataclasses import fields
 from datetime import datetime, timezone
@@ -10,6 +11,9 @@ from unittest.mock import MagicMock, patch
 from uuid import UUID
 
 from sqlalchemy.orm import Session
+
+os.environ.setdefault("DATABASE_URL", "sqlite:///./ci_dbi_inspection_published.db")
+os.environ.setdefault("JWT_SECRET", "ci-dbi-inspection-published-read-test-only")
 
 ROOT = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(ROOT / "apps" / "platform-web" / "backend"))
