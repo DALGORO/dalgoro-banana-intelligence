@@ -62,13 +62,17 @@ def appointment(who, role, **overrides):
 
 
 class Directory:
-    def __init__(self, *rows):
+    def __init__(self, *rows, administrators=(ADMIN_ID,)):
         self.rows = rows
+        self.administrators = administrators
         self.calls = []
 
     def list_assignments(self, **kwargs):
         self.calls.append(kwargs)
         return self.rows
+
+    def list_active_administrators(self):
+        return self.administrators
 
 
 def parameters():
@@ -200,6 +204,60 @@ def verify() -> None:
         )
         denied(lambda: propose(tech))
         assert link.return_value.propose_link.call_count == 2
+
+    # Administrador único a nivel DALGORO, NO uno por cliente u organización.
+    with (
+        patch("app.dbi.inspection.staff_workflow.DBIAdminActorResolver") as resolver,
+        patch("app.dbi.inspection.staff_workflow.DBIInspectionCampaignApprovalService") as approval,
+    ):
+        resolver.return_value.resolve.side_effect = (
+            lambda *, context: SimpleNamespace(principal_id=UUID(context.principal_ref))
+        )
+        dual_directory = Directory(
+            appointment(ADMIN_ID, DBIInspectionStaffRole.TECHNICIAN),
+            appointment(ADMIN_ID, DBIInspectionStaffRole.ADMINISTRATOR),
+        )
+        dual = DBIInspectionStaffWorkflow(session, staff_directory=dual_directory)
+        dual.authorize_administrative(ADMIN, **parameters())
+        assert approval.return_value.authorize_administrative.call_args.kwargs[
+            "_staff_dual_role_verified"
+        ] is True
+        dual.validate_technical(ADMIN, **parameters())
+        assert approval.return_value.validate_technical.call_count == 1
+
+        # Un técnico adicional queda autorizado; el segundo administrador no.
+        technician_two = context(TECH_ID, {DBIPermission.WRITE})
+        extra_tech = DBIInspectionStaffWorkflow(
+            session,
+            staff_directory=Directory(appointment(
+                TECH_ID, DBIInspectionStaffRole.TECHNICIAN,
+            )),
+        )
+        extra_tech.validate_technical(technician_two, **parameters())
+
+        for admins in ((), (ADMIN_ID, TECH_ID), (TECH_ID,)):
+            candidate = DBIInspectionStaffWorkflow(
+                session, staff_directory=Directory(
+                    appointment(ADMIN_ID, DBIInspectionStaffRole.ADMINISTRATOR),
+                    administrators=admins,
+                ),
+            )
+            denied(lambda w=candidate: w.authorize_administrative(
+                ADMIN, **parameters(),
+            ))
+        denied(lambda: DBIInspectionStaffWorkflow(
+            session, staff_directory=Directory(
+                appointment(ADMIN_ID, DBIInspectionStaffRole.TECHNICIAN),
+                appointment(ADMIN_ID, DBIInspectionStaffRole.TECHNICIAN),
+            ),
+        ).validate_technical(ADMIN, **parameters()))
+        denied(lambda: DBIInspectionStaffWorkflow(
+            session, staff_directory=Directory(
+                appointment(ADMIN_ID, DBIInspectionStaffRole.TECHNICIAN),
+                appointment(ADMIN_ID, DBIInspectionStaffRole.ADMINISTRATOR,
+                            status="revoked"),
+            ),
+        ).authorize_administrative(ADMIN, **parameters()))
 
     # Contrato estático: no habrá rutas ni migraciones en este microhito.
     source = (
