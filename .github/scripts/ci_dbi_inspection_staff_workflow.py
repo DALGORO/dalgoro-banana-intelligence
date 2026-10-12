@@ -66,6 +66,10 @@ class Directory:
         self.rows = rows
         self.administrators = administrators
         self.calls = []
+        self.lock_calls = 0
+
+    def acquire_approval_snapshot(self):
+        self.lock_calls += 1
 
     def list_assignments(self, **kwargs):
         self.calls.append(kwargs)
@@ -128,7 +132,8 @@ def verify() -> None:
         tech = DBIInspectionStaffWorkflow(session, staff_directory=tech_directory)
         admin = DBIInspectionStaffWorkflow(session, staff_directory=admin_directory)
 
-        # Abuso de tenant y lote no provoca ninguna consulta al directorio.
+        # Abuso de tenant y lote no provoca ninguna consulta al directorio
+        # ni retiene un lock transaccional institucional.
         before = len(tech_directory.calls)
         denied(lambda: propose(tech, tenant="tenant-cross"))
         denied(lambda: propose(tech, context(
