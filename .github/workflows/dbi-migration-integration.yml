@@ -75,6 +75,7 @@ jobs:
           python -m py_compile ../../../.github/scripts/ci_dbi_admin_creation_integration.py
           python -m py_compile ../../../.github/scripts/ci_dbi_admin_creation_integration_runner.py
           python -m py_compile ../../../.github/scripts/ci_dbi_inspection_persistence.py
+          python -m py_compile ../../../.github/scripts/ci_dbi_inspect_campaign_link_persistence.py
           python -m py_compile ../../../.github/scripts/ci_dbi_inspection_photo_persistence.py
           python -m py_compile ../../../.github/scripts/ci_dbi_multi_persistence.py
 
@@ -138,6 +139,14 @@ jobs:
           DBI_DATABASE_URL: postgresql+psycopg://dbi_test_inspection@127.0.0.1:5432/dbi_test
           DBI_INSPECTION_RUN_INTEGRATION: "1"
         run: python ../../../.github/scripts/ci_dbi_inspection_persistence.py
+
+      - name: Verificar vinculación Campaign MULTI–INSPECT en PostGIS efímero
+        env:
+          PYTHONPATH: .
+          DBI_ENVIRONMENT: test
+          DBI_DATABASE_URL: postgresql+psycopg://dbi_test_inspection@127.0.0.1:5432/dbi_test
+          DBI_INSPECT_LINK_RUN_INTEGRATION: "1"
+        run: python ../../../.github/scripts/ci_dbi_inspect_campaign_link_persistence.py
 
       - name: Validar foto privada INSPECT con Asset SELECT-only
         env:
