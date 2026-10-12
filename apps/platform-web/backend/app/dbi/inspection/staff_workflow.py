@@ -83,6 +83,8 @@ class DBIInspectionStaffWorkflow:
         permission: DBIPermission,
         roles: frozenset[DBIInspectionStaffRole],
     ) -> None:
+        if not isinstance(context, DBIAccessContext):
+            raise DBIAccessDenied()
         # Antes de leer afiliación institucional, comprobar scope exacto.
         DBIAuthorizationPolicy.require_plot(
             context, tenant_ref=context.tenant_ref,
@@ -136,7 +138,7 @@ class DBIInspectionStaffWorkflow:
         observation_id: UUID,
         observation_version_id: UUID,
     ):
-        if tenant_ref != context.tenant_ref:
+        if not isinstance(context, DBIAccessContext) or tenant_ref != context.tenant_ref:
             raise DBIAccessDenied()
         self._require_staff(
             context, organization_ref=organization_ref,
