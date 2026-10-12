@@ -112,17 +112,12 @@ export default function ClientPortal() {
         {!loading && !error && farms.length === 0 && (
           <div className="rounded-2xl border bg-white p-8 text-center dark:bg-slate-900">
             <Building2 className="mx-auto mb-3 text-slate-400" size={30} />
-            <h3 className="font-semibold">{search ? "No encontramos coincidencias" : "Aún no tienes fincas asignadas"}</h3>
+            <h3 className="font-semibold">{search.trim() ? "No encontramos coincidencias" : "Aún no tienes fincas asignadas"}</h3>
             <p className="mx-auto mt-2 max-w-lg text-sm text-slate-500">
-              {search
+              {search.trim()
                 ? "Prueba otro nombre o código de finca o lote, o limpia la búsqueda."
                 : "Un administrador debe vincular tu usuario con una finca y sus lotes. No se muestran datos de otras cuentas."}
             </p>
-            {search.trim() && (
-              <button type="button" className="dbi-portal-retry mt-4 rounded-xl px-4 py-3 text-sm font-semibold" onClick={() => setSearch("")}>
-                Limpiar búsqueda
-              </button>
-            )}
           </div>
         )}
         {!loading && !error && (
