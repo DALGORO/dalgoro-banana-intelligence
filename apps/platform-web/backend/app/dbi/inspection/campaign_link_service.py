@@ -36,11 +36,11 @@ class DBIInspectionCampaignLinkService:
     @staticmethod
     def _require_write(
         context: DBIAccessContext, *,
-        organization_ref: str, farm_id: UUID, plot_id: UUID,
+        tenant_ref: str, organization_ref: str, farm_id: UUID, plot_id: UUID,
     ) -> None:
         DBIAuthorizationPolicy.require_plot(
             context,
-            tenant_ref=context.tenant_ref,
+            tenant_ref=tenant_ref,
             organization_ref=organization_ref,
             farm_id=farm_id,
             plot_id=plot_id,
@@ -51,6 +51,7 @@ class DBIInspectionCampaignLinkService:
         self,
         context: DBIAccessContext,
         *,
+        tenant_ref: str,
         organization_ref: str,
         farm_id: UUID,
         plot_id: UUID,
@@ -65,7 +66,7 @@ class DBIInspectionCampaignLinkService:
         de la comprobación. La clave UNIQUE en PG protege de duplicados.
         """
         self._require_write(
-            context, organization_ref=organization_ref,
+            context, tenant_ref=tenant_ref, organization_ref=organization_ref,
             farm_id=farm_id, plot_id=plot_id,
         )
 
@@ -73,7 +74,7 @@ class DBIInspectionCampaignLinkService:
             select(Campaign)
             .where(
                 Campaign.id == campaign_id,
-                Campaign.tenant_ref == context.tenant_ref,
+                Campaign.tenant_ref == tenant_ref,
                 Campaign.organization_ref == organization_ref,
                 Campaign.farm_id == farm_id,
                 Campaign.plot_id == plot_id,
@@ -88,7 +89,7 @@ class DBIInspectionCampaignLinkService:
             select(DBIFieldObservationRecord)
             .where(
                 DBIFieldObservationRecord.id == observation_id,
-                DBIFieldObservationRecord.tenant_ref == context.tenant_ref,
+                DBIFieldObservationRecord.tenant_ref == tenant_ref,
                 DBIFieldObservationRecord.organization_ref == organization_ref,
                 DBIFieldObservationRecord.farm_id == farm_id,
                 DBIFieldObservationRecord.plot_id == plot_id,
@@ -125,7 +126,7 @@ class DBIInspectionCampaignLinkService:
         ).scalar_one_or_none()
         if linked is not None:
             if (
-                linked.tenant_ref != context.tenant_ref
+                linked.tenant_ref != tenant_ref
                 or linked.organization_ref != organization_ref
                 or linked.farm_id != farm_id
                 or linked.plot_id != plot_id
@@ -140,7 +141,7 @@ class DBIInspectionCampaignLinkService:
 
         record = DBIInspectionCampaignLinkRecord(
             id=uuid4(),
-            tenant_ref=context.tenant_ref,
+            tenant_ref=tenant_ref,
             organization_ref=organization_ref,
             farm_id=farm_id,
             plot_id=plot_id,
