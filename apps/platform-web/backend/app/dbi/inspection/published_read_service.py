@@ -60,6 +60,68 @@ class DBIInspectionPublishedReadService:
             raise TypeError("La lectura INSPECT requiere una Session explícita.")
         self._session = session
 
+    def list_approved(
+        self,
+        context: DBIAccessContext,
+        *,
+        organization_ref: str,
+        farm_id: UUID,
+        plot_id: UUID,
+        campaign_id: UUID,
+    ) -> tuple[DBIApprovedInspectionSummary, ...]:
+        """Lista sólo observaciones publicables de UNA Campaign exacta.
+
+        No devuelve IDs privados no aprobados ni aplica selección por fecha,
+        proximidad o caja geográfica. Más de 100 links => fail closed,
+        nunca devolver resultados parciales con apariencia de completitud.
+        """
+        DBIAuthorizationPolicy.require_plot(
+            context, tenant_ref=context.tenant_ref,
+            organization_ref=organization_ref, farm_id=farm_id,
+            plot_id=plot_id, permission=DBIPermission.READ,
+        )
+        published = self._session.execute(
+            select(Campaign.id).where(
+                Campaign.id == campaign_id,
+                Campaign.tenant_ref == context.tenant_ref,
+                Campaign.organization_ref == organization_ref,
+                Campaign.farm_id == farm_id,
+                Campaign.plot_id == plot_id,
+                Campaign.analysis_type == "multispectral",
+                Campaign.status == "PUBLISHED",
+                Campaign.captured_at.is_not(None),
+            )
+        ).scalar_one_or_none()
+        if published is None:
+            raise DBIInspectionPublishedUnavailable()
+
+        candidates = self._session.execute(
+            select(DBIInspectionCampaignLinkRecord.observation_id).where(
+                DBIInspectionCampaignLinkRecord.campaign_id == campaign_id,
+                DBIInspectionCampaignLinkRecord.tenant_ref == context.tenant_ref,
+                DBIInspectionCampaignLinkRecord.organization_ref == organization_ref,
+                DBIInspectionCampaignLinkRecord.farm_id == farm_id,
+                DBIInspectionCampaignLinkRecord.plot_id == plot_id,
+                DBIInspectionCampaignLinkRecord.campaign_analysis_type == "multispectral",
+            ).order_by(DBIInspectionCampaignLinkRecord.id).limit(101)
+        ).scalars().all()
+        if len(candidates) > 100:
+            raise DBIInspectionPublishedUnavailable()
+
+        approved: list[DBIApprovedInspectionSummary] = []
+        for observation_id in dict.fromkeys(candidates):
+            try:
+                approved.append(self.get_approved(
+                    context, organization_ref=organization_ref,
+                    farm_id=farm_id, plot_id=plot_id,
+                    campaign_id=campaign_id, observation_id=observation_id,
+                ))
+            except DBIInspectionPublishedUnavailable:
+                # La falta de aprobación o una corrección nunca expone
+                # contenido privado ni se cuenta como resultado publicado.
+                continue
+        return tuple(approved)
+
     def get_approved(
         self,
         context: DBIAccessContext,
@@ -104,7 +166,10 @@ class DBIInspectionPublishedReadService:
                 DBIInspectionCampaignLinkRecord.farm_id == farm_id,
                 DBIInspectionCampaignLinkRecord.plot_id == plot_id,
                 DBIInspectionCampaignLinkRecord.campaign_analysis_type == "multispectral",
-            )
+            ).order_by(
+                DBIInspectionCampaignLinkRecord.linked_at.desc(),
+                DBIInspectionCampaignLinkRecord.id.desc(),
+            ).limit(1)
         ).scalar_one_or_none()
         if link is None:
             raise DBIInspectionPublishedUnavailable()

@@ -22,6 +22,10 @@ from app.dbi.inspection.api_schemas import (
     DBIFieldObservationUPAssociationRequest,
 )
 from app.dbi.inspection.contracts import DBIFieldObservationVersion
+from app.dbi.inspection.published_api_schemas import DBIApprovedInspectionPublicItem
+from app.dbi.inspection.published_read_service import (
+    DBIInspectionPublishedReadService, DBIInspectionPublishedUnavailable,
+)
 from app.dbi.inspection.repository import DBIInspectionConflict
 from app.dbi.inspection.service import (
     DBIFieldObservationService,
@@ -96,6 +100,40 @@ def _write(session: Session, operation: Callable[[], T]) -> T:
     except (DBIInspectionConflict, IntegrityError) as error:
         session.rollback()
         raise _conflict() from error
+
+
+@router.get(
+    "/organizations/{organization_ref}/farms/{farm_id}/plots/{plot_id}"
+    "/campaigns/{campaign_id}/published-inspections",
+    response_model=list[DBIApprovedInspectionPublicItem],
+)
+def list_published_campaign_inspections(
+    organization_ref: str,
+    farm_id: UUID,
+    plot_id: UUID,
+    campaign_id: UUID,
+    session: SessionDependency,
+    context: AccessDependency,
+) -> list[DBIApprovedInspectionPublicItem]:
+    """READ cliente: sólo INSPECT aprobadas de Campaign PUBLISHED exacta.
+
+    Sin rutas de historial privado, sin UUID de observación en la respuesta
+    y sin permiso WRITE ni resolución de cargos desde cabeceras del cliente.
+    """
+    try:
+        approved = DBIInspectionPublishedReadService(session).list_approved(
+            context,
+            organization_ref=organization_ref,
+            farm_id=farm_id,
+            plot_id=plot_id,
+            campaign_id=campaign_id,
+        )
+    except (DBIAccessDenied, DBIInspectionPublishedUnavailable) as error:
+        raise _not_found() from error
+    return [
+        DBIApprovedInspectionPublicItem.from_approved(item)
+        for item in approved
+    ]
 
 
 @router.post(
