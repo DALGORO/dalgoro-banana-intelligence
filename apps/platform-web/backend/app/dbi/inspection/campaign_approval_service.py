@@ -340,8 +340,15 @@ class DBIInspectionCampaignApprovalService:
             context=context, organization_ref=organization_ref,
             farm_id=farm_id, plot_id=plot_id, link_id=link_id,
         )
+        state = self._state(link)
+        # Comprobar primero las firmas; nunca consultar el material científico
+        # para un vínculo sin revisión técnica o para la misma identidad.
+        if state.stage != "technical_validated" or state.technical_by == context.principal_ref:
+            raise DBIInspectionApprovalConflict(
+                "Falta validación técnica independiente."
+            )
         now = datetime.now(timezone.utc)
-        updated = self._state(link).approve_administrative(
+        updated = state.approve_administrative(
             context, at=now, current_version_id=link.observation_version_id,
             campaign_link_verified=self._verified_scientific_chain(link),
         )
