@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import ci_dbi_migration_cli_base as base
 
-base.HEAD = "dbi_0027_inspect_dual_sign"
+base.HEAD = "dbi_0028_institutional_staff"
 
 
 if __name__ == "__main__":

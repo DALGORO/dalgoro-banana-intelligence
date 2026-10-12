@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import ci_dbi_migration_control_base as base
 
-base.HEAD = "dbi_0027_inspect_dual_sign"
+base.HEAD = "dbi_0028_institutional_staff"
 base.KNOWN = set(base.KNOWN) | {
     "dbi_0014_analysis_results",
     "dbi_0015_raster_products",
@@ -17,6 +17,7 @@ base.KNOWN = set(base.KNOWN) | {
     "dbi_0024_gis_approval",
     "dbi_0025_gpkg_layer_options",
     "dbi_0026_gpkg_layer_choice",
+    "dbi_0027_inspect_dual_sign",
     base.HEAD,
 }
 
