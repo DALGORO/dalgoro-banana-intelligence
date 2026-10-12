@@ -1,4 +1,4 @@
-"""Servicio interno de dos firmas para vínculos Campaign–INSPECT existentes.
+"""Firmas de INSPECT: dos actores o un administrador-técnico acreditado.
 
 Sin rutas FastAPI ni publicación al cliente. Los vínculos son creados por
 DBIInspectionCampaignLinkService.propose_link del PR #218.
@@ -253,8 +253,14 @@ class DBIInspectionCampaignApprovalService:
         farm_id: UUID,
         plot_id: UUID,
         link_id: UUID,
+        _staff_dual_role_verified: bool = False,
     ) -> DBIInspectionApprovalState:
-        """Firma distinta tras verificar procedencia científica real en servidor."""
+        """Aprueba con 2 actores o en una acción con 2 cargos verificados.
+
+        _staff_dual_role_verified es SOLO para StaffWorkflow tras doble
+        comprobación institucional desde servidor; nunca de parámetros HTTP.
+        El modo por defecto preserva denegación de autofirma.
+        """
         for permission in (DBIPermission.APPROVE_AGRONOMIC, DBIPermission.MANAGE):
             self._scope(
                 context, organization_ref=organization_ref,
@@ -265,17 +271,43 @@ class DBIInspectionCampaignApprovalService:
             farm_id=farm_id, plot_id=plot_id, link_id=link_id,
         )
         state = self._state(link)
-        # Comprobar primero las firmas; nunca consultar el material científico
-        # para un vínculo sin revisión técnica o para la misma identidad.
-        if state.stage != "technical_validated" or state.technical_by == context.principal_ref:
-            raise DBIInspectionApprovalConflict(
-                "Falta validación técnica independiente."
-            )
         now = datetime.now(timezone.utc)
-        updated = state.approve_administrative(
-            context, at=now, current_version_id=link.observation_version_id,
-            campaign_link_verified=self._verified_scientific_chain(link),
+        self_mode = (
+            _staff_dual_role_verified is True
+            and (
+                state.stage == "pending"
+                or (
+                    state.stage == "technical_validated"
+                    and state.technical_by == context.principal_ref
+                )
+            )
         )
+        # Sin cargo dual institucional, conservar exigencia de otro técnico.
+        if not self_mode and (
+            state.stage != "technical_validated"
+            or state.technical_by == context.principal_ref
+        ):
+            raise DBIInspectionApprovalConflict(
+                "Falta validación técnica independiente o cargo institucional dual."
+            )
+        verified_chain = self._verified_scientific_chain(link)
+        if self_mode:
+            updated = state.approve_self_administrative(
+                context, at=now, current_version_id=link.observation_version_id,
+                campaign_link_verified=verified_chain,
+            )
+            if state.stage == "pending":
+                self._session.add(DBIInspectionApprovalEventRecord(
+                    link_id=link.id,
+                    event_kind="technical_validated",
+                    actor_ref=context.principal_ref,
+                    decided_at=now,
+                ))
+        else:
+            updated = state.approve_administrative(
+                context, at=now, current_version_id=link.observation_version_id,
+                campaign_link_verified=verified_chain,
+            )
         self._session.add(DBIInspectionApprovalEventRecord(
             link_id=link.id,
             event_kind="administrative_authorized",
