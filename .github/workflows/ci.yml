@@ -160,6 +160,11 @@ jobs:
           PYTHONPATH: .
         run: python ../../../.github/scripts/ci_dbi_inspect_campaign_schema.py
 
+      - name: Validar servicio de vínculo explícito INSPECT-Campaign
+        env:
+          PYTHONPATH: .
+        run: python ../../../.github/scripts/ci_dbi_inspect_campaign_link_service.py
+
       - name: Validar política administrativa DBI offline
         env:
           PYTHONPATH: .
