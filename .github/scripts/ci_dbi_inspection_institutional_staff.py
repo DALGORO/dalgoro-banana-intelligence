@@ -13,7 +13,7 @@ from uuid import UUID
 
 import psycopg
 from psycopg import sql
-from sqlalchemy import create_engine, select
+from sqlalchemy import create_engine, select, text
 from sqlalchemy.orm import Session
 from sqlalchemy.pool import NullPool
 
@@ -23,6 +23,7 @@ sys.path.insert(0, str(ROOT / "apps" / "platform-web" / "backend"))
 from app.dbi.inspection.institutional_staff_directory import (  # noqa: E402
     DBIInspectionInstitutionalStaffDirectory,
 )
+from app.dbi.authorization import DBIAccessDenied
 from app.dbi.inspection.staff_workflow import DBIInspectionStaffRole  # noqa: E402
 from app.dbi.models.inspection_staff import (  # noqa: E402
     DBIInspectionInstitutionalStaffRoleRecord,
@@ -177,6 +178,75 @@ def main() -> None:
                     DBIInspectionInstitutionalStaffRoleRecord.role == "administrator",
                 )
             ) == ADMIN_ROLE
+
+        # El lector con sólo SELECT puede adquirir lock SHARED en su
+        # transacción; cualquier UPDATE de cargos debe esperar. Nunca se
+        # puede registrar una firma contra una revocación concurrente.
+        with Session(engine) as reader:
+            directory = DBIInspectionInstitutionalStaffDirectory(reader)
+            directory.acquire_approval_snapshot()
+            assert directory.list_active_administrators() == (ADMIN,)
+            with _admin() as writer, writer.cursor() as cur:
+                try:
+                    with writer.transaction():
+                        cur.execute("SET LOCAL lock_timeout = '250ms'")
+                        cur.execute(
+                            "UPDATE dbi.dbi_inspect_staff_roles "
+                            "SET status='revoked', "
+                            "revoked_by_ref='ci-institutional-issuer', "
+                            "revoked_at=CURRENT_TIMESTAMP, "
+                            "revocation_reason='ci-should-time-out' "
+                            "WHERE id=%s",
+                            (TECH2_ROLE,),
+                        )
+                except psycopg.errors.LockNotAvailable:
+                    pass
+                else:
+                    raise AssertionError(
+                        "La revocación debe esperar hasta el commit de la firma."
+                    )
+            # La revocación fallida no debe haber alterado el rol activo.
+            assert len(directory.list_assignments(
+                principal_id=TECH2, tenant_ref="tenant-staff",
+                organization_ref="org-staff",
+            )) == 1
+            reader.commit()
+
+        # El sentido inverso también falla cerrado: si se inició
+        # revocación, el lector no obtiene el lock compartido hasta commit.
+        with _admin() as writer, writer.cursor() as cur:
+            cur.execute("BEGIN")
+            try:
+                cur.execute(
+                    "UPDATE dbi.dbi_inspect_staff_roles "
+                    "SET status='revoked', "
+                    "revoked_by_ref='ci-institutional-issuer', "
+                    "revoked_at=CURRENT_TIMESTAMP, "
+                    "revocation_reason='ci-writer-in-flight' "
+                    "WHERE id=%s",
+                    (TECH2_ROLE,),
+                )
+                with Session(engine) as reader:
+                    directory = DBIInspectionInstitutionalStaffDirectory(reader)
+                    _assert_denied(
+                        directory.acquire_approval_snapshot,
+                        (DBIAccessDenied,),
+                    )
+            finally:
+                cur.execute("ROLLBACK")
+
+        # El contrato exige READ COMMITTED para evitar una instantánea MVCC
+        # anterior a la adquisición del guard.
+        with Session(engine) as reader:
+            reader.execute(text(
+                "SET TRANSACTION ISOLATION LEVEL REPEATABLE READ"
+            ))
+            directory = DBIInspectionInstitutionalStaffDirectory(reader)
+            _assert_denied(
+                directory.acquire_approval_snapshot,
+                (DBIAccessDenied,),
+            )
+            reader.rollback()
 
         # Revocación auditable: nunca DELETE, jamás reactivación.
         with _admin() as conn, conn.cursor() as cur:

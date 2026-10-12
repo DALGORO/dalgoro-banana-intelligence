@@ -9,16 +9,20 @@ from __future__ import annotations
 from collections.abc import Sequence
 from uuid import UUID
 
-from sqlalchemy import select
+from sqlalchemy import select, text
 from sqlalchemy.orm import Session
 
 from app.dbi.inspection.staff_workflow import (
     DBIInspectionStaffAssignment,
     DBIInspectionStaffRole,
 )
+from app.dbi.authorization import DBIAccessDenied
 from app.dbi.models.inspection_staff import (
     DBIInspectionInstitutionalStaffRoleRecord,
 )
+
+
+STAFF_APPROVAL_LOCK_KEY = 451235456312  # must match Alembic rev 29
 
 
 class DBIInspectionInstitutionalStaffDirectory:
@@ -32,6 +36,26 @@ class DBIInspectionInstitutionalStaffDirectory:
         if not isinstance(session, Session):
             raise TypeError("Se requiere sesión DBI para cargos institucionales.")
         self._session = session
+
+    def acquire_approval_snapshot(self) -> None:
+        """Acquire READ-only shared xact guard. Never use stale MVCC snapshots.
+
+        A concurrent revocation/appointment takes the exclusive guard in the
+        PostgreSQL BEFORE trigger. The app holds this guard until COMMIT or
+        ROLLBACK with the subsequent INSPECT events in the same Session.
+        Non-blocking acquisition denies instead of waiting indefinitely.
+        """
+        isolation = self._session.execute(
+            text("SELECT current_setting('transaction_isolation')")
+        ).scalar_one()
+        if isolation != "read committed":
+            raise DBIAccessDenied()
+        acquired = self._session.execute(
+            text("SELECT pg_try_advisory_xact_lock_shared(:key)"),
+            {"key": STAFF_APPROVAL_LOCK_KEY},
+        ).scalar_one()
+        if acquired is not True:
+            raise DBIAccessDenied()
 
     def list_active_administrators(self) -> Sequence[UUID]:
         # La UNIQUE persistida del marcador global evita dos administradores

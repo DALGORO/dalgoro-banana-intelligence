@@ -8,7 +8,7 @@ from __future__ import annotations
 
 import ci_dbi_migration_integration_base as base
 
-base.EXPECTED_HEAD = "dbi_0028_institutional_staff"
+base.EXPECTED_HEAD = "dbi_0029_staff_approval_guard"
 
 
 if __name__ == "__main__":
