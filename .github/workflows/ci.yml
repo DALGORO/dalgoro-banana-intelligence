@@ -155,6 +155,11 @@ jobs:
           PYTHONPATH: .
         run: python ../../../.github/scripts/ci_dbi_inspection_dual_approval.py
 
+      - name: Validar servicio transaccional INSPECT-Campaign offline
+        env:
+          PYTHONPATH: .
+        run: python ../../../.github/scripts/ci_dbi_inspection_approval_service.py
+
       - name: Validar persistencia Campaign-INSPECT y firmas (solo metadata)
         env:
           PYTHONPATH: .
