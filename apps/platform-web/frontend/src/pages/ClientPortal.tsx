@@ -2,10 +2,12 @@ import { useEffect, useMemo, useState } from "react";
 import { Link } from "react-router-dom";
 import { Building2, ChevronRight, Layers3, MapPinned, Satellite, ShieldCheck } from "lucide-react";
 import { api } from "@/app/api";
-
-type Plot = { id: string; code: string; name: string; area_hectares: number | null };
-type Farm = { id: string; organization_ref: string; code: string; name: string; plots: Plot[] };
-type Account = { tenant_ref: string; farms: Farm[] };
+import {
+  filterClientPortalFarms,
+  type ClientPortalAccount as Account,
+  type ClientPortalFarm as Farm,
+  type ClientPortalPlot as Plot,
+} from "@/features/clientPortalSearch";
 
 function mapLink(tenant: string, farm: Farm, plot: Plot) {
   return `/dbi/organizations/${encodeURIComponent(farm.organization_ref)}/farms/${encodeURIComponent(farm.id)}/plots/${encodeURIComponent(plot.id)}/mapa?tenant=${encodeURIComponent(tenant)}`;
@@ -35,16 +37,13 @@ export default function ClientPortal() {
     return () => { active = false; };
   }, [reloadKey]);
 
-  const farms = useMemo(() => accounts.flatMap((account) =>
-    account.farms.map((farm) => ({ account: account.tenant_ref, farm }))
-  ).filter(({ farm }) =>
-    `${farm.name} ${farm.code} ${farm.plots.map(p => p.name).join(" ")}`
-      .toLocaleLowerCase("es").includes(search.trim().toLocaleLowerCase("es"))
-  ), [accounts, search]);
+  const farms = useMemo(
+    () => filterClientPortalFarms(accounts, search),
+    [accounts, search],
+  );
 
-  // Los indicadores y la lista reflejan exactamente el mismo filtro local.
-  // La fuente sigue siendo exclusivamente el catálogo READ autorizado del servidor.
-  const totalPlots = farms.reduce((total, { farm }) => total + farm.plots.length, 0);
+  // Contadores y tarjetas responden al MISMO filtro READ autorizado.
+  const totalPlots = farms.reduce((total, { visiblePlots }) => total + visiblePlots.length, 0);
   const retry = () => setReloadKey(key => key + 1);
 
   return (
@@ -90,6 +89,16 @@ export default function ClientPortal() {
             value={search}
             onChange={event => setSearch(event.target.value)}
           />
+          {search.trim() && (
+            <button
+              type="button"
+              onClick={() => setSearch("")}
+              className="dbi-portal-retry rounded-xl px-4 py-3 text-sm font-semibold"
+              aria-label="Limpiar búsqueda de finca o lote"
+            >
+              Limpiar búsqueda
+            </button>
+          )}
         </div>
         {loading && <div role="status" aria-live="polite" className="rounded-2xl border p-6">Cargando tus fincas…</div>}
         {error && (
@@ -103,17 +112,17 @@ export default function ClientPortal() {
         {!loading && !error && farms.length === 0 && (
           <div className="rounded-2xl border bg-white p-8 text-center dark:bg-slate-900">
             <Building2 className="mx-auto mb-3 text-slate-400" size={30} />
-            <h3 className="font-semibold">{search ? "No encontramos coincidencias" : "Aún no tienes fincas asignadas"}</h3>
+            <h3 className="font-semibold">{search.trim() ? "No encontramos coincidencias" : "Aún no tienes fincas asignadas"}</h3>
             <p className="mx-auto mt-2 max-w-lg text-sm text-slate-500">
-              {search
-                ? "Prueba otro nombre de finca o lote."
+              {search.trim()
+                ? "Prueba otro nombre o código de finca o lote, o limpia la búsqueda."
                 : "Un administrador debe vincular tu usuario con una finca y sus lotes. No se muestran datos de otras cuentas."}
             </p>
           </div>
         )}
         {!loading && !error && (
           <div className="grid gap-4 lg:grid-cols-2">
-            {farms.map(({ account, farm }) => (
+            {farms.map(({ account, farm, visiblePlots }) => (
               <article key={`${account}:${farm.id}`} className="overflow-hidden rounded-2xl border bg-white shadow-sm dark:bg-slate-900">
                 <div className="dbi-portal-farm-header border-b px-5 py-4">
                   <div className="flex items-center gap-2 text-[#17343a] dark:text-[#edf5f0]">
@@ -121,16 +130,16 @@ export default function ClientPortal() {
                     <h3 className="text-lg font-semibold">{farm.name}</h3>
                   </div>
                   <p className="mt-1 text-sm text-slate-500">
-                    {farm.plots.length} {farm.plots.length === 1 ? "lote autorizado" : "lotes autorizados"}
+                    {visiblePlots.length} {visiblePlots.length === 1 ? "lote visible" : "lotes visibles"}
                   </p>
                 </div>
                 <div className="divide-y">
-                  {farm.plots.length === 0 && (
+                  {visiblePlots.length === 0 && (
                     <p className="px-5 py-5 text-sm text-slate-500">
                       Tienes acceso a la finca, pero todavía no a ningún lote.
                     </p>
                   )}
-                  {farm.plots.map(plot => (
+                  {visiblePlots.map(plot => (
                     <Link key={plot.id} to={mapLink(account, farm, plot)}
                       className="dbi-portal-plot-link flex items-center justify-between gap-3 px-5 py-4 transition dark:hover:bg-white/5"
                       aria-label={`Abrir visor de ${plot.name} en ${farm.name}`}>
