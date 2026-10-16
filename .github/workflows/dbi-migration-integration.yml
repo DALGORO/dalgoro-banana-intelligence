@@ -78,6 +78,7 @@ jobs:
           python -m py_compile ../../../.github/scripts/ci_dbi_inspect_campaign_link_persistence.py
           python -m py_compile ../../../.github/scripts/ci_dbi_inspection_approval_persistence.py
           python -m py_compile ../../../.github/scripts/ci_dbi_inspection_institutional_staff.py
+          python -m py_compile ../../../.github/scripts/ci_dbi_inspection_staff_http_postgis.py
           python -m py_compile ../../../.github/scripts/ci_dbi_inspection_photo_persistence.py
           python -m py_compile ../../../.github/scripts/ci_dbi_multi_persistence.py
 
@@ -181,6 +182,14 @@ jobs:
           DBI_DATABASE_URL: postgresql+psycopg://dbi_ci_staff_reader@127.0.0.1:5432/dbi_test
           DBI_STAFF_RUN_INTEGRATION: "1"
         run: python ../../../.github/scripts/ci_dbi_inspection_institutional_staff.py
+
+      - name: Recorrido HTTP INSPECT real con identidad institucional y publicación cliente
+        env:
+          PYTHONPATH: .
+          DBI_ENVIRONMENT: test
+          DBI_DATABASE_URL: postgresql+psycopg://dbi_test_inspect_signatures@127.0.0.1:5432/dbi_test
+          DBI_INSPECT_STAFF_HTTP_POSTGIS: "1"
+        run: python ../../../.github/scripts/ci_dbi_inspection_staff_http_postgis.py
 
       - name: Validar ACL exacta del rol API DBI
         env:
