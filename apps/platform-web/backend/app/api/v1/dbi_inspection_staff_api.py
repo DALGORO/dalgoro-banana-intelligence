@@ -49,6 +49,10 @@ class DBIInspectionLinkResponse(_StrictModel):
     created: bool
 
 
+class DBIInspectionSignatureRequest(_StrictModel):
+    """Cuerpo obligatorio vacío: no admite identidad ni cargo suministrado."""
+
+
 class DBIInspectionSignatureResponse(_StrictModel):
     stage: Literal["technical_validated", "dual_approved", "self_approved"]
 
@@ -137,6 +141,7 @@ def validate_inspection_technical(
     farm_id: UUID,
     plot_id: UUID,
     link_id: UUID,
+    payload: DBIInspectionSignatureRequest,
     session: SessionDependency,
     context: AccessDependency,
 ) -> DBIInspectionSignatureResponse:
@@ -160,6 +165,7 @@ def authorize_inspection_administrative(
     farm_id: UUID,
     plot_id: UUID,
     link_id: UUID,
+    payload: DBIInspectionSignatureRequest,
     session: SessionDependency,
     context: AccessDependency,
 ) -> DBIInspectionSignatureResponse:
