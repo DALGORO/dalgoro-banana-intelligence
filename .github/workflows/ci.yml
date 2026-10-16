@@ -178,6 +178,11 @@ jobs:
           PYTHONPATH: .
         run: python ../../../.github/scripts/ci_dbi_inspection_staff_workflow.py
 
+      - name: Validar rutas internas INSPECT con activación explícita
+        env:
+          PYTHONPATH: .
+        run: python ../../../.github/scripts/ci_dbi_inspection_staff_http.py
+
       - name: Validar filtro cliente de INSPECT publicado en backend
         env:
           PYTHONPATH: .
