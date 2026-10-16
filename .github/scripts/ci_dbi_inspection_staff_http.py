@@ -48,6 +48,15 @@ BASE = f"/api/v1/dbi/organizations/dalgoro-test/farms/{FARM}/plots/{PLOT}"
 LINK_PATH = f"{BASE}/campaigns/{CAMPAIGN}/inspection-links"
 TECH_PATH = f"{BASE}/inspection-links/{LINK}/technical-validation"
 ADMIN_PATH = f"{BASE}/inspection-links/{LINK}/administrative-authorization"
+TEMPLATE_BASE = (
+    "/api/v1/dbi/organizations/{organization_ref}"
+    "/farms/{farm_id}/plots/{plot_id}"
+)
+ROUTE_TEMPLATES = (
+    TEMPLATE_BASE + "/campaigns/{campaign_id}/inspection-links",
+    TEMPLATE_BASE + "/inspection-links/{link_id}/technical-validation",
+    TEMPLATE_BASE + "/inspection-links/{link_id}/administrative-authorization",
+)
 
 
 def context() -> DBIAccessContext:
@@ -77,14 +86,14 @@ def make_app(*, enabled: bool) -> FastAPI:
 def main() -> None:
     disabled = make_app(enabled=False)
     paths = {route.path for route in disabled.routes}
-    for target in (LINK_PATH, TECH_PATH, ADMIN_PATH):
+    for target in ROUTE_TEMPLATES:
         assert target not in paths
     with TestClient(disabled) as client:
         assert client.post(LINK_PATH, json={}).status_code == 404
 
     app = make_app(enabled=True)
     paths = {route.path for route in app.routes}
-    assert all(target in paths for target in (LINK_PATH, TECH_PATH, ADMIN_PATH))
+    assert all(target in paths for target in ROUTE_TEMPLATES)
     session = MagicMock(spec=Session)
     staff = context()
     app.dependency_overrides[get_dbi_session] = lambda: session
