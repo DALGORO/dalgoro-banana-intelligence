@@ -828,7 +828,7 @@ function FarmMapTimelineView() {
       </div>
 
       <div className="dbi-visual-grid">
-        <aside className="card dbi-map-controls space-y-5">
+        <aside id="dbi-map-controls" className="card dbi-map-controls space-y-5">
           <div>
             <div className="eyebrow">Opciones de visualización</div>
             <h2 className="mt-1 text-lg font-semibold">{realLocator ? farmLabel : "Mapa de finca"}</h2>
@@ -1163,7 +1163,7 @@ function FarmMapTimelineView() {
             </div>
           </div>
         </section>
-        <section className="dbi-map-history" aria-label="Historial cartográfico de levantamientos">
+        <section id="dbi-map-history" className="dbi-map-history" aria-label="Historial cartográfico de levantamientos">
           <div className="dbi-map-history-heading">
             <div>
               <div className="eyebrow">Trazabilidad por fecha</div>
