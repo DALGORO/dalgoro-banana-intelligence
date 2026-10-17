@@ -167,6 +167,7 @@ function FarmMapTimelineView() {
   const scopedGoogleFailure = googleFailure?.scopeKey === gisScopeKey ? googleFailure.reason : null;
   // Google autorizado sigue siendo el fondo preferido; MapLibre es solo contingencia honesta.
   const useGoogleBase = googleConfigured && !scopedGoogleFailure;
+  const rgbOverlayVisible = rgbOverlayOpacity > 0;
 
   useEffect(() => {
     let active = true;
@@ -650,7 +651,7 @@ function FarmMapTimelineView() {
     }
     activeRasterIdsRef.current = [];
 
-    for (const entry of displayEntries) {
+    for (const entry of (rgbOverlayVisible ? displayEntries : [])) {
       const id = `dbi-raster-${entry.raster_product_id}`;
       map.addSource(id, {
         type: "raster",
@@ -675,7 +676,16 @@ function FarmMapTimelineView() {
         if (map.getLayer(id)) map.moveLayer(id);
       }
     }
-  }, [displayEntries, mapReady]);
+  }, [displayEntries, mapReady, rgbOverlayVisible]);
+
+  // Cambiar la transparencia no reconstruye fuentes ni vuelve a pedir tiles.
+  useEffect(() => {
+    const map = mapRef.current;
+    if (!map || !mapReady) return;
+    for (const id of activeRasterIdsRef.current) {
+      if (map.getLayer(id)) map.setPaintProperty(id, "raster-opacity", rgbOverlayOpacity / 100);
+    }
+  }, [mapReady, rgbOverlayOpacity]);
 
 
   useEffect(() => {
@@ -1397,12 +1407,14 @@ function FarmMapTimelineView() {
           ) : (
             <p className="muted text-sm">Este lote aún no tiene levantamientos con cartografía autorizada para consultar.</p>
           )}
-          {useGoogleBase && displayEntries.length > 0 && (
+          {displayEntries.length > 0 && (
             <label className="dbi-rgb-opacity-control" htmlFor="dbi-rgb-opacity">
               <span>
-                <strong>Fotografía RGB sobre Google Satélite</strong>
+                <strong>{useGoogleBase ? "Fotografía RGB sobre Google Satélite" : "Fotografía RGB sobre fondo neutro"}</strong>
                 <small>{rgbOverlayOpacity === 0
-                  ? "Solo Google Satélite: la ortofoto está oculta y no se descargan sus mosaicos."
+                  ? (useGoogleBase
+                    ? "Solo Google Satélite: la ortofoto está oculta y no se descargan sus mosaicos."
+                    : "Solo fondo neutro: la ortofoto está oculta y no se descargan sus mosaicos.")
                   : "Transparencia ajustable para comprobar la posición. No altera los datos."}</small>
               </span>
               <input id="dbi-rgb-opacity" type="range" min={0} max={100} step={5}
