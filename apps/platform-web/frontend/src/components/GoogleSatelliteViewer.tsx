@@ -58,25 +58,50 @@ declare global {
   }
 }
 
+const GOOGLE_MAPS_LOAD_TIMEOUT_MS = 18000;
 let googleSDKPromise: Promise<GoogleSDK> | null = null;
 
 function loadGoogleMaps(apiKey: string): Promise<GoogleSDK> {
   if (window.google?.maps) return Promise.resolve(window.google);
   if (googleSDKPromise) return googleSDKPromise;
+
   googleSDKPromise = new Promise((resolve, reject) => {
     const script = document.createElement("script");
+    let completed = false;
+    let timeout: number | null = null;
+
+    const cleanUp = () => {
+      if (timeout !== null) window.clearTimeout(timeout);
+      delete window.__dbiGoogleMapsReady;
+      script.onerror = null;
+    };
+    const fail = (message: string) => {
+      if (completed) return;
+      completed = true;
+      cleanUp();
+      script.remove();
+      // No retener indefinidamente una Promise fallida: el productor podrá reintentar.
+      googleSDKPromise = null;
+      reject(new Error(message));
+    };
+
     script.async = true;
     script.src = `https://maps.googleapis.com/maps/api/js?key=${encodeURIComponent(apiKey)}&v=weekly&loading=async&callback=__dbiGoogleMapsReady`;
     window.__dbiGoogleMapsReady = () => {
-      if (window.google?.maps) resolve(window.google);
-      else reject(new Error("Google Maps no pudo inicializarse."));
-      delete window.__dbiGoogleMapsReady;
+      if (!window.google?.maps) {
+        fail("Google Satélite no pudo inicializarse.");
+        return;
+      }
+      if (completed) return;
+      completed = true;
+      cleanUp();
+      resolve(window.google);
     };
-    script.onerror = () => {
-      googleSDKPromise = null;
-      delete window.__dbiGoogleMapsReady;
-      reject(new Error("No se pudo cargar Google Maps."));
-    };
+    script.onerror = () => fail("No se pudo conectar con Google Satélite.");
+    timeout = window.setTimeout(
+      () => fail("Google Satélite no respondió. Comprueba la conexión e inténtalo de nuevo."),
+      GOOGLE_MAPS_LOAD_TIMEOUT_MS,
+    );
     document.head.appendChild(script);
   });
   return googleSDKPromise;
@@ -87,6 +112,7 @@ function authorizedRasterOverlay(
   entry: RasterTileTimelineEntry,
   tenantRef: string,
   initialOpacity: number,
+  onTileError: () => void,
 ): DbiRasterOverlay {
   const pending = new Map<HTMLElement, { abort: AbortController; url?: string }>();
   let opacity = initialOpacity;
@@ -129,7 +155,16 @@ function authorizedRasterOverlay(
         signal: abort.signal,
         credentials: "same-origin",
       }).then(async (response) => {
-        if (!response.ok || !response.headers.get("content-type")?.startsWith("image/png")) return;
+        if (!response.ok) {
+          // Un 404 puede ser normal fuera de la huella del vuelo.
+          // Problemas de autorización o red deben ser visibles al usuario.
+          if ([401, 403, 429].includes(response.status) || response.status >= 500) onTileError();
+          return;
+        }
+        if (!response.headers.get("content-type")?.startsWith("image/png")) {
+          onTileError();
+          return;
+        }
         const blob = await response.blob();
         if (abort.signal.aborted) return;
         record.url = URL.createObjectURL(blob);
@@ -142,7 +177,8 @@ function authorizedRasterOverlay(
         image.style.height = "100%";
         container.appendChild(image);
       }).catch(() => {
-        // Sin mosaico autorizado, permanece visible la base satelital de Google.
+        // Abortar tiles al mover el mapa es normal; otros errores sí requieren aviso.
+        if (!abort.signal.aborted) onTileError();
       });
       return container;
     },
@@ -170,6 +206,9 @@ export function GoogleSatelliteViewer({
   const infoWindowRef = useRef<InfoWindow | null>(null);
   const [ready, setReady] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [tileError, setTileError] = useState(false);
+  const [retryVersion, setRetryVersion] = useState(0);
+  const [tileRetryVersion, setTileRetryVersion] = useState(0);
   const apiKey = import.meta.env.VITE_GOOGLE_MAPS_API_KEY?.trim() ?? "";
   // Con RGB al 0 %, no solicitar mosaicos privados invisibles.
   // El fondo Google sigue montado y las capas vectoriales continúan visibles.
@@ -191,9 +230,15 @@ export function GoogleSatelliteViewer({
           zoomControl: true,
           streetViewControl: false,
         });
+        setError(null);
         setReady(true);
       })
-      .catch((err: Error) => { if (active) setError(err.message); });
+      .catch((err: Error) => {
+        if (active) {
+          setReady(false);
+          setError(err.message);
+        }
+      });
     return () => {
       active = false;
       mapRef.current?.overlayMapTypes.clear();
@@ -203,7 +248,7 @@ export function GoogleSatelliteViewer({
       infoWindowRef.current = null;
       mapRef.current = null;
     };
-  }, [apiKey]);
+  }, [apiKey, retryVersion]);
 
   useEffect(() => {
     const map = mapRef.current;
@@ -212,7 +257,9 @@ export function GoogleSatelliteViewer({
     map.overlayMapTypes.clear();
     for (const overlay of overlaysRef.current) overlay.dispose();
     const overlays = rgbVisible
-      ? entries.map(entry => authorizedRasterOverlay(google, entry, tenantRef, opacityRef.current))
+      ? entries.map(entry => authorizedRasterOverlay(
+          google, entry, tenantRef, opacityRef.current, () => setTileError(true),
+        ))
       : [];
     overlaysRef.current = overlays;
     for (const overlay of overlays) map.overlayMapTypes.push(overlay);
@@ -221,11 +268,13 @@ export function GoogleSatelliteViewer({
       for (const overlay of overlays) overlay.dispose();
       if (overlaysRef.current === overlays) overlaysRef.current = [];
     };
-  }, [entries, ready, tenantRef, rgbVisible]);
+  }, [entries, ready, tenantRef, rgbVisible, tileRetryVersion]);
 
   useEffect(() => {
     for (const overlay of overlaysRef.current) overlay.setOpacity(rasterOpacity);
   }, [rasterOpacity]);
+
+  useEffect(() => { setTileError(false); }, [entries, tenantRef, rgbVisible]);
 
   useEffect(() => {
     const map = mapRef.current;
@@ -289,9 +338,28 @@ export function GoogleSatelliteViewer({
   return (
     <div className="absolute inset-0">
       <div ref={elementRef} className="absolute inset-0" aria-label="Mapa satelital de Google con capas agrícolas privadas" />
+      {!ready && !error && (
+        <div role="status" className="absolute left-4 right-4 top-4 rounded-xl bg-white/95 p-3 text-sm text-slate-700 shadow">
+          Conectando con Google Satélite…
+        </div>
+      )}
       {error && (
         <div role="alert" className="absolute left-4 right-4 top-4 rounded-xl bg-white p-4 text-sm text-rose-700 shadow">
-          {error} Revisa la clave y las restricciones de Google Maps.
+          <p>{error} El fondo no está disponible; no se utilizarán imágenes satelitales simuladas.</p>
+          <button type="button" className="btn-secondary mt-2" onClick={() => {
+            setError(null);
+            setRetryVersion(value => value + 1);
+          }}>Reintentar Google Satélite</button>
+          <p className="mt-2 text-xs">Si persiste, revisa conexión, clave, facturación y dominios autorizados de Google Maps.</p>
+        </div>
+      )}
+      {ready && tileError && rgbVisible && (
+        <div role="status" className="absolute bottom-4 left-4 right-4 rounded-xl bg-white/95 p-3 text-sm text-amber-900 shadow">
+          <p>Google Satélite sigue visible, pero algunos mosaicos de la ortofoto privada no se cargaron.</p>
+          <button type="button" className="btn-secondary mt-2" onClick={() => {
+            setTileError(false);
+            setTileRetryVersion(value => value + 1);
+          }}>Reintentar fotografía RGB</button>
         </div>
       )}
     </div>
