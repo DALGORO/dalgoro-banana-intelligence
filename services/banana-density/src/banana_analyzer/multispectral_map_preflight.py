@@ -122,6 +122,8 @@ def _inspect_cog(path: Path) -> tuple[str, int, str, tuple[float, ...], tuple[fl
                 raise DBIIndexMapPreflightError("El índice debe ser GeoTIFF Float32 monobanda.")
             if ds.crs is None or ds.transform.is_identity or not ds.is_tiled:
                 raise DBIIndexMapPreflightError("El COG exige CRS y grilla georreferenciada en bloques.")
+            if ds.tags(ns="IMAGE_STRUCTURE").get("LAYOUT") != "COG":
+                raise DBIIndexMapPreflightError("Se requiere un COG real con layout reconocido por GDAL.")
             if ds.width <= 0 or ds.height <= 0 or not math.isfinite(float(ds.transform.determinant)) or abs(ds.transform.determinant) < 1e-18:
                 raise DBIIndexMapPreflightError("Grilla ráster inválida.")
             if max(ds.width, ds.height) > 512 and not ds.overviews(1):
