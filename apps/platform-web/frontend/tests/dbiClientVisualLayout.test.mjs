@@ -66,7 +66,7 @@ test("map-first workspace renders real chronological visits without mock diagnos
 });
 
 test("mobile quick date and side date share Campaign reset, not an inferred flight", () => {
-  assert.match(map, /const selectPrimaryMapDate = \(date: string\) => \{\s*setSelectedDate\(date\);\s*setSpecificMapCampaign\(null\);/);
+  assert.match(map, /const selectPrimaryMapDate = \(date: string\) => \{\s*manuallySelectedVisitRef\.current = true;\s*setSelectedDate\(date\);\s*setSpecificMapCampaign\(null\);/);
   const actions = map.match(/onChange=\{\(event\) => selectPrimaryMapDate\(event\.target\.value\)\}/g) ?? [];
   assert.equal(actions.length, 2, "El selector rápido y el lateral usan la misma regla de Campaign");
   assert.match(map, /id="dbi-mobile-date"/);
