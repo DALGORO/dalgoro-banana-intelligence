@@ -281,7 +281,7 @@ def validate_publication_gate_before_reader() -> None:
                 "orthophoto_source", "rgb_visual", "PUBLISHED",
                 "approved_at IS NOT NULL", "published_at IS NOT NULL",
                 "tenant-raster-http", "organization-raster-http",
-                str(FARM), str(PLOT), str(PRODUCT),
+                FARM.hex, PLOT.hex, PRODUCT.hex,
             ):
                 assert condition in sql, f"Gate SQL no verifica {condition}"
             return _Result()
