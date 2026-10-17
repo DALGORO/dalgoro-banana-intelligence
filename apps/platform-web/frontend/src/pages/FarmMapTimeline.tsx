@@ -106,6 +106,8 @@ function FarmMapTimelineView() {
   const [selectedDate, setSelectedDate] = useState("");
   // Sólo afecta a la ortofoto visual; no altera los datos científicos.
   const [rgbOverlayOpacity, setRGBOverlayOpacity] = useState(75);
+  // Scoped: al navegar a otro lote, no heredar un fallo transitorio de Google.
+  const [googleFailure, setGoogleFailure] = useState<{ scopeKey: string; reason: string } | null>(null);
   const [infoTab, setInfoTab] = useState<"multi" | "tracking">("tracking");
   const manuallySelectedVisitRef = useRef(false);
   const [specificMapCampaign, setSpecificMapCampaign] = useState<{
@@ -161,7 +163,10 @@ function FarmMapTimelineView() {
   const hasPendingGISImports = gisImports.some(item =>
     item.status === "received" || item.status === "processing"
   );
-  const useGoogleBase = Boolean(import.meta.env.VITE_GOOGLE_MAPS_API_KEY?.trim()) && Boolean(realLocator);
+  const googleConfigured = Boolean(import.meta.env.VITE_GOOGLE_MAPS_API_KEY?.trim()) && Boolean(realLocator);
+  const scopedGoogleFailure = googleFailure?.scopeKey === gisScopeKey ? googleFailure.reason : null;
+  // Google autorizado sigue siendo el fondo preferido; MapLibre es solo contingencia honesta.
+  const useGoogleBase = googleConfigured && !scopedGoogleFailure;
 
   useEffect(() => {
     let active = true;
@@ -1313,6 +1318,7 @@ function FarmMapTimelineView() {
                 bounds={mapBounds}
                 vectors={visibleVectorDetails}
                 rasterOpacity={rgbOverlayOpacity / 100}
+                onUnavailable={(reason) => setGoogleFailure({ scopeKey: gisScopeKey, reason })}
               />
             ) : (
               <div
@@ -1416,9 +1422,24 @@ function FarmMapTimelineView() {
               {" "}Cada fecha se consulta por separado; no se comparan automáticamente valores de distintos vuelos.
             </p>
           )}
-          {!useGoogleBase && (
+          {scopedGoogleFailure && (
+            <div className="dbi-map-google-fallback" role="status">
+              <div>
+                <strong>Google Satélite no está disponible.</strong>
+                <p>
+                  {scopedGoogleFailure} Se muestran las fotografías y capas cartográficas
+                  publicadas sobre un fondo neutro, sin simular imágenes de Google.
+                </p>
+              </div>
+              <button type="button" className="btn-secondary"
+                onClick={() => setGoogleFailure(null)}>
+                Reintentar Google Satélite
+              </button>
+            </div>
+          )}
+          {!googleConfigured && (
             <p className="muted text-xs">
-              Fondo satelital no configurado. Se muestran las capas reales que estén disponibles; el fondo neutro no es una ortofoto.
+              Fondo satelital de Google no configurado. Se muestran las capas reales que estén disponibles; el fondo neutro no es una ortofoto.
             </p>
           )}
         </section>
