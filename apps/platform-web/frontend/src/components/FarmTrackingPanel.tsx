@@ -44,16 +44,16 @@ export function FarmTrackingPanel({
   return (
     <section className="dbi-tracking-panel space-y-4" aria-label="Ficha de seguimiento del lote">
       <div>
-        <div className="eyebrow">Información de tu lote</div>
+        <div className="eyebrow">Información de la selección</div>
         <div className="dbi-tracking-heading">
-          <h3 className="mt-1 text-lg font-semibold">Seguimiento del lote</h3>
+          <h3 className="mt-1 text-lg font-semibold">Qué estás viendo</h3>
           <span className="dbi-tracking-selection-chip">
             {selectedCampaignId ? "Vuelo específico elegido" : "Vista general del lote"}
           </span>
         </div>
         <p className="muted mt-1 text-sm">
-          Consulta la procedencia y los registros disponibles para la selección del mapa.
-          Esta ficha no diagnostica enfermedades ni determina intervenciones.
+          El mapa muestra fotografías y capas cartográficas realmente disponibles para este lote
+          y levantamiento. No determina por sí solo enfermedades ni tratamientos.
         </p>
       </div>
 
@@ -76,11 +76,11 @@ export function FarmTrackingPanel({
         <>
           <div className="dbi-tracking-facts" aria-label="Evidencias de la selección">
             <div>
-              <div className="muted text-xs">Registros cartográficos activados</div>
+              <div className="muted text-xs">Fotografías o registros RGB seleccionados</div>
               <div className="mt-1 text-xl font-semibold tabular-nums">{visibleMapEntries.length}</div>
             </div>
             <div>
-              <div className="muted text-xs">Capas GIS asociadas a la selección</div>
+              <div className="muted text-xs">Capas GIS disponibles en esta selección</div>
               <div className="mt-1 text-xl font-semibold tabular-nums">{associatedGISLayers.length}</div>
             </div>
           </div>

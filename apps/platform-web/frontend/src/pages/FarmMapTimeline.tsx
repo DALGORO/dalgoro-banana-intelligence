@@ -14,6 +14,7 @@ import { GoogleSatelliteViewer } from "@/components/GoogleSatelliteViewer";
 import { MultispectralEvidencePanel } from "@/components/MultispectralEvidencePanel";
 import { FarmTrackingPanel } from "@/components/FarmTrackingPanel";
 import { belongsToSelectedMapCampaign, mapTimelineViewKey } from "@/features/mapCampaignSelection";
+import { producerMapVisits, visitsAtDate } from "@/features/producerMapVisits";
 import { api } from "@/app/api";
 import {
   getVectorLayer, listVectorLayers, listVectorCampaigns, listGISImports, getGISImportPreview, publishReviewedGISImport, publishGeoJSON, stageGISOriginal, selectGISImportLayer, vectorExtent,
@@ -103,7 +104,8 @@ function FarmMapTimelineView() {
     new Set(),
   );
   const [selectedDate, setSelectedDate] = useState("");
-  const [infoTab, setInfoTab] = useState<"multi" | "tracking">("multi");
+  const [infoTab, setInfoTab] = useState<"multi" | "tracking">("tracking");
+  const manuallySelectedVisitRef = useRef(false);
   const [specificMapCampaign, setSpecificMapCampaign] = useState<{
     scopeKey: string; campaignId: string;
   } | null>(null);
@@ -319,14 +321,42 @@ function FarmMapTimelineView() {
     realLocator,
   ]);
 
-  const dates = useMemo(() =>
-    Array.from(new Set([
-      ...(data?.timeline ?? []).map(entry => entry.captured_at),
-      ...vectorCampaigns.map(campaign => campaign.captured_at),
-      ...(selectedMapCampaignId && selectedDate ? [selectedDate] : []),
-    ])).sort(),
-    [data?.timeline, vectorCampaigns, selectedMapCampaignId, selectedDate],
+  const mapVisits = useMemo(() => producerMapVisits(
+    isPlotTimeline(data) ? data.timeline : [],
+    vectorCampaigns, vectorLayers,
+  ), [data, vectorCampaigns, vectorLayers]);
+
+  const visitsForDate = useMemo(
+    () => visitsAtDate(mapVisits, selectedDate),
+    [mapVisits, selectedDate],
   );
+  const ambiguousMapDate = Boolean(realLocator && selectedDate
+    && !selectedMapCampaignId && visitsForDate.length > 1);
+
+  // La llegada asíncrona de capas GIS puede descubrir un levantamiento más reciente.
+  // Solo autoelige mientras el productor no haya tomado el control de la selección.
+  useEffect(() => {
+    if (!realLocator || manuallySelectedVisitRef.current || mapVisits.length === 0) return;
+    const latest = mapVisits[0];
+    if (selectedDate !== latest.capturedAt || selectedMapCampaignId !== latest.campaignId) {
+      setSelectedDate(latest.capturedAt);
+      setSpecificMapCampaign({ scopeKey: gisScopeKey, campaignId: latest.campaignId });
+    }
+  }, [realLocator, mapVisits, selectedDate, selectedMapCampaignId, gisScopeKey]);
+
+  const dates = useMemo(() => Array.from(new Set([
+    ...mapVisits.map(visit => visit.capturedAt),
+    ...(selectedMapCampaignId && selectedDate ? [selectedDate] : []),
+  ])).sort(), [mapVisits, selectedMapCampaignId, selectedDate]);
+
+  const selectedVisit = mapVisits.find(visit => visit.campaignId === selectedMapCampaignId
+    && sameCapture(visit.capturedAt, selectedDate));
+  const currentVisitIndex = selectedVisit
+    ? mapVisits.indexOf(selectedVisit)
+    : mapVisits.findIndex(visit => sameCapture(visit.capturedAt, selectedDate));
+  const currentMapVisit = currentVisitIndex >= 0 ? mapVisits[currentVisitIndex] : null;
+  const olderVisit = currentVisitIndex >= 0 ? mapVisits[currentVisitIndex + 1] : undefined;
+  const newerVisit = currentVisitIndex > 0 ? mapVisits[currentVisitIndex - 1] : undefined;
 
   const availableLayerTypes = useMemo(
     () => new Set((data?.timeline ?? []).map((entry) => entry.layer_type)),
@@ -337,6 +367,7 @@ function FarmMapTimelineView() {
     () =>
       (data?.timeline ?? []).filter(
         (entry) =>
+          !ambiguousMapDate && (!realLocator || Boolean(selectedDate)) &&
           selectedLayers.has(entry.layer_type) &&
           (isRasterEntry(entry)
             ? belongsToSelectedMapCampaign(entry.captured_at, entry.campaign_id,
@@ -344,17 +375,18 @@ function FarmMapTimelineView() {
             : !selectedMapCampaignId &&
               (selectedDate === "" || sameCapture(entry.captured_at, selectedDate))),
       ),
-    [data?.timeline, selectedDate, selectedLayers, selectedMapCampaignId],
+    [data?.timeline, selectedDate, selectedLayers, selectedMapCampaignId, ambiguousMapDate, realLocator],
   );
 
 
   const activeCampaignIds = useMemo(() => new Set(
     vectorCampaigns
-      .filter(campaign => belongsToSelectedMapCampaign(
+      .filter(campaign => !ambiguousMapDate && (!realLocator || Boolean(selectedDate))
+        && belongsToSelectedMapCampaign(
         campaign.captured_at, campaign.id, selectedDate, selectedMapCampaignId,
       ))
       .map(campaign => campaign.id)
-  ), [vectorCampaigns, selectedDate, selectedMapCampaignId]);
+  ), [vectorCampaigns, selectedDate, selectedMapCampaignId, ambiguousMapDate, realLocator]);
 
   const visibleVectorMeta = useMemo(() =>
     vectorLayers.filter(layer => activeCampaignIds.has(layer.campaign_id)),
@@ -714,8 +746,19 @@ function FarmMapTimelineView() {
   // El acceso rápido móvil y el selector lateral comparten la misma regla:
   // elegir una fecha elimina la restricción de ID Campaign, sin inventar vínculo.
   const selectPrimaryMapDate = (date: string) => {
+    manuallySelectedVisitRef.current = true;
     setSelectedDate(date);
     setSpecificMapCampaign(null);
+  };
+
+  const chooseMapVisit = (campaignId: string, capturedAt: string) => {
+    const visit = mapVisits.find(item => item.campaignId === campaignId
+      && sameCapture(item.capturedAt, capturedAt));
+    if (!visit) return;
+    manuallySelectedVisitRef.current = true;
+    setSelectedDate(visit.capturedAt);
+    setSpecificMapCampaign({ scopeKey: gisScopeKey, campaignId: visit.campaignId });
+    setComparisonDate("");
   };
 
   const toggleLayer = (layerType: MapLayerType) => {
@@ -734,20 +777,20 @@ function FarmMapTimelineView() {
         <div className="min-w-0 flex-1">
           <div className="eyebrow">DALGORO · Visor agrícola privado</div>
           <h2 className="mt-1 text-lg font-semibold">
-            {isPlotTimeline(data) ? "Mapa histórico del lote" : "Mapa de la finca"}
+            {realLocator ? `${farmLabel} · ${plotLabel}` : "Mapa de la finca"}
           </h2>
           <p className="muted mt-1 text-sm">
-            Selecciona una fecha y consulta exclusivamente capas y evidencia autorizadas.
-            El fondo satelital aparece solo cuando está configurado.
+            Explora los levantamientos de tu lote por fecha. El mapa muestra únicamente
+            fotografías y capas cartográficas realmente disponibles para tu cuenta.
           </p>
         </div>
         <div className="dbi-map-intro-meta" aria-label="Estado del mapa">
           <span className="dbi-info-chip"><Layers3 size={15} aria-hidden="true" />
-            {visibleEntries.length + visibleVectorMeta.length} capas disponibles en la selección
+            {visibleEntries.length} fotos RGB · {visibleVectorDetails.length} capas GIS visibles
           </span>
           {selectedMapCampaignId && (
             <span className="dbi-info-chip dbi-info-chip-accent">
-              Vuelo multiespectral elegido
+              Levantamiento específico seleccionado
             </span>
           )}
         </div>
@@ -769,7 +812,7 @@ function FarmMapTimelineView() {
               <option key={date} value={date}>
                 {formatDate(date)}
                 {selectedMapCampaignId && sameCapture(selectedDate, date)
-                  ? " · Vuelo elegido" : ""}
+                  ? " · Levantamiento elegido" : ""}
               </option>
             ))}
           </select>
@@ -779,15 +822,15 @@ function FarmMapTimelineView() {
             {realLocator && <a href="#dbi-multi-evidence" onClick={() => setInfoTab("multi")}>Ver evidencia MULTI</a>}
           </div>
           <p className="muted text-xs">
-            Elegir otra fecha limpia la selección de vuelo específico. No mezcla información de campañas distintas.
+            Si una fecha tiene varios levantamientos, elígelos por separado en el historial.
           </p>
         </nav>
       </div>
 
       <div className="dbi-visual-grid">
-        <aside className="card dbi-map-controls space-y-5">
+        <aside id="dbi-map-controls" className="card dbi-map-controls space-y-5">
           <div>
-            <div className="eyebrow">Control de campaña y capas</div>
+            <div className="eyebrow">Opciones de visualización</div>
             <h2 className="mt-1 text-lg font-semibold">{realLocator ? farmLabel : "Mapa de finca"}</h2>
             {isPlotTimeline(data) && (
               <p className="muted mt-1 text-sm">Lote: {plotLabel}</p>
@@ -813,14 +856,14 @@ function FarmMapTimelineView() {
                 <option key={date} value={date}>
                   {formatDate(date)}
                   {selectedMapCampaignId && sameCapture(selectedDate, date)
-                    ? " · Vuelo elegido" : ""}
+                    ? " · Levantamiento elegido" : ""}
                 </option>
               ))}
             </select>
           </div>
 
           <div className="divider pt-4">
-            <div className="text-sm font-medium">Capas</div>
+            <div className="text-sm font-medium">Mostrar en el mapa</div>
             <div className="mt-3 space-y-3">
               {(data?.available_layers ?? []).map((layer) => {
                 const available = availableLayerTypes.has(layer.layer_type);
@@ -1025,7 +1068,7 @@ function FarmMapTimelineView() {
 
           <div className="divider pt-4">
             <label className="text-sm font-medium" htmlFor="comparison-date">
-              Comparar con
+              Comparación por fechas (próximamente)
             </label>
             <select
               id="comparison-date"
@@ -1043,18 +1086,36 @@ function FarmMapTimelineView() {
             </select>
             <p className="muted mt-2">
               {comparisonEnabled
-                ? "Las dos fechas existen; la comparación visual avanzada se habilitará sin alterar sus fuentes."
-                : "Se requieren dos fechas reales distintas."}
+                ? "Hay dos fechas registradas, pero todavía no existe una comparación cartográfica validada. Revisa los levantamientos uno por uno."
+                : "El comparador cartográfico todavía no está disponible. Utiliza Anterior y Siguiente para consultar cada levantamiento por separado."}
             </p>
           </div>
         </aside>
 
         <section id="dbi-map-view" className="card dbi-map-stage p-0 overflow-hidden" aria-label="Mapa de la campaña seleccionada">
           <div className="relative min-h-[560px]">
-            <div className="dbi-map-stage-label" aria-hidden="true">
-              <MapPinned size={16} />
-              <span>{selectedDate ? formatDate(selectedDate) : "Todas las fechas"}</span>
+            <div className="dbi-map-stage-label" aria-label="Fecha del mapa">
+              <MapPinned size={16} aria-hidden="true" />
+              <span>{selectedDate ? formatDate(selectedDate) : "Selecciona un levantamiento"}</span>
+              {currentMapVisit && <span className="dbi-map-stage-kind">
+                {currentMapVisit.hasRgb ? "Fotografía RGB" : "Cartografía GIS"}
+              </span>}
             </div>
+            {(displayEntries.length > 0 || visibleVectorDetails.length > 0) && (
+              <div className="dbi-map-legend" aria-label="Leyenda de capas visibles">
+                <strong>Capas del levantamiento</strong>
+                {displayEntries.length > 0 && (
+                  <span><i className="dbi-legend-rgb" aria-hidden="true" /> Imagen aérea RGB</span>
+                )}
+                {visibleVectorDetails.slice(0, 4).map(vector => (
+                  <span key={vector.layer.id}>
+                    <i aria-hidden="true" style={{ backgroundColor: GIS_KIND_COLORS[vector.layer.layer_kind] }} />
+                    {GIS_KIND_LABELS[vector.layer.layer_kind]}
+                  </span>
+                ))}
+                {visibleVectorDetails.length > 4 && <small>Más capas en Opciones de visualización</small>}
+              </div>
+            )}
             {useGoogleBase && realLocator ? (
               <GoogleSatelliteViewer
                 tenantRef={realLocator.tenantRef}
@@ -1086,19 +1147,74 @@ function FarmMapTimelineView() {
               {!loading && !error && visibleEntries.length === 0 && visibleVectorDetails.length === 0 && (
                 <div className="empty-state pointer-events-auto shadow-lg">
                   <div className="font-medium">
-                    {selectedMapCampaignId
-                      ? "Sin capas cartográficas para la Campaign MULTI seleccionada"
-                      : "No hay campañas cartográficas visibles"}
+                    {ambiguousMapDate
+                      ? "Hay varios levantamientos en esta fecha"
+                      : selectedMapCampaignId
+                        ? "Este levantamiento no tiene capas cartográficas disponibles"
+                        : "Selecciona un levantamiento del historial"}
                   </div>
                   <p className="muted mt-2">
-                    No se muestran geometrías, índices ni recomendaciones
-                    simuladas. Las capas aparecen únicamente cuando existe
-                    evidencia real autorizada para este lote.
+                    {ambiguousMapDate
+                      ? "Elige un levantamiento concreto de la línea de tiempo para evitar mezclar vuelos diferentes."
+                      : "No hay cartografía autorizada para mostrar en esta selección. No se simulan imágenes ni resultados."}
                   </p>
                 </div>
               )}
             </div>
           </div>
+        </section>
+        <section id="dbi-map-history" className="dbi-map-history" aria-label="Historial cartográfico de levantamientos">
+          <div className="dbi-map-history-heading">
+            <div>
+              <div className="eyebrow">Trazabilidad por fecha</div>
+              <h3 className="mt-1 text-base font-semibold">Historial de levantamientos</h3>
+            </div>
+            <span className="muted text-xs">{mapVisits.length} con cartografía disponible</span>
+          </div>
+          {mapVisits.length > 0 ? (
+            <div className="dbi-map-history-nav">
+              <button type="button" className="dbi-history-arrow"
+                disabled={!olderVisit} onClick={() => olderVisit && chooseMapVisit(olderVisit.campaignId, olderVisit.capturedAt)}
+                aria-label="Ver levantamiento anterior">← Anterior</button>
+              <div className="dbi-map-history-strip" role="group" aria-label="Elegir levantamiento por fecha">
+                {[...mapVisits].reverse().map(visit => {
+                  const active = selectedMapCampaignId === visit.campaignId
+                    && sameCapture(selectedDate, visit.capturedAt);
+                  return (
+                    <button type="button" key={visit.campaignId}
+                      className="dbi-map-history-visit" aria-pressed={active}
+                      onClick={() => chooseMapVisit(visit.campaignId, visit.capturedAt)}>
+                      <span className="dbi-history-dot" aria-hidden="true" />
+                      <strong>{formatDate(visit.capturedAt)}</strong>
+                      <span className="dbi-history-visit-name">{visit.name}</span>
+                      <small>{visit.hasRgb ? "Fotografía RGB" : "Capas GIS"}
+                        {visit.gisLayerCount > 0 ? ` · ${visit.gisLayerCount} capas GIS` : ""}</small>
+                    </button>
+                  );
+                })}
+              </div>
+              <button type="button" className="dbi-history-arrow"
+                disabled={!newerVisit} onClick={() => newerVisit && chooseMapVisit(newerVisit.campaignId, newerVisit.capturedAt)}
+                aria-label="Ver levantamiento siguiente">Siguiente →</button>
+            </div>
+          ) : (
+            <p className="muted text-sm">Este lote aún no tiene levantamientos con cartografía autorizada para consultar.</p>
+          )}
+          {currentMapVisit && (
+            <p className="dbi-map-history-note">
+              {currentMapVisit.reviewStatus === "approved"
+                ? "Imagen RGB con revisión profesional aprobada."
+                : currentMapVisit.hasRgb
+                  ? "Imagen RGB disponible; no implica que el análisis técnico esté aprobado."
+                  : "Capas GIS publicadas para consulta. La aprobación técnica del vuelo no se informa aquí."}
+              {" "}Cada fecha se consulta por separado; no se comparan automáticamente valores de distintos vuelos.
+            </p>
+          )}
+          {!useGoogleBase && (
+            <p className="muted text-xs">
+              Fondo satelital no configurado. Se muestran las capas reales que estén disponibles; el fondo neutro no es una ortofoto.
+            </p>
+          )}
         </section>
       <section className="dbi-info-tabs" aria-label="Información y seguimiento del lote">
         <div className="dbi-info-tab-buttons" role="tablist" aria-label="Pestañas de información agrícola">
@@ -1117,7 +1233,7 @@ function FarmMapTimelineView() {
               document.getElementById("dbi-tab-tracking")?.focus();
             }}
           >
-            Evidencia MULTI
+            Índices y muestras
           </button>
           <button
             type="button"
@@ -1134,7 +1250,7 @@ function FarmMapTimelineView() {
               document.getElementById("dbi-tab-multi")?.focus();
             }}
           >
-            Seguimiento del lote
+            Resumen del lote
           </button>
         </div>
         <div
@@ -1151,11 +1267,13 @@ function FarmMapTimelineView() {
               selectedMapDate={selectedDate}
               selectedMapCampaignId={selectedMapCampaignId}
               onChooseVerifiedCampaign={(campaignId, capturedAt) => {
+                manuallySelectedVisitRef.current = true;
                 setSpecificMapCampaign({ scopeKey: gisScopeKey, campaignId });
                 setSelectedDate(capturedAt);
                 setComparisonDate("");
               }}
               onClearMapSelection={() => {
+                manuallySelectedVisitRef.current = true;
                 setSpecificMapCampaign(null);
                 setSelectedDate("");
                 setComparisonDate("");

@@ -30,7 +30,7 @@ test("map and MULTI use responsive columns without moving scientific calculation
   assert.match(map, /<MultispectralEvidencePanel[\s\S]+selectedMapCampaignId=\{selectedMapCampaignId\}/);
   assert.match(multi, /className="card dbi-multi-panel/);
   assert.match(styles, /@media \(min-width: 1120px\)/);
-  assert.match(styles, /@media \(min-width: 1560px\)/);
+  assert.match(styles, /@media \(min-width: 1360px\)/);
   assert.match(styles, /@media \(max-width: 767px\)/);
 });
 
@@ -41,11 +41,32 @@ test("client only sees real derived summary; management still requires publish a
   assert.match(multi, /verifiedMultispectralCampaigns\(items, locator\)/);
   assert.match(map, /\{canPublish && realLocator && \(\s*<details/);
   assert.match(map, /{selectedMapCampaignId && \(/);
-  assert.match(map, /Sin capas cartográficas para la Campaign MULTI seleccionada/);
+  assert.match(map, /Este levantamiento no tiene capas cartográficas disponibles/);
+});
+
+test("map-first workspace renders real chronological visits without mock diagnoses", () => {
+  assert.match(map, /producerMapVisits\(/);
+  assert.match(map, /visitsAtDate\(mapVisits, selectedDate\)/);
+  assert.match(map, /id="dbi-map-view"/);
+  assert.match(map, /className="dbi-map-history"/);
+  assert.match(map, /aria-label="Elegir levantamiento por fecha"/);
+  assert.match(map, /onClick=\{\(\) => chooseMapVisit\(visit\.campaignId, visit\.capturedAt\)\}/);
+  assert.match(map, /olderVisit && chooseMapVisit\(olderVisit\.campaignId, olderVisit\.capturedAt\)/);
+  assert.match(map, /newerVisit && chooseMapVisit\(newerVisit\.campaignId, newerVisit\.capturedAt\)/);
+  assert.match(map, /ambiguousMapDate/);
+  assert.match(map, /Imagen RGB disponible; no implica que el análisis técnico esté aprobado/);
+  assert.match(map, /Fondo satelital no configurado/);
+  assert.match(map, /dbi-map-legend/);
+  assert.ok(map.indexOf('id="dbi-map-view"') < map.indexOf('className="dbi-map-history"'));
+  assert.ok(map.indexOf('className="dbi-map-history"') < map.indexOf('className="dbi-info-tabs"'));
+  assert.match(styles, /\.dbi-map-history-visit\[aria-pressed="true"\]/);
+  assert.match(styles, /\.dbi-history-arrow:disabled/);
+  assert.match(map, /No se simulan imágenes ni resultados/);
+  assert.doesNotMatch(map, /Math\.random\(|mockCover|fakeMapHealth|fakeCampaign/);
 });
 
 test("mobile quick date and side date share Campaign reset, not an inferred flight", () => {
-  assert.match(map, /const selectPrimaryMapDate = \(date: string\) => \{\s*setSelectedDate\(date\);\s*setSpecificMapCampaign\(null\);/);
+  assert.match(map, /const selectPrimaryMapDate = \(date: string\) => \{\s*manuallySelectedVisitRef\.current = true;\s*setSelectedDate\(date\);\s*setSpecificMapCampaign\(null\);/);
   const actions = map.match(/onChange=\{\(event\) => selectPrimaryMapDate\(event\.target\.value\)\}/g) ?? [];
   assert.equal(actions.length, 2, "El selector rápido y el lateral usan la misma regla de Campaign");
   assert.match(map, /id="dbi-mobile-date"/);
@@ -61,7 +82,7 @@ test("mobile quick date and side date share Campaign reset, not an inferred flig
 
 test("mobile controls are visibly accessible only at phone breakpoint", () => {
   assert.match(styles, /\.dbi-mobile-toolbar \{\s*display: none;/);
-  assert.match(styles, /@media \(max-width: 767px\) \{\s*\.dbi-mobile-toolbar \{\s*display: grid;/);
+  assert.match(styles, /@media \(max-width: 767px\) \{[\s\S]*?\.dbi-mobile-toolbar \{\s*display: grid;/);
   assert.match(styles, /\.dbi-mobile-toolbar select \{[\s\S]*?min-height: 44px;/);
   assert.match(styles, /\.dbi-mobile-shortcuts a:focus-visible/);
   assert.match(styles, /\.dbi-map-stage,[\s\S]*?\.dbi-multi-panel \{\s*scroll-margin-top: 16px;/);
@@ -102,7 +123,7 @@ test("coverage only reports valid source pixel counts; no hectare or plant infer
 });
 
 test("tracking is an accessible tab INSIDE map viewer and MULTI remains mounted", () => {
-  assert.match(map, /useState<"multi" \| "tracking">\("multi"\)/);
+  assert.match(map, /useState<"multi" \| "tracking">\("tracking"\)/);
   assert.match(map, /className="dbi-info-tabs"/);
   assert.match(map, /role="tablist" aria-label="Pestañas de información agrícola"/);
   assert.match(map, /role="tab"\s+id="dbi-tab-multi"/);
@@ -117,8 +138,9 @@ test("tracking is an accessible tab INSIDE map viewer and MULTI remains mounted"
   assert.ok(map.indexOf('id="dbi-map-view"') < map.indexOf('className="dbi-info-tabs"'),
     "El mapa permanece fuera de las pestañas y no se desmonta");
   assert.match(styles, /\.dbi-info-tab-panel\[hidden\] \{\s*display: none !important;/);
-  assert.match(styles, /\.dbi-info-tabs \{ grid-column: 1 \/ -1; \}/);
-  assert.match(styles, /\.dbi-client-shell \.dbi-info-tabs \{ grid-column: 3; \}/);
+  assert.match(styles, /\.dbi-info-tabs \{\s*grid-area: details;/);
+  assert.match(styles, /grid-template-areas: "map" "history" "details" "controls"/);
+  assert.match(styles, /grid-template-areas: "controls map details" "controls history details"/);
 });
 
 test("tracking only describes authorized visible entries and GIS, not diagnoses", () => {
@@ -198,8 +220,8 @@ test("INSPECT cross-tenant, cross-plot, or wrong ID is rejected before showing o
 });
 
 test("H13 producer navigation uses readable flight labels while retaining exact scoped IDs internally", () => {
-  assert.match(map, /Vuelo multiespectral elegido/);
-  assert.match(map, /Vuelo elegido/);
+  assert.match(map, /Levantamiento específico seleccionado/);
+  assert.match(map, /Levantamiento elegido/);
   assert.doesNotMatch(map, /selectedMapCampaignId\.slice\(0, 8\)/);
   assert.match(multi, /verifiedHistory\.map\(\(entry, index\) =>/);
   assert.match(multi, /Vuelo \{index \+ 1\}/);
