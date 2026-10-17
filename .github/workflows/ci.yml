@@ -258,6 +258,11 @@ jobs:
           PYTHONPATH: .
         run: python ../../../.github/scripts/ci_dbi_multi_http.py
 
+      - name: Validar PDF de Campaign publicada y autoridad institucional DALGORO
+        env:
+          PYTHONPATH: .
+        run: python ../../../.github/scripts/ci_dbi_published_pdf_and_staff_gate.py
+
       - name: Validar capas vectoriales seguras para el portal
         env:
           PYTHONPATH: .
