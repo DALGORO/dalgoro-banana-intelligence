@@ -41,10 +41,19 @@ Los switches cartográficos pendientes quedan inactivos.
 4. **PUBLISHED exige** permisos MANAGE del scope, DBI principal/membresía
    vigentes, acreditación institucional DALGORO como administrador y guard
    transaccional de revocación de cargos vigente (migración 29).
-5. Cronología RGB, lectura GIS, estadísticas MULTI y reporte PDF del productor
+5. La consulta privada `/map/management-campaigns` (permiso MANAGE) permite
+   preparar capas de levantamientos pendientes sin exponerlos al lector.
+   El gestor puede pulsar «Publicar al cliente» sobre una Campaign APPROVED;
+   el endpoint vuelve a exigir acreditación DALGORO vigente. Antes de finalizar
+   se deben procesar, previsualizar y revisar las capas GIS y los originales.
+   Una vez PUBLISHED se bloquean **nuevas modificaciones GIS** (GeoJSON,
+   recepción GIS, selección de capa y publicación de conversión) con
+   bloqueo transaccional de la fila Campaign, para impedir agregados
+   posteriores que el cliente pudiera ver sin una nueva revisión.
+6. Cronología RGB, lectura GIS, estadísticas MULTI y reporte PDF del productor
    consultan **solo** Campaign en `PUBLISHED` con `approved_at` y
    `published_at` registrados. Ninguna fecha infiere publicación.
-6. Datos aún no publicados permanecen fuera de esas rutas del cliente.
+7. Datos aún no publicados permanecen fuera de esas rutas del cliente.
    Las vistas administrativas de revisión y staging requieren MANAGE y
    no constituyen publicación final al productor.
 
