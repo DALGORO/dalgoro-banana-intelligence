@@ -44,8 +44,13 @@ export function FarmTrackingPanel({
   return (
     <section className="dbi-tracking-panel space-y-4" aria-label="Ficha de seguimiento del lote">
       <div>
-        <div className="eyebrow">Consulta de información existente</div>
-        <h3 className="mt-1 text-lg font-semibold">Seguimiento del lote</h3>
+        <div className="eyebrow">Información de tu lote</div>
+        <div className="dbi-tracking-heading">
+          <h3 className="mt-1 text-lg font-semibold">Seguimiento del lote</h3>
+          <span className="dbi-tracking-selection-chip">
+            {selectedCampaignId ? "Vuelo específico elegido" : "Vista general del lote"}
+          </span>
+        </div>
         <p className="muted mt-1 text-sm">
           Consulta la procedencia y los registros disponibles para la selección del mapa.
           Esta ficha no diagnostica enfermedades ni determina intervenciones.
@@ -56,12 +61,12 @@ export function FarmTrackingPanel({
         <div><dt>Finca</dt><dd>{farmName}</dd></div>
         <div><dt>Lote</dt><dd>{hasScopedPlot ? plotName : "Lote no identificado en este enlace"}</dd></div>
         <div>
-          <dt>Fecha cartográfica seleccionada</dt>
+          <dt>Fecha seleccionada en el mapa</dt>
           <dd>{selectedMapDate ? capturedTime(selectedMapDate) : "Todas las fechas"}</dd>
         </div>
         <div>
-          <dt>Campaign MULTI específica</dt>
-          <dd className="break-all">{selectedCampaignId ?? "Sin Campaign exacta seleccionada"}</dd>
+          <dt>Vuelo multiespectral</dt>
+          <dd>{selectedCampaignId ? "Vuelo específico elegido" : "Todavía no has elegido un vuelo"}</dd>
         </div>
       </dl>
 
@@ -134,8 +139,8 @@ export function FarmTrackingPanel({
             : !selectedMapDate
               ? "Selecciona una fecha real en el mapa y comprueba qué productos están disponibles."
               : !selectedCampaignId
-                ? "Si necesitas índices MULTI atribuidos a un vuelo, selecciona una Campaign verificada en Evidencia MULTI. Una fecha sola puede no ser suficiente."
-                : "Puedes consultar las bandas y los índices derivados de la Campaign seleccionada, con su soporte espacial y píxeles válidos."}
+                ? "Para consultar los índices de un vuelo concreto, elige uno del historial multiespectral. La fecha del mapa por sí sola no identifica un vuelo."
+                : "Ya elegiste un vuelo específico. Puedes revisar sus índices derivados, la zona muestreada y la cantidad de píxeles válidos."}
         </p>
         {hasScopedPlot && (
           <button className="btn-secondary" type="button" onClick={onOpenEvidence}>
