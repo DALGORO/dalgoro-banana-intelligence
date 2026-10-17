@@ -38,12 +38,15 @@ jobs:
       - name: Compilar núcleo MULTI y CI
         run: |
           python -m py_compile services/banana-density/src/banana_analyzer/multispectral_indices.py
+          python -m py_compile services/banana-density/src/banana_analyzer/multispectral_map_preflight.py
+          python -m py_compile services/banana-density/multi_map_preflight.py
           python -m py_compile services/banana-density/src/banana_analyzer/multispectral_stack.py
           python -m py_compile services/banana-density/src/banana_analyzer/multispectral_extraction.py
           python -m py_compile services/banana-density/src/banana_analyzer/multispectral_dataset.py
           python -m py_compile apps/platform-web/backend/app/dbi/multispectral/active_learning.py
           python -m py_compile apps/platform-web/backend/app/dbi/multispectral/sigatoka_readiness.py
           python -m py_compile .github/scripts/ci_dbi_multi_indices.py
+          python -m py_compile .github/scripts/ci_dbi_multi_map_preflight.py
           python -m py_compile .github/scripts/ci_dbi_multi_stack.py
           python -m py_compile .github/scripts/ci_dbi_multi_extraction.py
           python -m py_compile .github/scripts/ci_dbi_multi_dataset.py
@@ -52,6 +55,9 @@ jobs:
 
       - name: Validar fórmulas, nodata y reproducibilidad
         run: python .github/scripts/ci_dbi_multi_indices.py
+
+      - name: Validar seis COG/QML georreferenciados antes de revisión institucional
+        run: python .github/scripts/ci_dbi_multi_map_preflight.py
 
       - name: Validar bandas fuente, calibración y co-registro
         run: python .github/scripts/ci_dbi_multi_stack.py
