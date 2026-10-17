@@ -37,8 +37,10 @@ Los switches cartográficos pendientes quedan inactivos.
 
 1. Trabajo/archivo cargado, validación de fuente y calidad técnica.
 2. Gestión previa, revisión de GeoJSON/GPKG o de producto de vuelo en servidor.
-3. Campaign avanza secuencialmente hasta `APPROVED`.
-4. **PUBLISHED exige** permisos MANAGE del scope, DBI principal/membresía
+3. Campaign avanza secuencialmente hasta `FIELD_COMPLETED`. Tanto la transición
+   HTTP a **APPROVED** como la transición HTTP a **PUBLISHED** están reservadas
+   a DALGORO institucional, no a administradores del cliente.
+4. **APPROVED/PUBLISHED exigen** permisos MANAGE del scope, DBI principal/membresía
    vigentes, acreditación institucional DALGORO como administrador y guard
    transaccional de revocación de cargos vigente (migración 29).
 5. La consulta privada `/map/management-campaigns` (permiso MANAGE) permite
