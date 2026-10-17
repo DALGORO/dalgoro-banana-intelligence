@@ -189,7 +189,7 @@ function authorizedRasterOverlay(
 }
 
 export function GoogleSatelliteViewer({
-  tenantRef, entries, bounds, vectors = [], rasterOpacity = 0.75,
+  tenantRef, entries, bounds, vectors = [], rasterOpacity = 0.75, onUnavailable,
 }: {
   tenantRef: string;
   entries: RasterTileTimelineEntry[];
@@ -197,8 +197,12 @@ export function GoogleSatelliteViewer({
   vectors?: VectorLayerDetail[];
   /** 0 = solo Google Satélite; 1 = ortofoto RGB totalmente opaca. */
   rasterOpacity?: number;
+  /** Informa al contenedor para mostrar cartografía autorizada sin fingir Google. */
+  onUnavailable?: (reason: string) => void;
 }) {
   const elementRef = useRef<HTMLDivElement | null>(null);
+  const onUnavailableRef = useRef(onUnavailable);
+  onUnavailableRef.current = onUnavailable;
   const mapRef = useRef<SatelliteMap | null>(null);
   const overlaysRef = useRef<DbiRasterOverlay[]>([]);
   const opacityRef = useRef(rasterOpacity);
@@ -237,6 +241,7 @@ export function GoogleSatelliteViewer({
         if (active) {
           setReady(false);
           setError(err.message);
+          onUnavailableRef.current?.(err.message);
         }
       });
     return () => {
