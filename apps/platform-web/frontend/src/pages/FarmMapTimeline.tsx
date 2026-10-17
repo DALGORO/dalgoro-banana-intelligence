@@ -907,8 +907,33 @@ function FarmMapTimelineView() {
           </div>
 
           {realLocator && (
+            <section className="divider space-y-2 pt-4" aria-label="Seis mapas multiespectrales">
+              <div className="text-sm font-semibold">Mapas de los seis índices</div>
+              <p className="muted text-xs">
+                Los seis índices están calculados como estadísticas de muestras.
+                Sus mapas georreferenciados aún no tienen productos cartográficos
+                individualizados aprobados para mostrar. Consulta los valores
+                reales en «Índices y muestras».
+              </p>
+              <div className="dbi-six-index-switches">
+                {["NDVI", "NDRE", "GNDVI", "EVI2", "CI Red Edge", "CI Green"].map(label => (
+                  <label key={label} className="dbi-index-switch" title="Mapa no disponible hasta aprobar un ráster temático verificable">
+                    <input type="checkbox" disabled aria-label={`Mapa ${label} pendiente de publicación`} />
+                    <span>{label} · Sin mapa</span>
+                  </label>
+                ))}
+              </div>
+              <button type="button" className="btn-secondary"
+                onClick={() => {
+                  setInfoTab("multi");
+                  document.getElementById("dbi-tab-multi")?.scrollIntoView({ block: "start" });
+                }}>Consultar las seis estadísticas disponibles</button>
+            </section>
+          )}
+
+          {realLocator && (
             <div className="divider space-y-3 pt-4">
-              <div className="text-sm font-semibold">Resultados GIS del levantamiento</div>
+              <div className="text-sm font-semibold">Población y resultados GIS del levantamiento</div>
               <p className="muted text-xs">Activa las capas y pulsa un elemento del mapa para consultar sus datos.</p>
               {campaignLoadError ? (
                 <p role="alert" className="text-sm text-rose-600">No se pudo consultar las campañas agrícolas autorizadas.</p>
