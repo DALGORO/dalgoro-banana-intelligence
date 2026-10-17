@@ -274,16 +274,9 @@ def validate_real_link() -> None:
                 farm_id=FARM_ID,
                 plot_id=PLOT_ID,
             )
-            assert timeline.status == "ready"
-            assert len(timeline.timeline) == 1
-            entry = timeline.timeline[0]
-            assert entry.campaign_id == str(campaign_id)
-            assert entry.source_artifact_id == str(
-                orthophoto.campaign_artifact_id
-            )
-            assert entry.raster_product_id == str(RASTER_PRODUCT_ID)
-            assert entry.layer_type == "rgb"
-            assert entry.tile_url_template.endswith("/tiles/{z}/{x}/{y}.png")
+            # El productor NO debe recibir RGB de una Campaign PROCESSING.
+            assert timeline.status == "awaiting_data"
+            assert timeline.timeline == []
 
             replay = DBICampaignService(session).link_source_job(
                 campaign_id=campaign_id,
@@ -336,6 +329,40 @@ def validate_real_link() -> None:
             assert replayed.processed_at == PROCESSED_AT
 
         assert mark_density_campaign_analyzed(factory, {}) is False
+
+        # Recorrido técnico FIJA estados finales en CI efímero. Este acceso
+        # directo al servicio NO sustituye el guard institucional HTTP real.
+        with Session(engine) as session:
+            for state in (
+                DBICampaignStatus.SAMPLING_READY,
+                DBICampaignStatus.FIELD_WORK,
+                DBICampaignStatus.FIELD_COMPLETED,
+                DBICampaignStatus.APPROVED,
+                DBICampaignStatus.PUBLISHED,
+            ):
+                DBICampaignService(session).transition_campaign(
+                    campaign_id=campaign_id,
+                    tenant_ref=TENANT_REF,
+                    organization_ref=ORGANIZATION_REF,
+                    farm_id=FARM_ID,
+                    plot_id=PLOT_ID,
+                    target_status=state,
+                )
+            session.commit()
+            published = DBIMapTimelineReader(session).read_plot_timeline(
+                tenant_ref=TENANT_REF,
+                organization_ref=ORGANIZATION_REF,
+                farm_id=FARM_ID,
+                plot_id=PLOT_ID,
+            )
+            assert published.status == "ready"
+            assert len(published.timeline) == 1
+            entry = published.timeline[0]
+            assert entry.campaign_id == str(campaign_id)
+            assert entry.source_artifact_id == str(orthophoto.campaign_artifact_id)
+            assert entry.raster_product_id == str(RASTER_PRODUCT_ID)
+            assert entry.layer_type == "rgb"
+            assert entry.tile_url_template.endswith("/tiles/{z}/{x}/{y}.png")
     finally:
         engine.dispose()
 
