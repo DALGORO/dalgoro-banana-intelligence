@@ -2,6 +2,7 @@ import type { MapTimelineEntry, PlotMapTimelineLocator } from "@/features/mapTim
 
 import type { VectorLayerInfo } from "@/features/portalVectors";
 import { ApprovedInspectionCampaignPanel } from "@/components/ApprovedInspectionCampaignPanel";
+import { PublishedCampaignPDFPanel } from "@/components/PublishedCampaignPDFPanel";
 
 type Props = {
   farmName: string;
@@ -123,10 +124,16 @@ export function FarmTrackingPanel({
             </p>
           </section>
           {locator && (
-            <ApprovedInspectionCampaignPanel
-              locator={locator}
-              campaignId={selectedCampaignId}
-            />
+            <>
+              <ApprovedInspectionCampaignPanel
+                locator={locator}
+                campaignId={selectedCampaignId}
+              />
+              <PublishedCampaignPDFPanel
+                locator={locator}
+                campaignId={selectedCampaignId}
+              />
+            </>
           )}
         </>
       )}
