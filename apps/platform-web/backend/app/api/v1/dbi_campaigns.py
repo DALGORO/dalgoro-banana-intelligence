@@ -161,7 +161,7 @@ def transition_campaign(
         permission=DBIPermission.WRITE,
     )
     try:
-        if payload.status is DBICampaignStatus.PUBLISHED:
+        if payload.status in {DBICampaignStatus.APPROVED, DBICampaignStatus.PUBLISHED}:
             require_institutional_campaign_publisher(
                 session, context,
                 organization_ref=organization_ref, farm_id=farm_id, plot_id=plot_id,
