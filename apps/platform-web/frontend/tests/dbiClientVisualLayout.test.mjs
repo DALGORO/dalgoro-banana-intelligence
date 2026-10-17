@@ -44,6 +44,24 @@ test("client only sees real derived summary; management still requires publish a
   assert.match(map, /Este levantamiento no tiene capas cartográficas disponibles/);
 });
 
+test("scoped map preserves user date when asynchronous RGB response returns", () => {
+  const responseStart = map.indexOf(".then((response) => {");
+  const responseEnd = map.indexOf(".catch((requestError)", responseStart);
+  assert.ok(responseStart > 0 && responseEnd > responseStart);
+  const section = map.slice(responseStart, responseEnd);
+  assert.match(section, /if \(!realLocator && !manuallySelectedVisitRef\.current\) \{/);
+  assert.match(section, /setSelectedDate\(dates\.at\(-1\) \?\? ""\)/);
+  assert.ok(!section.includes("setComparisonDate("), "Una respuesta tardía no resetea la comparación manual");
+
+  const privateRead = map.indexOf("listGISImports(realLocator)");
+  const guard = map.lastIndexOf("if (!realLocator || !canPublish) return", privateRead);
+  assert.ok(privateRead > 0 && guard > 0 && privateRead - guard < 160,
+    "Solo quien tiene MANAGE consulta los recibos privados GIS");
+  assert.match(map, /Elegir un levantamiento/);
+  assert.match(map, /Comparación por fechas \(próximamente\)/);
+  assert.match(map, /id="comparison-date"[\s\S]*?disabled/);
+});
+
 test("map-first workspace renders real chronological visits without mock diagnoses", () => {
   assert.match(map, /producerMapVisits\(/);
   assert.match(map, /visitsAtDate\(mapVisits, selectedDate\)/);
