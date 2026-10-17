@@ -551,6 +551,34 @@
   min-width: 0;
 }
 
+/* Estado de selección, no semáforo sanitario ni indicador de riesgo. */
+.dbi-tracking-heading {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px 12px;
+}
+
+.dbi-tracking-selection-chip {
+  display: inline-flex;
+  align-items: center;
+  min-height: 30px;
+  max-width: 100%;
+  padding: 5px 10px;
+  border: 1px solid #dfd0bd;
+  border-radius: 999px;
+  background: #fff7ee;
+  color: #7f4d2c;
+  font-size: 11px;
+  font-weight: 600;
+}
+
+.dark .dbi-tracking-selection-chip {
+  background: rgba(181, 123, 80, 0.13);
+  color: #f3c5a1;
+  border-color: rgba(181, 123, 80, 0.5);
+}
+
 .dbi-tracking-facts {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
