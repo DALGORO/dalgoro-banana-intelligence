@@ -171,6 +171,9 @@ export function GoogleSatelliteViewer({
   const [ready, setReady] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const apiKey = import.meta.env.VITE_GOOGLE_MAPS_API_KEY?.trim() ?? "";
+  // Con RGB al 0 %, no solicitar mosaicos privados invisibles.
+  // El fondo Google sigue montado y las capas vectoriales continúan visibles.
+  const rgbVisible = rasterOpacity > 0;
 
   useEffect(() => {
     let active = true;
@@ -208,8 +211,9 @@ export function GoogleSatelliteViewer({
     if (!ready || !map || !google?.maps) return;
     map.overlayMapTypes.clear();
     for (const overlay of overlaysRef.current) overlay.dispose();
-    const overlays = entries.map(entry =>
-      authorizedRasterOverlay(google, entry, tenantRef, opacityRef.current));
+    const overlays = rgbVisible
+      ? entries.map(entry => authorizedRasterOverlay(google, entry, tenantRef, opacityRef.current))
+      : [];
     overlaysRef.current = overlays;
     for (const overlay of overlays) map.overlayMapTypes.push(overlay);
     return () => {
@@ -217,7 +221,7 @@ export function GoogleSatelliteViewer({
       for (const overlay of overlays) overlay.dispose();
       if (overlaysRef.current === overlays) overlaysRef.current = [];
     };
-  }, [entries, ready, tenantRef]);
+  }, [entries, ready, tenantRef, rgbVisible]);
 
   useEffect(() => {
     for (const overlay of overlaysRef.current) overlay.setOpacity(rasterOpacity);
