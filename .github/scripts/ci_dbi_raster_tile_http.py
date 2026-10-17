@@ -280,6 +280,36 @@ def validate_renderer_fail_closed_and_outside_extent() -> None:
             raise AssertionError("Tile fuera de extent debía ocultarse.")
 
 
+def validate_unpublished_tile_denied() -> None:
+    reader_touched = False
+    renderer_touched = False
+
+    def forbidden_reader(*_args, **_kwargs):
+        nonlocal reader_touched
+        reader_touched = True
+        raise AssertionError("No resolver COG sin publicación.")
+
+    class _ForbiddenRequest:
+        @property
+        def app(self):
+            nonlocal renderer_touched
+            renderer_touched = True
+            raise AssertionError("No resolver renderer/cache sin publicación.")
+
+    with (
+        patch.object(dbi_raster_products, "is_published_rgb_raster", return_value=False),
+        patch.object(dbi_raster_products, "_reader", side_effect=forbidden_reader),
+    ):
+        try:
+            _call(request=_ForbiddenRequest())
+        except HTTPException as error:
+            assert error.status_code == 404
+        else:
+            raise AssertionError("Tile no publicado no debe entregarse.")
+
+    assert not reader_touched and not renderer_touched
+
+
 def validate_static_boundaries() -> None:
     route = (
         BACKEND / "app" / "api" / "v1" / "dbi_raster_products.py"
@@ -307,10 +337,12 @@ def validate_static_boundaries() -> None:
 
 def main() -> None:
     validate_route_registration()
-    validate_rgb_delivery_and_cache()
-    validate_scientific_style_and_validation()
+    with patch.object(dbi_raster_products, "is_published_rgb_raster", return_value=True):
+        validate_rgb_delivery_and_cache()
+        validate_scientific_style_and_validation()
+        validate_renderer_fail_closed_and_outside_extent()
+    validate_unpublished_tile_denied()
     validate_authorization_precedes_resolution()
-    validate_renderer_fail_closed_and_outside_extent()
     validate_static_boundaries()
     print(
         "DBI-RASTER-TILE-001 HTTP aprobado: autorización previa, PNG privado, "

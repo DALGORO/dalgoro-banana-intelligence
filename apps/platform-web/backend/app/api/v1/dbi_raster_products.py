@@ -23,6 +23,7 @@ from app.dbi.raster.api_schemas import (
     DBIRasterProductRetireResponse,
 )
 from app.dbi.raster.contracts import DBIRasterConflict
+from app.dbi.raster.publication import is_published_rgb_raster
 from app.dbi.raster.reader import (
     DBIRasterProductReader,
     DBIRasterProductUnavailable,
@@ -280,6 +281,17 @@ def get_raster_product_metadata(
         farm_id=farm_id,
         plot_id=plot_id,
     )
+    # La pertenencia al lote no publica un producto: comprobar el vuelo exacto
+    # antes de consultar metadata, Storage o la caché de tiles.
+    if not is_published_rgb_raster(
+        session,
+        tenant_ref=context.tenant_ref,
+        organization_ref=organization_ref,
+        farm_id=farm_id,
+        plot_id=plot_id,
+        product_id=product_id,
+    ):
+        raise _not_found()
     return _metadata(
         reader=_reader(session, store),
         context=context,
@@ -312,6 +324,17 @@ def get_raster_product_range(
         farm_id=farm_id,
         plot_id=plot_id,
     )
+    # La pertenencia al lote no publica un producto: comprobar el vuelo exacto
+    # antes de consultar metadata, Storage o la caché de tiles.
+    if not is_published_rgb_raster(
+        session,
+        tenant_ref=context.tenant_ref,
+        organization_ref=organization_ref,
+        farm_id=farm_id,
+        plot_id=plot_id,
+        product_id=product_id,
+    ):
+        raise _not_found()
     reader = _reader(session, store)
     metadata = _metadata(
         reader=reader,
@@ -395,6 +418,17 @@ def get_raster_product_tile(
         farm_id=farm_id,
         plot_id=plot_id,
     )
+    # La pertenencia al lote no publica un producto: comprobar el vuelo exacto
+    # antes de consultar metadata, Storage o la caché de tiles.
+    if not is_published_rgb_raster(
+        session,
+        tenant_ref=context.tenant_ref,
+        organization_ref=organization_ref,
+        farm_id=farm_id,
+        plot_id=plot_id,
+        product_id=product_id,
+    ):
+        raise _not_found()
 
     reader = _reader(session, store)
     try:

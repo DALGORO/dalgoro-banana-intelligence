@@ -245,6 +245,53 @@ def validate_authorization_precedes_resolution() -> None:
     assert touched is False
 
 
+def validate_publication_gate_before_reader() -> None:
+    # READ válido no basta: una Campaign sin publicar no entrega metadata ni COG.
+    with (
+        patch.object(dbi_raster_products, "is_published_rgb_raster", return_value=False) as gate,
+        patch.object(dbi_raster_products, "_reader", side_effect=AssertionError("no resolver Storage")),
+    ):
+        for action, args in (
+            (dbi_raster_products.get_raster_product_metadata,
+             (ORG, FARM, PLOT, PRODUCT, object(), _context(), object())),
+            (dbi_raster_products.get_raster_product_range,
+             (ORG, FARM, PLOT, PRODUCT, object(), _context(), object(), "bytes=0-7")),
+        ):
+            try:
+                action(*args)
+            except HTTPException as error:
+                assert error.status_code == 404
+            else:
+                raise AssertionError("Raster sin Campaign publicada no debe leerse.")
+        assert gate.call_count == 2
+
+    # Además de probar el 404, verificar las condiciones de la consulta SQL real.
+    from app.dbi.raster.publication import is_published_rgb_raster
+
+    class _Result:
+        def scalar_one_or_none(self):
+            return None
+
+    class _Session:
+        def execute(self, statement):
+            sql = str(statement.compile(compile_kwargs={"literal_binds": True}))
+            for condition in (
+                "dbi_raster_products", "dbi_campaign_artifacts", "dbi_campaigns",
+                "source_sha256", "source_ref", "source_kind",
+                "orthophoto_source", "rgb_visual", "PUBLISHED",
+                "approved_at IS NOT NULL", "published_at IS NOT NULL",
+                "tenant-raster-http", "organization-raster-http",
+                FARM.hex, PLOT.hex, PRODUCT.hex,
+            ):
+                assert condition in sql, f"Gate SQL no verifica {condition}"
+            return _Result()
+
+    assert not is_published_rgb_raster(
+        _Session(), tenant_ref=TENANT, organization_ref=ORG,
+        farm_id=FARM, plot_id=PLOT, product_id=PRODUCT,
+    )
+
+
 def validate_static_boundaries() -> None:
     source = (
         BACKEND / "app" / "api" / "v1" / "dbi_raster_products.py"
@@ -268,8 +315,10 @@ def validate_static_boundaries() -> None:
 
 def main() -> None:
     validate_range_parser()
-    validate_router_and_safe_metadata()
-    validate_partial_response()
+    with patch.object(dbi_raster_products, "is_published_rgb_raster", return_value=True):
+        validate_router_and_safe_metadata()
+        validate_partial_response()
+    validate_publication_gate_before_reader()
     validate_authorization_precedes_resolution()
     validate_static_boundaries()
     print("DBI-RASTER-001 HTTP aprobado: metadata segura, autorización y Range acotado.")
