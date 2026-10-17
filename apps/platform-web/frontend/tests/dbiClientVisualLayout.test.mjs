@@ -100,7 +100,7 @@ test("satellite stays as Google basemap while RGB transparency changes without r
   assert.match(google, /const rgbVisible = rasterOpacity > 0/);
   assert.match(google, /const overlays = rgbVisible\s*\? entries\.map\(entry => authorizedRasterOverlay/);
   assert.match(google, /: \[\];\s*overlaysRef\.current = overlays;/);
-  assert.match(google, /\}, \[entries, ready, tenantRef, rgbVisible\]\);/);
+  assert.match(google, /\}, \[entries, ready, tenantRef, rgbVisible, tileRetryVersion\]\);/);
   assert.match(map, /rgbOverlayOpacity === 0/);
   assert.match(map, /no se descargan sus mosaicos/);
   // Con >0 se reutilizan los tiles y sólo cambia el CSS.
