@@ -830,6 +830,19 @@ function FarmMapTimelineView() {
     }
   };
 
+  // Solo afecta a las capas GIS publicadas visibles en la selección actual.
+  // Las preferencias de otros levantamientos permanecen intactas.
+  const setVisibleGISLayers = (show: boolean) => {
+    setSelectedVectorIds(current => {
+      const next = new Set(current);
+      for (const layer of visibleVectorMeta) {
+        if (show) next.add(layer.id);
+        else next.delete(layer.id);
+      }
+      return next;
+    });
+  };
+
   const toggleLayer = (layerType: MapLayerType) => {
     setSelectedLayers((current) => {
       const next = new Set(current);
@@ -895,6 +908,41 @@ function FarmMapTimelineView() {
           </p>
         </nav>
       </div>
+
+      {realLocator && (
+        <nav className="dbi-producer-guide" aria-label="Consultar el lote paso a paso">
+          <div className="dbi-producer-guide-heading">
+            <strong>Tu lote, paso a paso</strong>
+            <span>Selecciona un vuelo; después decide qué quieres consultar.</span>
+          </div>
+          <ol className="dbi-producer-guide-steps">
+            <li>
+              <a href="#dbi-map-history">
+                <span className="dbi-quick-step-number" aria-hidden="true">1</span>
+                <span><strong>Elegir vuelo</strong><small>Consulta las fechas disponibles</small></span>
+              </a>
+            </li>
+            <li>
+              <a href="#dbi-map-controls">
+                <span className="dbi-quick-step-number" aria-hidden="true">2</span>
+                <span><strong>Mostrar capas</strong><small>Activa plantas o sectores reales</small></span>
+              </a>
+            </li>
+            <li>
+              <a href="#dbi-tab-multi" onClick={() => setInfoTab("multi")}>
+                <span className="dbi-quick-step-number" aria-hidden="true">3</span>
+                <span><strong>Revisar los seis índices</strong><small>Estadísticas de muestras verificadas</small></span>
+              </a>
+            </li>
+            <li>
+              <a href="#dbi-tab-tracking" onClick={() => setInfoTab("tracking")}>
+                <span className="dbi-quick-step-number" aria-hidden="true">4</span>
+                <span><strong>Consultar informe PDF</strong><small>Solo de campañas publicadas</small></span>
+              </a>
+            </li>
+          </ol>
+        </nav>
+      )}
 
       <div className="dbi-visual-grid">
         <aside id="dbi-map-controls" className="card dbi-map-controls space-y-5">
@@ -991,7 +1039,27 @@ function FarmMapTimelineView() {
           {realLocator && (
             <div className="divider space-y-3 pt-4">
               <div className="text-sm font-semibold">Población y resultados GIS del levantamiento</div>
-              <p className="muted text-xs">Activa las capas y pulsa un elemento del mapa para consultar sus datos.</p>
+              <p className="muted text-xs">
+                Activa u oculta las capas de este vuelo. Pulsa una planta o zona del mapa para ver sus datos.
+              </p>
+              {visibleVectorMeta.length > 0 && (
+                <div className="dbi-gis-visibility-tools" role="group" aria-label="Visibilidad de capas GIS publicadas">
+                  <span role="status" aria-live="polite">
+                    {visibleVectorMeta.filter(layer => selectedVectorIds.has(layer.id)).length}
+                    {" de "}{visibleVectorMeta.length} capas activas
+                  </span>
+                  <div className="dbi-gis-visibility-actions">
+                    <button type="button" onClick={() => setVisibleGISLayers(true)}
+                      disabled={visibleVectorMeta.every(layer => selectedVectorIds.has(layer.id))}>
+                      Mostrar todas
+                    </button>
+                    <button type="button" onClick={() => setVisibleGISLayers(false)}
+                      disabled={visibleVectorMeta.every(layer => !selectedVectorIds.has(layer.id))}>
+                      Ocultar todas
+                    </button>
+                  </div>
+                </div>
+              )}
               {campaignLoadError ? (
                 <p role="alert" className="text-sm text-rose-600">No se pudo consultar las campañas agrícolas autorizadas.</p>
               ) : visibleVectorMeta.length === 0 ? (
