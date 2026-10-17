@@ -269,7 +269,21 @@ async def publish_vector_layer(
     name: Annotated[str, Query(min_length=1, max_length=100)],
 ) -> VectorLayerInfo:
     _require_scope(context, organization_ref, farm_id, plot_id, publish=True)
-    _campaign(session, context, organization_ref, farm_id, plot_id, campaign_id)
+    campaign = session.execute(
+        select(Campaign).where(
+            Campaign.id == campaign_id,
+            Campaign.tenant_ref == context.tenant_ref,
+            Campaign.organization_ref == organization_ref,
+            Campaign.farm_id == farm_id,
+            Campaign.plot_id == plot_id,
+            Campaign.analysis_type.is_not(None),
+            Campaign.captured_at.is_not(None),
+        ).with_for_update()
+    ).scalar_one_or_none()
+    if campaign is None:
+        raise _hidden()
+    if campaign.status == "PUBLISHED":
+        raise HTTPException(status_code=409, detail="Campaña publicada: no se aceptan capas nuevas sin otra revisión.")
 
     if request.headers.get("content-type", "").split(";", 1)[0].lower() != "application/geo+json":
         raise HTTPException(status_code=415, detail="Sube un archivo .geojson válido.")
