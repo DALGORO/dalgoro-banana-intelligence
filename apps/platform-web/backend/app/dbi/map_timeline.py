@@ -33,19 +33,10 @@ class DBIMapTimelineUnavailable(LookupError):
 # inferencias de la Campaign. Por eso una Campaign técnica real puede mostrar
 # su fuente RGB desde DRAFT/PROCESSING; las capas inferidas siguen gobernadas
 # por sus propios estados y contratos.
-_VISIBLE_RGB_CAMPAIGN_STATES = frozenset(
-    {
-        "DRAFT",
-        "PROCESSING",
-        "ANALYZED",
-        "TECHNICAL_REVIEW",
-        "SAMPLING_READY",
-        "FIELD_WORK",
-        "FIELD_COMPLETED",
-        "APPROVED",
-        "PUBLISHED",
-    }
-)
+# Un cliente READ solo recibe mapas de levantamientos aprobados y publicados.
+# DRAFT/PROCESSING pueden inspeccionarse mediante flujos administrativos privados,
+# nunca filtrarse a la cronología del productor.
+_VISIBLE_RGB_CAMPAIGN_STATES = frozenset({"PUBLISHED"})
 
 
 _EPSG_PATTERN = re.compile(r"^EPSG:(?P<code>[1-9][0-9]{2,6})$")
@@ -238,6 +229,8 @@ class DBIMapTimelineReader:
                 Campaign.analysis_type.is_not(None),
                 Campaign.captured_at.is_not(None),
                 Campaign.status.in_(_VISIBLE_RGB_CAMPAIGN_STATES),
+                    Campaign.approved_at.is_not(None),
+                    Campaign.published_at.is_not(None),
                 DBICampaignArtifact.artifact_type == "orthophoto_source",
                 DBICampaignArtifact.technical_status == "current",
                 DBIRasterProduct.tenant_ref == tenant_ref,

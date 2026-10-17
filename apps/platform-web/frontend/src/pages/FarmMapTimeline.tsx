@@ -17,7 +17,7 @@ import { belongsToSelectedMapCampaign, mapTimelineViewKey } from "@/features/map
 import { producerMapVisits, visitsAtDate } from "@/features/producerMapVisits";
 import { api } from "@/app/api";
 import {
-  getVectorLayer, listVectorLayers, listVectorCampaigns, listGISImports, getGISImportPreview, publishReviewedGISImport, publishGeoJSON, stageGISOriginal, selectGISImportLayer, vectorExtent,
+  getVectorLayer, listVectorLayers, listVectorCampaigns, listManagementCampaigns, listGISImports, getGISImportPreview, publishReviewedGISImport, publishGeoJSON, stageGISOriginal, selectGISImportLayer, vectorExtent,
   type VectorLayerInfo, type VectorLayerKind, type VectorLayerDetail, type VectorCampaign, type GISImportReceipt,
 } from "@/features/portalVectors";
 import mapWorkerUrl from "maplibre-gl/dist/maplibre-gl-worker.mjs?worker&url";
@@ -127,6 +127,9 @@ function FarmMapTimelineView() {
   const [gisPreviewVector, setGISPreviewVector] = useState<VectorLayerDetail | null>(null);
   const [gisReviewBusy, setGISReviewBusy] = useState(false);
   const [vectorCampaigns, setVectorCampaigns] = useState<VectorCampaign[]>([]);
+  const [managementCampaigns, setManagementCampaigns] = useState<VectorCampaign[]>([]);
+  const [publishBusyId, setPublishBusyId] = useState<string | null>(null);
+  const [publishNotice, setPublishNotice] = useState<string | null>(null);
   const [campaignLoadError, setCampaignLoadError] = useState(false);
   const [chosenUploadCampaign, setChosenUploadCampaign] = useState("");
   const [vectorDetails, setVectorDetails] = useState<Record<string, VectorLayerDetail>>({});
@@ -223,6 +226,11 @@ function FarmMapTimelineView() {
   useEffect(() => {
     if (!realLocator || !canPublish) return;
     let active = true;
+    listManagementCampaigns(realLocator).then(rows => {
+      if (active) setManagementCampaigns(rows);
+    }).catch(() => {
+      if (active) setManagementCampaigns([]);
+    });
     listGISImports(realLocator).then(receipts => {
       if (active) setGISImportCache({ scopeKey: gisScopeKey, items: receipts });
     }).catch(() => {
@@ -405,6 +413,16 @@ function FarmMapTimelineView() {
     [vectorLayers, activeCampaignIds],
   );
 
+  // Las Campaign en revisión sólo autorizan previsualizaciones privadas MANAGE.
+  // Nunca intervienen en las capas de producción del productor.
+  const managementActiveCampaignIds = useMemo(() => new Set(
+    canPublish ? managementCampaigns.filter(campaign =>
+      campaign.status !== "PUBLISHED" && belongsToSelectedMapCampaign(
+        campaign.captured_at, campaign.id, selectedDate, selectedMapCampaignId,
+      ),
+    ).map(campaign => campaign.id) : [],
+  ), [canPublish, managementCampaigns, selectedDate, selectedMapCampaignId]);
+
   useEffect(() => {
     let active = true;
     if (!realLocator) return;
@@ -430,15 +448,15 @@ function FarmMapTimelineView() {
       .map(meta => vectorDetails[meta.id])
       .filter((detail): detail is VectorLayerDetail => Boolean(detail));
     // Una vista previa solo se dibuja para el gestor, en la fecha técnica real.
-    return gisPreviewVector && activeCampaignIds.has(gisPreviewVector.layer.campaign_id)
+    return gisPreviewVector && managementActiveCampaignIds.has(gisPreviewVector.layer.campaign_id)
       ? [...published, gisPreviewVector] : published;
-  }, [visibleVectorMeta, selectedVectorIds, vectorDetails, gisPreviewVector, activeCampaignIds]);
+  }, [visibleVectorMeta, selectedVectorIds, vectorDetails, gisPreviewVector, managementActiveCampaignIds]);
 
   const uploadCampaignChoices = useMemo(() =>
-    vectorCampaigns.filter(campaign => belongsToSelectedMapCampaign(
+    managementCampaigns.filter(campaign => belongsToSelectedMapCampaign(
       campaign.captured_at, campaign.id, selectedDate, selectedMapCampaignId,
     )),
-    [vectorCampaigns, selectedDate, selectedMapCampaignId],
+    [managementCampaigns, selectedDate, selectedMapCampaignId],
   );
   const uploadCampaignId = uploadCampaignChoices.some(campaign => campaign.id === chosenUploadCampaign)
     ? chosenUploadCampaign : null;
@@ -520,7 +538,7 @@ function FarmMapTimelineView() {
 
   async function approveGISImport(item: GISImportReceipt) {
     if (!realLocator || !canPublish || reviewedImportId !== item.id
-        || !gisPreviewVector || !activeCampaignIds.has(item.campaign_id)) return;
+        || !gisPreviewVector || !managementActiveCampaignIds.has(item.campaign_id)) return;
     setGISReviewBusy(true);
     try {
       const layer = await publishReviewedGISImport(realLocator, item.id);
@@ -773,6 +791,45 @@ function FarmMapTimelineView() {
     setComparisonDate("");
   };
 
+  const publishInstitutionally = async (campaignId: string) => {
+    if (!realLocator || !canPublish || publishBusyId) return;
+    const chosen = managementCampaigns.find(row => row.id === campaignId);
+    if (!chosen || chosen.status !== "APPROVED") return;
+    setPublishBusyId(campaignId);
+    setPublishNotice(null);
+    try {
+      const root = [
+        "/api/v1/dbi/organizations", encodeURIComponent(realLocator.organizationRef),
+        "farms", encodeURIComponent(realLocator.farmId),
+        "plots", encodeURIComponent(realLocator.plotId),
+      ].join("/");
+      await api.post(
+        `${root}/campaigns/${encodeURIComponent(campaignId)}/transitions`,
+        { status: "PUBLISHED" },
+        { headers: { "X-DBI-Tenant": realLocator.tenantRef } },
+      );
+      const [publishedCampaigns, publishedLayers, current, management] = await Promise.all([
+        listVectorCampaigns(realLocator),
+        listVectorLayers(realLocator),
+        getPlotMapTimeline(realLocator),
+        listManagementCampaigns(realLocator),
+      ]);
+      setVectorCampaigns(publishedCampaigns);
+      setVectorLayers(publishedLayers);
+      setSelectedVectorIds(new Set(publishedLayers.map(layer => layer.id)));
+      setManagementCampaigns(management);
+      setData(current);
+      setPublishNotice("Publicación institucional registrada. El cliente ya puede consultar las evidencias aprobadas.");
+    } catch (error) {
+      const code = (error as { response?: { status?: number } })?.response?.status;
+      setPublishNotice(code === 404
+        ? "No autorizado: se requiere acreditación activa como administrador institucional DALGORO y permisos sobre el lote."
+        : "No se pudo publicar la campaña. Comprueba que la revisión técnica está completa.");
+    } finally {
+      setPublishBusyId(null);
+    }
+  };
+
   const toggleLayer = (layerType: MapLayerType) => {
     setSelectedLayers((current) => {
       const next = new Set(current);
@@ -907,8 +964,33 @@ function FarmMapTimelineView() {
           </div>
 
           {realLocator && (
+            <section className="divider space-y-2 pt-4" aria-label="Seis mapas multiespectrales">
+              <div className="text-sm font-semibold">Mapas de los seis índices</div>
+              <p className="muted text-xs">
+                Los seis índices están calculados como estadísticas de muestras.
+                Sus mapas georreferenciados aún no tienen productos cartográficos
+                individualizados aprobados para mostrar. Consulta los valores
+                reales en «Índices y muestras».
+              </p>
+              <div className="dbi-six-index-switches">
+                {["NDVI", "NDRE", "GNDVI", "EVI2", "CI Red Edge", "CI Green"].map(label => (
+                  <label key={label} className="dbi-index-switch" title="Mapa no disponible hasta aprobar un ráster temático verificable">
+                    <input type="checkbox" disabled aria-label={`Mapa ${label} pendiente de publicación`} />
+                    <span>{label} · Sin mapa</span>
+                  </label>
+                ))}
+              </div>
+              <button type="button" className="btn-secondary"
+                onClick={() => {
+                  setInfoTab("multi");
+                  document.getElementById("dbi-tab-multi")?.scrollIntoView({ block: "start" });
+                }}>Consultar las seis estadísticas disponibles</button>
+            </section>
+          )}
+
+          {realLocator && (
             <div className="divider space-y-3 pt-4">
-              <div className="text-sm font-semibold">Resultados GIS del levantamiento</div>
+              <div className="text-sm font-semibold">Población y resultados GIS del levantamiento</div>
               <p className="muted text-xs">Activa las capas y pulsa un elemento del mapa para consultar sus datos.</p>
               {campaignLoadError ? (
                 <p role="alert" className="text-sm text-rose-600">No se pudo consultar las campañas agrícolas autorizadas.</p>
@@ -945,7 +1027,33 @@ function FarmMapTimelineView() {
             <details className="divider dbi-manage-details pt-4">
               <summary className="cursor-pointer text-sm font-semibold">Gestionar y publicar capas GIS</summary>
               <div className="space-y-3 pt-3">
-                <p className="muted text-xs">Solo usuarios con permiso de publicación.</p>
+                <p className="muted text-xs">
+                  Los gestores pueden preparar archivos privados. La publicación final solo
+                  corresponde al administrador institucional DALGORO acreditado.
+                </p>
+                <section className="space-y-2 rounded-xl border border-slate-200 p-3 dark:border-slate-700"
+                  aria-label="Aprobación institucional de levantamientos">
+                  <h3 className="font-semibold text-sm">Aprobación para mostrar al cliente</h3>
+                  <p className="muted text-xs">
+                    Una campaña debe completar las verificaciones y llegar a APPROVED antes
+                    de permitir su publicación. Esta acción se valida nuevamente en el servidor.
+                  </p>
+                  {managementCampaigns.filter(row => row.status === "APPROVED").map(row => (
+                    <div key={row.id} className="flex flex-wrap items-center justify-between gap-2">
+                      <span className="text-xs">
+                        {formatDate(row.captured_at)} · {row.name} · Aprobada técnicamente
+                      </span>
+                      <button className="btn-secondary" type="button"
+                        disabled={publishBusyId !== null}
+                        onClick={() => void publishInstitutionally(row.id)}>
+                        {publishBusyId === row.id ? "Verificando autoridad…" : "Publicar al cliente"}
+                      </button>
+                    </div>
+                  ))}
+                  {!managementCampaigns.some(row => row.status === "APPROVED") &&
+                    <p className="muted text-xs">No hay levantamientos aprobados pendientes de publicación.</p>}
+                  {publishNotice && <p role="status" className="text-xs">{publishNotice}</p>}
+                </section>
               <p className="muted text-xs">GeoJSON (hasta 2 MiB) se publica directamente. GeoPackage o Shapefile ZIP (hasta 30 MiB) se reciben de forma privada y quedan pendientes de conversión y revisión.</p>
               <label htmlFor="dbi-upload-campaign" className="block text-xs font-medium">Levantamiento al que pertenece la capa</label>
               <select id="dbi-upload-campaign" className="w-full" value={chosenUploadCampaign}
@@ -1062,7 +1170,7 @@ function FarmMapTimelineView() {
                               Confirma geometrías, atributos y fecha del levantamiento.
                             </p>
                             <button type="button" className="btn-primary w-full"
-                              disabled={gisReviewBusy || !activeCampaignIds.has(item.campaign_id)}
+                              disabled={gisReviewBusy || !managementActiveCampaignIds.has(item.campaign_id)}
                               onClick={() => void approveGISImport(item)}>
                               {gisReviewBusy ? "Publicando…" : "Aprobar y publicar esta capa"}
                             </button>

@@ -95,6 +95,9 @@ export function MultispectralEvidencePanel({
   const [result, setResult] = useState<Result | null>(null);
   const [selectedId, setSelectedId] = useState("");
   const [refresh, setRefresh] = useState(0);
+  const [visibleIndices, setVisibleIndices] = useState<Set<string>>(
+    () => new Set(Object.keys(INDEX_LABELS)),
+  );
 
   useEffect(() => {
     let active = true;
@@ -157,7 +160,7 @@ export function MultispectralEvidencePanel({
           {verifiedHistory.length === 0 ? (
             <p className="muted rounded-xl border border-slate-200 p-3 text-sm dark:border-slate-700">
               Todavía no hay vuelos con procedencia científica verificada para este lote.
-              Las extracciones sin vínculo siguen disponibles en el selector inferior.
+              Los análisis aún no publicados o sin procedencia verificada no se muestran al productor.
             </p>
           ) : (
             <div className="dbi-campaign-strip" role="group" aria-label="Elegir vuelo verificado">
@@ -305,26 +308,52 @@ export function MultispectralEvidencePanel({
             Los índices dependen de bandas, calibración y píxeles válidos; sus cifras
             no se deben comparar directamente entre vuelos sin verificar compatibilidad.
           </p>
-          <section className="space-y-3" aria-label="Resumen de índices derivados">
-            <h3 className="text-sm font-semibold">Resumen de índices · mediana de píxeles válidos</h3>
-            <div className="dbi-index-grid">
-              {payload.summaries.filter(item => item.variable_kind === "index").map(item => (
-                <article className="dbi-index-card" key={item.variable_ref}>
-                  <div className="flex items-center justify-between gap-2">
-                    <span className="text-xs font-semibold">{INDEX_LABELS[item.variable_ref] ?? item.variable_ref}</span>
-                    <span className="eyebrow">Derivado</span>
-                  </div>
-                  <div className="mt-2 text-lg font-semibold tabular-nums">{number(item.median)}</div>
-                  <p className="muted mt-1 text-xs">{coverageLabel(item)}</p>
-                  <p className="muted mt-2 text-xs">
-                    {INDEX_EXPLANATIONS[item.variable_ref] ?? "Índice derivado sin descripción divulgativa validada."}
-                  </p>
-                </article>
+          <section className="space-y-3" aria-label="Resumen de los seis índices derivados">
+            <h3 className="text-sm font-semibold">Los seis índices del análisis</h3>
+            <p className="muted text-xs">
+              Activa u oculta las fichas de los índices. Estos valores son estadísticas
+              de muestras, no mapas de calor. Las capas cartográficas requieren productos
+              georreferenciados verificados y publicación administrativa.
+            </p>
+            <div className="dbi-six-index-switches" role="group" aria-label="Mostrar u ocultar índices">
+              {Object.entries(INDEX_LABELS).map(([ref, label]) => (
+                <label key={ref} className="dbi-index-switch">
+                  <input type="checkbox" checked={visibleIndices.has(ref)}
+                    onChange={() => setVisibleIndices(previous => {
+                      const next = new Set(previous);
+                      if (next.has(ref)) next.delete(ref);
+                      else next.add(ref);
+                      return next;
+                    })} />
+                  <span>{label}</span>
+                </label>
               ))}
-              {payload.summaries.every(item => item.variable_kind !== "index") && (
-                <p className="muted text-xs">Sin índices derivados autorizados en esta extracción.</p>
-              )}
             </div>
+            <div className="dbi-index-grid">
+              {Object.entries(INDEX_LABELS).filter(([ref]) => visibleIndices.has(ref)).map(([ref, label]) => {
+                const item = payload.summaries.find(row =>
+                  row.variable_kind === "index" && row.variable_ref === ref
+                );
+                return (
+                  <article className="dbi-index-card" key={ref}>
+                    <div className="flex items-center justify-between gap-2">
+                      <span className="text-xs font-semibold">{label}</span>
+                      <span className="eyebrow">{item ? "Derivado" : "Sin datos"}</span>
+                    </div>
+                    <div className="mt-2 text-lg font-semibold tabular-nums">
+                      {item ? number(item.median) : "No disponible"}
+                    </div>
+                    {item && <p className="muted mt-1 text-xs">{coverageLabel(item)}</p>}
+                    <p className="muted mt-2 text-xs">
+                      {INDEX_EXPLANATIONS[ref] ?? "Índice científico con interpretación sujeta a revisión."}
+                    </p>
+                  </article>
+                );
+              })}
+            </div>
+            {visibleIndices.size === 0 && (
+              <p role="status" className="muted text-xs">Todos los índices están ocultos. Puedes activarlos nuevamente.</p>
+            )}
           </section>
           <details className="dbi-producer-details">
             <summary className="cursor-pointer text-sm font-semibold">

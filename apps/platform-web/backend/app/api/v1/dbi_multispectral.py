@@ -7,6 +7,8 @@ from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException, status
 from pydantic import BaseModel, ConfigDict, ValidationError
+from sqlalchemy import select
+from app.dbi.models.agriculture import Campaign
 from sqlalchemy.orm import Session
 
 from app.dbi.authorization import (
@@ -37,6 +39,24 @@ class DBIMultispectralExtractionRead(BaseModel):
     captured_at: datetime | None
     campaign_linkage: str
     payload: DBIMultispectralExtractionCandidate
+
+
+def _published_campaign_ids(
+    session: Session, context: DBIAccessContext, *,
+    organization_ref: str, farm_id: UUID, plot_id: UUID,
+) -> frozenset[UUID]:
+    """Sólo Campaign aprobada y publicada; nunca inferir vínculo por fecha."""
+    return frozenset(session.execute(
+        select(Campaign.id).where(
+            Campaign.tenant_ref == context.tenant_ref,
+            Campaign.organization_ref == organization_ref,
+            Campaign.farm_id == farm_id, Campaign.plot_id == plot_id,
+            Campaign.analysis_type == "multispectral",
+            Campaign.status == "PUBLISHED",
+            Campaign.approved_at.is_not(None),
+            Campaign.published_at.is_not(None),
+        )
+    ).scalars().all())
 
 
 @router.get(
@@ -90,6 +110,11 @@ def get_multispectral_extraction(
         farm_id=farm_id,
         plot_id=plot_id,
     ).get(row.id)
+    if provenance is None or provenance[0] not in _published_campaign_ids(
+        session, context,
+        organization_ref=organization_ref, farm_id=farm_id, plot_id=plot_id,
+    ):
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=_NOT_FOUND)
     return _checked_multispectral_row(
         row, observed_at, provenance, context, organization_ref, farm_id, plot_id,
     )
@@ -201,10 +226,16 @@ def list_multispectral_extractions(
         farm_id=farm_id,
         plot_id=plot_id,
     )
+    published = _published_campaign_ids(
+        session, context,
+        organization_ref=organization_ref, farm_id=farm_id, plot_id=plot_id,
+    )
     return [
         _checked_multispectral_row(
             row, observation_times.get(row.id), provenance.get(row.id),
             context, organization_ref, farm_id, plot_id,
         )
         for row in rows
+        if provenance.get(row.id) is not None
+        and provenance[row.id][0] in published
     ]

@@ -35,8 +35,8 @@ test("map and MULTI use responsive columns without moving scientific calculation
 });
 
 test("client only sees real derived summary; management still requires publish access", () => {
-  assert.match(multi, /payload\.summaries\.filter\(item => item\.variable_kind === "index"\)\.map/);
-  assert.match(multi, /\{number\(item\.median\)\}/);
+  assert.match(multi, /Object\.entries\(INDEX_LABELS\)\.filter\(\(\[ref\]\) => visibleIndices\.has\(ref\)\)/);
+  assert.match(multi, /item \? number\(item\.median\) : "No disponible"/);
   assert.match(multi, /no se deben comparar directamente entre vuelos/);
   assert.match(multi, /verifiedMultispectralCampaigns\(items, locator\)/);
   assert.match(map, /\{canPublish && realLocator && \(\s*<details/);
@@ -54,9 +54,15 @@ test("scoped map preserves user date when asynchronous RGB response returns", ()
   assert.ok(!section.includes("setComparisonDate("), "Una respuesta tardía no resetea la comparación manual");
 
   const privateRead = map.indexOf("listGISImports(realLocator)");
-  const guard = map.lastIndexOf("if (!realLocator || !canPublish) return", privateRead);
-  assert.ok(privateRead > 0 && guard > 0 && privateRead - guard < 160,
+  const privateEffectStart = map.lastIndexOf("  useEffect(() => {", privateRead);
+  const privateEffectEnd = map.indexOf("  }, [realLocator, gisScopeKey, canPublish]);", privateRead);
+  assert.ok(privateEffectStart > 0 && privateEffectEnd > privateRead,
+    "La consulta privada debe permanecer dentro de un efecto aislado");
+  const privateEffect = map.slice(privateEffectStart, privateEffectEnd);
+  assert.match(privateEffect, /if \(!realLocator \|\| !canPublish\) return;/,
     "Solo quien tiene MANAGE consulta los recibos privados GIS");
+  assert.match(privateEffect, /listManagementCampaigns\(realLocator\)/);
+  assert.match(privateEffect, /listGISImports\(realLocator\)/);
   assert.match(map, /Elegir un levantamiento/);
   assert.match(map, /Comparación por fechas \(próximamente\)/);
   assert.match(map, /id="comparison-date"[\s\S]*?disabled/);
@@ -113,7 +119,7 @@ test("producer sees factual readout, not an inferred health score", () => {
   assert.match(multi, /payload\.support_mode === "copa_up"/);
   assert.match(multi, /no representa hectáreas ni porcentaje/);
   assert.match(multi, /coverageLabel\(item\)/);
-  assert.match(multi, /INDEX_EXPLANATIONS\[item\.variable_ref\]/);
+  assert.match(multi, /INDEX_EXPLANATIONS\[ref\]/);
   assert.match(multi, /<details className="dbi-producer-details">/);
   assert.match(multi, /P10–P90 = intervalo/);
   assert.match(styles, /\.dbi-producer-facts/);
@@ -283,6 +289,23 @@ test("client landing view uses DALGORO brand and safe retry of authorized catalo
   assert.match(clientHome, /loading \|\| error \? "—" : totalPlots/);
   assert.match(clientHome, /mapLink\(account, farm, plot\)/);
   assert.doesNotMatch(clientHome, /Math\.random|fakeCampaign|mockPlots|api\.post\(/);
+});
+
+test("client sees six verified index controls and PDF only after publication", () => {
+  const report = file("../src/components/PublishedCampaignPDFPanel.tsx");
+  for (const name of ["ndvi", "ndre", "gndvi", "evi2", "ci_red_edge", "ci_green"]) {
+    assert.match(multi, new RegExp(name));
+  }
+  assert.match(multi, /checked=\{visibleIndices\.has\(ref\)\}/);
+  assert.match(map, /Seis mapas multiespectrales/);
+  assert.match(map, /disabled aria-label=\{\`Mapa/);
+  assert.match(map, /Población y resultados GIS del levantamiento/);
+  assert.match(tracking, /<PublishedCampaignPDFPanel/);
+  assert.match(report, /published-evidence\.pdf/);
+  assert.match(report, /responseType: "blob"/);
+  assert.match(report, /URL\.revokeObjectURL\(state\.url\)/);
+  assert.match(report, /Todavía no hay una ficha PDF aprobada y publicada/);
+  assert.doesNotMatch(report, /mockData|fakePDF|Math\.random/);
 });
 
 test("approved INSPECT panel only reads public Campaign-specific values without user UUID", () => {

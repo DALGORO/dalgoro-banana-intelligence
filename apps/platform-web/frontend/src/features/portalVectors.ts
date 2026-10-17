@@ -70,6 +70,15 @@ export async function listVectorCampaigns(locator: PlotMapTimelineLocator) {
   return data;
 }
 
+/** Gestores MANAGE: permite revisar campañas no publicadas sin mostrarlas al cliente READ. */
+export async function listManagementCampaigns(locator: PlotMapTimelineLocator) {
+  const managementUrl = url(locator).replace(/\/vector-layers$/, "/management-campaigns");
+  const { data } = await api.get<VectorCampaign[]>(managementUrl, {
+    headers: headers(locator.tenantRef),
+  });
+  return data;
+}
+
 export async function listVectorLayers(locator: PlotMapTimelineLocator) {
   const { data } = await api.get<VectorLayerInfo[]>(url(locator), {
     headers: headers(locator.tenantRef),

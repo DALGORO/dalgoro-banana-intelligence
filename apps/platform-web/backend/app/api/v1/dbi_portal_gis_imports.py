@@ -19,7 +19,7 @@ from sqlalchemy.exc import IntegrityError, SQLAlchemyError
 from sqlalchemy.orm import Session
 
 from app.api.v1.dbi_assets import get_dbi_asset_object_store
-from app.api.v1.dbi_portal_vectors import _campaign, _require_scope, _info, LayerKind, VectorLayerInfo
+from app.api.v1.dbi_portal_vectors import _campaign, _editable_campaign, _require_scope, _info, LayerKind, VectorLayerInfo
 from app.dbi.authorization import DBIAccessContext
 from app.dbi.dependencies import get_dbi_access_context, get_dbi_session
 from app.dbi.models.portal_gis_imports import DBIPortalGISImport, DBIPortalGISPreview
@@ -103,7 +103,7 @@ async def receive_gis_import(
     name: Annotated[str, Query(min_length=1, max_length=100)],
 ) -> PortalGISImportInfo:
     _require_scope(context, organization_ref, farm_id, plot_id, publish=True)
-    _campaign(session, context, organization_ref, farm_id, plot_id, campaign_id)
+    _editable_campaign(session, context, organization_ref, farm_id, plot_id, campaign_id)
     try:
         original_filename, source_format, mime = normalize_upload_filename(filename)
     except PortalGISSourceInvalid as error:
@@ -214,7 +214,7 @@ def select_gis_import_layer(
     if row is None:
         raise HTTPException(status_code=404, detail="Importación GIS no disponible.")
     # La Campaign se vuelve a validar en el servidor; el navegador no decide su alcance.
-    _campaign(session, context, organization_ref, farm_id, plot_id, row.campaign_id)
+    _editable_campaign(session, context, organization_ref, farm_id, plot_id, row.campaign_id)
     if row.status != "needs_selection" or row.source_format != "gpkg":
         raise HTTPException(status_code=409, detail="La importación no admite elegir una capa.")
     if not isinstance(row.available_layers, list) or choice.layer not in row.available_layers:
@@ -299,7 +299,7 @@ def publish_reviewed_gis_import(
         raise HTTPException(status_code=409, detail="El archivo requiere conversión y revisión previa.")
 
     # Recomprueba la Campaign actual bajo el scope MANAGE en el instante de publicación.
-    _campaign(session, context, organization_ref, farm_id, plot_id, row.campaign_id)
+    _editable_campaign(session, context, organization_ref, farm_id, plot_id, row.campaign_id)
     preview = session.get(DBIPortalGISPreview, row.id)
     if preview is None:
         raise HTTPException(status_code=409, detail="La vista previa validada no está disponible.")

@@ -86,7 +86,9 @@ class Session:
     def execute(self, statement):
         text = str(statement).lower()
         if "from dbi_campaigns" in text:
-            return SimpleNamespace(scalar_one_or_none=lambda: SimpleNamespace(id=self.campaign_id))
+            return SimpleNamespace(scalar_one_or_none=lambda: SimpleNamespace(
+                id=self.campaign_id, status="FIELD_COMPLETED",
+            ))
         assert "from dbi_portal_gis_imports" in text
         return SimpleNamespace(scalars=lambda: SimpleNamespace(all=lambda: self.rows))
 
@@ -217,7 +219,9 @@ class ChoiceSession:
             )
         )
         return SimpleNamespace(
-            scalar_one_or_none=lambda: SimpleNamespace(id=self.row.campaign_id) if matched else None,
+            scalar_one_or_none=lambda: SimpleNamespace(
+                id=self.row.campaign_id, status="FIELD_COMPLETED",
+            ) if matched else None,
         )
 
     def commit(self):
