@@ -1395,7 +1395,9 @@ function FarmMapTimelineView() {
             <label className="dbi-rgb-opacity-control" htmlFor="dbi-rgb-opacity">
               <span>
                 <strong>Fotografía RGB sobre Google Satélite</strong>
-                <small>Transparencia ajustable para comprobar su ubicación. No altera los datos.</small>
+                <small>{rgbOverlayOpacity === 0
+                  ? "Solo Google Satélite: la ortofoto está oculta y no se descargan sus mosaicos."
+                  : "Transparencia ajustable para comprobar la posición. No altera los datos."}</small>
               </span>
               <input id="dbi-rgb-opacity" type="range" min={0} max={100} step={5}
                 value={rgbOverlayOpacity}
