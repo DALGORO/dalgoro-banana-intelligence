@@ -160,7 +160,7 @@ export function MultispectralEvidencePanel({
           {verifiedHistory.length === 0 ? (
             <p className="muted rounded-xl border border-slate-200 p-3 text-sm dark:border-slate-700">
               Todavía no hay vuelos con procedencia científica verificada para este lote.
-              Las extracciones sin vínculo siguen disponibles en el selector inferior.
+              Los análisis aún no publicados o sin procedencia verificada no se muestran al productor.
             </p>
           ) : (
             <div className="dbi-campaign-strip" role="group" aria-label="Elegir vuelo verificado">
