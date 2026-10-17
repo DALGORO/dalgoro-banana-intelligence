@@ -19,6 +19,10 @@ ProductKind = Literal["rgb_visual", "scientific"]
 _SCHEMA_VERSION = "dbi-raster-flight-test.v1"
 _CHUNK_SIZE = 1024 * 1024
 _BLOCK_SIZE = 512
+# Perfil nuevo OPT-IN: sólo RGB de presentación, nunca ráster científico.
+# El perfil cog_v1 existente permanece inalterado.
+_RGB_LIGHT_PREVIEW_PROFILE = "cog_rgb_preview_jpeg_v1"
+_RGB_PREVIEW_QUALITY = 80
 
 
 class RasterCOGError(RuntimeError):
@@ -193,6 +197,16 @@ def generate_validated_cog(
 
     source_descriptor = _descriptor(source)
     _validate_source(source_descriptor, product_kind=product_kind)
+    lightweight_rgb = profile_version == _RGB_LIGHT_PREVIEW_PROFILE
+    if lightweight_rgb and (
+        product_kind != "rgb_visual"
+        or source_descriptor.band_count != 3
+        or any(value is not None for value in source_descriptor.nodata)
+    ):
+        raise RasterCOGError(
+            "El perfil RGB liviano exige tres bandas uint8 sin nodata; "
+            "los productos científicos y fuentes con transparencia usan el perfil sin pérdida."
+        )
     source_size, source_sha = _sha256_file(source)
     output.parent.mkdir(parents=True, exist_ok=True)
 
@@ -204,6 +218,14 @@ def generate_validated_cog(
         "OVERVIEW_RESAMPLING": "AVERAGE",
         "NUM_THREADS": "ALL_CPUS",
     }
+    if lightweight_rgb:
+        # JPEG/YCBCR reduce el peso de la copia visual COG. El GeoTIFF maestro
+        # nunca se reescribe, y ningún dato científico se cuantiza.
+        creation_options.update({
+            "COMPRESS": "JPEG",
+            "QUALITY": _RGB_PREVIEW_QUALITY,
+            "PHOTOMETRIC": "YCBCR",
+        })
     try:
         raster_copy(source, output, **creation_options)
         cog_descriptor = _descriptor(output)
@@ -212,6 +234,10 @@ def generate_validated_cog(
             cog_descriptor,
             product_kind=product_kind,
         )
+        if lightweight_rgb and cog_descriptor.compression != "jpeg":
+            raise RasterCOGError(
+                "El perfil RGB liviano no quedó comprimido con JPEG."
+            )
         cog_size, cog_sha = _sha256_file(output)
     except Exception:
         output.unlink(missing_ok=True)
