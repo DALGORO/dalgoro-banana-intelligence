@@ -746,8 +746,8 @@ function FarmMapTimelineView() {
             {visibleEntries.length + visibleVectorMeta.length} capas disponibles en la selección
           </span>
           {selectedMapCampaignId && (
-            <span className="dbi-info-chip dbi-info-chip-accent" title={selectedMapCampaignId}>
-              Campaign {selectedMapCampaignId.slice(0, 8)}
+            <span className="dbi-info-chip dbi-info-chip-accent">
+              Vuelo multiespectral elegido
             </span>
           )}
         </div>
@@ -769,7 +769,7 @@ function FarmMapTimelineView() {
               <option key={date} value={date}>
                 {formatDate(date)}
                 {selectedMapCampaignId && sameCapture(selectedDate, date)
-                  ? " · Campaign seleccionada" : ""}
+                  ? " · Vuelo elegido" : ""}
               </option>
             ))}
           </select>
@@ -779,7 +779,7 @@ function FarmMapTimelineView() {
             {realLocator && <a href="#dbi-multi-evidence" onClick={() => setInfoTab("multi")}>Ver evidencia MULTI</a>}
           </div>
           <p className="muted text-xs">
-            Elegir otra fecha limpia la selección de vuelo específico. No combina Campaign distintas.
+            Elegir otra fecha limpia la selección de vuelo específico. No mezcla información de campañas distintas.
           </p>
         </nav>
       </div>
@@ -813,7 +813,7 @@ function FarmMapTimelineView() {
                 <option key={date} value={date}>
                   {formatDate(date)}
                   {selectedMapCampaignId && sameCapture(selectedDate, date)
-                    ? " · Campaign seleccionada" : ""}
+                    ? " · Vuelo elegido" : ""}
                 </option>
               ))}
             </select>

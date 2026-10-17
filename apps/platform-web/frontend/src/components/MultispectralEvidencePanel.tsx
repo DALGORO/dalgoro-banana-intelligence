@@ -151,17 +151,17 @@ export function MultispectralEvidencePanel({
       {current && !current.error && items.length > 0 && (
         <section className="space-y-2" aria-label="Historial de vuelos multiespectrales verificados">
           <div className="flex flex-wrap items-center justify-between gap-2">
-            <h3 className="text-sm font-semibold">Historial de vuelos con Campaign verificada</h3>
+            <h3 className="text-sm font-semibold">Vuelos multiespectrales verificados</h3>
             <span className="muted text-xs">{verifiedHistory.length} campañas verificadas · máximo 20 extracciones revisadas</span>
           </div>
           {verifiedHistory.length === 0 ? (
             <p className="muted rounded-xl border border-slate-200 p-3 text-sm dark:border-slate-700">
-              Todavía no hay vuelos con procedencia Campaign verificada para este lote.
+              Todavía no hay vuelos con procedencia científica verificada para este lote.
               Las extracciones sin vínculo siguen disponibles en el selector inferior.
             </p>
           ) : (
             <div className="dbi-campaign-strip" role="group" aria-label="Elegir vuelo verificado">
-              {verifiedHistory.map(entry => {
+              {verifiedHistory.map((entry, index) => {
                 const active = selected?.campaign_linkage === "verified_job_chain"
                   && selected.campaign_id === entry.campaignId;
                 return (
@@ -176,9 +176,10 @@ export function MultispectralEvidencePanel({
                         ? "border-emerald-600 bg-emerald-50 text-emerald-950 dark:bg-emerald-950/30 dark:text-emerald-100"
                         : "border-slate-200 hover:border-emerald-500 dark:border-slate-700"
                     }`}>
-                    <span className="block font-medium">{date(entry.capturedAt)}</span>
+                    <span className="block font-semibold">Vuelo {index + 1}</span>
+                    <span className="block text-xs">{date(entry.capturedAt)}</span>
                     <span className="block text-xs opacity-75">
-                      Campaign {entry.campaignId.slice(0, 8)} · {entry.extractionCount} {entry.extractionCount === 1 ? "extracción" : "extracciones"}
+                      {entry.extractionCount} {entry.extractionCount === 1 ? "muestra analizada" : "muestras analizadas"}
                     </span>
                   </button>
                 );
@@ -193,7 +194,7 @@ export function MultispectralEvidencePanel({
       )}
       {current && !current.error && items.length > 0 && selectedMapDate && !selected && (
         <p role="status" className="rounded-xl border border-amber-300/60 bg-amber-50 p-3 text-sm text-amber-950 dark:border-amber-600/50 dark:bg-amber-950/20 dark:text-amber-200">
-          La fecha seleccionada en el mapa no identifica una única Campaign MULTI verificada.
+          La fecha seleccionada en el mapa no identifica un único vuelo multiespectral verificado.
           Selecciona un vuelo concreto en el historial para consultar sus estadísticas,
           o cambia la fecha del mapa. No se muestran cifras de otro levantamiento.
         </p>
@@ -204,8 +205,8 @@ export function MultispectralEvidencePanel({
             <ShieldCheck size={16} aria-hidden="true" />
             {selected.campaign_linkage === "verified_job_chain" && selected.campaign_id
               && verifiedHistory.some(entry => entry.campaignId === selected.campaign_id)
-              ? "Campaign con cadena científica verificada"
-              : "Extracción consultable · sin Campaign cartográfica verificada"}
+              ? "Vuelo con procedencia científica verificada"
+              : "Análisis disponible · sin vuelo cartográfico verificado"}
           </div>
           <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
             <label className="text-sm font-medium" htmlFor="multi-extraction-select">
@@ -226,9 +227,9 @@ export function MultispectralEvidencePanel({
                   onClearMapSelection();
                 }
               }}>
-              {items.map(item => (
+              {items.map((item, index) => (
                 <option key={item.extraction_id} value={item.extraction_id}>
-                  Campo: {date(item.observed_at)} · Registro: {date(item.created_at)} · {item.payload.support_mode === "copa_up" ? "Copa UP" : "Ventana"} · {item.extraction_id.slice(0, 8)}
+                  Muestra {index + 1} · Campo: {date(item.observed_at)} · Registro: {date(item.created_at)} · {item.payload.support_mode === "copa_up" ? "Follaje" : "Ventana"}
                 </option>
               ))}
             </select>
@@ -245,9 +246,9 @@ export function MultispectralEvidencePanel({
               <dd className="mt-1 font-medium">{date(selected.observed_at)}</dd></div>
             <div><dt className="muted">Registro de la extracción</dt>
               <dd className="mt-1 font-medium">{date(selected.created_at)}</dd></div>
-            <div><dt className="muted">Campaign / levantamiento</dt>
-              <dd className="mt-1 font-medium">{selected.campaign_linkage === "verified_job_chain"
-                && selected.campaign_id ? selected.campaign_id : "Campaña no verificada"}</dd></div>
+            <div><dt className="muted">Vinculación con el vuelo</dt>
+              <dd className="mt-1 font-medium">{verifiedFlight
+                ? "Procedencia del vuelo verificada" : "Vuelo no verificado"}</dd></div>
             <div><dt className="muted">Captura del vuelo</dt>
               <dd className="mt-1 font-medium">{selected.campaign_linkage === "verified_job_chain"
                 && selected.captured_at ? date(selected.captured_at) : "Fecha de vuelo no verificada"}</dd></div>
@@ -258,10 +259,8 @@ export function MultispectralEvidencePanel({
                 ? "Follaje atribuible a UP" : "Ventana sustituta"}</dd></div>
             <div><dt className="muted">Píxeles seleccionados</dt>
               <dd className="mt-1 font-medium">{payload.selected_count}</dd></div>
-            <div><dt className="muted">Versión INSPECT observada</dt>
-              <dd className="mt-1 break-all font-medium">{payload.observation_version_id}</dd></div>
-            <div><dt className="muted">Producto ráster científico</dt>
-              <dd className="mt-1 break-all font-medium">{payload.source_raster_product_id}</dd></div>
+            <div><dt className="muted">Trazabilidad técnica</dt>
+              <dd className="mt-1 font-medium">Versión de campo y producto científico vinculados en el sistema</dd></div>
             <div><dt className="muted">Perfil de soporte</dt>
               <dd className="mt-1 break-all font-medium">{payload.support_profile_version}</dd></div>
           </dl>

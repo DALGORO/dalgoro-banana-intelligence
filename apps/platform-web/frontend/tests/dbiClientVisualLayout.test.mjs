@@ -130,7 +130,7 @@ test("tracking only describes authorized visible entries and GIS, not diagnoses"
   assert.match(tracking, /layer\.layer_kind === "observations"/);
   assert.match(tracking, /No hay registros cartográficos activados para esta selección/);
   assert.match(tracking, /no inspecciones individuales verificadas/);
-  assert.match(tracking, /Sin Campaign exacta seleccionada/);
+  assert.match(tracking, /Todavía no has elegido un vuelo/);
   assert.match(tracking, /onOpenEvidence/);
   assert.match(tracking, /role="status"/);
   assert.match(tracking, /role="alert"/);
@@ -195,6 +195,26 @@ test("INSPECT cross-tenant, cross-plot, or wrong ID is rejected before showing o
   assert.equal(inspectionVersionMatchesScope({ ...record, payload: { ...record.payload, evidence_kind: "derived" } }, locator, id), false);
   assert.equal(inspectionVersionMatchesScope({ ...record, version: 0 }, locator, id), false);
   assert.equal(inspectionVersionMatchesScope({ ...record, payload: { ...record.payload, core: null } }, locator, id), false);
+});
+
+test("H13 producer navigation uses readable flight labels while retaining exact scoped IDs internally", () => {
+  assert.match(map, /Vuelo multiespectral elegido/);
+  assert.match(map, /Vuelo elegido/);
+  assert.doesNotMatch(map, /selectedMapCampaignId\.slice\(0, 8\)/);
+  assert.match(multi, /verifiedHistory\.map\(\(entry, index\) =>/);
+  assert.match(multi, /Vuelo \{index \+ 1\}/);
+  assert.match(multi, /onChooseVerifiedCampaign\(entry\.campaignId, entry\.capturedAt\)/);
+  assert.match(multi, /Muestra \{index \+ 1\}/);
+  assert.match(multi, /value=\{item\.extraction_id\}/);
+  assert.doesNotMatch(multi, /entry\.campaignId\.slice\(0, 8\)/);
+  assert.doesNotMatch(multi, /item\.extraction_id\.slice\(0, 8\)/);
+  assert.doesNotMatch(multi, /\{selected\.campaign_id\}|\{payload\.observation_version_id\}|\{payload\.source_raster_product_id\}/);
+  assert.match(tracking, /selectedCampaignId \? "Vuelo específico elegido" : "Todavía no has elegido un vuelo"/);
+  assert.match(tracking, /campaignId=\{selectedCampaignId\}/);
+  assert.doesNotMatch(tracking, /\{selectedCampaignId \?\?/);
+  assert.match(styles, /\.dbi-tracking-selection-chip/);
+  assert.match(styles, /#fff7ee/);
+  assert.doesNotMatch(multi, /Math\.random\(|fakeCampaign|mockInspection/);
 });
 
 test("INSPECT missing data remain missing rather than healthy or diseased", () => {
