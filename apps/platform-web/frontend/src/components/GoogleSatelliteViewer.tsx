@@ -12,6 +12,10 @@ type MapType = {
   getTile: (coord: TilePoint, zoom: number, document: Document) => HTMLElement;
   releaseTile: (node: HTMLElement) => void;
 };
+type DbiRasterOverlay = MapType & {
+  setOpacity: (opacity: number) => void;
+  dispose: () => void;
+};
 type DataFeature = {
   setProperty: (key: string, value: string) => void;
   getProperty: (key: string) => unknown;
@@ -82,15 +86,33 @@ function authorizedRasterOverlay(
   google: GoogleSDK,
   entry: RasterTileTimelineEntry,
   tenantRef: string,
-): MapType {
-  const pending = new WeakMap<HTMLElement, { abort: AbortController; url?: string }>();
+  initialOpacity: number,
+): DbiRasterOverlay {
+  const pending = new Map<HTMLElement, { abort: AbortController; url?: string }>();
+  let opacity = initialOpacity;
+
+  function release(node: HTMLElement) {
+    const record = pending.get(node);
+    record?.abort.abort();
+    if (record?.url) URL.revokeObjectURL(record.url);
+    pending.delete(node);
+  }
 
   return {
+    setOpacity(value) {
+      opacity = value;
+      // No volver a descargar mosaicos al mover el control de transparencia.
+      for (const tile of pending.keys()) tile.style.opacity = String(opacity);
+    },
+    dispose() {
+      for (const tile of pending.keys()) release(tile);
+    },
     tileSize: new google.maps.Size(256, 256),
     getTile(coord, zoom, ownerDocument) {
       const container = ownerDocument.createElement("div");
       container.style.width = "256px";
       container.style.height = "256px";
+      container.style.opacity = String(opacity);
       const max = 2 ** zoom;
       if (coord.y < 0 || coord.y >= max || !Number.isInteger(zoom)) return container;
       const x = ((coord.x % max) + max) % max;
@@ -125,24 +147,26 @@ function authorizedRasterOverlay(
       return container;
     },
     releaseTile(node) {
-      const record = pending.get(node);
-      record?.abort.abort();
-      if (record?.url) URL.revokeObjectURL(record.url);
-      pending.delete(node);
+      release(node);
     },
   };
 }
 
 export function GoogleSatelliteViewer({
-  tenantRef, entries, bounds, vectors = [],
+  tenantRef, entries, bounds, vectors = [], rasterOpacity = 0.75,
 }: {
   tenantRef: string;
   entries: RasterTileTimelineEntry[];
   bounds: [number, number, number, number] | null;
   vectors?: VectorLayerDetail[];
+  /** 0 = solo Google Satélite; 1 = ortofoto RGB totalmente opaca. */
+  rasterOpacity?: number;
 }) {
   const elementRef = useRef<HTMLDivElement | null>(null);
   const mapRef = useRef<SatelliteMap | null>(null);
+  const overlaysRef = useRef<DbiRasterOverlay[]>([]);
+  const opacityRef = useRef(rasterOpacity);
+  opacityRef.current = rasterOpacity;
   const infoWindowRef = useRef<InfoWindow | null>(null);
   const [ready, setReady] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -159,7 +183,8 @@ export function GoogleSatelliteViewer({
           zoom: 7,
           mapTypeId: "satellite",
           tilt: 0,
-          mapTypeControl: true,
+          // Google Satélite siempre es el fondo, no permitir cambiar a carreteras.
+          mapTypeControl: false,
           zoomControl: true,
           streetViewControl: false,
         });
@@ -169,6 +194,8 @@ export function GoogleSatelliteViewer({
     return () => {
       active = false;
       mapRef.current?.overlayMapTypes.clear();
+      for (const overlay of overlaysRef.current) overlay.dispose();
+      overlaysRef.current = [];
       infoWindowRef.current?.close();
       infoWindowRef.current = null;
       mapRef.current = null;
@@ -180,11 +207,21 @@ export function GoogleSatelliteViewer({
     const google = window.google;
     if (!ready || !map || !google?.maps) return;
     map.overlayMapTypes.clear();
-    for (const entry of entries) {
-      map.overlayMapTypes.push(authorizedRasterOverlay(google, entry, tenantRef));
-    }
-    return () => { map.overlayMapTypes.clear(); };
+    for (const overlay of overlaysRef.current) overlay.dispose();
+    const overlays = entries.map(entry =>
+      authorizedRasterOverlay(google, entry, tenantRef, opacityRef.current));
+    overlaysRef.current = overlays;
+    for (const overlay of overlays) map.overlayMapTypes.push(overlay);
+    return () => {
+      map.overlayMapTypes.clear();
+      for (const overlay of overlays) overlay.dispose();
+      if (overlaysRef.current === overlays) overlaysRef.current = [];
+    };
   }, [entries, ready, tenantRef]);
+
+  useEffect(() => {
+    for (const overlay of overlaysRef.current) overlay.setOpacity(rasterOpacity);
+  }, [rasterOpacity]);
 
   useEffect(() => {
     const map = mapRef.current;

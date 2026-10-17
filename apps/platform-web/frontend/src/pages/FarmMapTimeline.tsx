@@ -104,6 +104,8 @@ function FarmMapTimelineView() {
     new Set(),
   );
   const [selectedDate, setSelectedDate] = useState("");
+  // Sólo afecta a la ortofoto visual; no altera los datos científicos.
+  const [rgbOverlayOpacity, setRGBOverlayOpacity] = useState(75);
   const [infoTab, setInfoTab] = useState<"multi" | "tracking">("tracking");
   const manuallySelectedVisitRef = useRef(false);
   const [specificMapCampaign, setSpecificMapCampaign] = useState<{
@@ -1310,6 +1312,7 @@ function FarmMapTimelineView() {
                 entries={displayEntries}
                 bounds={mapBounds}
                 vectors={visibleVectorDetails}
+                rasterOpacity={rgbOverlayOpacity / 100}
               />
             ) : (
               <div
@@ -1387,6 +1390,19 @@ function FarmMapTimelineView() {
             </div>
           ) : (
             <p className="muted text-sm">Este lote aún no tiene levantamientos con cartografía autorizada para consultar.</p>
+          )}
+          {useGoogleBase && displayEntries.length > 0 && (
+            <label className="dbi-rgb-opacity-control" htmlFor="dbi-rgb-opacity">
+              <span>
+                <strong>Fotografía RGB sobre Google Satélite</strong>
+                <small>Transparencia ajustable para comprobar su ubicación. No altera los datos.</small>
+              </span>
+              <input id="dbi-rgb-opacity" type="range" min={0} max={100} step={5}
+                value={rgbOverlayOpacity}
+                onChange={(event) => setRGBOverlayOpacity(Number(event.target.value))}
+                aria-label="Opacidad de la fotografía RGB superpuesta" />
+              <output htmlFor="dbi-rgb-opacity">{rgbOverlayOpacity}% RGB</output>
+            </label>
           )}
           {currentMapVisit && (
             <p className="dbi-map-history-note">
