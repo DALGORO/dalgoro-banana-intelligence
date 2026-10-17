@@ -88,6 +88,25 @@ test("scoped map preserves user date when asynchronous RGB response returns", ()
   assert.match(map, /id="comparison-date"[\s\S]*?disabled/);
 });
 
+test("satellite stays as Google basemap while RGB transparency changes without refetch", () => {
+  const google = file("../src/components/GoogleSatelliteViewer.tsx");
+  assert.match(google, /mapTypeId: "satellite"/);
+  assert.match(google, /mapTypeControl: false/);
+  assert.match(google, /tileSize: new google\.maps\.Size\(256, 256\)/);
+  assert.match(google, /function authorizedRasterOverlay\(/);
+  assert.match(google, /setOpacity\(value\) \{/);
+  assert.match(google, /for \(const tile of pending\.keys\(\)\) tile\.style\.opacity = String\(opacity\)/);
+  assert.match(google, /\}, \[rasterOpacity\]\);/);
+  assert.match(google, /for \(const overlay of overlaysRef\.current\) overlay\.dispose\(\)/);
+  assert.match(google, /mapLibreDbiHeaders\(tenantRef\)/);
+  assert.match(map, /rasterOpacity=\{rgbOverlayOpacity \/ 100\}/);
+  assert.match(map, /id="dbi-rgb-opacity"/);
+  assert.match(map, /setRGBOverlayOpacity\(Number\(event\.target\.value\)\)/);
+  assert.match(map, /useGoogleBase && displayEntries\.length > 0/);
+  assert.match(styles, /\.dbi-rgb-opacity-control input:focus-visible/);
+  assert.doesNotMatch(google, /roadmap|hybrid|Math\.random/);
+});
+
 test("map-first workspace renders real chronological visits without mock diagnoses", () => {
   assert.match(map, /producerMapVisits\(/);
   assert.match(map, /visitsAtDate\(mapVisits, selectedDate\)/);
