@@ -1068,7 +1068,7 @@ function FarmMapTimelineView() {
 
           <div className="divider pt-4">
             <label className="text-sm font-medium" htmlFor="comparison-date">
-              Comparar con
+              Comparación por fechas (próximamente)
             </label>
             <select
               id="comparison-date"
@@ -1086,18 +1086,36 @@ function FarmMapTimelineView() {
             </select>
             <p className="muted mt-2">
               {comparisonEnabled
-                ? "Las dos fechas existen; la comparación visual avanzada se habilitará sin alterar sus fuentes."
-                : "Se requieren dos fechas reales distintas."}
+                ? "Hay dos fechas registradas, pero todavía no existe una comparación cartográfica validada. Revisa los levantamientos uno por uno."
+                : "El comparador cartográfico todavía no está disponible. Utiliza Anterior y Siguiente para consultar cada levantamiento por separado."}
             </p>
           </div>
         </aside>
 
         <section id="dbi-map-view" className="card dbi-map-stage p-0 overflow-hidden" aria-label="Mapa de la campaña seleccionada">
           <div className="relative min-h-[560px]">
-            <div className="dbi-map-stage-label" aria-hidden="true">
-              <MapPinned size={16} />
-              <span>{selectedDate ? formatDate(selectedDate) : "Todas las fechas"}</span>
+            <div className="dbi-map-stage-label" aria-label="Fecha del mapa">
+              <MapPinned size={16} aria-hidden="true" />
+              <span>{selectedDate ? formatDate(selectedDate) : "Selecciona un levantamiento"}</span>
+              {currentMapVisit && <span className="dbi-map-stage-kind">
+                {currentMapVisit.hasRgb ? "Fotografía RGB" : "Cartografía GIS"}
+              </span>}
             </div>
+            {(displayEntries.length > 0 || visibleVectorDetails.length > 0) && (
+              <div className="dbi-map-legend" aria-label="Leyenda de capas visibles">
+                <strong>Capas del levantamiento</strong>
+                {displayEntries.length > 0 && (
+                  <span><i className="dbi-legend-rgb" aria-hidden="true" /> Imagen aérea RGB</span>
+                )}
+                {visibleVectorDetails.slice(0, 4).map(vector => (
+                  <span key={vector.layer.id}>
+                    <i aria-hidden="true" style={{ backgroundColor: GIS_KIND_COLORS[vector.layer.layer_kind] }} />
+                    {GIS_KIND_LABELS[vector.layer.layer_kind]}
+                  </span>
+                ))}
+                {visibleVectorDetails.length > 4 && <small>Más capas en Opciones de visualización</small>}
+              </div>
+            )}
             {useGoogleBase && realLocator ? (
               <GoogleSatelliteViewer
                 tenantRef={realLocator.tenantRef}
@@ -1129,19 +1147,74 @@ function FarmMapTimelineView() {
               {!loading && !error && visibleEntries.length === 0 && visibleVectorDetails.length === 0 && (
                 <div className="empty-state pointer-events-auto shadow-lg">
                   <div className="font-medium">
-                    {selectedMapCampaignId
-                      ? "Sin capas cartográficas para la Campaign MULTI seleccionada"
-                      : "No hay campañas cartográficas visibles"}
+                    {ambiguousMapDate
+                      ? "Hay varios levantamientos en esta fecha"
+                      : selectedMapCampaignId
+                        ? "Este levantamiento no tiene capas cartográficas disponibles"
+                        : "Selecciona un levantamiento del historial"}
                   </div>
                   <p className="muted mt-2">
-                    No se muestran geometrías, índices ni recomendaciones
-                    simuladas. Las capas aparecen únicamente cuando existe
-                    evidencia real autorizada para este lote.
+                    {ambiguousMapDate
+                      ? "Elige un levantamiento concreto de la línea de tiempo para evitar mezclar vuelos diferentes."
+                      : "No hay cartografía autorizada para mostrar en esta selección. No se simulan imágenes ni resultados."}
                   </p>
                 </div>
               )}
             </div>
           </div>
+        </section>
+        <section className="dbi-map-history" aria-label="Historial cartográfico de levantamientos">
+          <div className="dbi-map-history-heading">
+            <div>
+              <div className="eyebrow">Trazabilidad por fecha</div>
+              <h3 className="mt-1 text-base font-semibold">Historial de levantamientos</h3>
+            </div>
+            <span className="muted text-xs">{mapVisits.length} con cartografía disponible</span>
+          </div>
+          {mapVisits.length > 0 ? (
+            <div className="dbi-map-history-nav">
+              <button type="button" className="dbi-history-arrow"
+                disabled={!olderVisit} onClick={() => olderVisit && chooseMapVisit(olderVisit.campaignId, olderVisit.capturedAt)}
+                aria-label="Ver levantamiento anterior">← Anterior</button>
+              <div className="dbi-map-history-strip" role="group" aria-label="Elegir levantamiento por fecha">
+                {[...mapVisits].reverse().map(visit => {
+                  const active = selectedMapCampaignId === visit.campaignId
+                    && sameCapture(selectedDate, visit.capturedAt);
+                  return (
+                    <button type="button" key={visit.campaignId}
+                      className="dbi-map-history-visit" aria-pressed={active}
+                      onClick={() => chooseMapVisit(visit.campaignId, visit.capturedAt)}>
+                      <span className="dbi-history-dot" aria-hidden="true" />
+                      <strong>{formatDate(visit.capturedAt)}</strong>
+                      <span className="dbi-history-visit-name">{visit.name}</span>
+                      <small>{visit.hasRgb ? "Fotografía RGB" : "Capas GIS"}
+                        {visit.gisLayerCount > 0 ? ` · ${visit.gisLayerCount} capas GIS` : ""}</small>
+                    </button>
+                  );
+                })}
+              </div>
+              <button type="button" className="dbi-history-arrow"
+                disabled={!newerVisit} onClick={() => newerVisit && chooseMapVisit(newerVisit.campaignId, newerVisit.capturedAt)}
+                aria-label="Ver levantamiento siguiente">Siguiente →</button>
+            </div>
+          ) : (
+            <p className="muted text-sm">Este lote aún no tiene levantamientos con cartografía autorizada para consultar.</p>
+          )}
+          {currentMapVisit && (
+            <p className="dbi-map-history-note">
+              {currentMapVisit.reviewStatus === "approved"
+                ? "Imagen RGB con revisión profesional aprobada."
+                : currentMapVisit.hasRgb
+                  ? "Imagen RGB disponible; no implica que el análisis técnico esté aprobado."
+                  : "Capas GIS publicadas para consulta. La aprobación técnica del vuelo no se informa aquí."}
+              {" "}Cada fecha se consulta por separado; no se comparan automáticamente valores de distintos vuelos.
+            </p>
+          )}
+          {!useGoogleBase && (
+            <p className="muted text-xs">
+              Fondo satelital no configurado. Se muestran las capas reales que estén disponibles; el fondo neutro no es una ortofoto.
+            </p>
+          )}
         </section>
       <section className="dbi-info-tabs" aria-label="Información y seguimiento del lote">
         <div className="dbi-info-tab-buttons" role="tablist" aria-label="Pestañas de información agrícola">
@@ -1160,7 +1233,7 @@ function FarmMapTimelineView() {
               document.getElementById("dbi-tab-tracking")?.focus();
             }}
           >
-            Evidencia MULTI
+            Índices y muestras
           </button>
           <button
             type="button"
@@ -1177,7 +1250,7 @@ function FarmMapTimelineView() {
               document.getElementById("dbi-tab-multi")?.focus();
             }}
           >
-            Seguimiento del lote
+            Resumen del lote
           </button>
         </div>
         <div
@@ -1194,11 +1267,13 @@ function FarmMapTimelineView() {
               selectedMapDate={selectedDate}
               selectedMapCampaignId={selectedMapCampaignId}
               onChooseVerifiedCampaign={(campaignId, capturedAt) => {
+                manuallySelectedVisitRef.current = true;
                 setSpecificMapCampaign({ scopeKey: gisScopeKey, campaignId });
                 setSelectedDate(capturedAt);
                 setComparisonDate("");
               }}
               onClearMapSelection={() => {
+                manuallySelectedVisitRef.current = true;
                 setSpecificMapCampaign(null);
                 setSelectedDate("");
                 setComparisonDate("");
