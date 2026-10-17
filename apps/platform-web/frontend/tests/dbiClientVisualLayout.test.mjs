@@ -113,7 +113,7 @@ test("producer sees factual readout, not an inferred health score", () => {
   assert.match(multi, /payload\.support_mode === "copa_up"/);
   assert.match(multi, /no representa hectáreas ni porcentaje/);
   assert.match(multi, /coverageLabel\(item\)/);
-  assert.match(multi, /INDEX_EXPLANATIONS\[item\.variable_ref\]/);
+  assert.match(multi, /INDEX_EXPLANATIONS\[ref\]/);
   assert.match(multi, /<details className="dbi-producer-details">/);
   assert.match(multi, /P10–P90 = intervalo/);
   assert.match(styles, /\.dbi-producer-facts/);
