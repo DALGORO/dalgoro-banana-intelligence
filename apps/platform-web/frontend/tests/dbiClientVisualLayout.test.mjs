@@ -110,7 +110,7 @@ test("satellite stays as Google basemap while RGB transparency changes without r
   assert.match(map, /rasterOpacity=\{rgbOverlayOpacity \/ 100\}/);
   assert.match(map, /id="dbi-rgb-opacity"/);
   assert.match(map, /setRGBOverlayOpacity\(Number\(event\.target\.value\)\)/);
-  assert.match(map, /useGoogleBase && displayEntries\.length > 0/);
+  assert.match(map, /\{displayEntries\.length > 0 && \(\s*<label className="dbi-rgb-opacity-control"/);
   assert.match(styles, /\.dbi-rgb-opacity-control input:focus-visible/);
   assert.doesNotMatch(google, /roadmap|hybrid|Math\.random/);
 });
@@ -387,4 +387,14 @@ test("approved INSPECT panel only reads public Campaign-specific values without 
   assert.match(approvedInspect, /role="alert"/);
   assert.doesNotMatch(approvedInspect, /field-observations|observation_id|version_id|gps_fix|payload_json/);
   assert.doesNotMatch(approvedInspect, /api\.post\(|Math\.random\(|mockInspection/);
+});
+
+test("neutral fallback keeps the producer's RGB opacity and does not fetch hidden tiles", () => {
+  assert.match(map, /const rgbOverlayVisible = rgbOverlayOpacity > 0/);
+  assert.match(map, /for \(const entry of \(rgbOverlayVisible \? displayEntries : \[\]\)\)/);
+  assert.match(map, /\}, \[displayEntries, mapReady, rgbOverlayVisible\]\);/);
+  assert.match(map, /map\.setPaintProperty\(id, "raster-opacity", rgbOverlayOpacity \/ 100\)/);
+  assert.match(map, /\}, \[mapReady, rgbOverlayOpacity\]\);/);
+  assert.match(map, /Fotografía RGB sobre fondo neutro/);
+  assert.match(map, /Solo fondo neutro: la ortofoto está oculta y no se descargan sus mosaicos/);
 });
