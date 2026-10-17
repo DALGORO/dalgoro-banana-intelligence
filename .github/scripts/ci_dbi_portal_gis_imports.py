@@ -219,7 +219,9 @@ class ChoiceSession:
             )
         )
         return SimpleNamespace(
-            scalar_one_or_none=lambda: SimpleNamespace(id=self.row.campaign_id) if matched else None,
+            scalar_one_or_none=lambda: SimpleNamespace(
+                id=self.row.campaign_id, status="FIELD_COMPLETED",
+            ) if matched else None,
         )
 
     def commit(self):
