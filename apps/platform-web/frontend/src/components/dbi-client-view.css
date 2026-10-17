@@ -382,6 +382,41 @@
 
 .dbi-history-arrow:disabled { opacity: 0.42; cursor: not-allowed; }
 
+.dbi-rgb-opacity-control {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 10px 18px;
+  padding: 12px;
+  margin-top: 12px;
+  border: 1px solid #d6e4dc;
+  border-radius: 12px;
+  background: #f7faf8;
+  color: #234544;
+}
+
+.dbi-rgb-opacity-control > span { display: grid; flex: 1 1 210px; gap: 3px; }
+.dbi-rgb-opacity-control strong { font-size: 12px; }
+.dbi-rgb-opacity-control small { font-size: 11px; color: #58716a; }
+.dbi-rgb-opacity-control input {
+  flex: 1 1 140px;
+  max-width: 280px;
+  accent-color: #b57b50;
+}
+.dbi-rgb-opacity-control input:focus-visible {
+  outline: 3px solid #b57b50;
+  outline-offset: 4px;
+}
+.dbi-rgb-opacity-control output {
+  min-width: 65px;
+  font-size: 12px;
+  text-align: right;
+  font-weight: 650;
+  font-variant-numeric: tabular-nums;
+}
+.dark .dbi-rgb-opacity-control { background: #244044; color: #e8f0ed; border-color: #416660; }
+.dark .dbi-rgb-opacity-control small { color: #bfd1c8; }
+
 .dbi-map-history-note {
   margin-top: 12px;
   color: #516965;
