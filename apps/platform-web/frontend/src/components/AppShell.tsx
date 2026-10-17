@@ -1,6 +1,6 @@
 import { Outlet, NavLink, useNavigate, useMatch, useLocation } from 'react-router-dom';
 import { useEffect, useMemo, useState } from 'react';
-import { Building2, MapPinned } from 'lucide-react';
+import { Building2, MapPinned, Layers3, CalendarDays, ClipboardCheck, ChartNoAxesCombined } from 'lucide-react';
 import type { LucideIcon } from 'lucide-react';
 import './dbi-client-view.css';
 import { api } from '@/app/api';
@@ -299,8 +299,28 @@ export default function AppShell() {
         <nav className="mt-6 flex flex-col gap-1">
           {showLegacySstModules && <NavItem to="/" label="Dashboard legado" />}
           <NavItem to="/portal" label="Mis fincas" icon={MapPinned} />
-          <NavItem to="/companies" label="Empresas / clientes" icon={Building2} />
-          {isMapView && <NavItem to={location.pathname + location.search} label="Mapa del lote" icon={MapPinned} />}
+          {!isDbiClientView && <NavItem to="/companies" label="Empresas / clientes" icon={Building2} />}
+          {isMapView && (
+            <>
+              <a className="nav-item nav-item-active" href="#dbi-map-view">
+                <MapPinned size={18} aria-hidden="true" /> Ver mapa
+              </a>
+              <a className="nav-item" href="#dbi-map-history">
+                <CalendarDays size={18} aria-hidden="true" /> Levantamientos
+              </a>
+              <a className="nav-item" href="#dbi-map-controls">
+                <Layers3 size={18} aria-hidden="true" /> Capas
+              </a>
+              <a className="nav-item" href="#dbi-tab-tracking"
+                onClick={() => document.getElementById("dbi-tab-tracking")?.click()}>
+                <ClipboardCheck size={18} aria-hidden="true" /> Inspecciones
+              </a>
+              <a className="nav-item" href="#dbi-tab-multi"
+                onClick={() => document.getElementById("dbi-tab-multi")?.click()}>
+                <ChartNoAxesCombined size={18} aria-hidden="true" /> Resultados del vuelo
+              </a>
+            </>
+          )}
 
           {isAdmin && (
             <NavItem to="/admin" label="Administración de usuarios" />
