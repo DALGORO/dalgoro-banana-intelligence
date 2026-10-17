@@ -82,7 +82,7 @@ test("mobile quick date and side date share Campaign reset, not an inferred flig
 
 test("mobile controls are visibly accessible only at phone breakpoint", () => {
   assert.match(styles, /\.dbi-mobile-toolbar \{\s*display: none;/);
-  assert.match(styles, /@media \(max-width: 767px\) \{\s*\.dbi-mobile-toolbar \{\s*display: grid;/);
+  assert.match(styles, /@media \(max-width: 767px\) \{[\s\S]*?\.dbi-mobile-toolbar \{\s*display: grid;/);
   assert.match(styles, /\.dbi-mobile-toolbar select \{[\s\S]*?min-height: 44px;/);
   assert.match(styles, /\.dbi-mobile-shortcuts a:focus-visible/);
   assert.match(styles, /\.dbi-map-stage,[\s\S]*?\.dbi-multi-panel \{\s*scroll-margin-top: 16px;/);
@@ -220,8 +220,8 @@ test("INSPECT cross-tenant, cross-plot, or wrong ID is rejected before showing o
 });
 
 test("H13 producer navigation uses readable flight labels while retaining exact scoped IDs internally", () => {
-  assert.match(map, /Vuelo multiespectral elegido/);
-  assert.match(map, /Vuelo elegido/);
+  assert.match(map, /Levantamiento específico seleccionado/);
+  assert.match(map, /Levantamiento elegido/);
   assert.doesNotMatch(map, /selectedMapCampaignId\.slice\(0, 8\)/);
   assert.match(multi, /verifiedHistory\.map\(\(entry, index\) =>/);
   assert.match(multi, /Vuelo \{index \+ 1\}/);
