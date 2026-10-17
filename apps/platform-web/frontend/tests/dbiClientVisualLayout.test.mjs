@@ -36,7 +36,7 @@ test("map and MULTI use responsive columns without moving scientific calculation
 
 test("client only sees real derived summary; management still requires publish access", () => {
   assert.match(multi, /Object\.entries\(INDEX_LABELS\)\.filter\(\(\[ref\]\) => visibleIndices\.has\(ref\)\)/);
-  assert.match(multi, /\{number\(item\.median\)\}/);
+  assert.match(multi, /item \? number\(item\.median\) : "No disponible"/);
   assert.match(multi, /no se deben comparar directamente entre vuelos/);
   assert.match(multi, /verifiedMultispectralCampaigns\(items, locator\)/);
   assert.match(map, /\{canPublish && realLocator && \(\s*<details/);
