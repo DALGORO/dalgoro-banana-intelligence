@@ -142,6 +142,19 @@ def main() -> None:
         _raises(lambda: inspect_six_index_maps(
             campaign_id=CAMPAIGN, stack_fingerprint=FINGERPRINT, files=wrong_grid,
         ), "desfase de grilla")
+        not_cog = root / "tiled-but-not-cog.tif"
+        with rasterio.open(
+            not_cog, "w", driver="GTiff", width=1024, height=1024,
+            count=1, dtype="float32", crs="EPSG:32717", nodata=-9999.0,
+            transform=TRANSFORM, tiled=True, blockxsize=256, blockysize=256,
+            compress="deflate",
+        ) as ds:
+            ds.write(np.ones((1024, 1024), dtype=np.float32), 1)
+        wrong_layout = {k: dict(v) for k, v in paths.items()}
+        wrong_layout["ndvi"]["raster"] = not_cog
+        _raises(lambda: inspect_six_index_maps(
+            campaign_id=CAMPAIGN, stack_fingerprint=FINGERPRINT, files=wrong_layout,
+        ), "GeoTIFF en bloques sin layout COG")
         no_nodata = {k: dict(v) for k, v in paths.items()}
         no_nodata["ndvi"]["raster"] = _create_cog(
             root, label="no_nodata", n=1, nodata=None,
