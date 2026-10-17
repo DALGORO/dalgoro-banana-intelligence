@@ -97,6 +97,14 @@ test("satellite stays as Google basemap while RGB transparency changes without r
   assert.match(google, /setOpacity\(value\) \{/);
   assert.match(google, /for \(const tile of pending\.keys\(\)\) tile\.style\.opacity = String\(opacity\)/);
   assert.match(google, /\}, \[rasterOpacity\]\);/);
+  assert.match(google, /const rgbVisible = rasterOpacity > 0/);
+  assert.match(google, /const overlays = rgbVisible\s*\? entries\.map\(entry => authorizedRasterOverlay/);
+  assert.match(google, /: \[\];\s*overlaysRef\.current = overlays;/);
+  assert.match(google, /\}, \[entries, ready, tenantRef, rgbVisible\]\);/);
+  assert.match(map, /rgbOverlayOpacity === 0/);
+  assert.match(map, /no se descargan sus mosaicos/);
+  // Con >0 se reutilizan los tiles y sólo cambia el CSS.
+  assert.doesNotMatch(google, /\}, \[entries, ready, tenantRef, rasterOpacity\]\);/);
   assert.match(google, /for \(const overlay of overlaysRef\.current\) overlay\.dispose\(\)/);
   assert.match(google, /mapLibreDbiHeaders\(tenantRef\)/);
   assert.match(map, /rasterOpacity=\{rgbOverlayOpacity \/ 100\}/);
