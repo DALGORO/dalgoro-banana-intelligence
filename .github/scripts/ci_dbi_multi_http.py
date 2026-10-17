@@ -68,7 +68,7 @@ class Repo:
         self.queries = []
         self.observed_at = datetime(2026, 9, 15, 8, 30, tzinfo=timezone.utc)
         self.return_observation = True
-        self.campaign_enabled = False
+        self.campaign_enabled = True
         self.campaign_id = UUID("90000000-0000-4000-8000-000000000081")
         self.captured_at = datetime(2026, 9, 14, 9, 0, tzinfo=timezone.utc)
 
@@ -136,13 +136,15 @@ def main():
             org, farm, plot, session, context() if ctx is None else ctx,
         )
 
-    with patch.object(dbi_multispectral, "DBIMultispectralExtractionRepository", return_value=repo):
+    with (patch.object(dbi_multispectral, "DBIMultispectralExtractionRepository", return_value=repo),
+          patch.object(dbi_multispectral, "_published_campaign_ids", return_value=frozenset({repo.campaign_id}))) :
         listed = listing()
         assert len(listed) == 1 and listed[0].payload == candidate
         assert listed[0].observed_at == repo.observed_at
         assert listed[0].observed_at < listed[0].created_at
-        assert listed[0].campaign_linkage == "unverified"
-        assert listed[0].campaign_id is None and listed[0].captured_at is None
+        assert listed[0].campaign_linkage == "verified_job_chain"
+        assert listed[0].campaign_id == repo.campaign_id
+        assert listed[0].captured_at == repo.captured_at
         assert repo.queries == [
             {
                 "tenant_ref": TENANT, "organization_ref": ORG,
@@ -206,7 +208,12 @@ def main():
         denied(409, lambda: listing())
         repo.captured_at = datetime(2026, 9, 14, 9, 0, tzinfo=timezone.utc)
         repo.campaign_enabled = False
-        assert call() == data
+        denied(404, lambda: call())
+        assert listing() == []
+        repo.campaign_enabled = True
+        with patch.object(dbi_multispectral, "_published_campaign_ids", return_value=frozenset()):
+            denied(404, lambda: call())
+            assert listing() == []
 
         denied(404, lambda: listing(ctx=context(read=False)))
         denied(404, lambda: listing(org="organization-foreign"))
@@ -294,7 +301,7 @@ def main():
     assert len(listing_routes) == 1
     assert listing_routes[0].methods == {"GET"}
     session.close()
-    print("Hito 11 MULTI READ: Campaign solo con cadena verificada, scope y fechas seguras OK.")
+    print("H13 MULTI READ: solo Campaign publicada, cadena científica y scope seguros OK.")
 
 
 if __name__ == "__main__":
