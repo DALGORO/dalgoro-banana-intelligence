@@ -50,6 +50,7 @@ jobs:
           python -m py_compile .github/scripts/ci_dbi_raster_cog.py
           python -m py_compile .github/scripts/ci_dbi_raster_contracts.py
           python -m py_compile .github/scripts/ci_dbi_raster_tiles.py
+          python -m py_compile .github/scripts/ci_dbi_raster_utm17s_xyz.py
           python -m py_compile .github/scripts/ci_dbi_raster_tile_http.py
           python -m py_compile .github/scripts/ci_dbi_raster_tile_local_adapter.py
           python -m py_compile .github/scripts/ci_dbi_pilot_raster_integration.py
@@ -63,6 +64,9 @@ jobs:
 
       - name: Validar renderer y caché privada de tiles
         run: python .github/scripts/ci_dbi_raster_tiles.py
+
+      - name: Validar georreferenciación UTM 17S y máscara científica en XYZ
+        run: python .github/scripts/ci_dbi_raster_utm17s_xyz.py
 
       - name: Validar CLI de primera ortofoto
         run: python services/banana-density/flight_test_cog.py --help
