@@ -17,7 +17,7 @@ import { belongsToSelectedMapCampaign, mapTimelineViewKey } from "@/features/map
 import { producerMapVisits, visitsAtDate } from "@/features/producerMapVisits";
 import { api } from "@/app/api";
 import {
-  getVectorLayer, listVectorLayers, listVectorCampaigns, listGISImports, getGISImportPreview, publishReviewedGISImport, publishGeoJSON, stageGISOriginal, selectGISImportLayer, vectorExtent,
+  getVectorLayer, listVectorLayers, listVectorCampaigns, listManagementCampaigns, listGISImports, getGISImportPreview, publishReviewedGISImport, publishGeoJSON, stageGISOriginal, selectGISImportLayer, vectorExtent,
   type VectorLayerInfo, type VectorLayerKind, type VectorLayerDetail, type VectorCampaign, type GISImportReceipt,
 } from "@/features/portalVectors";
 import mapWorkerUrl from "maplibre-gl/dist/maplibre-gl-worker.mjs?worker&url";
@@ -127,6 +127,9 @@ function FarmMapTimelineView() {
   const [gisPreviewVector, setGISPreviewVector] = useState<VectorLayerDetail | null>(null);
   const [gisReviewBusy, setGISReviewBusy] = useState(false);
   const [vectorCampaigns, setVectorCampaigns] = useState<VectorCampaign[]>([]);
+  const [managementCampaigns, setManagementCampaigns] = useState<VectorCampaign[]>([]);
+  const [publishBusyId, setPublishBusyId] = useState<string | null>(null);
+  const [publishNotice, setPublishNotice] = useState<string | null>(null);
   const [campaignLoadError, setCampaignLoadError] = useState(false);
   const [chosenUploadCampaign, setChosenUploadCampaign] = useState("");
   const [vectorDetails, setVectorDetails] = useState<Record<string, VectorLayerDetail>>({});
@@ -223,6 +226,11 @@ function FarmMapTimelineView() {
   useEffect(() => {
     if (!realLocator || !canPublish) return;
     let active = true;
+    listManagementCampaigns(realLocator).then(rows => {
+      if (active) setManagementCampaigns(rows);
+    }).catch(() => {
+      if (active) setManagementCampaigns([]);
+    });
     listGISImports(realLocator).then(receipts => {
       if (active) setGISImportCache({ scopeKey: gisScopeKey, items: receipts });
     }).catch(() => {
@@ -435,10 +443,10 @@ function FarmMapTimelineView() {
   }, [visibleVectorMeta, selectedVectorIds, vectorDetails, gisPreviewVector, activeCampaignIds]);
 
   const uploadCampaignChoices = useMemo(() =>
-    vectorCampaigns.filter(campaign => belongsToSelectedMapCampaign(
+    managementCampaigns.filter(campaign => belongsToSelectedMapCampaign(
       campaign.captured_at, campaign.id, selectedDate, selectedMapCampaignId,
     )),
-    [vectorCampaigns, selectedDate, selectedMapCampaignId],
+    [managementCampaigns, selectedDate, selectedMapCampaignId],
   );
   const uploadCampaignId = uploadCampaignChoices.some(campaign => campaign.id === chosenUploadCampaign)
     ? chosenUploadCampaign : null;
@@ -771,6 +779,45 @@ function FarmMapTimelineView() {
     setSelectedDate(visit.capturedAt);
     setSpecificMapCampaign({ scopeKey: gisScopeKey, campaignId: visit.campaignId });
     setComparisonDate("");
+  };
+
+  const publishInstitutionally = async (campaignId: string) => {
+    if (!realLocator || !canPublish || publishBusyId) return;
+    const chosen = managementCampaigns.find(row => row.id === campaignId);
+    if (!chosen || chosen.status !== "APPROVED") return;
+    setPublishBusyId(campaignId);
+    setPublishNotice(null);
+    try {
+      const root = [
+        "/api/v1/dbi/organizations", encodeURIComponent(realLocator.organizationRef),
+        "farms", encodeURIComponent(realLocator.farmId),
+        "plots", encodeURIComponent(realLocator.plotId),
+      ].join("/");
+      await api.post(
+        `${root}/campaigns/${encodeURIComponent(campaignId)}/transitions`,
+        { status: "PUBLISHED" },
+        { headers: { "X-DBI-Tenant": realLocator.tenantRef } },
+      );
+      const [publishedCampaigns, publishedLayers, current, management] = await Promise.all([
+        listVectorCampaigns(realLocator),
+        listVectorLayers(realLocator),
+        getPlotMapTimeline(realLocator),
+        listManagementCampaigns(realLocator),
+      ]);
+      setVectorCampaigns(publishedCampaigns);
+      setVectorLayers(publishedLayers);
+      setSelectedVectorIds(new Set(publishedLayers.map(layer => layer.id)));
+      setManagementCampaigns(management);
+      setData(current);
+      setPublishNotice("Publicación institucional registrada. El cliente ya puede consultar las evidencias aprobadas.");
+    } catch (error) {
+      const code = (error as { response?: { status?: number } })?.response?.status;
+      setPublishNotice(code === 404
+        ? "No autorizado: se requiere acreditación activa como administrador institucional DALGORO y permisos sobre el lote."
+        : "No se pudo publicar la campaña. Comprueba que la revisión técnica está completa.");
+    } finally {
+      setPublishBusyId(null);
+    }
   };
 
   const toggleLayer = (layerType: MapLayerType) => {
