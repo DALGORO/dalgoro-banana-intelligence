@@ -413,6 +413,16 @@ function FarmMapTimelineView() {
     [vectorLayers, activeCampaignIds],
   );
 
+  // Las Campaign en revisión sólo autorizan previsualizaciones privadas MANAGE.
+  // Nunca intervienen en las capas de producción del productor.
+  const managementActiveCampaignIds = useMemo(() => new Set(
+    canPublish ? managementCampaigns.filter(campaign =>
+      campaign.status !== "PUBLISHED" && belongsToSelectedMapCampaign(
+        campaign.captured_at, campaign.id, selectedDate, selectedMapCampaignId,
+      ),
+    ).map(campaign => campaign.id) : [],
+  ), [canPublish, managementCampaigns, selectedDate, selectedMapCampaignId]);
+
   useEffect(() => {
     let active = true;
     if (!realLocator) return;
@@ -438,9 +448,9 @@ function FarmMapTimelineView() {
       .map(meta => vectorDetails[meta.id])
       .filter((detail): detail is VectorLayerDetail => Boolean(detail));
     // Una vista previa solo se dibuja para el gestor, en la fecha técnica real.
-    return gisPreviewVector && activeCampaignIds.has(gisPreviewVector.layer.campaign_id)
+    return gisPreviewVector && managementActiveCampaignIds.has(gisPreviewVector.layer.campaign_id)
       ? [...published, gisPreviewVector] : published;
-  }, [visibleVectorMeta, selectedVectorIds, vectorDetails, gisPreviewVector, activeCampaignIds]);
+  }, [visibleVectorMeta, selectedVectorIds, vectorDetails, gisPreviewVector, managementActiveCampaignIds]);
 
   const uploadCampaignChoices = useMemo(() =>
     managementCampaigns.filter(campaign => belongsToSelectedMapCampaign(
@@ -528,7 +538,7 @@ function FarmMapTimelineView() {
 
   async function approveGISImport(item: GISImportReceipt) {
     if (!realLocator || !canPublish || reviewedImportId !== item.id
-        || !gisPreviewVector || !activeCampaignIds.has(item.campaign_id)) return;
+        || !gisPreviewVector || !managementActiveCampaignIds.has(item.campaign_id)) return;
     setGISReviewBusy(true);
     try {
       const layer = await publishReviewedGISImport(realLocator, item.id);
@@ -1160,7 +1170,7 @@ function FarmMapTimelineView() {
                               Confirma geometrías, atributos y fecha del levantamiento.
                             </p>
                             <button type="button" className="btn-primary w-full"
-                              disabled={gisReviewBusy || !activeCampaignIds.has(item.campaign_id)}
+                              disabled={gisReviewBusy || !managementActiveCampaignIds.has(item.campaign_id)}
                               onClick={() => void approveGISImport(item)}>
                               {gisReviewBusy ? "Publicando…" : "Aprobar y publicar esta capa"}
                             </button>
