@@ -162,6 +162,39 @@ def list_vector_campaigns(
 
 
 @router.get(
+    "/organizations/{organization_ref}/farms/{farm_id}/plots/{plot_id}/map/management-campaigns",
+    response_model=list[VectorCampaignInfo],
+)
+def list_management_campaigns(
+    organization_ref: str, farm_id: UUID, plot_id: UUID,
+    session: SessionDep, context: AccessDep,
+) -> list[VectorCampaignInfo]:
+    """Catálogo técnico reservado a gestores para preparar capas no publicadas.
+
+    Tener MANAGE no concede por sí solo el cargo institucional DALGORO
+    requerido por el endpoint de transición final a PUBLISHED.
+    """
+    _require_scope(context, organization_ref, farm_id, plot_id, publish=True)
+    rows = session.execute(
+        select(Campaign).where(
+            Campaign.tenant_ref == context.tenant_ref,
+            Campaign.organization_ref == organization_ref,
+            Campaign.farm_id == farm_id,
+            Campaign.plot_id == plot_id,
+            Campaign.analysis_type.in_(("density", "multispectral")),
+            Campaign.captured_at.is_not(None),
+        ).order_by(Campaign.captured_at.desc(), Campaign.id).limit(100)
+    ).scalars().all()
+    return [
+        VectorCampaignInfo(
+            id=row.id, name=row.name, captured_at=row.captured_at,
+            analysis_type=row.analysis_type, status=row.status,
+        )
+        for row in rows
+    ]
+
+
+@router.get(
     "/organizations/{organization_ref}/farms/{farm_id}/plots/{plot_id}/map/vector-layers",
     response_model=list[VectorLayerInfo],
 )
