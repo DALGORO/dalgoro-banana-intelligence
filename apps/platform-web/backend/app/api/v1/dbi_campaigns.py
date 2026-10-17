@@ -20,9 +20,10 @@ from app.dbi.campaigns.api_schemas import (
     DBICampaignResponse,
     DBICampaignTransitionRequest,
 )
-from app.dbi.campaigns.contracts import DBICampaignConflict, DBICampaignUnavailable
+from app.dbi.campaigns.contracts import DBICampaignConflict, DBICampaignUnavailable, DBICampaignStatus
 from app.dbi.campaigns.reader import DBICampaignReader
 from app.dbi.campaigns.service import DBICampaignService
+from app.dbi.campaigns.institutional_publication import require_institutional_campaign_publisher
 from app.dbi.dependencies import get_dbi_access_context, get_dbi_session
 
 router = APIRouter(prefix="/dbi", tags=["dbi-campaigns"])
@@ -160,6 +161,11 @@ def transition_campaign(
         permission=DBIPermission.WRITE,
     )
     try:
+        if payload.status is DBICampaignStatus.PUBLISHED:
+            require_institutional_campaign_publisher(
+                session, context,
+                organization_ref=organization_ref, farm_id=farm_id, plot_id=plot_id,
+            )
         snapshot = DBICampaignService(session).transition_campaign(
             campaign_id=campaign_id,
             tenant_ref=context.tenant_ref,
@@ -169,6 +175,9 @@ def transition_campaign(
             target_status=payload.status,
         )
         session.commit()
+    except DBIAccessDenied as error:
+        session.rollback()
+        raise _not_found() from error
     except DBICampaignUnavailable as error:
         session.rollback()
         raise _not_found() from error
