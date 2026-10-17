@@ -5,6 +5,7 @@ from hashlib import sha256
 import json
 import os
 from pathlib import Path
+from types import SimpleNamespace
 import sys
 from uuid import uuid4
 
@@ -51,7 +52,7 @@ class Session:
         elif "FROM dbi_campaigns" in sql:
             for column in ("id", "tenant_ref", "organization_ref", "farm_id", "plot_id"):
                 assert f"dbi_campaigns.{column} =" in sql
-            found = object()
+            found = SimpleNamespace(status="FIELD_COMPLETED")
         elif "FROM dbi_portal_vector_layers" in sql:
             for column in ("tenant_ref", "organization_ref", "farm_id", "plot_id",
                            "campaign_id", "layer_kind", "source_sha256"):
