@@ -54,9 +54,15 @@ test("scoped map preserves user date when asynchronous RGB response returns", ()
   assert.ok(!section.includes("setComparisonDate("), "Una respuesta tardía no resetea la comparación manual");
 
   const privateRead = map.indexOf("listGISImports(realLocator)");
-  const guard = map.lastIndexOf("if (!realLocator || !canPublish) return", privateRead);
-  assert.ok(privateRead > 0 && guard > 0 && privateRead - guard < 160,
+  const privateEffectStart = map.lastIndexOf("  useEffect(() => {", privateRead);
+  const privateEffectEnd = map.indexOf("  }, [realLocator, gisScopeKey, canPublish]);", privateRead);
+  assert.ok(privateEffectStart > 0 && privateEffectEnd > privateRead,
+    "La consulta privada debe permanecer dentro de un efecto aislado");
+  const privateEffect = map.slice(privateEffectStart, privateEffectEnd);
+  assert.match(privateEffect, /if \(!realLocator \|\| !canPublish\) return;/,
     "Solo quien tiene MANAGE consulta los recibos privados GIS");
+  assert.match(privateEffect, /listManagementCampaigns\(realLocator\)/);
+  assert.match(privateEffect, /listGISImports\(realLocator\)/);
   assert.match(map, /Elegir un levantamiento/);
   assert.match(map, /Comparación por fechas \(próximamente\)/);
   assert.match(map, /id="comparison-date"[\s\S]*?disabled/);
