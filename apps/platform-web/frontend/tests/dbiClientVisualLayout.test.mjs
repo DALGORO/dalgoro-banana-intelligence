@@ -144,7 +144,7 @@ test("map-first workspace renders real chronological visits without mock diagnos
   assert.match(map, /newerVisit && chooseMapVisit\(newerVisit\.campaignId, newerVisit\.capturedAt\)/);
   assert.match(map, /ambiguousMapDate/);
   assert.match(map, /Imagen RGB disponible; no implica que el análisis técnico esté aprobado/);
-  assert.match(map, /Fondo satelital no configurado/);
+  assert.match(map, /Fondo satelital de Google no configurado/);
   assert.match(map, /dbi-map-legend/);
   assert.ok(map.indexOf('id="dbi-map-view"') < map.indexOf('className="dbi-map-history"'));
   assert.ok(map.indexOf('className="dbi-map-history"') < map.indexOf('className="dbi-info-tabs"'));
