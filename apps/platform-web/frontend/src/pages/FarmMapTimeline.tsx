@@ -14,6 +14,7 @@ import { GoogleSatelliteViewer } from "@/components/GoogleSatelliteViewer";
 import { MultispectralEvidencePanel } from "@/components/MultispectralEvidencePanel";
 import { FarmTrackingPanel } from "@/components/FarmTrackingPanel";
 import { belongsToSelectedMapCampaign, mapTimelineViewKey } from "@/features/mapCampaignSelection";
+import { producerMapVisits, visitsAtDate } from "@/features/producerMapVisits";
 import { api } from "@/app/api";
 import {
   getVectorLayer, listVectorLayers, listVectorCampaigns, listGISImports, getGISImportPreview, publishReviewedGISImport, publishGeoJSON, stageGISOriginal, selectGISImportLayer, vectorExtent,
@@ -103,7 +104,8 @@ function FarmMapTimelineView() {
     new Set(),
   );
   const [selectedDate, setSelectedDate] = useState("");
-  const [infoTab, setInfoTab] = useState<"multi" | "tracking">("multi");
+  const [infoTab, setInfoTab] = useState<"multi" | "tracking">("tracking");
+  const manuallySelectedVisitRef = useRef(false);
   const [specificMapCampaign, setSpecificMapCampaign] = useState<{
     scopeKey: string; campaignId: string;
   } | null>(null);
@@ -319,14 +321,42 @@ function FarmMapTimelineView() {
     realLocator,
   ]);
 
-  const dates = useMemo(() =>
-    Array.from(new Set([
-      ...(data?.timeline ?? []).map(entry => entry.captured_at),
-      ...vectorCampaigns.map(campaign => campaign.captured_at),
-      ...(selectedMapCampaignId && selectedDate ? [selectedDate] : []),
-    ])).sort(),
-    [data?.timeline, vectorCampaigns, selectedMapCampaignId, selectedDate],
+  const mapVisits = useMemo(() => producerMapVisits(
+    isPlotTimeline(data) ? data.timeline : [],
+    vectorCampaigns, vectorLayers,
+  ), [data, vectorCampaigns, vectorLayers]);
+
+  const visitsForDate = useMemo(
+    () => visitsAtDate(mapVisits, selectedDate),
+    [mapVisits, selectedDate],
   );
+  const ambiguousMapDate = Boolean(realLocator && selectedDate
+    && !selectedMapCampaignId && visitsForDate.length > 1);
+
+  // La llegada asíncrona de capas GIS puede descubrir un levantamiento más reciente.
+  // Solo autoelige mientras el productor no haya tomado el control de la selección.
+  useEffect(() => {
+    if (!realLocator || manuallySelectedVisitRef.current || mapVisits.length === 0) return;
+    const latest = mapVisits[0];
+    if (selectedDate !== latest.capturedAt || selectedMapCampaignId !== latest.campaignId) {
+      setSelectedDate(latest.capturedAt);
+      setSpecificMapCampaign({ scopeKey: gisScopeKey, campaignId: latest.campaignId });
+    }
+  }, [realLocator, mapVisits, selectedDate, selectedMapCampaignId, gisScopeKey]);
+
+  const dates = useMemo(() => Array.from(new Set([
+    ...mapVisits.map(visit => visit.capturedAt),
+    ...(selectedMapCampaignId && selectedDate ? [selectedDate] : []),
+  ])).sort(), [mapVisits, selectedMapCampaignId, selectedDate]);
+
+  const selectedVisit = mapVisits.find(visit => visit.campaignId === selectedMapCampaignId
+    && sameCapture(visit.capturedAt, selectedDate));
+  const currentVisitIndex = selectedVisit
+    ? mapVisits.indexOf(selectedVisit)
+    : mapVisits.findIndex(visit => sameCapture(visit.capturedAt, selectedDate));
+  const currentMapVisit = currentVisitIndex >= 0 ? mapVisits[currentVisitIndex] : null;
+  const olderVisit = currentVisitIndex >= 0 ? mapVisits[currentVisitIndex + 1] : undefined;
+  const newerVisit = currentVisitIndex > 0 ? mapVisits[currentVisitIndex - 1] : undefined;
 
   const availableLayerTypes = useMemo(
     () => new Set((data?.timeline ?? []).map((entry) => entry.layer_type)),
@@ -337,6 +367,7 @@ function FarmMapTimelineView() {
     () =>
       (data?.timeline ?? []).filter(
         (entry) =>
+          !ambiguousMapDate && (!realLocator || Boolean(selectedDate)) &&
           selectedLayers.has(entry.layer_type) &&
           (isRasterEntry(entry)
             ? belongsToSelectedMapCampaign(entry.captured_at, entry.campaign_id,
@@ -344,17 +375,18 @@ function FarmMapTimelineView() {
             : !selectedMapCampaignId &&
               (selectedDate === "" || sameCapture(entry.captured_at, selectedDate))),
       ),
-    [data?.timeline, selectedDate, selectedLayers, selectedMapCampaignId],
+    [data?.timeline, selectedDate, selectedLayers, selectedMapCampaignId, ambiguousMapDate, realLocator],
   );
 
 
   const activeCampaignIds = useMemo(() => new Set(
     vectorCampaigns
-      .filter(campaign => belongsToSelectedMapCampaign(
+      .filter(campaign => !ambiguousMapDate && (!realLocator || Boolean(selectedDate))
+        && belongsToSelectedMapCampaign(
         campaign.captured_at, campaign.id, selectedDate, selectedMapCampaignId,
       ))
       .map(campaign => campaign.id)
-  ), [vectorCampaigns, selectedDate, selectedMapCampaignId]);
+  ), [vectorCampaigns, selectedDate, selectedMapCampaignId, ambiguousMapDate, realLocator]);
 
   const visibleVectorMeta = useMemo(() =>
     vectorLayers.filter(layer => activeCampaignIds.has(layer.campaign_id)),
@@ -714,8 +746,19 @@ function FarmMapTimelineView() {
   // El acceso rápido móvil y el selector lateral comparten la misma regla:
   // elegir una fecha elimina la restricción de ID Campaign, sin inventar vínculo.
   const selectPrimaryMapDate = (date: string) => {
+    manuallySelectedVisitRef.current = true;
     setSelectedDate(date);
     setSpecificMapCampaign(null);
+  };
+
+  const chooseMapVisit = (campaignId: string, capturedAt: string) => {
+    const visit = mapVisits.find(item => item.campaignId === campaignId
+      && sameCapture(item.capturedAt, capturedAt));
+    if (!visit) return;
+    manuallySelectedVisitRef.current = true;
+    setSelectedDate(visit.capturedAt);
+    setSpecificMapCampaign({ scopeKey: gisScopeKey, campaignId: visit.campaignId });
+    setComparisonDate("");
   };
 
   const toggleLayer = (layerType: MapLayerType) => {
@@ -734,20 +777,20 @@ function FarmMapTimelineView() {
         <div className="min-w-0 flex-1">
           <div className="eyebrow">DALGORO · Visor agrícola privado</div>
           <h2 className="mt-1 text-lg font-semibold">
-            {isPlotTimeline(data) ? "Mapa histórico del lote" : "Mapa de la finca"}
+            {realLocator ? `${farmLabel} · ${plotLabel}` : "Mapa de la finca"}
           </h2>
           <p className="muted mt-1 text-sm">
-            Selecciona una fecha y consulta exclusivamente capas y evidencia autorizadas.
-            El fondo satelital aparece solo cuando está configurado.
+            Explora los levantamientos de tu lote por fecha. El mapa muestra únicamente
+            fotografías y capas cartográficas realmente disponibles para tu cuenta.
           </p>
         </div>
         <div className="dbi-map-intro-meta" aria-label="Estado del mapa">
           <span className="dbi-info-chip"><Layers3 size={15} aria-hidden="true" />
-            {visibleEntries.length + visibleVectorMeta.length} capas disponibles en la selección
+            {visibleEntries.length} fotos RGB · {visibleVectorDetails.length} capas GIS visibles
           </span>
           {selectedMapCampaignId && (
             <span className="dbi-info-chip dbi-info-chip-accent">
-              Vuelo multiespectral elegido
+              Levantamiento específico seleccionado
             </span>
           )}
         </div>
@@ -769,7 +812,7 @@ function FarmMapTimelineView() {
               <option key={date} value={date}>
                 {formatDate(date)}
                 {selectedMapCampaignId && sameCapture(selectedDate, date)
-                  ? " · Vuelo elegido" : ""}
+                  ? " · Levantamiento elegido" : ""}
               </option>
             ))}
           </select>
@@ -779,7 +822,7 @@ function FarmMapTimelineView() {
             {realLocator && <a href="#dbi-multi-evidence" onClick={() => setInfoTab("multi")}>Ver evidencia MULTI</a>}
           </div>
           <p className="muted text-xs">
-            Elegir otra fecha limpia la selección de vuelo específico. No mezcla información de campañas distintas.
+            Si una fecha tiene varios levantamientos, elígelos por separado en el historial.
           </p>
         </nav>
       </div>
@@ -787,7 +830,7 @@ function FarmMapTimelineView() {
       <div className="dbi-visual-grid">
         <aside className="card dbi-map-controls space-y-5">
           <div>
-            <div className="eyebrow">Control de campaña y capas</div>
+            <div className="eyebrow">Opciones de visualización</div>
             <h2 className="mt-1 text-lg font-semibold">{realLocator ? farmLabel : "Mapa de finca"}</h2>
             {isPlotTimeline(data) && (
               <p className="muted mt-1 text-sm">Lote: {plotLabel}</p>
@@ -813,14 +856,14 @@ function FarmMapTimelineView() {
                 <option key={date} value={date}>
                   {formatDate(date)}
                   {selectedMapCampaignId && sameCapture(selectedDate, date)
-                    ? " · Vuelo elegido" : ""}
+                    ? " · Levantamiento elegido" : ""}
                 </option>
               ))}
             </select>
           </div>
 
           <div className="divider pt-4">
-            <div className="text-sm font-medium">Capas</div>
+            <div className="text-sm font-medium">Mostrar en el mapa</div>
             <div className="mt-3 space-y-3">
               {(data?.available_layers ?? []).map((layer) => {
                 const available = availableLayerTypes.has(layer.layer_type);
