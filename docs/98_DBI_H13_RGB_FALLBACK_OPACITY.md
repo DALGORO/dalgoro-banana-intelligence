@@ -44,7 +44,7 @@ imaginería de Google fuera de su servicio.
 
 - Prueba de regresión estática del control en ambos fondos, del montaje
   condicionado y de la separación entre actualización de opacidad y fuentes.
-- El gate final exige 11/11 checks CI en el SHA final y comprobar `main`
+- El gate final exige todos los checks CI aplicables en el SHA final y comprobar `main`
   posterior al merge.
 - Sin Render, sin migraciones productivas, sin cambio de API, perfiles COG,
   seguridad, cálculo de índices o fuente científica.
