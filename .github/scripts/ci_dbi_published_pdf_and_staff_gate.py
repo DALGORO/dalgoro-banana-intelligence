@@ -4,6 +4,10 @@ No PostGIS fixture or real principals/credentials are used in this test.
 """
 from __future__ import annotations
 
+import os
+os.environ.setdefault("DATABASE_URL", "sqlite:///./ci_dbi_published_pdf.db")
+os.environ.setdefault("JWT_SECRET", "ci-only-dbi-published-pdf")
+
 from datetime import datetime, timezone
 from types import SimpleNamespace
 from unittest.mock import patch
