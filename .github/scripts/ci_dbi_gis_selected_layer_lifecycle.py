@@ -105,7 +105,7 @@ class Session:
             assert "dbi_campaigns.id =" in sql
             assert "dbi_campaigns.tenant_ref =" in sql
             assert "dbi_campaigns.plot_id =" in sql
-            found = SimpleNamespace(id=state.campaign_id) if matched else None
+            found = SimpleNamespace(id=state.campaign_id, status="FIELD_COMPLETED") if matched else None
             return SimpleNamespace(scalar_one_or_none=lambda: found)
         if "FROM dbi_portal_vector_layers" in sql:
             values = {
