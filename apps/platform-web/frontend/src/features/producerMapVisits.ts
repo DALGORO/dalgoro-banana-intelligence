@@ -22,12 +22,15 @@ export function producerMapVisits(
   vectors: readonly VectorLayerInfo[],
 ): ProducerMapVisit[] {
   const visits = new Map<string, ProducerMapVisit>();
+  const ambiguous = new Set<string>();
   for (const entry of rasters) {
-    if (entry.layer_type !== "rgb" || !entry.campaign_id || timestamp(entry.captured_at) === null) continue;
+    if (entry.layer_type !== "rgb" || !entry.campaign_id || timestamp(entry.captured_at) === null
+      || ambiguous.has(entry.campaign_id)) continue;
     const existing = visits.get(entry.campaign_id);
     if (existing && timestamp(existing.capturedAt) !== timestamp(entry.captured_at)) {
       // Una cadena contradictoria no puede convertirse en un vuelo seleccionable.
       visits.delete(entry.campaign_id);
+      ambiguous.add(entry.campaign_id);
       continue;
     }
     if (!existing) visits.set(entry.campaign_id, {
@@ -40,7 +43,7 @@ export function producerMapVisits(
   for (const layer of vectors) vectorCounts.set(layer.campaign_id, (vectorCounts.get(layer.campaign_id) ?? 0) + 1);
   for (const campaign of campaigns) {
     const count = vectorCounts.get(campaign.id) ?? 0;
-    if (!count || timestamp(campaign.captured_at) === null) continue;
+    if (!count || timestamp(campaign.captured_at) === null || ambiguous.has(campaign.id)) continue;
     const existing = visits.get(campaign.id);
     if (existing) {
       if (timestamp(existing.capturedAt) === timestamp(campaign.captured_at)) existing.gisLayerCount = count;
