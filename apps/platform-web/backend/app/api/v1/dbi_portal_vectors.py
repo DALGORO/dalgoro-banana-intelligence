@@ -142,6 +142,9 @@ def list_vector_campaigns(
             Campaign.plot_id == plot_id,
             Campaign.analysis_type.in_(("density", "multispectral")),
             Campaign.captured_at.is_not(None),
+            Campaign.status == "PUBLISHED",
+            Campaign.approved_at.is_not(None),
+            Campaign.published_at.is_not(None),
         )
         .order_by(Campaign.captured_at.desc(), Campaign.id)
         .limit(100)
@@ -179,6 +182,9 @@ def list_vector_layers(
             Campaign.organization_ref == organization_ref,
             Campaign.farm_id == farm_id,
             Campaign.plot_id == plot_id,
+            Campaign.status == "PUBLISHED",
+            Campaign.approved_at.is_not(None),
+            Campaign.published_at.is_not(None),
         )
         .order_by(DBIPortalVectorLayer.created_at.desc())
         .limit(100)
@@ -198,6 +204,21 @@ def get_vector_layer(
     layer = _scoped_layer(
         session, context, organization_ref, farm_id, plot_id, layer_id
     )
+    # Nunca entregar GeoJSON por ID directo sin comprobar publicación final.
+    _published = session.execute(
+        select(Campaign.id).where(
+            Campaign.id == layer.campaign_id,
+            Campaign.tenant_ref == context.tenant_ref,
+            Campaign.organization_ref == organization_ref,
+            Campaign.farm_id == farm_id,
+            Campaign.plot_id == plot_id,
+            Campaign.status == "PUBLISHED",
+            Campaign.approved_at.is_not(None),
+            Campaign.published_at.is_not(None),
+        )
+    ).scalar_one_or_none()
+    if _published is None:
+        raise _hidden()
     return VectorLayerDetail(layer=_info(layer), geojson=json.loads(layer.geojson_text))
 
 
