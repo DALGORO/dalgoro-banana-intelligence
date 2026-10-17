@@ -192,11 +192,6 @@ function FarmMapTimelineView() {
     }).catch(() => {
       if (active) setCampaignLoadError(true);
     });
-    listGISImports(realLocator).then(receipts => {
-      if (active) setGISImportCache({ scopeKey: gisScopeKey, items: receipts });
-    }).catch(() => {
-      if (active) setGISImportCache({ scopeKey: gisScopeKey, items: [] });
-    });
     listVectorLayers(realLocator).then(layers => {
       if (!active) return;
       setVectorLayers(layers);
@@ -222,6 +217,19 @@ function FarmMapTimelineView() {
     return () => { active = false; };
   }, [realLocator, gisScopeKey]);
 
+
+  // Los archivos GIS en preparación son privados: el endpoint exige MANAGE,
+  // por lo que una cuenta exclusivamente READ nunca debe consultarlo.
+  useEffect(() => {
+    if (!realLocator || !canPublish) return;
+    let active = true;
+    listGISImports(realLocator).then(receipts => {
+      if (active) setGISImportCache({ scopeKey: gisScopeKey, items: receipts });
+    }).catch(() => {
+      if (active) setGISImportCache({ scopeKey: gisScopeKey, items: [] });
+    });
+    return () => { active = false; };
+  }, [realLocator, gisScopeKey, canPublish]);
 
   useEffect(() => {
     if (useGoogleBase || !mapContainerRef.current || mapRef.current) return;
@@ -292,12 +300,16 @@ function FarmMapTimelineView() {
         );
         setSelectedLayers(realLayerTypes);
 
-        const dates = Array.from(
-          new Set(response.timeline.map((entry) => entry.captured_at)),
-        ).sort();
-        setSelectedDate(dates.at(-1) ?? "");
-        setSpecificMapCampaign(null);
-        setComparisonDate("");
+        // En el mapa scoped, la cronología RGB y GIS selecciona la última Campaign
+        // por identidad exacta en el efecto mapVisits. Un HTTP tardío NO debe
+        // sobrescribir el levantamiento elegido por el productor.
+        if (!realLocator && !manuallySelectedVisitRef.current) {
+          const dates = Array.from(
+            new Set(response.timeline.map((entry) => entry.captured_at)),
+          ).sort();
+          setSelectedDate(dates.at(-1) ?? "");
+          setSpecificMapCampaign(null);
+        }
       })
       .catch((requestError) => {
         if (!active) return;
@@ -806,7 +818,7 @@ function FarmMapTimelineView() {
             onChange={(event) => selectPrimaryMapDate(event.target.value)}
           >
             <option value="">
-              {dates.length === 0 ? "Sin campañas registradas" : "Todas las fechas"}
+              {dates.length === 0 ? "Sin levantamientos con mapa" : "Elegir un levantamiento"}
             </option>
             {dates.map(date => (
               <option key={date} value={date}>
@@ -850,7 +862,7 @@ function FarmMapTimelineView() {
               disabled={dates.length === 0}
             >
               <option value="">
-                {dates.length === 0 ? "Sin campañas registradas" : "Todas las fechas"}
+                {dates.length === 0 ? "Sin levantamientos con mapa" : "Elegir un levantamiento"}
               </option>
               {dates.map((date) => (
                 <option key={date} value={date}>
@@ -1075,7 +1087,7 @@ function FarmMapTimelineView() {
               className="mt-2 w-full"
               value={comparisonDate}
               onChange={(event) => setComparisonDate(event.target.value)}
-              disabled={!data?.comparison.enabled || dates.length < 2}
+              disabled
             >
               <option value="">Selecciona otra fecha</option>
               {dates.map((date) => (
