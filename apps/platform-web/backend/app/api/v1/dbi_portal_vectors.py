@@ -98,6 +98,29 @@ def _campaign(
     return row
 
 
+def _editable_campaign(
+    session: Session, context: DBIAccessContext,
+    organization_ref: str, farm_id: UUID, plot_id: UUID, campaign_id: UUID,
+) -> Campaign:
+    """Row-lock serializes prepublication GIS edits against final publish."""
+    row = session.execute(
+        select(Campaign).where(
+            Campaign.id == campaign_id,
+            Campaign.tenant_ref == context.tenant_ref,
+            Campaign.organization_ref == organization_ref,
+            Campaign.farm_id == farm_id,
+            Campaign.plot_id == plot_id,
+            Campaign.analysis_type.is_not(None),
+            Campaign.captured_at.is_not(None),
+        ).with_for_update()
+    ).scalar_one_or_none()
+    if row is None:
+        raise _hidden()
+    if row.status == "PUBLISHED":
+        raise HTTPException(status_code=409, detail="La campaña ya se publicó; sus capas no pueden modificarse sin nueva revisión.")
+    return row
+
+
 def _scoped_layer(
     session: Session, context: DBIAccessContext,
     organization_ref: str, farm_id: UUID, plot_id: UUID, layer_id: UUID,
@@ -269,21 +292,7 @@ async def publish_vector_layer(
     name: Annotated[str, Query(min_length=1, max_length=100)],
 ) -> VectorLayerInfo:
     _require_scope(context, organization_ref, farm_id, plot_id, publish=True)
-    campaign = session.execute(
-        select(Campaign).where(
-            Campaign.id == campaign_id,
-            Campaign.tenant_ref == context.tenant_ref,
-            Campaign.organization_ref == organization_ref,
-            Campaign.farm_id == farm_id,
-            Campaign.plot_id == plot_id,
-            Campaign.analysis_type.is_not(None),
-            Campaign.captured_at.is_not(None),
-        ).with_for_update()
-    ).scalar_one_or_none()
-    if campaign is None:
-        raise _hidden()
-    if campaign.status == "PUBLISHED":
-        raise HTTPException(status_code=409, detail="Campaña publicada: no se aceptan capas nuevas sin otra revisión.")
+    _editable_campaign(session, context, organization_ref, farm_id, plot_id, campaign_id)
 
     if request.headers.get("content-type", "").split(";", 1)[0].lower() != "application/geo+json":
         raise HTTPException(status_code=415, detail="Sube un archivo .geojson válido.")
