@@ -34,6 +34,26 @@ test("map and MULTI use responsive columns without moving scientific calculation
   assert.match(styles, /@media \(max-width: 767px\)/);
 });
 
+test("producer gets four functional navigation steps and scoped bulk GIS controls", () => {
+  assert.match(map, /aria-label="Consultar el lote paso a paso"/);
+  assert.match(map, /href="#dbi-map-history"/);
+  assert.match(map, /href="#dbi-map-controls"/);
+  assert.match(map, /href="#dbi-tab-multi" onClick=\{\(\) => setInfoTab\("multi"\)\}/);
+  assert.match(map, /href="#dbi-tab-tracking" onClick=\{\(\) => setInfoTab\("tracking"\)\}/);
+  assert.match(map, /Consultar informe PDF/);
+  assert.match(map, /const setVisibleGISLayers = \(show: boolean\) =>/);
+  const bulk = map.slice(map.indexOf("const setVisibleGISLayers"), map.indexOf("const toggleLayer", map.indexOf("const setVisibleGISLayers")));
+  assert.match(bulk, /for \(const layer of visibleVectorMeta\)/);
+  assert.match(bulk, /if \(show\) next\.add\(layer\.id\)/);
+  assert.match(bulk, /else next\.delete\(layer\.id\)/);
+  assert.doesNotMatch(bulk, /vectorLayers\.map|managementCampaigns/);
+  assert.match(map, /role="group" aria-label="Visibilidad de capas GIS publicadas"/);
+  assert.match(map, /disabled=\{visibleVectorMeta\.every\(layer => selectedVectorIds\.has\(layer\.id\)\)\}/);
+  assert.match(map, /disabled=\{visibleVectorMeta\.every\(layer => !selectedVectorIds\.has\(layer\.id\)\)\}/);
+  assert.match(styles, /\.dbi-producer-guide-steps/);
+  assert.match(styles, /\.dbi-gis-visibility-actions button:focus-visible/);
+});
+
 test("client only sees real derived summary; management still requires publish access", () => {
   assert.match(multi, /Object\.entries\(INDEX_LABELS\)\.filter\(\(\[ref\]\) => visibleIndices\.has\(ref\)\)/);
   assert.match(multi, /item \? number\(item\.median\) : "No disponible"/);
