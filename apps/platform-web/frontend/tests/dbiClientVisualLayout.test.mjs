@@ -115,6 +115,24 @@ test("satellite stays as Google basemap while RGB transparency changes without r
   assert.doesNotMatch(google, /roadmap|hybrid|Math\.random/);
 });
 
+test("Google SDK failure retains scoped client map evidence with truthful neutral fallback", () => {
+  const google = file("../src/components/GoogleSatelliteViewer.tsx");
+  assert.match(google, /onUnavailableRef\.current\?\.\(err\.message\)/);
+  assert.match(google, /loadGoogleMaps\(apiKey\)/);
+  assert.match(google, /googleSDKPromise = null/);
+  assert.match(map, /const googleConfigured = Boolean\(import\.meta\.env\.VITE_GOOGLE_MAPS_API_KEY\?\.trim\(\)\)/);
+  assert.match(map, /const scopedGoogleFailure = googleFailure\?\.scopeKey === gisScopeKey/);
+  assert.match(map, /const useGoogleBase = googleConfigured && !scopedGoogleFailure/);
+  assert.match(map, /onUnavailable=\{\(reason\) => setGoogleFailure\(\{ scopeKey: gisScopeKey, reason \}\)\}/);
+  assert.match(map, /if \(useGoogleBase \|\| !mapContainerRef\.current \|\| mapRef\.current\) return;/);
+  assert.match(map, /Fondo satelital de Google no configurado/);
+  assert.match(map, /Se muestran las fotografías y capas cartográficas/);
+  assert.match(map, /onClick=\{\(\) => setGoogleFailure\(null\)\}/);
+  assert.match(map, /Reintentar Google Satélite/);
+  assert.match(styles, /\.dbi-map-google-fallback button:focus-visible/);
+  assert.doesNotMatch(map, /fakeGoogle|staticSatelliteImage|Math\.random/);
+});
+
 test("map-first workspace renders real chronological visits without mock diagnoses", () => {
   assert.match(map, /producerMapVisits\(/);
   assert.match(map, /visitsAtDate\(mapVisits, selectedDate\)/);
