@@ -1017,7 +1017,33 @@ function FarmMapTimelineView() {
             <details className="divider dbi-manage-details pt-4">
               <summary className="cursor-pointer text-sm font-semibold">Gestionar y publicar capas GIS</summary>
               <div className="space-y-3 pt-3">
-                <p className="muted text-xs">Solo usuarios con permiso de publicación.</p>
+                <p className="muted text-xs">
+                  Los gestores pueden preparar archivos privados. La publicación final solo
+                  corresponde al administrador institucional DALGORO acreditado.
+                </p>
+                <section className="space-y-2 rounded-xl border border-slate-200 p-3 dark:border-slate-700"
+                  aria-label="Aprobación institucional de levantamientos">
+                  <h3 className="font-semibold text-sm">Aprobación para mostrar al cliente</h3>
+                  <p className="muted text-xs">
+                    Una campaña debe completar las verificaciones y llegar a APPROVED antes
+                    de permitir su publicación. Esta acción se valida nuevamente en el servidor.
+                  </p>
+                  {managementCampaigns.filter(row => row.status === "APPROVED").map(row => (
+                    <div key={row.id} className="flex flex-wrap items-center justify-between gap-2">
+                      <span className="text-xs">
+                        {formatDate(row.captured_at)} · {row.name} · Aprobada técnicamente
+                      </span>
+                      <button className="btn-secondary" type="button"
+                        disabled={publishBusyId !== null}
+                        onClick={() => void publishInstitutionally(row.id)}>
+                        {publishBusyId === row.id ? "Verificando autoridad…" : "Publicar al cliente"}
+                      </button>
+                    </div>
+                  ))}
+                  {!managementCampaigns.some(row => row.status === "APPROVED") &&
+                    <p className="muted text-xs">No hay levantamientos aprobados pendientes de publicación.</p>}
+                  {publishNotice && <p role="status" className="text-xs">{publishNotice}</p>}
+                </section>
               <p className="muted text-xs">GeoJSON (hasta 2 MiB) se publica directamente. GeoPackage o Shapefile ZIP (hasta 30 MiB) se reciben de forma privada y quedan pendientes de conversión y revisión.</p>
               <label htmlFor="dbi-upload-campaign" className="block text-xs font-medium">Levantamiento al que pertenece la capa</label>
               <select id="dbi-upload-campaign" className="w-full" value={chosenUploadCampaign}
