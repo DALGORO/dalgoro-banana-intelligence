@@ -231,10 +231,12 @@ def run_synthetic_route():
             assert any(fragment in route.path for route in get_api_router().routes) is available
             if not available:
                 db = SQLSessionDouble()
-                deny_bind(lambda: bind(store, manifest, slot, session=db), 404, db)
+                deny_bind(lambda: bind(store, manifest, slot, session=db), 404)
+                assert db.commits == db.rollbacks == 0  # Flag deniega antes de transacción.
     with patch.dict(os.environ, {"DBI_SCIENTIFIC_RASTER_SQL_BINDING_ENABLED": "0"}):
         db = SQLSessionDouble()
-        deny_bind(lambda: bind(store, manifest, slot, session=db), 404, db)
+        deny_bind(lambda: bind(store, manifest, slot, session=db), 404)
+        assert db.commits == db.rollbacks == 0
 
 
 def run_repository_contract():
