@@ -39,6 +39,17 @@ class DBIScientificRasterBinding(DBIBase):
             name="uq_dbi_scientific_raster_binding_slot",
         ),
         UniqueConstraint(
+            "id", "tenant_ref", "campaign_id", "role", "index_ref",
+            name="uq_dbi_scientific_raster_binding_identity_scope",
+        ),
+        ForeignKeyConstraint(
+            ["asset_id", "id"],
+            ["dbi_scientific_raster_input_assets.id",
+             "dbi_scientific_raster_input_assets.binding_id"],
+            name="fk_dbi_scientific_raster_binding_asset_exact",
+            ondelete="RESTRICT",
+        ),
+        UniqueConstraint(
             "tenant_ref", "target_object_id",
             name="uq_dbi_scientific_raster_binding_target",
         ),
@@ -57,7 +68,8 @@ class DBIScientificRasterBinding(DBIBase):
             name="ck_dbi_scientific_raster_binding_role",
         ),
         CheckConstraint(
-            "status = 'reserved_no_asset' AND asset_id IS NULL",
+            "(status = 'reserved_no_asset' AND asset_id IS NULL) OR "
+            "(status = 'asset_registered_pending_bytes' AND asset_id IS NOT NULL)",
             name="ck_dbi_scientific_raster_binding_not_ready",
         ),
         CheckConstraint(

@@ -143,7 +143,7 @@ def validate_migration_graph() -> None:
     config = Config(str(BACKEND_ROOT / "dbi_alembic.ini"))
     scripts = ScriptDirectory.from_config(config)
     assert scripts.get_bases() == ["dbi_0001_baseline"]
-    assert scripts.get_heads() == ["dbi_0030_raster_binding"]
+    assert scripts.get_heads() == ["dbi_0031_raster_asset"]
     original = scripts.get_revision("dbi_0002_agricultural_domain")
     assert original is not None
     assert original.down_revision == "dbi_0001_baseline"
