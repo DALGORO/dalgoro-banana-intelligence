@@ -59,7 +59,10 @@ class DeclaredScientificDigest(_Strict):
     @field_validator("declared_sha256")
     @classmethod
     def canonical_hash(cls, value: str) -> str:
-        return validate_sha256(value)
+        try:
+            return validate_sha256(value)
+        except DBIStorageConflict as error:
+            raise ValueError("SHA-256 declarado debe ser canónico en minúsculas.") from error
 
 
 class PrivateScientificManifestSubmission(_Strict):
