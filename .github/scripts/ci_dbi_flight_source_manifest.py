@@ -367,7 +367,7 @@ def validate_models_and_sources() -> None:
     scripts = ScriptDirectory.from_config(
         Config(str(BACKEND / "dbi_alembic.ini"))
     )
-    assert scripts.get_heads() == ["dbi_0029_staff_approval_guard"]
+    assert scripts.get_heads() == ["dbi_0030_raster_binding"]
     revision = scripts.get_revision("dbi_0011_flight_manifest")
     assert revision is not None
     assert revision.down_revision == "dbi_0010_asset_multipart"
