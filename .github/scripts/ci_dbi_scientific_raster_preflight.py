@@ -97,6 +97,8 @@ def run_tests():
         "app.api.v1.dbi_scientific_manifest_private.DBICampaignReader", Reader,
     ), patch(
         "app.api.v1.dbi_scientific_manifest_private._store", fake_test_store,
+    ), patch(
+        "app.api.v1.dbi_scientific_raster_preflight._private_store", fake_test_store,
     ):
         # Un manifiesto faltante no autoriza un upload especulativo.
         denied(lambda: query(base), 404)
