@@ -49,6 +49,7 @@ from app.dbi.models.portal_vectors import DBIPortalVectorLayer
 from app.dbi.models.portal_gis_imports import DBIPortalGISImport, DBIPortalGISPreview
 from app.dbi.models.sampling import DBISamplingPlanRecord, DBISamplingPointRecord
 from app.dbi.models.scientific_raster_bindings import DBIScientificRasterBinding
+from app.dbi.models.scientific_raster_assets import DBIScientificRasterInputAsset
 
 __all__ = [
     "AnalysisArtifact",
@@ -92,6 +93,7 @@ __all__ = [
     "DBISamplingPlanRecord",
     "DBISamplingPointRecord",
     "DBIScientificRasterBinding",
+    "DBIScientificRasterInputAsset",
     "Farm",
     "FlightSourceBundle",
     "FlightSourceEntry",
