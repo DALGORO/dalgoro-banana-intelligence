@@ -41,6 +41,9 @@ from .dbi_scientific_raster_assets import (
 from .dbi_scientific_raster_session_preparations import (
     router as dbi_scientific_raster_session_preparations_router,
 )
+from .dbi_scientific_raster_local_provider import (
+    router as dbi_scientific_raster_local_provider_router,
+)
 from .dbi_density_local import router as dbi_density_local_router
 from .dbi_density_legacy_campaign import router as dbi_density_legacy_campaign_router
 from .dbi_density_candidate_review_local import router as dbi_density_candidate_review_local_router
@@ -120,6 +123,12 @@ def get_api_router() -> APIRouter:
         in {"test", "development", "local"}
     ):
         api.include_router(dbi_scientific_raster_session_preparations_router)
+    if (
+        os.environ.get("DBI_SCIENTIFIC_RASTER_PROVIDER_START_ENABLED") == "1"
+        and os.environ.get("DBI_ENVIRONMENT", "").strip().lower()
+        in {"test", "development", "local"}
+    ):
+        api.include_router(dbi_scientific_raster_local_provider_router)
     api.include_router(dbi_campaign_artifacts_router)
     api.include_router(dbi_density_local_router)
     api.include_router(dbi_density_legacy_campaign_router)
