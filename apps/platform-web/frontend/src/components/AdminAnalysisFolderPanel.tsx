@@ -80,6 +80,8 @@ export function AdminAnalysisFolderPanel({
   const multiInput = useRef<HTMLInputElement>(null);
 
   function selectFolder(kind: AnalysisFolderKind, list: FileList | null) {
+    setVerifiedDraftKey(null);
+    setScopeNotice(null);
     const metadata: FolderFileMetadata[] = Array.from(list ?? [], file => ({
       name: file.name, size: file.size, webkitRelativePath: file.webkitRelativePath,
     }));
@@ -127,7 +129,7 @@ export function AdminAnalysisFolderPanel({
   }
 
   function exportScientificDraft() {
-    if (busyRef.current || !draftReady) return;
+    if (busyRef.current || scopeBusy || !draftReady) return;
     const payload = JSON.stringify(scientificDraft, null, 2) + "\n";
     const url = URL.createObjectURL(new Blob([payload], { type: "application/json" }));
     const element = document.createElement("a");
@@ -288,7 +290,7 @@ export function AdminAnalysisFolderPanel({
           Levantamiento técnico real que recibirá los archivos
         </label>
         <select className="w-full rounded-lg border p-2 text-sm dark:bg-slate-900"
-          id="dbi-folder-private-campaign" value={chosenCampaign} disabled={busy}
+          id="dbi-folder-private-campaign" value={chosenCampaign} disabled={busy || scopeBusy}
           onChange={event => { setChosenCampaign(event.target.value); setVerifiedDraftKey(null); setScopeNotice(null); setUploadedPaths([]); setCompleted(0); setUploadMessage(null); }}>
           <option value="">Seleccionar levantamiento antes de cargar</option>
           {allowedCampaigns.map(c => (
