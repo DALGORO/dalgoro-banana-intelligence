@@ -166,7 +166,7 @@ def main() -> None:
         manipulated["files"][1]["relative_path"] = "MULTI/../GEO/ORTHO_RGB.tif"
         denied(manipulated, call, "escape de ruta")
         manipulated = deepcopy(draft)
-        manipulated["files"][2]["index"] = "ndvi"
+        manipulated["files"][2]["index"] = "ndre"
         denied(manipulated, call, "pares duplicados")
         manipulated = deepcopy(draft)
         manipulated["files"][1]["size_bytes"] += 1
