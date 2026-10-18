@@ -346,6 +346,11 @@ jobs:
           PYTHONPATH: .
         run: python ../../../.github/scripts/ci_dbi_scientific_raster_preflight.py
 
+      - name: Validar reservas TIFF inmutables vinculadas a Campaign/manifiesto
+        env:
+          PYTHONPATH: .
+        run: python ../../../.github/scripts/ci_dbi_scientific_raster_reservations.py
+
       - name: Validar preparación GIS privada por worker aislado
         env:
           PYTHONPATH: .
