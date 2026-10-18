@@ -28,7 +28,7 @@ from app.dbi.storage_contracts import (
     DBIStorageConflict, DBIStorageError, DBIStorageNotFound,
     DBIStorageObjectRecord, DBIStoragePurpose, DBIStorageWriteRequest,
 )
-from app.dbi.storage_policy import DBIStoragePolicy
+from app.dbi.storage_policy import DBIStoragePolicy, validate_sha256
 from app.dbi.storage_s3 import DBIS3ObjectStore
 
 router = APIRouter(prefix="/dbi", tags=["dbi-scientific-qml-private"])
@@ -162,7 +162,7 @@ async def receive_private_qml(
     if expected_size <= 0 or expected_size > MAX_QML_BYTES:
         raise HTTPException(413, detail="QML fuera de límite privado (2 MiB).")
     try:
-        declared_hash = DBIStoragePolicy.validate_sha256(expected_sha256)
+        declared_hash = validate_sha256(expected_sha256)
     except DBIStorageConflict as error:
         raise HTTPException(422, detail="SHA-256 declarado no canónico.") from error
     store = _store(request)
