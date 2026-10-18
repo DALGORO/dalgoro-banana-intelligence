@@ -28,7 +28,7 @@ from app.dbi.models.identity import DBIMembershipScope  # noqa: E402
 
 ORG_A = "organization-a"
 ORG_B = "organization-b"
-HEAD = "dbi_0030_raster_binding"
+HEAD = "dbi_0031_raster_asset"
 HIERARCHY_REVISION = "dbi_0008_scope_hierarchy"
 DOWN_REVISION = "dbi_0007_admin_audit"
 EXPECTED_CONSTRAINTS = {
