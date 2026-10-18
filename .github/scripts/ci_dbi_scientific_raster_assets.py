@@ -52,8 +52,8 @@ class AssetsDouble:
         assert isinstance(db, SQLSessionDouble)
 
     def register_asset(self, intent):
-        assert intent.binding_id in BindingRepo.rows
-        assert BindingRepo.rows[intent.binding_id] == intent
+        if BindingRepo.rows.get(intent.binding_id) != intent:
+            raise ScientificRasterAssetConflict("El vínculo SQL no existe o difiere.")
         asset_id = scientific_asset_id(intent)
         if asset_id in self.assets:
             return self.assets[asset_id], False
