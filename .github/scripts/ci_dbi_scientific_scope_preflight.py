@@ -3,6 +3,7 @@ from __future__ import annotations
 
 from copy import deepcopy
 from datetime import datetime, timezone
+import os
 from pathlib import Path
 from unittest.mock import patch
 from uuid import UUID
@@ -11,6 +12,9 @@ import sys
 from fastapi import HTTPException
 from pydantic import ValidationError
 
+# Configuración ficticia de CI: ninguna conexión ni modificación de DB real.
+os.environ.setdefault("DATABASE_URL", "sqlite:///:memory:")
+os.environ.setdefault("JWT_SECRET", "ci-only-scientific-campaign-scope")
 ROOT = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(ROOT / "apps/platform-web/backend"))
 
