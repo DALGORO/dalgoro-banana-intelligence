@@ -23,7 +23,7 @@ ROOT = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(ROOT / "apps/platform-web/backend"))
 
 from ci_dbi_scientific_manifest_private import (  # noqa: E402
-    CAMPAIGN, FARM, ORG, PLOT, DATE, Reader, context, fake_test_store, sample, snapshot,
+    CAMPAIGN, FARM, ORG, PLOT, DATE, Reader, FakeSession, context, fake_test_store, sample, snapshot,
 )
 from ci_dbi_scientific_raster_reservations import (  # noqa: E402
     PAIRS, req, submit,
@@ -60,7 +60,7 @@ def large_manifest(store):
     received = put_private_scientific_manifest(
         ORG, FARM, PLOT, CAMPAIGN,
         PrivateScientificManifestSubmission.model_validate(document),
-        req(store), response, SQLSessionDouble(), context(),
+        req(store), response, FakeSession(), context(),
     )
     assert response.status_code == 201
     return received
@@ -298,7 +298,7 @@ def run_contract():
     stored.idempotency_key_hash = identity.key_hash
     stored.expires_at = datetime.now(timezone.utc) - timedelta(seconds=1)
     try:
-        PreparationsDouble(None).prepare(request, now=datetime.now(timezone.utc))
+        PreparationsDouble(SQLSessionDouble()).prepare(request, now=datetime.now(timezone.utc))
     except (ScientificSessionPreparationConflict, AssertionError):
         pass  # Database repository below validates the same contract under locks.
     else:
