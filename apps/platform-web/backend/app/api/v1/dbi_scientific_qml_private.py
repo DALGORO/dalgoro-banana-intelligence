@@ -29,6 +29,7 @@ from app.dbi.storage_contracts import (
     DBIStorageObjectRecord, DBIStoragePurpose, DBIStorageWriteRequest,
 )
 from app.dbi.storage_policy import DBIStoragePolicy
+from app.dbi.storage_s3 import DBIS3ObjectStore
 
 router = APIRouter(prefix="/dbi", tags=["dbi-scientific-qml-private"])
 SessionDep = Annotated[Session, Depends(get_dbi_session)]
@@ -117,8 +118,10 @@ def _address(context: DBIAccessContext, organization_ref: str,
 
 def _store(request: Request) -> _PrivateStore:
     provider = getattr(request.app.state, "dbi_object_store", None)
-    if provider is None or any(not callable(getattr(provider, attr, None))
-                               for attr in ("put", "stat")):
+    # No permitir disco local ni memoria efímera para originales científicos reales.
+    if not isinstance(provider, DBIS3ObjectStore) or any(
+        not callable(getattr(provider, attr, None)) for attr in ("put", "stat")
+    ):
         raise HTTPException(503, detail="Almacenamiento científico privado no configurado.")
     return provider
 
