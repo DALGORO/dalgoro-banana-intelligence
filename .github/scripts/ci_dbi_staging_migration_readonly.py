@@ -30,7 +30,7 @@ VALUES = {
     "DBI_STAGING_VERIFY_HOST": "staging-db.example.org",
     "DBI_STAGING_VERIFY_CONFIRM": "VERIFY dbi_staging READ ONLY",
 }
-HEAD = "dbi_0031_raster_asset"
+HEAD = "dbi_0032_raster_session_prep"
 
 
 class Connection(_FakeConnection):
