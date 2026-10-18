@@ -79,6 +79,9 @@ jobs:
       - name: Validar borrador de preparación de dos carpetas científicas
         run: node --test tests/scientificReceptionDraft.test.mjs
 
+      - name: Validar interfaz de vinculación científica por Campaign sin subir archivos
+        run: node --test tests/scientificScopePreflightUI.test.mjs
+
       - name: Validar búsqueda exacta de fincas y lotes autorizados
         run: node --test tests/clientPortalSearch.test.mjs
 
