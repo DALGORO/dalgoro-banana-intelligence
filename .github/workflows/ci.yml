@@ -76,6 +76,9 @@ jobs:
       - name: Validar plan y carga GIS privada desde carpeta 1
         run: node --test tests/privateGISUploadPlan.test.mjs
 
+      - name: Validar borrador de preparación de dos carpetas científicas
+        run: node --test tests/scientificReceptionDraft.test.mjs
+
       - name: Validar búsqueda exacta de fincas y lotes autorizados
         run: node --test tests/clientPortalSearch.test.mjs
 
