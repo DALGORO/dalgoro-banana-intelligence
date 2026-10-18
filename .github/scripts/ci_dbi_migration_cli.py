@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import ci_dbi_migration_cli_base as base
 
-base.HEAD = "dbi_0030_raster_binding"
+base.HEAD = "dbi_0031_raster_asset"
 
 
 if __name__ == "__main__":
