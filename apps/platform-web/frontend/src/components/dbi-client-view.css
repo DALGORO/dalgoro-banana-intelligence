@@ -1140,3 +1140,78 @@
     font-size: .8rem;
   }
 }
+
+/* H14: controles GIS reales a la vista, pegados al mapa y accesibles en móvil. */
+.dbi-map-quick-tools {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 9px 14px;
+  padding: 12px 16px;
+  border-bottom: 1px solid #dbe5e1;
+  background: #f5f8f6;
+}
+
+.dbi-map-quick-label {
+  font-size: .875rem;
+  font-weight: 650;
+  color: #17383b;
+}
+
+.dbi-map-quick-buttons {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.dbi-map-quick-buttons button {
+  min-height: 44px;
+  padding: 8px 12px;
+  border: 1px solid #9fbcb1;
+  border-radius: 11px;
+  background: white;
+  color: #17383b;
+  font-size: .8125rem;
+  font-weight: 650;
+}
+
+.dbi-map-quick-buttons button:hover:not(:disabled) {
+  background: #e7f1ed;
+}
+
+.dbi-map-quick-buttons button:disabled {
+  opacity: .48;
+  cursor: not-allowed;
+}
+
+.dbi-map-quick-buttons button:focus-visible {
+  outline: 3px solid #b57b50;
+  outline-offset: 2px;
+}
+
+.dbi-map-quick-note {
+  font-size: .75rem;
+  color: #526b65;
+}
+
+.dark .dbi-map-quick-tools {
+  background: #223b3e;
+  border-bottom-color: rgba(255,255,255,.12);
+}
+
+.dark .dbi-map-quick-label { color: #e8f3ed; }
+.dark .dbi-map-quick-buttons button {
+  background: #2e4d50;
+  color: #f1f8f5;
+  border-color: #638780;
+}
+.dark .dbi-map-quick-note { color: #b8d0c5; }
+
+@media (max-width: 640px) {
+  .dbi-map-quick-buttons {
+    flex-basis: 100%;
+  }
+  .dbi-map-quick-buttons button {
+    flex: 1 1 125px;
+  }
+}
