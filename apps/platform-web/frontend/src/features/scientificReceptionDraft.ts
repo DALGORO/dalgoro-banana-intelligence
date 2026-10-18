@@ -3,8 +3,8 @@
  */
 import {
   INDEX_REFS, type FolderFileMetadata, type FolderInventory, type IndexRef,
-} from "@/features/analysisFolderInventory";
-import type { PlotMapTimelineLocator } from "@/features/mapTimeline";
+} from "./analysisFolderInventory.ts";
+import type { PlotMapTimelineLocator } from "./mapTimeline";
 
 export type ScientificDraftFile = {
   folder: "geospatial" | "multispectral";
