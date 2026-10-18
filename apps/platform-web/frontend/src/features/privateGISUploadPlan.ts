@@ -46,7 +46,7 @@ export function planPrivateGISUpload(
       blockers.push("Extensión no corresponde al formato GIS reconocido.");
     } else if (!Number.isSafeInteger(source.size) || source.size < 1 || source.size > MAX_PRIVATE_GIS_SIZE) {
       blockers.push(`${entry.path}: vacío o supera 30 MiB; no se enviará.`);
-    } else if (source.name.length > 100 || !source.name.replace(/\\.(gpkg|zip)$/i, "").trim()) {
+    } else if (source.name.length > 100 || !source.name.replace(/\.(gpkg|zip)$/i, "").trim()) {
       blockers.push(`${entry.path}: nombre original inválido o demasiado largo.`);
     } else if (filenames.has(source.name.toLowerCase())) {
       blockers.push(`${entry.path}: nombre duplicado en subcarpetas; requiere revisión manual.`);
