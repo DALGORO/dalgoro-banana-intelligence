@@ -325,7 +325,8 @@ def run_contract():
     assert 'down_revision: str | None = "dbi_0031_raster_asset"' in migration
     assert "cancelled_no_provider" in migration
     source = (ROOT / "apps/platform-web/backend/app/api/v1/dbi_scientific_raster_session_preparations.py").read_text()
-    assert source.index("_locked_campaign(") < source.index("_verified_intent(")
+    endpoint = source.split("def handle_scientific_session_preparation(", 1)[1]
+    assert endpoint.index("_locked_campaign(") < endpoint.index("_verified_intent(")
     assert source.index("repository.prepare(") < source.index("session.commit()")
     for forbidden in ("presigned", "issue_part_access", "provider_upload_ref", "published=True"):
         assert forbidden not in source
