@@ -51,6 +51,7 @@ from app.dbi.models.sampling import DBISamplingPlanRecord, DBISamplingPointRecor
 from app.dbi.models.scientific_raster_bindings import DBIScientificRasterBinding
 from app.dbi.models.scientific_raster_assets import DBIScientificRasterInputAsset
 from app.dbi.models.scientific_raster_session_preparations import DBIScientificRasterSessionPreparation
+from app.dbi.models.scientific_raster_provider_starts import DBIScientificRasterProviderStart
 
 __all__ = [
     "AnalysisArtifact",
@@ -96,6 +97,7 @@ __all__ = [
     "DBIScientificRasterBinding",
     "DBIScientificRasterInputAsset",
     "DBIScientificRasterSessionPreparation",
+    "DBIScientificRasterProviderStart",
     "Farm",
     "FlightSourceBundle",
     "FlightSourceEntry",
