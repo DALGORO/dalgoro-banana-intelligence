@@ -341,6 +341,11 @@ jobs:
           PYTHONPATH: .
         run: python ../../../.github/scripts/ci_dbi_scientific_manifest_private.py
 
+      - name: Conciliar seis QML con manifiesto privado sin escribir ni publicar
+        env:
+          PYTHONPATH: .
+        run: python ../../../.github/scripts/ci_dbi_scientific_qml_reconciliation.py
+
       - name: Validar preparación GIS privada por worker aislado
         env:
           PYTHONPATH: .
