@@ -341,6 +341,11 @@ jobs:
           PYTHONPATH: .
         run: python ../../../.github/scripts/ci_dbi_scientific_manifest_private.py
 
+      - name: Validar siete planes raster científicos privados sin carga real
+        env:
+          PYTHONPATH: .
+        run: python ../../../.github/scripts/ci_dbi_scientific_raster_preflight.py
+
       - name: Validar preparación GIS privada por worker aislado
         env:
           PYTHONPATH: .
