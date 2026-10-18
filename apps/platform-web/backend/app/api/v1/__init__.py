@@ -71,7 +71,9 @@ def get_api_router() -> APIRouter:
     api.include_router(dbi_campaigns_router)
     api.include_router(dbi_scientific_intake_router)
     # Contrato privado experimental: no se registra sin opt-in explícito.
-    if os.environ.get("DBI_SCIENTIFIC_MANIFEST_ENABLED") == "1":
+    if (os.environ.get("DBI_SCIENTIFIC_MANIFEST_ENABLED") == "1"
+            and os.environ.get("DBI_ENVIRONMENT", "").strip().lower()
+            in {"test", "development", "local"}):
         api.include_router(dbi_scientific_manifest_private_router)
     api.include_router(dbi_campaign_artifacts_router)
     api.include_router(dbi_density_local_router)
