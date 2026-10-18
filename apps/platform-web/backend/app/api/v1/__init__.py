@@ -26,6 +26,9 @@ from .dbi_scientific_intake import router as dbi_scientific_intake_router
 from .dbi_scientific_manifest_private import (
     router as dbi_scientific_manifest_private_router,
 )
+from .dbi_scientific_qml_reconciliation import (
+    router as dbi_scientific_qml_reconciliation_router,
+)
 from .dbi_density_local import router as dbi_density_local_router
 from .dbi_density_legacy_campaign import router as dbi_density_legacy_campaign_router
 from .dbi_density_candidate_review_local import router as dbi_density_candidate_review_local_router
@@ -75,6 +78,12 @@ def get_api_router() -> APIRouter:
             and os.environ.get("DBI_ENVIRONMENT", "").strip().lower()
             in {"test", "development", "local"}):
         api.include_router(dbi_scientific_manifest_private_router)
+    if (
+        os.environ.get("DBI_SCIENTIFIC_QML_RECONCILIATION_ENABLED") == "1"
+        and os.environ.get("DBI_ENVIRONMENT", "").strip().lower()
+        in {"test", "development", "local"}
+    ):
+        api.include_router(dbi_scientific_qml_reconciliation_router)
     api.include_router(dbi_campaign_artifacts_router)
     api.include_router(dbi_density_local_router)
     api.include_router(dbi_density_legacy_campaign_router)
