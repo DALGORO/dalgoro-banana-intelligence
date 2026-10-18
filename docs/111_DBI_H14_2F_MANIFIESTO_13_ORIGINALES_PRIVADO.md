@@ -10,7 +10,7 @@ Se reutiliza el contrato estricto `ScientificDraftScopeRequest` (exactamente una
 
 ## Seguridad de almacenamiento y Campaign
 
-- **Flag nuevo:** `DBI_SCIENTIFIC_MANIFEST_ENABLED=1`. Ausente o distinto de `1` = no se registra el router y las funciones también niegan llamadas directas con 404. **No activar en Render** en esta etapa.
+- **Doble control cerrado:** `DBI_SCIENTIFIC_MANIFEST_ENABLED=1` y `DBI_ENVIRONMENT` en `test`, `development` o `local` son ambos obligatorios. Ausentes los requisitos, el router no se registra y llamadas directas reciben 404. Incluso con el flag en `1`, `staging` y `production` permanecen bloqueados. **No activar en Render** en esta etapa.
 - Endpoints internos bajo `/api/v1/dbi`:
   - `PUT /organizations/{organization_ref}/farms/{farm_id}/plots/{plot_id}/campaigns/{campaign_id}/scientific-intake/private-manifest`
   - `GET /organizations/{organization_ref}/farms/{farm_id}/plots/{plot_id}/campaigns/{campaign_id}/scientific-intake/private-manifest`
