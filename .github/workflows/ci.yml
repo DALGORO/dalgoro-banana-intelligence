@@ -361,6 +361,11 @@ jobs:
           PYTHONPATH: .
         run: python ../../../.github/scripts/ci_dbi_scientific_raster_assets.py
 
+      - name: Validar sesiones preparatorias científicas sin proveedor ni grants
+        env:
+          PYTHONPATH: .
+        run: python ../../../.github/scripts/ci_dbi_scientific_raster_session_preparations.py
+
       - name: Validar preparación GIS privada por worker aislado
         env:
           PYTHONPATH: .
