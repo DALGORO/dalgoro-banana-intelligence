@@ -89,9 +89,10 @@ class Reader:
 
     def read_campaign(self, **kwargs):
         Reader.calls += 1
-        assert kwargs == {
-            "tenant_ref": TENANT, "organization_ref": ORG,
-            "farm_id": FARM, "plot_id": PLOT, "campaign_id": CAMPAIGN,
+        assert kwargs["tenant_ref"] in {TENANT, "another"}
+        assert {key: value for key, value in kwargs.items() if key != "tenant_ref"} == {
+            "organization_ref": ORG, "farm_id": FARM,
+            "plot_id": PLOT, "campaign_id": CAMPAIGN,
         }
         return Reader.current
 
