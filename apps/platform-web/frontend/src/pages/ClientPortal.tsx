@@ -58,6 +58,19 @@ export default function ClientPortal() {
         </p>
       </header>
 
+      <section className="dbi-portal-first-steps" aria-label="Cómo consultar el mapa de tu lote">
+        <h2 className="text-base font-semibold">Tu mapa en tres pasos</h2>
+        <ol className="dbi-portal-steps mt-3">
+          <li><span aria-hidden="true">1</span><strong>Busca tu finca</strong></li>
+          <li><span aria-hidden="true">2</span><strong>Abre el mapa de un lote</strong></li>
+          <li><span aria-hidden="true">3</span><strong>Elige un vuelo y consulta sus capas</strong></li>
+        </ol>
+        <p className="muted mt-3 text-sm">
+          Solo verás mapas y resultados publicados para tu lote. Si aún no hay cartografía
+          autorizada, el visor te lo indicará.
+        </p>
+      </section>
+
       <section aria-label="Resumen de fincas" className="grid grid-cols-2 gap-3 sm:grid-cols-3">
         <div className="rounded-2xl border bg-white p-5 shadow-sm dark:bg-slate-900">
           <MapPinned className="mb-3 text-[#9f643c] dark:text-[#e6b18a]" />
@@ -151,8 +164,8 @@ export default function ClientPortal() {
                             : `${plot.area_hectares.toLocaleString("es-EC", { maximumFractionDigits: 2 })} ha`}
                         </div>
                       </div>
-                      <span className="inline-flex shrink-0 items-center gap-1 text-sm font-semibold text-[#9f643c] dark:text-[#e6b18a]">
-                        Ver mapa <ChevronRight size={17} />
+                      <span className="dbi-portal-map-action inline-flex shrink-0 items-center gap-1 text-sm font-semibold">
+                        Abrir mapa <ChevronRight size={17} aria-hidden="true" />
                       </span>
                     </Link>
                   ))}
