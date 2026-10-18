@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import ci_dbi_migration_cli_base as base
 
-base.HEAD = "dbi_0029_staff_approval_guard"
+base.HEAD = "dbi_0030_raster_binding"
 
 
 if __name__ == "__main__":
