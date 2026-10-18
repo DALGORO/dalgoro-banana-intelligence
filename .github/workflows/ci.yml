@@ -371,6 +371,11 @@ jobs:
           PYTHONPATH: .
         run: python ../../../.github/scripts/ci_dbi_scientific_raster_local_provider.py
 
+      - name: Conciliar S3 multipart local con SQL sin alterar archivos ni emitir grants
+        env:
+          PYTHONPATH: .
+        run: python ../../../.github/scripts/ci_dbi_scientific_raster_reconciliation.py
+
       - name: Validar preparación GIS privada por worker aislado
         env:
           PYTHONPATH: .
