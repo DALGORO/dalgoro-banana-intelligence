@@ -82,6 +82,9 @@ jobs:
       - name: Validar recorrido de entrada al mapa del cliente
         run: node --test tests/clientMapEntry.test.mjs
 
+      - name: Validar acciones rápidas GIS junto al mapa del cliente
+        run: node --test tests/clientMapQuickActions.test.mjs
+
       - name: Compilar frontend
         run: npm run build
 
