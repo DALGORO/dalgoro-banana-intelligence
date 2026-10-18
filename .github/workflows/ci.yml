@@ -356,6 +356,11 @@ jobs:
           PYTHONPATH: .
         run: python ../../../.github/scripts/ci_dbi_scientific_raster_sql_bindings.py
 
+      - name: Validar registro SQL de Asset científico privado sin bytes ni sesiones
+        env:
+          PYTHONPATH: .
+        run: python ../../../.github/scripts/ci_dbi_scientific_raster_assets.py
+
       - name: Validar preparación GIS privada por worker aislado
         env:
           PYTHONPATH: .
