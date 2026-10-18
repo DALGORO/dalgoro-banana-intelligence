@@ -351,6 +351,11 @@ jobs:
           PYTHONPATH: .
         run: python ../../../.github/scripts/ci_dbi_scientific_raster_reservations.py
 
+      - name: Validar vínculo SQL científico scoped bajo bloqueo Campaign sin multipart
+        env:
+          PYTHONPATH: .
+        run: python ../../../.github/scripts/ci_dbi_scientific_raster_sql_bindings.py
+
       - name: Validar preparación GIS privada por worker aislado
         env:
           PYTHONPATH: .
