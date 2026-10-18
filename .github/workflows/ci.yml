@@ -336,6 +336,11 @@ jobs:
           PYTHONPATH: .
         run: python ../../../.github/scripts/ci_dbi_scientific_scope_preflight.py
 
+      - name: Recepción privada QML opt-in en CI offline, SHA y preservación del original
+        env:
+          PYTHONPATH: .
+        run: python ../../../.github/scripts/ci_dbi_scientific_qml_intake.py
+
       - name: Validar preparación GIS privada por worker aislado
         env:
           PYTHONPATH: .
