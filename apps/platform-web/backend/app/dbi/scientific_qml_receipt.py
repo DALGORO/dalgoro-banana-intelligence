@@ -63,7 +63,7 @@ def plan_scientific_qml_private_receipt(
     DBIStoragePolicy.tenant_namespace(tenant_ref)
     if not isinstance(organization_ref, str) or not organization_ref or organization_ref.strip() != organization_ref:
         raise ValueError("Organización inválida.")
-    identity = "\\0".join((
+    identity = "\0".join((
         "dbi:h14:scientific-qml:v1", tenant_ref, organization_ref,
         str(farm_id), str(plot_id), str(campaign_id), item.index,
         item.relative_path, str(item.size_bytes), item.sha256,
