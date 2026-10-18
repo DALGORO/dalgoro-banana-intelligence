@@ -162,7 +162,7 @@ class DBIScientificSessionPreparationRepository:
         self._lock_evidence(value)
         row = self._get(value)
         if row is None:
-            self._session.execute(
+            inserted = self._session.execute(
                 pg_insert(DBIScientificRasterSessionPreparation).values(
                     id=_id(value.asset_id), asset_id=value.asset_id,
                     binding_id=value.raster.binding_id,
@@ -182,10 +182,10 @@ class DBIScientificSessionPreparationRepository:
                     status="prepared_no_provider", created_by_ref=value.requested_by,
                     created_at=now, updated_at=now,
                     expires_at=now + SESSION_PREPARATION_TTL, cancelled_at=None,
-                ).on_conflict_do_nothing()
-            )
+                ).on_conflict_do_nothing().returning(DBIScientificRasterSessionPreparation.id)
+            ).scalar_one_or_none()
             row = self._get(value)
-            created = row is not None and row.created_at == now
+            created = inserted is not None
         else:
             created = False
         if row is None or not _same(row, value, idempotency.key_hash, plan):
