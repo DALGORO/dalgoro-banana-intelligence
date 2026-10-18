@@ -87,6 +87,9 @@ def classify_inventory(
         or type(evidence.unexpected_count) is not int
         or not 0 <= evidence.unexpected_count <= evidence.incomplete_count
         or type(evidence.expected_present) is not bool
+        or evidence.unexpected_count != (
+            evidence.incomplete_count - int(evidence.expected_present)
+        )
     ):
         raise ScientificProviderStartConflict("Contadores S3 no canónicos.")
     if status is None:
