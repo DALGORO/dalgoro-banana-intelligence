@@ -100,7 +100,16 @@ export function AdminAnalysisFolderPanel({
     const sourceMap = new Map(geoFilesRef.current.map(file => [file.webkitRelativePath, file]));
     const uploadedNow: string[] = [];
     try {
+      // Sin idempotencia persistente no re-subir originales de igual nombre.
+      const existingReceipts = await listGISImports(locator);
+      const previousNames = new Set(
+        existingReceipts.filter(item => item.campaign_id === chosenCampaign)
+          .map(item => item.original_filename.toLowerCase()),
+      );
       for (const [i, candidate] of remaining.entries()) {
+        if (previousNames.has(candidate.filename.toLowerCase())) {
+          throw new Error(`${candidate.filename}: ya existe una recepción con este nombre en el levantamiento. Revisa el recibo antes de repetir.`);
+        }
         const source = sourceMap.get(candidate.path);
         if (!source || source.size !== candidate.size || source.name !== candidate.filename) {
           throw new Error("La selección cambió: vuelve a seleccionar la carpeta.");
@@ -108,9 +117,10 @@ export function AdminAnalysisFolderPanel({
         // "other" intencional: un nombre GPKG/ZIP no acredita density/plants/boundaries.
         await stageGISOriginal(
           locator, source, chosenCampaign, "other",
-          candidate.filename.replace(/\\.(gpkg|zip)$/i, "").slice(0, 100),
+          candidate.filename.replace(/\.(gpkg|zip)$/i, "").trim().slice(0, 100),
         );
         uploadedNow.push(candidate.path);
+        previousNames.add(candidate.filename.toLowerCase());
         setCompleted(i + 1);
       }
       setUploadMessage(`${uploadedNow.length} originales GIS recibidos en privado. Pendientes de conversión, revisión y aprobación; el cliente no los ve.`);
@@ -151,8 +161,8 @@ export function AdminAnalysisFolderPanel({
       <div>
         <h3 className="text-sm font-semibold">Paso 1 · Reconocer dos carpetas de análisis</h3>
         <p className="muted mt-1 text-xs">
-          Selecciona cada carpeta una vez. Solo se examinan nombres y rutas locales:
-          no se leen ni envían los archivos, y no se aprueba ninguna publicación.
+          Selecciona cada carpeta una vez. Primero se examinan solo nombres y rutas locales.
+          El envío requiere pulsar «Guardar originales GIS» y jamás publica capas.
         </p>
       </div>
       <div className="grid gap-3 xl:grid-cols-2">
@@ -188,7 +198,7 @@ export function AdminAnalysisFolderPanel({
         </label>
         <select className="w-full rounded-lg border p-2 text-sm dark:bg-slate-900"
           id="dbi-folder-private-campaign" value={chosenCampaign} disabled={busy}
-          onChange={event => { setChosenCampaign(event.target.value); setUploadMessage(null); }}>
+          onChange={event => { setChosenCampaign(event.target.value); setUploadedPaths([]); setCompleted(0); setUploadMessage(null); }}>
           <option value="">Seleccionar levantamiento antes de cargar</option>
           {allowedCampaigns.map(c => (
             <option key={c.id} value={c.id}>{c.name} · {c.captured_at.slice(0, 10)}</option>
@@ -228,8 +238,8 @@ export function AdminAnalysisFolderPanel({
       </section>
       <div className="flex flex-wrap items-center justify-between gap-2">
         <p className="muted text-xs">
-          Inventario local, no validación científica. La carga segura, vista previa y aprobación
-          se añadirán en las siguientes etapas.
+          El inventario no valida resultados científicos. Los COG, estilos QML y PDF
+          requieren un cargador posterior; la vista previa y aprobación siguen separadas.
         </p>
         <button type="button" className="btn-secondary" onClick={clear}
           disabled={busy || (!folders.geospatial && !folders.multispectral)}>
