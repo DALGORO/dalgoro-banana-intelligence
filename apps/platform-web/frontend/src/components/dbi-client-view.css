@@ -1072,3 +1072,71 @@
   color: #ffd4d0;
   border-color: #aa7778;
 }
+
+/* Entrada del cliente H14: una acción clara por lote, sin simular datos disponibles. */
+.dbi-portal-home .dbi-portal-first-steps {
+  padding: 18px 20px;
+  border: 1px solid #d9e4df;
+  border-radius: 18px;
+  background: #f5f8f6;
+}
+
+.dbi-portal-home .dbi-portal-steps {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 10px;
+  list-style: none;
+}
+
+.dbi-portal-home .dbi-portal-steps li {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-width: 0;
+  font-size: 0.875rem;
+}
+
+.dbi-portal-home .dbi-portal-steps li > span {
+  display: inline-grid;
+  place-items: center;
+  width: 32px;
+  height: 32px;
+  flex: 0 0 32px;
+  border-radius: 50%;
+  background: #17383b;
+  color: #fff;
+  font-weight: 700;
+}
+
+.dbi-portal-home .dbi-portal-map-action {
+  min-height: 44px;
+  padding: 10px 12px;
+  border-radius: 12px;
+  background: #17383b;
+  color: #fff;
+  white-space: nowrap;
+}
+
+.dbi-portal-home .dbi-portal-plot-link:hover .dbi-portal-map-action {
+  background: #29595b;
+}
+
+.dark .dbi-portal-home .dbi-portal-first-steps {
+  background: #20383b;
+  border-color: rgba(255,255,255,.15);
+}
+
+.dark .dbi-portal-home .dbi-portal-map-action {
+  background: #b57b50;
+  color: #132c30;
+}
+
+@media (max-width: 640px) {
+  .dbi-portal-home .dbi-portal-steps {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 12px;
+  }
+  .dbi-portal-home .dbi-portal-map-action {
+    font-size: .8rem;
+  }
+}
