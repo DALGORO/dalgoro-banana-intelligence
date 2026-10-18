@@ -69,7 +69,9 @@ def get_api_router() -> APIRouter:
     api.include_router(dbi_campaigns_router)
     api.include_router(dbi_scientific_intake_router)
     # H14/2E: recepción QML privada explícita, apagada en producción por defecto.
-    if os.environ.get("DBI_SCIENTIFIC_QML_INTAKE_ENABLED") == "1":
+    if (os.environ.get("DBI_SCIENTIFIC_QML_INTAKE_ENABLED") == "1"
+            and os.environ.get("DBI_ENVIRONMENT", "").strip().lower()
+            in {"test", "development", "local"}):
         api.include_router(dbi_scientific_qml_private_router)
     api.include_router(dbi_campaign_artifacts_router)
     api.include_router(dbi_density_local_router)
