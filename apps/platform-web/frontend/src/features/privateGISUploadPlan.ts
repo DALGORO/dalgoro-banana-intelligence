@@ -32,6 +32,7 @@ export function planPrivateGISUpload(
   }
   const byPath = new Map(files.map(file => [file.webkitRelativePath, file]));
   const candidates: PrivateGISUploadCandidate[] = [];
+  const filenames = new Set<string>();
   for (const entry of inventory.entries) {
     if (!["GeoPackage", "Archivo GIS comprimido"].includes(entry.role)) continue;
     const source = byPath.get(entry.path);
@@ -45,9 +46,12 @@ export function planPrivateGISUpload(
       blockers.push("Extensión no corresponde al formato GIS reconocido.");
     } else if (!Number.isSafeInteger(source.size) || source.size < 1 || source.size > MAX_PRIVATE_GIS_SIZE) {
       blockers.push(`${entry.path}: vacío o supera 30 MiB; no se enviará.`);
-    } else if (source.name.length > 100) {
-      blockers.push(`${entry.path}: nombre mayor de 100 caracteres.`);
+    } else if (source.name.length > 100 || !source.name.replace(/\\.(gpkg|zip)$/i, "").trim()) {
+      blockers.push(`${entry.path}: nombre original inválido o demasiado largo.`);
+    } else if (filenames.has(source.name.toLowerCase())) {
+      blockers.push(`${entry.path}: nombre duplicado en subcarpetas; requiere revisión manual.`);
     } else {
+      filenames.add(source.name.toLowerCase());
       candidates.push({ path: entry.path, filename: source.name, size: source.size, kind });
     }
   }
