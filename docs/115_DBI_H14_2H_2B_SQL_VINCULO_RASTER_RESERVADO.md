@@ -6,7 +6,7 @@ Este PR se apila sobre **#263**, que a su vez requiere **#262** y **#259**. La t
 **No ejecutar la migración en Render ni en ninguna base productiva.** Se incluye su código Alembic para revisión y validación del grafo; la ruta experimental está bloqueada en producción y staging.
 
 ## Modelo y revisión Alembic (no aplicada)
-`app/dbi/models/scientific_raster_bindings.py` y revisión `dbi_0030_scientific_raster_binding` / `20261018_30_scientific_raster_bindings.py`:
+`app/dbi/models/scientific_raster_bindings.py` y revisión `dbi_0030_raster_binding` / `20261018_30_scientific_raster_bindings.py`:
 
 - Un registro por `(tenant_ref, campaign_id, role, index_ref)`, donde `rgb/_` identifica ortofoto y `scientific_cog/<índice>` uno de seis índices; constraints de índice, tamaño y SHA-256 declarado.
 - FK **compuesta** hacia Campaign: `campaign_id, tenant_ref, organization_ref, farm_id, plot_id, analysis_type='multispectral'`. Una colisión de identidad no puede ser redirigida a otro alcance o tipo de Campaign.
