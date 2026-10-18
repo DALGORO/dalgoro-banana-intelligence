@@ -6,7 +6,7 @@ Esta etapa habilita **solo mediante opt-in de servidor** la primera transferenci
 Se preservan los **bytes** de cada QML sin conversión, normalización XML ni renderizado. Un recibo corresponde exclusivamente a **un archivo**; no prueba ni publica el conjunto de 13 originales.
 
 ## Activación deliberadamente cerrada
-Variable de backend **`DBI_SCIENTIFIC_QML_INTAKE_ENABLED=1`**. El valor por defecto (ausente o distinto de `1`) mantiene ambas rutas fuera del router y la propia función rechaza llamadas directas con 404. **No activar en Render** hasta revisión técnica/operativa institucional, almacenamiento S3 privado verificado, cuotas y prueba UAT. Esta entrega **no cambia** variables de producción ni configura buckets.
+Variable de backend **`DBI_SCIENTIFIC_QML_INTAKE_ENABLED=1`** y **`DBI_ENVIRONMENT` igual a `test`, `development` o `local`** (ambas condiciones obligatorias). El valor por defecto mantiene las dos rutas fuera del router; en `staging` y `production` se rechazan incluso con el flag activo, y las funciones también devuelven 404 si son invocadas directamente. **No activar en Render** hasta revisión técnica/operativa institucional, almacenamiento S3 privado verificado, cuotas y prueba UAT. Esta entrega **no cambia** variables de producción ni configura buckets.
 
 Los dos endpoints se registran dentro de `/api/v1/dbi`:
 
