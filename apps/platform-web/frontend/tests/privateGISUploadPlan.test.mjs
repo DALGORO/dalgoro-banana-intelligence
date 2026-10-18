@@ -73,6 +73,6 @@ test("folder intake remains MANAGEMENT-only and uses only existing private origi
   assert.match(panel, /onImportsRefreshed\(receipts\)/);
   assert.match(panel, /disabled=\{busy \|\| !campaignAllowed \|\| !uploadPlan\.ready \|\| remaining\.length === 0\}/);
   assert.match(panel, /campaigns\.filter\(c => c\.status !== "APPROVED" && c\.status !== "PUBLISHED"\)/);
-  assert.match(vectors, /"gis-imports"/);
+  assert.match(vectors, /"\/gis-imports"/);
   assert.doesNotMatch(panel, /publishGeoJSON|publishReviewedGISImport|publishInstitutionally|fetch\(|FileReader|\.arrayBuffer\(/);
 });
