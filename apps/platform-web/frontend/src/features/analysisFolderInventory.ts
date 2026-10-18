@@ -111,7 +111,8 @@ export function inventoryFolder(kind: AnalysisFolderKind, files: readonly Folder
     const segments = path?.split("/") ?? [];
     if (
       !path || segments.length < 2
-      || segments.some(segment => !segment || segment === "." || segment === ".." || /[\x00-\x1f\x7f]/.test(segment))
+      || segments.some(segment => !segment || segment === "." || segment === ".."
+        || Array.from(segment).some(char => char.charCodeAt(0) < 32 || char.charCodeAt(0) === 127))
       || !Number.isSafeInteger(file.size) || file.size < 0
       || file.name !== segments.at(-1)
     ) {
