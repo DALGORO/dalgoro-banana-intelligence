@@ -211,7 +211,6 @@ def run():
         assert_status(store, manifest, slot, role, index,
                       provider, "sql_active_remote_replaced")
         provider.remote.pop(replacement.provider_upload_ref)
-        provider.remote[saved] = started  # replaced by actual provider UploadId below
         provider.remote[saved] = ProviderUploadForTest(contract, saved)
         aborted, _, _ = local_start(store, manifest, slot, role, index, "abort")
         assert aborted.provider_aborted
