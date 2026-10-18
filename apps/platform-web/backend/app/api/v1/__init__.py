@@ -23,6 +23,7 @@ from .dbi_assets import router as dbi_assets_router
 from .dbi_campaign_artifacts import router as dbi_campaign_artifacts_router
 from .dbi_campaigns import router as dbi_campaigns_router
 from .dbi_scientific_intake import router as dbi_scientific_intake_router
+from .dbi_scientific_qml_private import router as dbi_scientific_qml_private_router
 from .dbi_density_local import router as dbi_density_local_router
 from .dbi_density_legacy_campaign import router as dbi_density_legacy_campaign_router
 from .dbi_density_candidate_review_local import router as dbi_density_candidate_review_local_router
@@ -67,6 +68,11 @@ def get_api_router() -> APIRouter:
     api.include_router(dbi_asset_multipart_router)
     api.include_router(dbi_campaigns_router)
     api.include_router(dbi_scientific_intake_router)
+    # H14/2E: recepción QML privada explícita, apagada en producción por defecto.
+    if (os.environ.get("DBI_SCIENTIFIC_QML_INTAKE_ENABLED") == "1"
+            and os.environ.get("DBI_ENVIRONMENT", "").strip().lower()
+            in {"test", "development", "local"}):
+        api.include_router(dbi_scientific_qml_private_router)
     api.include_router(dbi_campaign_artifacts_router)
     api.include_router(dbi_density_local_router)
     api.include_router(dbi_density_legacy_campaign_router)

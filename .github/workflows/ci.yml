@@ -336,6 +336,11 @@ jobs:
           PYTHONPATH: .
         run: python ../../../.github/scripts/ci_dbi_scientific_scope_preflight.py
 
+      - name: Validar recepción privada de originales QML sin habilitar producción
+        env:
+          PYTHONPATH: .
+        run: python ../../../.github/scripts/ci_dbi_scientific_qml_private.py
+
       - name: Validar preparación GIS privada por worker aislado
         env:
           PYTHONPATH: .
