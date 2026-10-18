@@ -54,14 +54,30 @@ jobs:
       - name: Instalar cliente S3 y contratos DBI del backend
         run: python -m pip install -r apps/platform-web/backend/requirements.txt
 
-      - name: Levantar almacenamiento local descartable
+      - name: Descargar binario oficial MinIO y verificar SHA256
         run: |
-          docker run --detach --name dbi-h14-minio --rm \
-            -p 127.0.0.1:9000:9000 \
-            -e MINIO_ROOT_USER=dbi_h14_ci_root \
-            -e MINIO_ROOT_PASSWORD=dbi_h14_ci_only_secret_987654321 \
-            minio/minio:RELEASE.2025-09-07T16-13-09Z \
-            server /data --address ":9000"
+          set -euo pipefail
+          BASE="https://dl.min.io/server/minio/release/linux-amd64/archive"
+          RELEASE="minio.RELEASE.2025-09-07T16-13-09Z"
+          curl --fail --location --retry 3 --connect-timeout 10 --max-time 180 \
+            "$BASE/$RELEASE" --output "$RUNNER_TEMP/minio"
+          curl --fail --location --retry 3 --connect-timeout 10 --max-time 30 \
+            "$BASE/$RELEASE.sha256sum" --output "$RUNNER_TEMP/minio.sha256sum"
+          expected="$(awk '{print $1}' "$RUNNER_TEMP/minio.sha256sum")"
+          [[ "$expected" =~ ^[a-fA-F0-9]{64}$ ]]
+          printf '%s  %s\\n' "$expected" "$RUNNER_TEMP/minio" | sha256sum --check --status
+          chmod 700 "$RUNNER_TEMP/minio"
+
+      - name: Levantar MinIO local descartable sin Docker
+        run: |
+          set -euo pipefail
+          mkdir -p "$RUNNER_TEMP/h14-minio-data"
+          MINIO_ROOT_USER=dbi_h14_ci_root \
+          MINIO_ROOT_PASSWORD=dbi_h14_ci_only_secret_987654321 \
+            nohup "$RUNNER_TEMP/minio" server "$RUNNER_TEMP/h14-minio-data" \
+              --address "127.0.0.1:9000" \
+              > "$RUNNER_TEMP/h14-minio.log" 2>&1 &
+          echo "$!" > "$RUNNER_TEMP/h14-minio.pid"
 
       - name: Ensayar cargas incompletas reales, listados exactos y abortos
         env:
@@ -73,7 +89,10 @@ jobs:
 
       - name: Detener MinIO efímero
         if: always()
-        run: docker rm -f dbi-h14-minio || true
+        run: |
+          if test -f "$RUNNER_TEMP/h14-minio.pid"; then
+            kill "$(cat "$RUNNER_TEMP/h14-minio.pid")" || true
+          fi
 
   frontend:
     name: Frontend · lint y build
