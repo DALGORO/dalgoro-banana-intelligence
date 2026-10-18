@@ -90,6 +90,6 @@ test("UI exports only local unverified JSON when structurally complete and campa
   assert.match(panel, /JSON\.stringify\(scientificDraft/);
   assert.match(panel, /application\/json/);
   assert.match(panel, /Exportar borrador JSON local \(sin subir archivos\)/);
-  assert.match(panel, /sha256/);
+  assert.match(panel, /SHA-256/);
   assert.doesNotMatch(panel, /publishInstitutionally|publishGeoJSON|publishReviewedGISImport/);
 });
