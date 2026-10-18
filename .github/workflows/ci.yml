@@ -79,6 +79,9 @@ jobs:
       - name: Validar borrador de preparación de dos carpetas científicas
         run: node --test tests/scientificReceptionDraft.test.mjs
 
+      - name: Validar interfaz de vinculación científica por Campaign sin subir archivos
+        run: node --test tests/scientificScopePreflightUI.test.mjs
+
       - name: Validar búsqueda exacta de fincas y lotes autorizados
         run: node --test tests/clientPortalSearch.test.mjs
 
@@ -327,6 +330,11 @@ jobs:
         env:
           PYTHONPATH: .
         run: python ../../../.github/scripts/ci_dbi_gis_staging_readiness.py
+
+      - name: Vinculación privada de borrador científico con Campaign MULTI y permiso MANAGE
+        env:
+          PYTHONPATH: .
+        run: python ../../../.github/scripts/ci_dbi_scientific_scope_preflight.py
 
       - name: Validar preparación GIS privada por worker aislado
         env:

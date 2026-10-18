@@ -3,6 +3,7 @@ import type { PlotMapTimelineLocator } from "@/features/mapTimeline";
 import { listGISImports, stageGISOriginal, type GISImportReceipt, type VectorCampaign } from "@/features/portalVectors";
 import { planPrivateGISUpload } from "@/features/privateGISUploadPlan";
 import { prepareScientificReceptionDraft } from "@/features/scientificReceptionDraft";
+import { verifyScientificCampaignScope } from "@/features/scientificScopePreflightApi";
 import {
   inventoryFolder,
   type AnalysisFolderKind,
@@ -65,6 +66,9 @@ export function AdminAnalysisFolderPanel({
   const multiMetadataRef = useRef<FolderFileMetadata[]>([]);
   const busyRef = useRef(false);
   const [chosenCampaign, setChosenCampaign] = useState("");
+  const [scopeBusy, setScopeBusy] = useState(false);
+  const [verifiedDraftKey, setVerifiedDraftKey] = useState<string | null>(null);
+  const [scopeNotice, setScopeNotice] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const [completed, setCompleted] = useState(0);
   const [uploadedPaths, setUploadedPaths] = useState<string[]>([]);
@@ -76,6 +80,8 @@ export function AdminAnalysisFolderPanel({
   const multiInput = useRef<HTMLInputElement>(null);
 
   function selectFolder(kind: AnalysisFolderKind, list: FileList | null) {
+    setVerifiedDraftKey(null);
+    setScopeNotice(null);
     const metadata: FolderFileMetadata[] = Array.from(list ?? [], file => ({
       name: file.name, size: file.size, webkitRelativePath: file.webkitRelativePath,
     }));
@@ -99,10 +105,31 @@ export function AdminAnalysisFolderPanel({
     locator, chosenCampaign, folders.geospatial, folders.multispectral,
     geoFilesRef.current, multiMetadataRef.current,
   );
-  const draftReady = scientificDraft.structural_ready && campaignAllowed;
+  const draftReady = scientificDraft.structural_ready && campaignAllowed
+    && allowedCampaigns.some(c => c.id === chosenCampaign && c.analysis_type === "multispectral");
+  const draftKey = JSON.stringify(scientificDraft);
+  const campaignVerified = draftReady && verifiedDraftKey === draftKey;
+
+  async function verifyCampaign() {
+    if (scopeBusy || busy || !draftReady) return;
+    setScopeBusy(true);
+    setVerifiedDraftKey(null);
+    setScopeNotice(null);
+    try {
+      await verifyScientificCampaignScope(locator, chosenCampaign, scientificDraft);
+      setVerifiedDraftKey(draftKey);
+      setScopeNotice("Vinculación de Campaign y permisos MANAGE comprobados por el servidor. Los archivos aún no están validados ni subidos.");
+    } catch (error: unknown) {
+      const detail = (error as { response?: { data?: { detail?: string } }; message?: string });
+      setScopeNotice(typeof detail.response?.data?.detail === "string"
+        ? detail.response.data.detail : detail.message || "No se pudo verificar la Campaign en el servidor.");
+    } finally {
+      setScopeBusy(false);
+    }
+  }
 
   function exportScientificDraft() {
-    if (busyRef.current || !draftReady) return;
+    if (busyRef.current || scopeBusy || !draftReady) return;
     const payload = JSON.stringify(scientificDraft, null, 2) + "\n";
     const url = URL.createObjectURL(new Blob([payload], { type: "application/json" }));
     const element = document.createElement("a");
@@ -167,10 +194,12 @@ export function AdminAnalysisFolderPanel({
   }
 
   function clear() {
-    if (busyRef.current) return;
+    if (busyRef.current || scopeBusy) return;
     geoFilesRef.current = [];
     multiMetadataRef.current = [];
     setChosenCampaign("");
+    setVerifiedDraftKey(null);
+    setScopeNotice(null);
     setUploadedPaths([]);
     setCompleted(0);
     setUploadMessage(null);
@@ -195,7 +224,7 @@ export function AdminAnalysisFolderPanel({
             Carpeta 1 · Análisis geoespacial
           </label>
           <input ref={geoInput} id="dbi-folder-geospatial" type="file" multiple
-            {...directoryPicker} className="block w-full text-xs" disabled={busy}
+            {...directoryPicker} className="block w-full text-xs" disabled={busy || scopeBusy}
             onChange={event => selectFolder("geospatial", event.currentTarget.files)} />
           <FolderSummary inventory={folders.geospatial} />
         </div>
@@ -204,7 +233,7 @@ export function AdminAnalysisFolderPanel({
             Carpeta 2 · Análisis multiespectral
           </label>
           <input ref={multiInput} id="dbi-folder-multispectral" type="file" multiple
-            {...directoryPicker} className="block w-full text-xs" disabled={busy}
+            {...directoryPicker} className="block w-full text-xs" disabled={busy || scopeBusy}
             onChange={event => selectFolder("multispectral", event.currentTarget.files)} />
           <FolderSummary inventory={folders.multispectral} />
         </div>
@@ -229,11 +258,23 @@ export function AdminAnalysisFolderPanel({
           </details>
         )}
         <button type="button" className="btn-secondary w-full"
-          disabled={busy || !draftReady} onClick={exportScientificDraft}>
+          disabled={busy || scopeBusy || !draftReady} onClick={() => void verifyCampaign()}>
+          {scopeBusy ? "Comprobando campaña…" : "Comprobar campaña en servidor (sin subir archivos)"}
+        </button>
+        {scopeNotice && (
+          <p role="status" className="text-xs">{scopeNotice}</p>
+        )}
+        {campaignVerified && (
+          <p className="text-xs font-semibold">
+            Campaña multiespectral vinculada al lote; sin archivos recibidos ni autorización de publicación.
+          </p>
+        )}
+        <button type="button" className="btn-secondary w-full"
+          disabled={busy || scopeBusy || !draftReady} onClick={exportScientificDraft}>
           Exportar borrador JSON local (sin subir archivos)
         </button>
         <p className="muted text-xs">
-          Selecciona un levantamiento en el paso siguiente. El borrador identifica nombres, tamaños y Campaign,
+          Selecciona una Campaign multiespectral en el paso siguiente. El borrador identifica nombres, tamaños y Campaign,
           pero todos los SHA-256 están pendientes y los estados científico, recepción y publicación son falsos.
         </p>
       </section>
@@ -249,8 +290,8 @@ export function AdminAnalysisFolderPanel({
           Levantamiento técnico real que recibirá los archivos
         </label>
         <select className="w-full rounded-lg border p-2 text-sm dark:bg-slate-900"
-          id="dbi-folder-private-campaign" value={chosenCampaign} disabled={busy}
-          onChange={event => { setChosenCampaign(event.target.value); setUploadedPaths([]); setCompleted(0); setUploadMessage(null); }}>
+          id="dbi-folder-private-campaign" value={chosenCampaign} disabled={busy || scopeBusy}
+          onChange={event => { setChosenCampaign(event.target.value); setVerifiedDraftKey(null); setScopeNotice(null); setUploadedPaths([]); setCompleted(0); setUploadMessage(null); }}>
           <option value="">Seleccionar levantamiento antes de cargar</option>
           {allowedCampaigns.map(c => (
             <option key={c.id} value={c.id}>{c.name} · {c.captured_at.slice(0, 10)}</option>
@@ -294,7 +335,7 @@ export function AdminAnalysisFolderPanel({
           requieren un cargador posterior; la vista previa y aprobación siguen separadas.
         </p>
         <button type="button" className="btn-secondary" onClick={clear}
-          disabled={busy || (!folders.geospatial && !folders.multispectral)}>
+          disabled={busy || scopeBusy || (!folders.geospatial && !folders.multispectral)}>
           Limpiar selección
         </button>
       </div>
