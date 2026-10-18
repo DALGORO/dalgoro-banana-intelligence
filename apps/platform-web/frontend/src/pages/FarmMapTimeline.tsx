@@ -1117,7 +1117,12 @@ function FarmMapTimelineView() {
                   Los gestores pueden preparar archivos privados. La publicación final solo
                   corresponde al administrador institucional DALGORO acreditado.
                 </p>
-                <AdminAnalysisFolderPanel key={gisScopeKey} />
+                <AdminAnalysisFolderPanel
+                  key={gisScopeKey}
+                  locator={realLocator}
+                  campaigns={uploadCampaignChoices}
+                  onImportsRefreshed={items => setGISImportCache({ scopeKey: gisScopeKey, items })}
+                />
                 <section className="space-y-2 rounded-xl border border-slate-200 p-3 dark:border-slate-700"
                   aria-label="Aprobación institucional de levantamientos">
                   <h3 className="font-semibold text-sm">Aprobación para mostrar al cliente</h3>
