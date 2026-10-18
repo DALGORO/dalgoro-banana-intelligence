@@ -203,7 +203,7 @@ def run():
     denied(lambda: _store(request(store)), 503)
     denied(lambda: _store(request(None)), 503)
 
-    with patch.dict(os.environ, {"DBI_SCIENTIFIC_MANIFEST_ENABLED": "1"}), patch(
+    with patch.dict(os.environ, {"DBI_SCIENTIFIC_MANIFEST_ENABLED": "1", "DBI_ENVIRONMENT": "test"}), patch(
         "app.api.v1.dbi_scientific_manifest_private.DBICampaignReader", Reader
     ), patch("app.api.v1.dbi_scientific_manifest_private._store", fake_test_store):
         before = Reader.calls
@@ -296,8 +296,30 @@ def run():
         denied(lambda: get(store), 404)
         assert Reader.calls == before
 
+    with patch("app.api.v1.dbi_scientific_manifest_private.DBICampaignReader", Reader):
+        for environment in ("production", "staging", ""):
+            with patch.dict(os.environ, {
+                "DBI_SCIENTIFIC_MANIFEST_ENABLED": "1",
+                "DBI_ENVIRONMENT": environment,
+            }):
+                before = Reader.calls
+                denied(lambda: put(store), 404)
+                denied(lambda: get(store), 404)
+                assert Reader.calls == before, "Un entorno prohibido no consulta Campaign."
+
+    from app.api.v1 import get_api_router
+    for environment, present in (("production", False), ("staging", False), ("test", True)):
+        with patch.dict(os.environ, {
+            "DBI_SCIENTIFIC_MANIFEST_ENABLED": "1",
+            "DBI_ENVIRONMENT": environment,
+        }):
+            registered = any("/scientific-intake/private-manifest" in route.path
+                             for route in get_api_router().routes)
+            assert registered is present, (environment, registered)
+
     api_source = (ROOT / "apps/platform-web/backend/app/api/v1/__init__.py").read_text()
-    assert 'if os.environ.get("DBI_SCIENTIFIC_MANIFEST_ENABLED") == "1"' in api_source
+    assert 'os.environ.get("DBI_SCIENTIFIC_MANIFEST_ENABLED") == "1"' in api_source
+    assert 'os.environ.get("DBI_ENVIRONMENT", "").strip().lower()' in api_source
     endpoint = (ROOT / "apps/platform-web/backend/app/api/v1/dbi_scientific_manifest_private.py").read_text()
     assert "isinstance(provider, DBIS3ObjectStore)" in endpoint
     assert "session.commit(" not in endpoint
