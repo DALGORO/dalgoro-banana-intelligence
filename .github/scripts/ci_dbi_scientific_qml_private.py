@@ -129,7 +129,7 @@ def run_tests():
     # El adaptador en memoria NO debe poder ser destino productivo.
     deny(lambda: _store(RequestDouble(QML, store)), 503)
     deny(lambda: _store(RequestDouble(QML, None)), 503)
-    with patch.dict(os.environ, {"DBI_SCIENTIFIC_QML_INTAKE_ENABLED": "1"}), patch(
+    with patch.dict(os.environ, {"DBI_SCIENTIFIC_QML_INTAKE_ENABLED": "1", "DBI_ENVIRONMENT": "test"}), patch(
         "app.api.v1.dbi_scientific_qml_private.DBICampaignReader", Reader
     ), patch("app.api.v1.dbi_scientific_qml_private._store", fake_test_store):
         request = RequestDouble(QML, store)
@@ -212,8 +212,30 @@ def run_tests():
         deny(lambda: upload(off), 404)
         assert off.stream_calls == 0
 
+    # Ni flag habilitado ni llamada directa pueden abrir la recepción en despliegues.
+    with patch("app.api.v1.dbi_scientific_qml_private.DBICampaignReader", Reader):
+        for environment in ("production", "staging", ""):
+            with patch.dict(os.environ, {
+                "DBI_SCIENTIFIC_QML_INTAKE_ENABLED": "1",
+                "DBI_ENVIRONMENT": environment,
+            }):
+                blocked = RequestDouble(QML, store)
+                deny(lambda: upload(blocked), 404)
+                assert blocked.stream_calls == 0
+
+    from app.api.v1 import get_api_router
+    path_fragment = "/scientific-intake/private-qml/"
+    for environment, present in (("production", False), ("staging", False), ("test", True)):
+        with patch.dict(os.environ, {
+            "DBI_SCIENTIFIC_QML_INTAKE_ENABLED": "1",
+            "DBI_ENVIRONMENT": environment,
+        }):
+            registered = any(path_fragment in route.path for route in get_api_router().routes)
+            assert registered is present, (environment, registered)
+
     router_source = (ROOT / "apps/platform-web/backend/app/api/v1/__init__.py").read_text()
-    assert 'if os.environ.get("DBI_SCIENTIFIC_QML_INTAKE_ENABLED") == "1"' in router_source
+    assert 'os.environ.get("DBI_SCIENTIFIC_QML_INTAKE_ENABLED") == "1"' in router_source
+    assert 'os.environ.get("DBI_ENVIRONMENT", "").strip().lower()' in router_source
     assert "dbi_scientific_qml_private_router" in router_source
     endpoint_source = (ROOT / "apps/platform-web/backend/app/api/v1/dbi_scientific_qml_private.py").read_text()
     assert "DBIPermission.MANAGE" in endpoint_source
