@@ -76,6 +76,9 @@ jobs:
       - name: Validar búsqueda exacta de fincas y lotes autorizados
         run: node --test tests/clientPortalSearch.test.mjs
 
+      - name: Validar recorrido de entrada al mapa del cliente
+        run: node --test tests/clientMapEntry.test.mjs
+
       - name: Compilar frontend
         run: npm run build
 
