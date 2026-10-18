@@ -65,7 +65,7 @@ jobs:
             "$BASE/$RELEASE.sha256sum" --output "$RUNNER_TEMP/minio.sha256sum"
           expected="$(awk '{print $1}' "$RUNNER_TEMP/minio.sha256sum")"
           [[ "$expected" =~ ^[a-fA-F0-9]{64}$ ]]
-          printf '%s  %s\\n' "$expected" "$RUNNER_TEMP/minio" | sha256sum --check --status
+          echo "$expected  $RUNNER_TEMP/minio" | sha256sum --check --status
           chmod 700 "$RUNNER_TEMP/minio"
 
       - name: Levantar MinIO local descartable sin Docker
