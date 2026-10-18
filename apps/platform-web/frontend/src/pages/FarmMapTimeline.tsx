@@ -1300,6 +1300,25 @@ function FarmMapTimelineView() {
         </aside>
 
         <section id="dbi-map-view" className="card dbi-map-stage p-0 overflow-hidden" aria-label="Mapa de la campaña seleccionada">
+          {visibleVectorMeta.length > 0 && (
+            <div className="dbi-map-quick-tools" role="group" aria-label="Acciones rápidas para capas GIS del mapa">
+              <span className="dbi-map-quick-label">
+                Capas GIS publicadas · {visibleVectorMeta.filter(layer => selectedVectorIds.has(layer.id)).length}
+                {" de "}{visibleVectorMeta.length} seleccionadas
+              </span>
+              <div className="dbi-map-quick-buttons">
+                <button type="button" onClick={() => setVisibleGISLayers(true)}
+                  disabled={visibleVectorMeta.every(layer => selectedVectorIds.has(layer.id))}>
+                  Mostrar todas
+                </button>
+                <button type="button" onClick={() => setVisibleGISLayers(false)}
+                  disabled={visibleVectorMeta.every(layer => !selectedVectorIds.has(layer.id))}>
+                  Ocultar capas
+                </button>
+              </div>
+              <span className="dbi-map-quick-note">La fotografía RGB se controla por separado.</span>
+            </div>
+          )}
           <div className="relative min-h-[560px]">
             <div className="dbi-map-stage-label" aria-label="Fecha del mapa">
               <MapPinned size={16} aria-hidden="true" />
