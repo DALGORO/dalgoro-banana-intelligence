@@ -40,6 +40,8 @@ jobs:
           python -m py_compile services/banana-density/src/banana_analyzer/multispectral_indices.py
           python -m py_compile services/banana-density/src/banana_analyzer/multispectral_map_preflight.py
           python -m py_compile services/banana-density/multi_map_preflight.py
+          python -m py_compile services/banana-density/src/banana_analyzer/scientific_reception_draft_preflight.py
+          python -m py_compile services/banana-density/scientific_draft_preflight.py
           python -m py_compile services/banana-density/src/banana_analyzer/multispectral_stack.py
           python -m py_compile services/banana-density/src/banana_analyzer/multispectral_extraction.py
           python -m py_compile services/banana-density/src/banana_analyzer/multispectral_dataset.py
@@ -47,6 +49,7 @@ jobs:
           python -m py_compile apps/platform-web/backend/app/dbi/multispectral/sigatoka_readiness.py
           python -m py_compile .github/scripts/ci_dbi_multi_indices.py
           python -m py_compile .github/scripts/ci_dbi_multi_map_preflight.py
+          python -m py_compile .github/scripts/ci_dbi_scientific_draft_preflight.py
           python -m py_compile .github/scripts/ci_dbi_multi_stack.py
           python -m py_compile .github/scripts/ci_dbi_multi_extraction.py
           python -m py_compile .github/scripts/ci_dbi_multi_dataset.py
@@ -58,6 +61,9 @@ jobs:
 
       - name: Validar seis COG/QML georreferenciados antes de revisión institucional
         run: python .github/scripts/ci_dbi_multi_map_preflight.py
+
+      - name: Verificar borrador de dos carpetas con 13 fuentes originales reales sintéticas
+        run: python .github/scripts/ci_dbi_scientific_draft_preflight.py
 
       - name: Validar bandas fuente, calibración y co-registro
         run: python .github/scripts/ci_dbi_multi_stack.py
