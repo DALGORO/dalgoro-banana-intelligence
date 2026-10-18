@@ -155,7 +155,8 @@ def run_synthetic_route():
             lambda: bind(store, dummy, slot, ctx=context(tenant="other"), session=db),
             404, db,
         )
-        assert LockedRepo.calls == before
+        # Tenant ajeno requiere una consulta SQL filtrada; la fila no coincide.
+        assert LockedRepo.calls == before + 1
         # Sin manifiesto, no se admite el enlace transaccional.
         db = SQLSessionDouble()
         deny_bind(lambda: bind(store, dummy, slot, session=db), 404, db)
