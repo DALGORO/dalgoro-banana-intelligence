@@ -187,6 +187,25 @@ def run():
         result, _, _ = call(store, manifest, slot, role, index, "abort")
         assert not result.changed
         denied(lambda: call(store, manifest, slot, role, index), 409)
+        # Failure injection: S3 begins a NEW upload, SQL commit fails, so API
+        # MUST abort the new remote reference without granting parts.
+        from app.dbi.scientific_raster_asset_repository import scientific_asset_id
+        role, index, slot = assets[-1]
+        intent = next(
+            item for item in BindingRepo.rows.values()
+            if item.role == role and item.index_ref == index
+        )
+        aid = scientific_asset_id(intent)
+        old_remote = Ledger.rows.pop(aid).provider_upload_ref
+        provider.remote.pop(old_remote)  # simulate fresh DB/S3 fixture only
+        count_before = len(provider.remote)
+        broken = FailingCommit()
+        denied(lambda: call(store, manifest, slot, role, index, db=broken), 503)
+        assert broken.rollbacks == 1
+        assert len(provider.remote) == count_before
+        assert provider.aborts == 2
+        assert provider.starts == 8
+        assert not any(ref.startswith("local-multipart-ref-0008") for ref in provider.remote)
         from app.api.v1 import get_api_router
         fragment = "/scientific-intake/private-raster-local-provider/"
         for env, allowed in (("production",False),("staging",False),("",False),
