@@ -8,7 +8,7 @@ from __future__ import annotations
 
 import ci_dbi_migration_integration_base as base
 
-base.EXPECTED_HEAD = "dbi_0032_raster_session_prep"
+base.EXPECTED_HEAD = "dbi_0033_raster_provider_start"
 
 
 if __name__ == "__main__":

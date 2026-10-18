@@ -366,6 +366,11 @@ jobs:
           PYTHONPATH: .
         run: python ../../../.github/scripts/ci_dbi_scientific_raster_session_preparations.py
 
+      - name: Validar inicio S3 loopback sin grants y compensación transaccional
+        env:
+          PYTHONPATH: .
+        run: python ../../../.github/scripts/ci_dbi_scientific_raster_local_provider.py
+
       - name: Validar preparación GIS privada por worker aislado
         env:
           PYTHONPATH: .
