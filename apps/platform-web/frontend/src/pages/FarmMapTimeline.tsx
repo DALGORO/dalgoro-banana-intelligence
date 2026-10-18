@@ -10,6 +10,7 @@ import {
 } from "maplibre-gl";
 import "maplibre-gl/dist/maplibre-gl.css";
 import { Layers3, MapPinned } from "lucide-react";
+import { AdminAnalysisFolderPanel } from "@/components/AdminAnalysisFolderPanel";
 import { GoogleSatelliteViewer } from "@/components/GoogleSatelliteViewer";
 import { MultispectralEvidencePanel } from "@/components/MultispectralEvidencePanel";
 import { FarmTrackingPanel } from "@/components/FarmTrackingPanel";
@@ -1116,6 +1117,7 @@ function FarmMapTimelineView() {
                   Los gestores pueden preparar archivos privados. La publicación final solo
                   corresponde al administrador institucional DALGORO acreditado.
                 </p>
+                <AdminAnalysisFolderPanel key={gisScopeKey} />
                 <section className="space-y-2 rounded-xl border border-slate-200 p-3 dark:border-slate-700"
                   aria-label="Aprobación institucional de levantamientos">
                   <h3 className="font-semibold text-sm">Aprobación para mostrar al cliente</h3>

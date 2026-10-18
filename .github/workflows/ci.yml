@@ -70,6 +70,9 @@ jobs:
       - name: Validar contrato visual DBI sin resultados ficticios
         run: node --test tests/dbiClientVisualLayout.test.mjs
 
+      - name: Validar inventario local de dos carpetas (sin publicar)
+        run: node --test tests/analysisFolderInventory.test.mjs
+
       - name: Validar búsqueda exacta de fincas y lotes autorizados
         run: node --test tests/clientPortalSearch.test.mjs
 
