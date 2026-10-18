@@ -19,7 +19,7 @@ ROOT = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(ROOT / "apps/platform-web/backend"))
 
 from app.api.v1.dbi_scientific_qml_private import (  # noqa: E402
-    MAX_QML_BYTES, _address, get_private_qml_receipt, receive_private_qml,
+    MAX_QML_BYTES, _address, _store, get_private_qml_receipt, receive_private_qml,
 )
 from app.dbi.authorization import (  # noqa: E402
     DBIAccessContext, DBIFarmScope, DBIPlotScope, DBIPermission,
@@ -117,11 +117,21 @@ def deny(call, code):
         raise AssertionError(f"Operación insegura admitida (HTTP {code}).")
 
 
+def fake_test_store(request):
+    provider = request.app.state.dbi_object_store
+    if provider is None:
+        raise HTTPException(503, detail="CI: no hay almacenamiento.")
+    return provider
+
+
 def run_tests():
     store = DBIInMemoryObjectStore()
+    # El adaptador en memoria NO debe poder ser destino productivo.
+    deny(lambda: _store(RequestDouble(QML, store)), 503)
+    deny(lambda: _store(RequestDouble(QML, None)), 503)
     with patch.dict(os.environ, {"DBI_SCIENTIFIC_QML_INTAKE_ENABLED": "1"}), patch(
         "app.api.v1.dbi_scientific_qml_private.DBICampaignReader", Reader
-    ):
+    ), patch("app.api.v1.dbi_scientific_qml_private._store", fake_test_store):
         request = RequestDouble(QML, store)
         response = upload(request)
         assert response.schema_version == "dbi-h14-private-qml-receipt.v1"
@@ -209,6 +219,7 @@ def run_tests():
     assert "DBIPermission.MANAGE" in endpoint_source
     assert "session.commit(" not in endpoint_source
     assert "issue_temporary_access" not in endpoint_source
+    assert "isinstance(provider, DBIS3ObjectStore)" in endpoint_source
     assert "published=True" not in endpoint_source
     print("H14/2E OK: seis QML privados, MANAGE, bytes intactos, SHA servidor, idempotencia, fail-closed.")
 
