@@ -2,6 +2,7 @@ import { useRef, useState } from "react";
 import type { PlotMapTimelineLocator } from "@/features/mapTimeline";
 import { listGISImports, stageGISOriginal, type GISImportReceipt, type VectorCampaign } from "@/features/portalVectors";
 import { planPrivateGISUpload } from "@/features/privateGISUploadPlan";
+import { prepareScientificReceptionDraft } from "@/features/scientificReceptionDraft";
 import {
   inventoryFolder,
   type AnalysisFolderKind,
@@ -61,6 +62,7 @@ export function AdminAnalysisFolderPanel({
   onImportsRefreshed: (receipts: GISImportReceipt[]) => void;
 }) {
   const geoFilesRef = useRef<File[]>([]);
+  const multiMetadataRef = useRef<FolderFileMetadata[]>([]);
   const busyRef = useRef(false);
   const [chosenCampaign, setChosenCampaign] = useState("");
   const [busy, setBusy] = useState(false);
@@ -77,6 +79,9 @@ export function AdminAnalysisFolderPanel({
     const metadata: FolderFileMetadata[] = Array.from(list ?? [], file => ({
       name: file.name, size: file.size, webkitRelativePath: file.webkitRelativePath,
     }));
+    if (kind === "multispectral") {
+      multiMetadataRef.current = metadata;
+    }
     if (kind === "geospatial") {
       geoFilesRef.current = Array.from(list ?? []);
       setUploadedPaths([]);
@@ -90,6 +95,24 @@ export function AdminAnalysisFolderPanel({
   const allowedCampaigns = campaigns.filter(c => c.status !== "APPROVED" && c.status !== "PUBLISHED");
   const campaignAllowed = allowedCampaigns.some(c => c.id === chosenCampaign);
   const remaining = uploadPlan.candidates.filter(c => !uploadedPaths.includes(c.path));
+  const scientificDraft = prepareScientificReceptionDraft(
+    locator, chosenCampaign, folders.geospatial, folders.multispectral,
+    geoFilesRef.current, multiMetadataRef.current,
+  );
+  const draftReady = scientificDraft.structural_ready && campaignAllowed;
+
+  function exportScientificDraft() {
+    if (busyRef.current || !draftReady) return;
+    const payload = JSON.stringify(scientificDraft, null, 2) + "\n";
+    const url = URL.createObjectURL(new Blob([payload], { type: "application/json" }));
+    const element = document.createElement("a");
+    element.href = url;
+    element.download = "dbi-borrador-recepcion-cientifica.json";
+    document.body.appendChild(element);
+    element.click();
+    element.remove();
+    window.setTimeout(() => URL.revokeObjectURL(url), 3000);
+  }
 
   async function uploadPrivateGIS() {
     if (busyRef.current || !uploadPlan.ready || !campaignAllowed || remaining.length === 0) return;
@@ -146,6 +169,7 @@ export function AdminAnalysisFolderPanel({
   function clear() {
     if (busyRef.current) return;
     geoFilesRef.current = [];
+    multiMetadataRef.current = [];
     setChosenCampaign("");
     setUploadedPaths([]);
     setCompleted(0);
@@ -185,9 +209,37 @@ export function AdminAnalysisFolderPanel({
           <FolderSummary inventory={folders.multispectral} />
         </div>
       </div>
+      <section className="space-y-2 rounded-lg border border-slate-300/60 p-3 dark:border-slate-600"
+        aria-label="Preparación local de mapas científicos de dos carpetas">
+        <h4 className="text-sm font-semibold">Paso 2 · Preparar RGB y seis mapas científicos</h4>
+        <p className="muted text-xs">
+          Reconoce por nombre 1 RGB, 6 rásteres COG candidatos y 6 estilos QML candidatos.
+          El resumen es local y no verifica integridad, píxeles, CRS ni fórmulas; no se envía ni publica.
+        </p>
+        <p className="text-xs" role="status">
+          {scientificDraft.files.length} de 13 archivos candidatos emparejados.
+          {draftReady ? " Borrador estructural completo." : " Preparación incompleta."}
+        </p>
+        {folders.geospatial && folders.multispectral && scientificDraft.blockers.length > 0 && (
+          <details className="rounded-lg border border-amber-300/60 p-2 text-xs" open>
+            <summary className="cursor-pointer font-semibold">Archivos o condiciones pendientes</summary>
+            <ul className="mt-2 list-disc pl-5">
+              {scientificDraft.blockers.slice(0, 20).map((blocker, i) => <li key={i}>{blocker}</li>)}
+            </ul>
+          </details>
+        )}
+        <button type="button" className="btn-secondary w-full"
+          disabled={busy || !draftReady} onClick={exportScientificDraft}>
+          Exportar borrador JSON local (sin subir archivos)
+        </button>
+        <p className="muted text-xs">
+          Selecciona un levantamiento en el paso siguiente. El borrador identifica nombres, tamaños y Campaign,
+          pero todos los SHA-256 están pendientes y los estados científico, recepción y publicación son falsos.
+        </p>
+      </section>
       <section className="space-y-3 rounded-lg border border-slate-300/60 p-3 dark:border-slate-600"
         aria-label="Guardar originales GIS de la carpeta 1 en almacenamiento privado">
-        <h4 className="text-sm font-semibold">Paso 2 · Guardar originales GIS privados</h4>
+        <h4 className="text-sm font-semibold">Paso 3 · Guardar originales GIS privados</h4>
         <p className="muted text-xs">
           Solo se pueden recibir archivos GeoPackage o ZIP GIS de hasta 30 MiB,
           detectados en la carpeta 1. Las ortofotos, índices COG, QML y PDF
