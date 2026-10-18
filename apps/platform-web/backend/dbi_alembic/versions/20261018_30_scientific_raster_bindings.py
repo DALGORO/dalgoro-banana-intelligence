@@ -1,6 +1,6 @@
 """H14: reservación transaccional scoped de TIFF científico, NO uploader.
 
-Revision ID: dbi_0030_scientific_raster_binding
+Revision ID: dbi_0030_raster_binding
 Revises: dbi_0029_staff_approval_guard
 
 Esta revisión solo define el esquema. NO ejecutar sobre Render/producción.
@@ -11,7 +11,7 @@ from collections.abc import Sequence
 from alembic import op
 import sqlalchemy as sa
 
-revision: str = "dbi_0030_scientific_raster_binding"
+revision: str = "dbi_0030_raster_binding"
 down_revision: str | None = "dbi_0029_staff_approval_guard"
 branch_labels: str | Sequence[str] | None = None
 depends_on: str | Sequence[str] | None = None
