@@ -65,7 +65,11 @@ def _hidden() -> HTTPException:
 
 def _enabled() -> None:
     # Defensa adicional: incluso importando el router directamente sigue apagado.
-    if os.environ.get("DBI_SCIENTIFIC_QML_INTAKE_ENABLED") != "1":
+    if (
+        os.environ.get("DBI_SCIENTIFIC_QML_INTAKE_ENABLED") != "1"
+        or os.environ.get("DBI_ENVIRONMENT", "").strip().lower()
+        not in {"test", "development", "local"}
+    ):
         raise _hidden()
 
 
