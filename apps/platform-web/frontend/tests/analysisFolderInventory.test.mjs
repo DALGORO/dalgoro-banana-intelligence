@@ -104,5 +104,5 @@ test("two directory inputs are private and no upload or publication actions were
   assert.match(view, /selectFolder\("multispectral"/);
   assert.doesNotMatch(view, /api\.(get|post|put)|fetch\(|arrayBuffer\(|FileReader|publishGeoJSON/);
   assert.match(page, /\{canPublish && realLocator && \(\s*<details/);
-  assert.match(page, /<AdminAnalysisFolderPanel key=\{gisScopeKey\} \/>/);
+  assert.match(page, /<AdminAnalysisFolderPanel[\s\S]*?key=\{gisScopeKey\}/);
 });

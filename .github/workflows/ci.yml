@@ -73,6 +73,9 @@ jobs:
       - name: Validar inventario local de dos carpetas (sin publicar)
         run: node --test tests/analysisFolderInventory.test.mjs
 
+      - name: Validar plan y carga GIS privada desde carpeta 1
+        run: node --test tests/privateGISUploadPlan.test.mjs
+
       - name: Validar búsqueda exacta de fincas y lotes autorizados
         run: node --test tests/clientPortalSearch.test.mjs
 
