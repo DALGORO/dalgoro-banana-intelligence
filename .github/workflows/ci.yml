@@ -426,6 +426,11 @@ jobs:
           PYTHONPATH: .
         run: python ../../../.github/scripts/ci_dbi_scientific_raster_cleanup_dry_run.py
 
+      - name: Validar evidencia de limpieza inmutable en S3 sin autorización operativa
+        env:
+          PYTHONPATH: .
+        run: python ../../../.github/scripts/ci_dbi_scientific_raster_cleanup_evidence.py
+
       - name: Validar preparación GIS privada por worker aislado
         env:
           PYTHONPATH: .
