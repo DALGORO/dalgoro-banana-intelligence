@@ -31,7 +31,7 @@ La política rechaza contadores negativos/booleanos, esperados extraños, estado
 
 ## Huella del diagnóstico
 
-Se calcula `evidence_sha256` a partir de una serialización JSON canónica con separación de dominio, Campaign/Asset/preparación/rol/índice, estado institucional y estado/contadores de S3↔SQL. Permite comparar **dos lecturas de diagnóstico**: una diferencia de inventario produce una huella distinta.
+Se calcula `evidence_sha256` a partir de una serialización JSON canónica con separación de dominio, tenant, organización, finca, lote, Campaign, actor autenticado, SHA-256 del manifiesto y de la reserva, Asset/preparación/rol/índice, estado institucional y estado/contadores de S3↔SQL. El contrato rechaza scope o hashes no canónicos y discrepancia de Campaign. Permite comparar **dos lecturas de diagnóstico**: una diferencia de inventario produce una huella distinta.
 
 **Limitaciones:** la huella no es HMAC, firma, recibo inmutable, timestamp certificado, autorización de limpieza ni evento persistido en SQL/S3. El endpoint devuelve `evidence_signed=false` y `evidence_persisted=false`, y no revela UploadId, clave S3, bucket o credenciales. El listado remoto puede cambiar entre auditoría y cualquier operación futura: una huella anterior **no** puede aprobar un aborto posterior.
 
@@ -41,7 +41,7 @@ La respuesta fija **`cleanup_authorized=false`**, `cleanup_executed=false`, `rea
 
 ## Pruebas
 
-`.github/scripts/ci_dbi_scientific_raster_cleanup_dry_run.py` prueba los ocho estados bajo Campaign APPROVED y PUBLISHED, unicidad/estabilidad de huella, rechazo de evidencia inconsistente, los dos flags de activación, cierre de rutas en producción/staging y ausencia de operaciones S3/SQL mutantes. La auditoría de permisos e integridad S3/SQL sigue cubierta por `.github/scripts/ci_dbi_scientific_raster_postapproval_audit.py`; MinIO real por `.github/scripts/ci_dbi_scientific_minio_real.py`.
+`.github/scripts/ci_dbi_scientific_raster_cleanup_dry_run.py` prueba los ocho estados bajo Campaign APPROVED y PUBLISHED, unicidad/estabilidad de huella y diferenciación por tenant/manifiesto, rechazo de evidencia inconsistente, los dos flags de activación, cierre de rutas en producción/staging y ausencia de operaciones S3/SQL mutantes. La auditoría de permisos e integridad S3/SQL sigue cubierta por `.github/scripts/ci_dbi_scientific_raster_postapproval_audit.py`; MinIO real por `.github/scripts/ci_dbi_scientific_minio_real.py`.
 
 ## Próximo paso
 
