@@ -78,6 +78,7 @@ def rows_for(intent, ticket, provider_ref=None):
     b = SimpleNamespace(**{
         **asdict(intent), "id": intent.binding_id,
         "analysis_type": "multispectral", "status": "asset_registered_pending_bytes",
+        "created_at": DATE,
         "asset_id": aid,
     })
     a = SimpleNamespace(
