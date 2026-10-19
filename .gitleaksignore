@@ -1,0 +1,4 @@
+# Único falso positivo histórico en una rama exploratoria H14 ya cerrada.
+# Era el valor sintético de JWT_SECRET en el test del PR #278.
+# No excluye commits, rutas o reglas completos; resto del escaneo continúa activo.
+6a2973f590ecd3ef3fdda83cef54861489241a97:.github/scripts/ci_dbi_scientific_raster_reviewed_live_audit.py:generic-api-key:14

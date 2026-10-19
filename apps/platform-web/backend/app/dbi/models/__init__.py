@@ -48,6 +48,10 @@ from app.dbi.models.raster_products import DBIRasterProduct
 from app.dbi.models.portal_vectors import DBIPortalVectorLayer
 from app.dbi.models.portal_gis_imports import DBIPortalGISImport, DBIPortalGISPreview
 from app.dbi.models.sampling import DBISamplingPlanRecord, DBISamplingPointRecord
+from app.dbi.models.scientific_raster_bindings import DBIScientificRasterBinding
+from app.dbi.models.scientific_raster_assets import DBIScientificRasterInputAsset
+from app.dbi.models.scientific_raster_session_preparations import DBIScientificRasterSessionPreparation
+from app.dbi.models.scientific_raster_provider_starts import DBIScientificRasterProviderStart
 
 __all__ = [
     "AnalysisArtifact",
@@ -90,6 +94,10 @@ __all__ = [
     "DBIPortalGISPreview",
     "DBISamplingPlanRecord",
     "DBISamplingPointRecord",
+    "DBIScientificRasterBinding",
+    "DBIScientificRasterInputAsset",
+    "DBIScientificRasterSessionPreparation",
+    "DBIScientificRasterProviderStart",
     "Farm",
     "FlightSourceBundle",
     "FlightSourceEntry",

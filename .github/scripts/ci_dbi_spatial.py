@@ -52,7 +52,7 @@ from app.dbi.spatial import (  # noqa: E402
 )
 from app.dbi.write_schemas import PlotCreate, PlotUpdate  # noqa: E402
 
-HEAD = "dbi_0029_staff_approval_guard"
+HEAD = "dbi_0033_raster_provider_start"
 SPATIAL_REVISION = "dbi_0006_plot_boundaries"
 VALID_BOUNDARY = {
     "type": "MultiPolygon",
