@@ -1,0 +1,133 @@
+/*
+ * DALGORO Banana Intelligence | UX Productor Fase 3.
+ * Guía de fuentes cartográficas solo de lectura, aislada del mapa y sus controles.
+ */
+.dbi-map-layer-guide {
+  padding: 0;
+  background: #f6f9f7;
+  border-bottom: 1px solid #d5e2dd;
+  color: #17383b;
+}
+.dbi-map-layer-guide > summary {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 8px 16px;
+  min-height: 44px;
+  padding: 12px 16px;
+  cursor: pointer;
+  font-size: 13px;
+}
+.dbi-map-layer-guide > summary::marker {
+  color: #b57b50;
+}
+.dbi-map-layer-guide > summary:focus-visible,
+.dbi-map-layer-guide-item a:focus-visible {
+  outline: 3px solid #b57b50;
+  outline-offset: -3px;
+}
+.dbi-map-layer-guide > summary:hover {
+  background: #eaf3ee;
+}
+.dbi-map-layer-guide-brief {
+  font-size: 12px;
+  line-height: 1.5;
+  font-weight: 600;
+  color: #4b655d;
+}
+.dbi-map-layer-guide-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 175px), 1fr));
+  gap: 9px;
+  padding: 8px 14px 12px;
+}
+.dbi-map-layer-guide-item {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 7px;
+  min-width: 0;
+  padding: 13px;
+  border: 1px solid #d3e2d8;
+  border-radius: 12px;
+  background: #fff;
+}
+.dbi-map-layer-guide-tag {
+  font-size: 10px;
+  font-weight: 750;
+  color: #94633e;
+  letter-spacing: .035em;
+}
+.dbi-map-layer-guide-item strong {
+  font-size: 13px;
+  line-height: 1.35;
+}
+.dbi-map-layer-guide-item p {
+  margin: 0;
+  font-size: 12px;
+  line-height: 1.55;
+  color: #4b655d;
+  overflow-wrap: anywhere;
+}
+.dbi-map-layer-guide-item a {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 44px;
+  padding: 7px 11px;
+  margin-top: auto;
+  border-radius: 9px;
+  border: 1px solid #b9cfc3;
+  background: #f5faf6;
+  color: #1b5049;
+  text-decoration: none;
+  font-size: 12px;
+  font-weight: 700;
+}
+.dbi-map-layer-guide-item a:hover {
+  background: #e4f0e8;
+}
+.dbi-map-layer-guide-empty,
+.dbi-map-layer-guide-footnote {
+  margin: 0;
+  padding: 4px 16px 12px;
+  font-size: 12px;
+  line-height: 1.5;
+  color: #557068;
+}
+.dark .dbi-map-layer-guide {
+  background: #21393f;
+  border-bottom-color: rgba(255,255,255,.16);
+  color: #f0f6f1;
+}
+.dark .dbi-map-layer-guide > summary:hover {
+  background: #2b4849;
+}
+.dark .dbi-map-layer-guide-brief,
+.dark .dbi-map-layer-guide-empty,
+.dark .dbi-map-layer-guide-footnote,
+.dark .dbi-map-layer-guide-item p {
+  color: #c1d6cc;
+}
+.dark .dbi-map-layer-guide-item {
+  background: #294448;
+  border-color: #50716b;
+}
+.dark .dbi-map-layer-guide-tag {
+  color: #e0b08a;
+}
+.dark .dbi-map-layer-guide-item a {
+  background: #274f4a;
+  border-color: #7ca79b;
+  color: #edf8f2;
+}
+@media (max-width: 480px) {
+  .dbi-map-layer-guide-grid {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .dbi-map-layer-guide > summary {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+}
