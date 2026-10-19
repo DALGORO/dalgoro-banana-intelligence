@@ -217,7 +217,7 @@ def validate_migration_graph() -> None:
     scripts = ScriptDirectory.from_config(config)
     assert scripts.get_bases() == ["dbi_0001_baseline"]
     heads = scripts.get_heads()
-    assert heads == ["dbi_0029_staff_approval_guard"]
+    assert heads == ["dbi_0033_raster_provider_start"]
     lineage = {
         revision.revision
         for revision in scripts.iterate_revisions(heads[0], "base")

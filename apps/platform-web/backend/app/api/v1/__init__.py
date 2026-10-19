@@ -23,6 +23,30 @@ from .dbi_assets import router as dbi_assets_router
 from .dbi_campaign_artifacts import router as dbi_campaign_artifacts_router
 from .dbi_campaigns import router as dbi_campaigns_router
 from .dbi_scientific_intake import router as dbi_scientific_intake_router
+from .dbi_scientific_manifest_private import (
+    router as dbi_scientific_manifest_private_router,
+)
+from .dbi_scientific_raster_preflight import (
+    router as dbi_scientific_raster_preflight_router,
+)
+from .dbi_scientific_raster_reservations import (
+    router as dbi_scientific_raster_reservations_router,
+)
+from .dbi_scientific_raster_sql_bindings import (
+    router as dbi_scientific_raster_sql_bindings_router,
+)
+from .dbi_scientific_raster_assets import (
+    router as dbi_scientific_raster_assets_router,
+)
+from .dbi_scientific_raster_session_preparations import (
+    router as dbi_scientific_raster_session_preparations_router,
+)
+from .dbi_scientific_raster_local_provider import (
+    router as dbi_scientific_raster_local_provider_router,
+)
+from .dbi_scientific_raster_reconciliation import (
+    router as dbi_scientific_raster_reconciliation_router,
+)
 from .dbi_density_local import router as dbi_density_local_router
 from .dbi_density_legacy_campaign import router as dbi_density_legacy_campaign_router
 from .dbi_density_candidate_review_local import router as dbi_density_candidate_review_local_router
@@ -67,6 +91,53 @@ def get_api_router() -> APIRouter:
     api.include_router(dbi_asset_multipart_router)
     api.include_router(dbi_campaigns_router)
     api.include_router(dbi_scientific_intake_router)
+    # Contrato privado experimental: no se registra sin opt-in explícito.
+    if (os.environ.get("DBI_SCIENTIFIC_MANIFEST_ENABLED") == "1"
+            and os.environ.get("DBI_ENVIRONMENT", "").strip().lower()
+            in {"test", "development", "local"}):
+        api.include_router(dbi_scientific_manifest_private_router)
+    if (
+        os.environ.get("DBI_SCIENTIFIC_RASTER_PREFLIGHT_ENABLED") == "1"
+        and os.environ.get("DBI_ENVIRONMENT", "").strip().lower()
+        in {"test", "development", "local"}
+    ):
+        api.include_router(dbi_scientific_raster_preflight_router)
+    if (
+        os.environ.get("DBI_SCIENTIFIC_RASTER_RESERVATION_ENABLED") == "1"
+        and os.environ.get("DBI_ENVIRONMENT", "").strip().lower()
+        in {"test", "development", "local"}
+    ):
+        api.include_router(dbi_scientific_raster_reservations_router)
+    if (
+        os.environ.get("DBI_SCIENTIFIC_RASTER_SQL_BINDING_ENABLED") == "1"
+        and os.environ.get("DBI_ENVIRONMENT", "").strip().lower()
+        in {"test", "development", "local"}
+    ):
+        api.include_router(dbi_scientific_raster_sql_bindings_router)
+    if (
+        os.environ.get("DBI_SCIENTIFIC_RASTER_ASSET_REGISTRATION_ENABLED") == "1"
+        and os.environ.get("DBI_ENVIRONMENT", "").strip().lower()
+        in {"test", "development", "local"}
+    ):
+        api.include_router(dbi_scientific_raster_assets_router)
+    if (
+        os.environ.get("DBI_SCIENTIFIC_RASTER_SESSION_PREP_ENABLED") == "1"
+        and os.environ.get("DBI_ENVIRONMENT", "").strip().lower()
+        in {"test", "development", "local"}
+    ):
+        api.include_router(dbi_scientific_raster_session_preparations_router)
+    if (
+        os.environ.get("DBI_SCIENTIFIC_RASTER_PROVIDER_START_ENABLED") == "1"
+        and os.environ.get("DBI_ENVIRONMENT", "").strip().lower()
+        in {"test", "development", "local"}
+    ):
+        api.include_router(dbi_scientific_raster_local_provider_router)
+    if (
+        os.environ.get("DBI_SCIENTIFIC_RASTER_RECONCILIATION_ENABLED") == "1"
+        and os.environ.get("DBI_ENVIRONMENT", "").strip().lower()
+        in {"test", "development", "local"}
+    ):
+        api.include_router(dbi_scientific_raster_reconciliation_router)
     api.include_router(dbi_campaign_artifacts_router)
     api.include_router(dbi_density_local_router)
     api.include_router(dbi_density_legacy_campaign_router)

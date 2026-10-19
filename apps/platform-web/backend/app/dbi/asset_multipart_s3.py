@@ -76,6 +76,15 @@ class DBIS3ResolvedMultipartPartAccess:
 
 
 @dataclass(frozen=True, slots=True)
+class DBIS3IncompleteUploadInventory:
+    """Evidence counts only; never exposes provider UploadId or object key."""
+
+    incomplete_count: int
+    expected_present: bool
+    unexpected_count: int
+
+
+@dataclass(frozen=True, slots=True)
 class _StoredPartAccess:
     access: DBIS3ResolvedMultipartPartAccess
 
@@ -461,6 +470,29 @@ class DBIS3MultipartAdapter:
                 )
         raise DBIMultipartProviderConflict(
             "la limpieza superó el lote máximo de cargas remotas."
+        )
+
+    def inspect_incomplete_uploads(
+        self,
+        request: DBIMultipartProviderInitiateRequest,
+        *,
+        expected_upload_ref: str | None,
+    ) -> DBIS3IncompleteUploadInventory:
+        """Read-only listing, exact S3 object key; never initiates, aborts or grants."""
+        contract = DBIMultipartProviderPolicy.validate_initiate_request(request)
+        if expected_upload_ref is not None:
+            expected_upload_ref = DBIMultipartProviderPolicy.provider_ref(expected_upload_ref)
+        references = self._list_exact_upload_refs(contract.metadata.address.object_key)
+        # A duplicate remote ref signals an inconsistent S3 provider response.
+        if len(set(references)) != len(references):
+            raise DBIMultipartProviderIntegrityError(
+                "El proveedor devolvió identificadores multipart duplicados."
+            )
+        present = expected_upload_ref in references if expected_upload_ref is not None else False
+        return DBIS3IncompleteUploadInventory(
+            incomplete_count=len(references),
+            expected_present=present,
+            unexpected_count=len(references) - int(present),
         )
 
     def _abort_ref(self, *, object_key: str, upload_ref: str) -> bool:
