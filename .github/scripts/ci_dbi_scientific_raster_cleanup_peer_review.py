@@ -102,7 +102,18 @@ def call(store, original, *, reviewer=None, original_actor=None,
             req(store), response, session, reviewer or actor(),
         )
     finally:
-        assert session.rollbacks == 1
+        gate_open = (
+            all(os.environ.get(flag) == "1" for flag in (
+                "DBI_SCIENTIFIC_CLEANUP_PEER_REVIEW_ENABLED",
+                "DBI_SCIENTIFIC_CLEANUP_EVIDENCE_ENABLED",
+                "DBI_SCIENTIFIC_RASTER_CLEANUP_PLAN_ENABLED",
+                "DBI_SCIENTIFIC_RASTER_POSTAPPROVAL_AUDIT_ENABLED",
+            ))
+            and os.environ.get("DBI_ENVIRONMENT", "").strip().lower()
+            in {"test", "development", "local"}
+        )
+        # Feature gate 404 never opened SQL; guarded operations release lock.
+        assert session.rollbacks == int(gate_open)
         assert response.headers["Cache-Control"] == "no-store"
     assert response.status_code == (201 if result.created else 200)
     return result
