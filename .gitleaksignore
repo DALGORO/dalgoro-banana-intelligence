@@ -1,0 +1,4 @@
+# Security-reviewed, commit-specific Gitleaks false positive: H14/3H test fixture only.
+# Exact historic commit, file, rule, line. Do NOT use wildcards or three-part ignores.
+# Rationale: docs/SECURITY_GITLEAKS_H14_TEST_FIXTURE_REVIEW.md
+6a2973f590ecd3ef3fdda83cef54861489241a97:.github/scripts/ci_dbi_scientific_raster_reviewed_live_audit.py:generic-api-key:14
