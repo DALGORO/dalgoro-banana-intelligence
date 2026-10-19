@@ -56,6 +56,9 @@ from .dbi_scientific_raster_cleanup_dry_run import (
 from .dbi_scientific_raster_cleanup_evidence import (
     router as dbi_scientific_raster_cleanup_evidence_router,
 )
+from .dbi_scientific_raster_cleanup_peer_review import (
+    router as dbi_scientific_raster_cleanup_peer_review_router,
+)
 from .dbi_density_local import router as dbi_density_local_router
 from .dbi_density_legacy_campaign import router as dbi_density_legacy_campaign_router
 from .dbi_density_candidate_review_local import router as dbi_density_candidate_review_local_router
@@ -167,6 +170,15 @@ def get_api_router() -> APIRouter:
         in {"test", "development", "local"}
     ):
         api.include_router(dbi_scientific_raster_cleanup_evidence_router)
+    if (
+        os.environ.get("DBI_SCIENTIFIC_CLEANUP_PEER_REVIEW_ENABLED") == "1"
+        and os.environ.get("DBI_SCIENTIFIC_CLEANUP_EVIDENCE_ENABLED") == "1"
+        and os.environ.get("DBI_SCIENTIFIC_RASTER_CLEANUP_PLAN_ENABLED") == "1"
+        and os.environ.get("DBI_SCIENTIFIC_RASTER_POSTAPPROVAL_AUDIT_ENABLED") == "1"
+        and os.environ.get("DBI_ENVIRONMENT", "").strip().lower()
+        in {"test", "development", "local"}
+    ):
+        api.include_router(dbi_scientific_raster_cleanup_peer_review_router)
     api.include_router(dbi_campaign_artifacts_router)
     api.include_router(dbi_density_local_router)
     api.include_router(dbi_density_legacy_campaign_router)

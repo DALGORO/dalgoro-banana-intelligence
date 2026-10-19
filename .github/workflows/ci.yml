@@ -431,6 +431,11 @@ jobs:
           PYTHONPATH: .
         run: python ../../../.github/scripts/ci_dbi_scientific_raster_cleanup_evidence.py
 
+      - name: Validar revisión independiente de observación sin autorización de limpieza
+        env:
+          PYTHONPATH: .
+        run: python ../../../.github/scripts/ci_dbi_scientific_raster_cleanup_peer_review.py
+
       - name: Validar preparación GIS privada por worker aislado
         env:
           PYTHONPATH: .
