@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import { useParams, useSearchParams } from "react-router-dom";
+import { Link, useParams, useSearchParams } from "react-router-dom";
 import {
   Map as MapLibreMap,
   NavigationControl,
@@ -9,7 +9,9 @@ import {
   type StyleSpecification,
 } from "maplibre-gl";
 import "maplibre-gl/dist/maplibre-gl.css";
-import { Layers3, MapPinned } from "lucide-react";
+import "./farm-map-layer-guide.css";
+import "./farm-map-ux.css";
+import { ChevronRight, Layers3, MapPinned } from "lucide-react";
 import { AdminAnalysisFolderPanel } from "@/components/AdminAnalysisFolderPanel";
 import { GoogleSatelliteViewer } from "@/components/GoogleSatelliteViewer";
 import { MultispectralEvidencePanel } from "@/components/MultispectralEvidencePanel";
@@ -872,6 +874,13 @@ function FarmMapTimelineView() {
 
   return (
     <div className="dbi-map-workspace space-y-4">
+      {realLocator && (
+        <nav className="dbi-map-breadcrumb" aria-label="Ubicación dentro del portal">
+          <Link to="/portal">Mis fincas</Link>
+          <ChevronRight size={16} aria-hidden="true" />
+          <span aria-current="page">Mapa del lote</span>
+        </nav>
+      )}
       <div className="dbi-map-intro">
         <span className="dbi-section-icon" aria-hidden="true"><MapPinned size={22} /></span>
         <div className="min-w-0 flex-1">
@@ -926,6 +935,34 @@ function FarmMapTimelineView() {
           </p>
         </nav>
       </div>
+
+      {realLocator && (
+        <section className="dbi-map-selection-summary" aria-label="Levantamiento seleccionado">
+          <div className="dbi-map-selection-content" aria-live="polite" aria-atomic="true">
+            <span className="dbi-map-selection-kicker">LEVANTAMIENTO EN PANTALLA</span>
+            <strong className="dbi-map-selection-name">
+              {loading
+                ? "Consultando cartografía…"
+                : selectedVisit
+                  ? selectedVisit.name
+                  : ambiguousMapDate
+                    ? "Elige un vuelo de esta fecha"
+                    : mapVisits.length === 0
+                      ? "Sin levantamientos con mapa"
+                      : "Selecciona un levantamiento del historial"}
+            </strong>
+            <span className="dbi-map-selection-details">
+              {selectedVisit
+                ? `${formatDate(selectedVisit.capturedAt)} · ${selectedVisit.hasRgb ? "Fotografía RGB" : "Cartografía GIS"}${selectedVisit.gisLayerCount > 0 ? ` · ${selectedVisit.gisLayerCount} capas GIS disponibles` : ""}`
+                : "Solo se muestran levantamientos con cartografía autorizada; no se infieren vuelos ni resultados."}
+            </span>
+          </div>
+          <div className="dbi-map-selection-actions">
+            <a className="dbi-map-selection-primary" href="#dbi-map-view">Ver mapa</a>
+            <a className="dbi-map-selection-secondary" href="#dbi-map-history">Cambiar vuelo</a>
+          </div>
+        </section>
+      )}
 
       {realLocator && (
         <nav className="dbi-producer-guide" aria-label="Consultar el lote paso a paso">
@@ -1305,6 +1342,73 @@ function FarmMapTimelineView() {
         </aside>
 
         <section id="dbi-map-view" className="card dbi-map-stage p-0 overflow-hidden" aria-label="Mapa de la campaña seleccionada">
+          {realLocator && (
+            <details className="dbi-map-layer-guide">
+              <summary>
+                <strong>¿Qué capas tiene este vuelo?</strong>
+                <span className="dbi-map-layer-guide-brief" aria-live="polite">
+                  {loading
+                    ? "Consultando cartografía…"
+                    : error
+                      ? "Disponibilidad no verificable"
+                      : selectedVisit
+                        ? `${selectedVisit.hasRgb ? "RGB disponible" : "Sin RGB"} · ${visibleVectorMeta.length} capas GIS listadas · índices sin mapa`
+                        : ambiguousMapDate
+                          ? "Hay varios vuelos en esta fecha"
+                          : "Selecciona un vuelo del historial"}
+                </span>
+              </summary>
+              {selectedVisit && !loading && !error ? (
+                <div className="dbi-map-layer-guide-grid">
+                  <div className="dbi-map-layer-guide-item">
+                    <span className="dbi-map-layer-guide-tag">01 · Fotografía aérea</span>
+                    <strong>Ortofoto RGB</strong>
+                    <p>
+                      {selectedVisit.hasRgb
+                        ? displayEntries.length > 0 && rgbOverlayVisible
+                          ? "Seleccionada para visualizar en el mapa."
+                          : "Disponible, pero desactivada u oculta en los controles."
+                        : "No hay fotografía RGB registrada para este vuelo."}
+                    </p>
+                    <a href="#dbi-map-controls">Controlar imagen RGB</a>
+                  </div>
+                  <div className="dbi-map-layer-guide-item">
+                    <span className="dbi-map-layer-guide-tag">02 · Datos geográficos</span>
+                    <strong>Capas GIS</strong>
+                    <p>
+                      {campaignLoadError
+                        ? "No se pudo verificar el catálogo de capas GIS."
+                        : visibleVectorMeta.length > 0
+                          ? `${visibleVectorMeta.length} capas listadas · ${visibleVectorMeta.filter(layer => selectedVectorIds.has(layer.id)).length} seleccionadas.`
+                          : "Todavía no se identifican capas GIS autorizadas en este vuelo."}
+                    </p>
+                    <a href="#dbi-map-controls">Elegir capas GIS</a>
+                  </div>
+                  <div className="dbi-map-layer-guide-item">
+                    <span className="dbi-map-layer-guide-tag">03 · Análisis científico</span>
+                    <strong>Seis índices multiespectrales</strong>
+                    <p>Consulta las estadísticas disponibles. Los mapas temáticos individuales todavía no están habilitados.</p>
+                    <a href="#dbi-multi-evidence" onClick={() => setInfoTab("multi")}>
+                      Consultar estadísticas
+                    </a>
+                  </div>
+                </div>
+              ) : (
+                <p className="dbi-map-layer-guide-empty" role="status">
+                  {loading
+                    ? "Cargando información del lote…"
+                    : error
+                      ? "No se puede verificar el vuelo seleccionado. Reintenta la consulta."
+                      : ambiguousMapDate
+                        ? "Selecciona una Campaign concreta en el historial: varios vuelos comparten la fecha."
+                        : "Elige un levantamiento del historial para consultar sus fuentes verificables."}
+                </p>
+              )}
+              <p className="dbi-map-layer-guide-footnote">
+                Disponible o seleccionada no significa descargada, procesada ni aprobada científicamente.
+              </p>
+            </details>
+          )}
           {visibleVectorMeta.length > 0 && (
             <div className="dbi-map-quick-tools" role="group" aria-label="Acciones rápidas para capas GIS del mapa">
               <span className="dbi-map-quick-label">
@@ -1419,6 +1523,7 @@ function FarmMapTimelineView() {
                       onClick={() => chooseMapVisit(visit.campaignId, visit.capturedAt)}>
                       <span className="dbi-history-dot" aria-hidden="true" />
                       <strong>{formatDate(visit.capturedAt)}</strong>
+                      {active && <span className="dbi-map-history-current">Seleccionado</span>}
                       <span className="dbi-history-visit-name">{visit.name}</span>
                       <small>{visit.hasRgb ? "Fotografía RGB" : "Capas GIS"}
                         {visit.gisLayerCount > 0 ? ` · ${visit.gisLayerCount} capas GIS` : ""}</small>
