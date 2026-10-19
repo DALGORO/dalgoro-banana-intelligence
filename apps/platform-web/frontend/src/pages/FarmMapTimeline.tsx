@@ -10,7 +10,7 @@ import {
 } from "maplibre-gl";
 import "maplibre-gl/dist/maplibre-gl.css";
 import "./farm-map-ux.css";
-import { Layers3, MapPinned } from "lucide-react";
+import { ChevronRight, Layers3, MapPinned } from "lucide-react";
 import { AdminAnalysisFolderPanel } from "@/components/AdminAnalysisFolderPanel";
 import { GoogleSatelliteViewer } from "@/components/GoogleSatelliteViewer";
 import { MultispectralEvidencePanel } from "@/components/MultispectralEvidencePanel";
