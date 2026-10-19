@@ -19,7 +19,7 @@ from app.api.v1.dbi_scientific_raster_reservations import RasterRole, RasterInde
 from app.dbi.authorization import DBIAccessContext
 from app.dbi.dependencies import get_dbi_access_context, get_dbi_session
 from app.dbi.scientific_raster_cleanup_policy import (
-    CleanupPlanEvidenceConflict, ProposedAction, build_cleanup_dry_run,
+    CleanupEvidenceScope, CleanupPlanEvidenceConflict, ProposedAction, build_cleanup_dry_run,
 )
 
 router = APIRouter(prefix="/dbi", tags=["dbi-scientific-cleanup-dry-run"])
@@ -86,7 +86,19 @@ def preview_scientific_raster_cleanup(
         payload, request, response, session, context,
     )
     try:
-        plan = build_cleanup_dry_run(audit)
+        plan = build_cleanup_dry_run(
+            audit,
+            scope=CleanupEvidenceScope(
+                tenant_ref=context.tenant_ref,
+                organization_ref=organization_ref,
+                farm_id=farm_id,
+                plot_id=plot_id,
+                campaign_id=campaign_id,
+                actor_ref=context.principal_ref,
+                manifest_sha256=payload.manifest_sha256,
+                reservation_sha256=payload.reservation_sha256,
+            ),
+        )
     except CleanupPlanEvidenceConflict as error:
         raise HTTPException(409, detail="Diagnóstico de limpieza incoherente.") from error
 
