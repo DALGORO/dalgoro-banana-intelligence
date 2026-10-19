@@ -473,3 +473,38 @@ test("mobile MULTI keeps six real evidence cards with swipe or full list, never 
   assert.match(mobileCss, /\.dark \.dbi-multi-mobile-tools button/);
   assert.doesNotMatch(multi, /healthScore|diseaseRisk|trafficLight|predictedYield|mockIndex|Math\.random\(/);
 });
+
+test("integrated producer path keeps portal selection, exact map, public GIS and verified MULTI separate", () => {
+  const routes = file("../src/app/routes.tsx");
+  const search = file("../src/features/clientPortalSearch.ts");
+  const mapCss = file("../src/pages/farm-map-ux.css");
+  const guideCss = file("../src/pages/farm-map-layer-guide.css");
+  const multiCss = file("../src/components/dbi-multi-readout-guide.css");
+
+  assert.match(routes, /path: 'portal'/);
+  assert.match(routes, /path: 'dbi\/organizations\/:organizationRef\/farms\/:farmId\/plots\/:plotId\/mapa'/);
+  assert.match(clientHome, /filterClientPortalFarms\(accounts, search\)/);
+  assert.match(clientHome, /href="#dbi-portal-farms"/);
+  assert.match(clientHome, /to=\{mapLink\(account, farm, plot\)\}/);
+  assert.match(clientHome, /\/dbi\/organizations\/\$\{encodeURIComponent\(farm\.organization_ref\)\}/);
+  assert.match(search, /visiblePlots/);
+
+  assert.match(map, /<Link to="\/portal">Mis fincas<\/Link>/);
+  assert.match(map, /aria-label="Levantamiento seleccionado"/);
+  assert.match(map, /onClick=\{\(\) => chooseMapVisit\(visit\.campaignId, visit\.capturedAt\)\}/);
+  assert.match(map, /const selectedVisit = mapVisits\.find\(visit => visit\.campaignId === selectedMapCampaignId/);
+  assert.match(map, /const visibleVectorMeta = useMemo/);
+  assert.match(map, /<details className="dbi-map-layer-guide">/);
+  assert.match(map, /href="#dbi-multi-evidence" onClick=\{\(\) => setInfoTab\("multi"\)\}/);
+  assert.match(map, /const managementActiveCampaignIds = useMemo/);
+  assert.match(multi, /verifiedMultispectralCampaigns\(items, locator\)/);
+  assert.match(multi, /extractionForMapCampaign\(/);
+  assert.match(multi, /data-mobile-layout=\{expandedMobileIndices \? "list" : "carousel"\}/);
+  assert.match(multi, /percentileIntervalLabel\(item\)/);
+
+  assert.match(mapCss, /\.dbi-map-breadcrumb/);
+  assert.match(guideCss, /\.dbi-map-layer-guide/);
+  assert.match(multiCss, /scroll-snap-type: x proximity/);
+  assert.doesNotMatch(clientHome, /Math\.random|fakeCampaign|mockPlots|api\.post\(/);
+  assert.doesNotMatch(multi, /healthScore|diseaseRisk|predictedYield|Math\.random\(/);
+});
