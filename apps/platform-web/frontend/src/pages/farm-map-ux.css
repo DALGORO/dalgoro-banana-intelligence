@@ -1,0 +1,160 @@
+/*
+ * DALGORO Banana Intelligence · UX Productor Fase 2.
+ * Sólo orientación y jerarquía visual del mapa. No modifica fuentes GIS ni permisos.
+ * Hoja aislada para no entrar en conflicto con el portal productor (PR #280).
+ */
+.dbi-map-breadcrumb {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px;
+  padding: 1px 2px;
+  color: #536b66;
+  font-size: 13px;
+  font-weight: 600;
+}
+.dbi-map-breadcrumb a {
+  color: #205951;
+  min-height: 44px;
+  display: inline-flex;
+  align-items: center;
+  padding: 7px 11px;
+  border-radius: 10px;
+  text-decoration: none;
+}
+.dbi-map-breadcrumb a:hover {
+  background: #e9f2ed;
+}
+.dbi-map-breadcrumb a:focus-visible,
+.dbi-map-selection-actions a:focus-visible {
+  outline: 3px solid #b57b50;
+  outline-offset: 3px;
+}
+.dbi-map-selection-summary {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 16px 20px;
+  border: 1px solid #cddfd6;
+  border-left: 4px solid #b57b50;
+  border-radius: 16px;
+  background: #f7faf7;
+  color: #17383b;
+}
+.dbi-map-selection-content {
+  display: grid;
+  min-width: 0;
+  gap: 4px;
+}
+.dbi-map-selection-kicker {
+  font-size: 10px;
+  letter-spacing: .09em;
+  font-weight: 800;
+  color: #6c5141;
+}
+.dbi-map-selection-name {
+  font-size: clamp(16px, 2vw, 20px);
+  line-height: 1.25;
+  overflow-wrap: anywhere;
+}
+.dbi-map-selection-details {
+  font-size: 12px;
+  line-height: 1.5;
+  color: #506a60;
+}
+.dbi-map-selection-actions {
+  display: flex;
+  flex: 0 0 auto;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+.dbi-map-selection-actions a {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 44px;
+  padding: 10px 15px;
+  border: 1px solid #abc9bb;
+  border-radius: 12px;
+  font-size: 13px;
+  font-weight: 700;
+  text-align: center;
+  text-decoration: none;
+}
+.dbi-map-selection-actions .dbi-map-selection-primary {
+  background: #17383b;
+  border-color: #17383b;
+  color: #fff;
+}
+.dbi-map-selection-actions .dbi-map-selection-primary:hover {
+  background: #2b5655;
+}
+.dbi-map-selection-actions .dbi-map-selection-secondary {
+  background: #fff;
+  color: #17383b;
+}
+.dbi-map-selection-actions .dbi-map-selection-secondary:hover {
+  background: #eef5f0;
+}
+.dbi-map-history-current {
+  display: inline-flex;
+  align-items: center;
+  border-radius: 999px;
+  padding: 2px 7px;
+  font-size: 10px;
+  font-weight: 750;
+  color: #17383b;
+  background: #f8e7d6;
+}
+.dark .dbi-map-breadcrumb {
+  color: #c1d3cc;
+}
+.dark .dbi-map-breadcrumb a {
+  color: #e5f2ea;
+}
+.dark .dbi-map-breadcrumb a:hover {
+  background: #27474a;
+}
+.dark .dbi-map-selection-summary {
+  background: #21393f;
+  border-color: #4a6660;
+  border-left-color: #d3a37f;
+  color: #f2f8f4;
+}
+.dark .dbi-map-selection-kicker {
+  color: #e8ba97;
+}
+.dark .dbi-map-selection-details {
+  color: #bdd4ca;
+}
+.dark .dbi-map-selection-actions .dbi-map-selection-secondary {
+  background: #29484a;
+  border-color: #729a8c;
+  color: #f3f8f4;
+}
+.dark .dbi-map-selection-actions .dbi-map-selection-primary {
+  background: #b57b50;
+  border-color: #c58c5c;
+  color: #102629;
+}
+.dark .dbi-map-history-current {
+  color: #17383b;
+}
+@media (max-width: 720px) {
+  .dbi-map-selection-summary {
+    align-items: stretch;
+    flex-direction: column;
+    padding: 15px;
+  }
+  .dbi-map-selection-actions {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    width: 100%;
+  }
+}
+@media (max-width: 390px) {
+  .dbi-map-selection-actions {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
