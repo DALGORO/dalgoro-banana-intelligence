@@ -436,6 +436,11 @@ jobs:
           PYTHONPATH: .
         run: python ../../../.github/scripts/ci_dbi_scientific_raster_cleanup_peer_review.py
 
+      - name: Validar cadena privada de evidencia y revisión independiente sin permisos
+        env:
+          PYTHONPATH: .
+        run: python ../../../.github/scripts/ci_dbi_scientific_raster_cleanup_review_chain.py
+
       - name: Validar preparación GIS privada por worker aislado
         env:
           PYTHONPATH: .
