@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import os
+from dataclasses import replace
 from pathlib import Path
 import sys
 from types import SimpleNamespace
@@ -25,12 +26,19 @@ from app.api.v1.dbi_scientific_raster_session_preparations import (  # noqa: E40
     ScientificSessionPreparationPayload,
 )
 from app.dbi.scientific_raster_cleanup_policy import (  # noqa: E402
-    CleanupPlanEvidenceConflict, build_cleanup_dry_run,
+    CleanupEvidenceScope, CleanupPlanEvidenceConflict, build_cleanup_dry_run,
 )
 
 CAMPAIGN = UUID("11000000-0000-4000-8000-000000000001")
 ASSET = UUID("22000000-0000-4000-8000-000000000002")
 PREP = UUID("33000000-0000-4000-8000-000000000003")
+SCOPE = CleanupEvidenceScope(
+    tenant_ref="tenant-ci", organization_ref="organization-ci",
+    farm_id=UUID("44000000-0000-4000-8000-000000000004"),
+    plot_id=UUID("55000000-0000-4000-8000-000000000005"),
+    campaign_id=CAMPAIGN, actor_ref="operator-ci",
+    manifest_sha256="a" * 64, reservation_sha256="b" * 64,
+)
 CASES = (
     ("no_remote_no_sql", 0, 0, False, False, "none_no_remote_uploads"),
     ("remote_orphan_without_sql", 1, 1, False, False, "investigate_unknown_remote_uploads"),
@@ -77,15 +85,33 @@ def run():
     for case in CASES:
         for campaign_status in ("APPROVED", "PUBLISHED"):
             evidence = sample(case, campaign_status=campaign_status)
-            plan = build_cleanup_dry_run(evidence)
+            plan = build_cleanup_dry_run(evidence, scope=SCOPE)
             assert plan.action == case[5] and len(plan.evidence_sha256) == 64
             assert plan.incomplete_upload_count == case[1]
             assert plan.unexpected_upload_count == case[2]
             assert plan.candidate_exact_recorded_upload == (case[0] == "active_exact_single_upload")
             assert plan.manual_review_required == evidence.manual_review_required
-            assert plan == build_cleanup_dry_run(evidence)
+            assert plan == build_cleanup_dry_run(evidence, scope=SCOPE)
             seen[(campaign_status, case[0])] = plan.evidence_sha256
     assert len(set(seen.values())) == len(seen)
+    assert build_cleanup_dry_run(
+        sample(CASES[2]), scope=replace(SCOPE, tenant_ref="another-tenant"),
+    ).evidence_sha256 != seen[("APPROVED", "active_exact_single_upload")]
+    assert build_cleanup_dry_run(
+        sample(CASES[2]), scope=replace(SCOPE, manifest_sha256="c" * 64),
+    ).evidence_sha256 != seen[("APPROVED", "active_exact_single_upload")]
+    for invalid in (
+        replace(SCOPE, campaign_id=UUID("66000000-0000-4000-8000-000000000006")),
+        replace(SCOPE, reservation_sha256="F" * 64),
+        replace(SCOPE, actor_ref=" actor-ci "),
+    ):
+        try:
+            build_cleanup_dry_run(sample(CASES[2]), scope=invalid)
+        except CleanupPlanEvidenceConflict:
+            pass
+        else:
+            raise AssertionError("Se admitió evidencia de ámbito contradictorio.")
+
 
     base = sample(CASES[2])
     for corrupted in (
@@ -124,7 +150,8 @@ def run():
         answer = preview_scientific_raster_cleanup(
             "organization-ci", UUID("44000000-0000-4000-8000-000000000004"),
             UUID("55000000-0000-4000-8000-000000000005"),
-            CAMPAIGN, "rgb", "_", payload, SimpleNamespace(), response, None, None,
+            CAMPAIGN, "rgb", "_", payload, SimpleNamespace(), response, None,
+            SimpleNamespace(tenant_ref=SCOPE.tenant_ref, principal_ref=SCOPE.actor_ref),
         )
         assert response.headers["Cache-Control"] == "no-store"
         assert not any((
@@ -144,7 +171,7 @@ def run():
         plan = preview()
         assert plan.proposed_action == "review_exact_recorded_upload"
         assert plan.recorded_upload_candidate
-        assert plan.evidence_sha256 == build_cleanup_dry_run(base).evidence_sha256
+        assert plan.evidence_sha256 == build_cleanup_dry_run(base, scope=SCOPE).evidence_sha256
         assert trusted_audit.call_count == 1
         with patch.dict(os.environ, {"DBI_SCIENTIFIC_RASTER_CLEANUP_PLAN_ENABLED": "0"}):
             denied(preview, 404)
@@ -172,7 +199,8 @@ def run():
 
     source = (ROOT / "apps/platform-web/backend/app/api/v1/dbi_scientific_raster_cleanup_dry_run.py").read_text()
     assert "audit_postapproval_incomplete_raster_uploads(" in source
-    assert "build_cleanup_dry_run(audit)" in source
+    assert "build_cleanup_dry_run(" in source
+    assert "CleanupEvidenceScope(" in source
     assert "session.commit(" not in source and "provider.abort(" not in source
     assert "issue_part_access(" not in source and "presigned" not in source
     print("H14/2H-2D/3D OK: 8 estados x 2 Campaign, sin abortos, grants ni escrituras.")
