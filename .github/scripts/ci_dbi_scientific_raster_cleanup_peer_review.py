@@ -114,7 +114,10 @@ def call(store, original, *, reviewer=None, original_actor=None,
         )
         # Feature gate 404 never opened SQL; guarded operations release lock.
         assert session.rollbacks == int(gate_open)
-        assert response.headers["Cache-Control"] == "no-store"
+        if gate_open:
+            assert response.headers["Cache-Control"] == "no-store"
+        else:
+            assert "Cache-Control" not in response.headers
     assert response.status_code == (201 if result.created else 200)
     return result
 
