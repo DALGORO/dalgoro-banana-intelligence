@@ -9,6 +9,7 @@ import {
   type StyleSpecification,
 } from "maplibre-gl";
 import "maplibre-gl/dist/maplibre-gl.css";
+import "./farm-map-layer-guide.css";
 import { Layers3, MapPinned } from "lucide-react";
 import { AdminAnalysisFolderPanel } from "@/components/AdminAnalysisFolderPanel";
 import { GoogleSatelliteViewer } from "@/components/GoogleSatelliteViewer";
@@ -1305,6 +1306,73 @@ function FarmMapTimelineView() {
         </aside>
 
         <section id="dbi-map-view" className="card dbi-map-stage p-0 overflow-hidden" aria-label="Mapa de la campaña seleccionada">
+          {realLocator && (
+            <details className="dbi-map-layer-guide">
+              <summary>
+                <strong>¿Qué capas tiene este vuelo?</strong>
+                <span className="dbi-map-layer-guide-brief" aria-live="polite">
+                  {loading
+                    ? "Consultando cartografía…"
+                    : error
+                      ? "Disponibilidad no verificable"
+                      : selectedVisit
+                        ? `${selectedVisit.hasRgb ? "RGB disponible" : "Sin RGB"} · ${visibleVectorMeta.length} capas GIS listadas · índices sin mapa`
+                        : ambiguousMapDate
+                          ? "Hay varios vuelos en esta fecha"
+                          : "Selecciona un vuelo del historial"}
+                </span>
+              </summary>
+              {selectedVisit && !loading && !error ? (
+                <div className="dbi-map-layer-guide-grid">
+                  <div className="dbi-map-layer-guide-item">
+                    <span className="dbi-map-layer-guide-tag">01 · Fotografía aérea</span>
+                    <strong>Ortofoto RGB</strong>
+                    <p>
+                      {selectedVisit.hasRgb
+                        ? displayEntries.length > 0 && rgbOverlayVisible
+                          ? "Seleccionada para visualizar en el mapa."
+                          : "Disponible, pero desactivada u oculta en los controles."
+                        : "No hay fotografía RGB registrada para este vuelo."}
+                    </p>
+                    <a href="#dbi-map-controls">Controlar imagen RGB</a>
+                  </div>
+                  <div className="dbi-map-layer-guide-item">
+                    <span className="dbi-map-layer-guide-tag">02 · Datos geográficos</span>
+                    <strong>Capas GIS</strong>
+                    <p>
+                      {campaignLoadError
+                        ? "No se pudo verificar el catálogo de capas GIS."
+                        : visibleVectorMeta.length > 0
+                          ? `${visibleVectorMeta.length} capas listadas · ${visibleVectorMeta.filter(layer => selectedVectorIds.has(layer.id)).length} seleccionadas.`
+                          : "Todavía no se identifican capas GIS autorizadas en este vuelo."}
+                    </p>
+                    <a href="#dbi-map-controls">Elegir capas GIS</a>
+                  </div>
+                  <div className="dbi-map-layer-guide-item">
+                    <span className="dbi-map-layer-guide-tag">03 · Análisis científico</span>
+                    <strong>Seis índices multiespectrales</strong>
+                    <p>Consulta las estadísticas disponibles. Los mapas temáticos individuales todavía no están habilitados.</p>
+                    <a href="#dbi-multi-evidence" onClick={() => setInfoTab("multi")}>
+                      Consultar estadísticas
+                    </a>
+                  </div>
+                </div>
+              ) : (
+                <p className="dbi-map-layer-guide-empty" role="status">
+                  {loading
+                    ? "Cargando información del lote…"
+                    : error
+                      ? "No se puede verificar el vuelo seleccionado. Reintenta la consulta."
+                      : ambiguousMapDate
+                        ? "Selecciona una Campaign concreta en el historial: varios vuelos comparten la fecha."
+                        : "Elige un levantamiento del historial para consultar sus fuentes verificables."}
+                </p>
+              )}
+              <p className="dbi-map-layer-guide-footnote">
+                Disponible o seleccionada no significa descargada, procesada ni aprobada científicamente.
+              </p>
+            </details>
+          )}
           {visibleVectorMeta.length > 0 && (
             <div className="dbi-map-quick-tools" role="group" aria-label="Acciones rápidas para capas GIS del mapa">
               <span className="dbi-map-quick-label">
