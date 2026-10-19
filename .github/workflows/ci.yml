@@ -441,6 +441,11 @@ jobs:
           PYTHONPATH: .
         run: python ../../../.github/scripts/ci_dbi_scientific_raster_cleanup_review_chain.py
 
+      - name: Verificar deriva S3 viva frente a evidencia científica revisada
+        env:
+          PYTHONPATH: .
+        run: python ../../../.github/scripts/ci_dbi_scientific_raster_reviewed_live_audit.py
+
       - name: Validar preparación GIS privada por worker aislado
         env:
           PYTHONPATH: .
