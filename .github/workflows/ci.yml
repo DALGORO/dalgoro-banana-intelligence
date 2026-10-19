@@ -421,6 +421,11 @@ jobs:
           PYTHONPATH: .
         run: python ../../../.github/scripts/ci_dbi_scientific_raster_postapproval_audit.py
 
+      - name: Validar plan privado postaprobación de limpieza sin abortos
+        env:
+          PYTHONPATH: .
+        run: python ../../../.github/scripts/ci_dbi_scientific_raster_cleanup_dry_run.py
+
       - name: Validar preparación GIS privada por worker aislado
         env:
           PYTHONPATH: .
