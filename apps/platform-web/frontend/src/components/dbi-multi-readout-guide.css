@@ -1,0 +1,135 @@
+/*
+ * DBI · Fase 4: lectura visual conservadora de índices derivados.
+ * Sin colores de salud, gráficos inferidos ni cálculos nuevos.
+ */
+.dbi-multi-readout-intro {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 8px 16px;
+  border: 1px solid #d7e4dd;
+  border-radius: 14px;
+  padding: 14px;
+  background: #f6f9f7;
+}
+.dbi-multi-readout-intro > p {
+  margin: 0;
+  max-width: 360px;
+  line-height: 1.55;
+  color: #536962;
+}
+.dbi-multi-readout-steps {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 9px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.dbi-multi-readout-steps li {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  min-width: 0;
+  border: 1px solid #dbe4df;
+  border-radius: 12px;
+  padding: 10px 12px;
+  background: #fff;
+  font-size: 12px;
+  line-height: 1.5;
+}
+.dbi-multi-readout-steps strong { color: #1a4a43; }
+.dbi-multi-readout-steps span { color: #587068; }
+.dbi-index-evidence-card {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  min-width: 0;
+}
+.dbi-index-measurement {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px;
+  margin: 0;
+}
+.dbi-index-measurement > div {
+  min-width: 0;
+  border: 1px solid #dce8e1;
+  border-radius: 11px;
+  background: #f7faf8;
+  padding: 10px;
+}
+.dbi-index-measurement dt {
+  font-size: 10px;
+  font-weight: 650;
+  color: #526a63;
+}
+.dbi-index-measurement dd {
+  margin: 6px 0 0;
+  font-size: 13px;
+  font-weight: 700;
+  color: #153b37;
+  overflow-wrap: anywhere;
+}
+.dbi-index-measurement .dbi-index-measurement-value {
+  font-size: clamp(17px, 2vw, 22px);
+  line-height: 1.2;
+}
+.dbi-index-measurement-coverage {
+  margin: 0;
+  font-size: 11px;
+  line-height: 1.5;
+  color: #526a63;
+}
+.dbi-index-meaning {
+  display: grid;
+  gap: 5px;
+  border-top: 1px solid #dce8e1;
+  padding-top: 10px;
+  font-size: 12px;
+}
+.dbi-index-meaning strong { color: #194942; }
+.dbi-index-meaning p {
+  margin: 0;
+  color: #536b63;
+  line-height: 1.55;
+}
+.dbi-index-meaning-limit {
+  margin: auto 0 0;
+  padding: 9px;
+  border-radius: 9px;
+  background: #f6f3ef;
+  color: #665241;
+  font-size: 11px;
+  line-height: 1.45;
+}
+.dark .dbi-multi-readout-intro,
+.dark .dbi-index-measurement > div {
+  background: #21393f;
+  border-color: #51726b;
+}
+.dark .dbi-multi-readout-intro > p,
+.dark .dbi-multi-readout-steps span,
+.dark .dbi-index-measurement dt,
+.dark .dbi-index-measurement-coverage,
+.dark .dbi-index-meaning p { color: #c0d3cb; }
+.dark .dbi-multi-readout-steps li {
+  background: #263f42;
+  border-color: #51726b;
+}
+.dark .dbi-multi-readout-steps strong,
+.dark .dbi-index-meaning strong,
+.dark .dbi-index-measurement dd { color: #f0f8f3; }
+.dark .dbi-index-meaning { border-color: #51726b; }
+.dark .dbi-index-meaning-limit {
+  background: #3b3834;
+  color: #f3d8bc;
+}
+@media (max-width: 760px) {
+  .dbi-multi-readout-steps { grid-template-columns: minmax(0, 1fr); }
+}
+@media (max-width: 480px) {
+  .dbi-index-measurement { grid-template-columns: minmax(0, 1fr); }
+  .dbi-multi-readout-intro { padding: 12px; }
+}
