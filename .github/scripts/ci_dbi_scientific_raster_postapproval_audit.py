@@ -202,6 +202,11 @@ def run():
         assert no_remote.campaign_status == "APPROVED"
         assert no_remote.asset_id == scientific_asset_id(intent)
         assert not no_remote.target_tiff_object_present
+        Reader.current = snapshot(status="APPROVED")
+        assert perform(store, manifest, slot, rows).manual_review_required
+        Reader.current = snapshot(status="PUBLISHED", approved_at=DATE)
+        assert perform(store, manifest, slot, rows).manual_review_required
+        Reader.current = snapshot(status="APPROVED", approved_at=DATE)
 
         for bad in (
             context(DBIPermission.MANAGE),
