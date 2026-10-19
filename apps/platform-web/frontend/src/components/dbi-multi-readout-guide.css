@@ -133,3 +133,83 @@
   .dbi-index-measurement { grid-template-columns: minmax(0, 1fr); }
   .dbi-multi-readout-intro { padding: 12px; }
 }
+
+/* UX Fase 5 · Correspondencia móvil con referencia visual aprobada.
+ * Carrusel desplazable y vista expandida, sin modificar resultados científicos.
+ */
+.dbi-multi-mobile-tools { display: none; }
+.dbi-multi-mobile-cards:focus-visible {
+  outline: 3px solid #b57b50;
+  outline-offset: 3px;
+}
+@media (max-width: 767px) {
+  .dbi-multi-panel .dbi-multi-mobile-tools {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: space-between;
+    align-items: center;
+    gap: 8px 12px;
+    color: #526d65;
+    font-size: 12px;
+  }
+  .dbi-multi-mobile-tools button {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-height: 44px;
+    border: 1px solid #a7c6ba;
+    border-radius: 10px;
+    background: #f0f8f2;
+    color: #1a5046;
+    padding: 9px 13px;
+    font-size: 12px;
+    font-weight: 700;
+    cursor: pointer;
+  }
+  .dbi-multi-mobile-tools button:focus-visible {
+    outline: 3px solid #b57b50;
+    outline-offset: 3px;
+  }
+  .dbi-multi-panel .dbi-index-grid.dbi-multi-mobile-cards[data-mobile-layout="carousel"] {
+    display: grid;
+    grid-template-columns: none;
+    grid-auto-flow: column;
+    grid-auto-columns: minmax(0, min(84%, 300px));
+    overflow-x: auto;
+    overscroll-behavior-x: contain;
+    scroll-snap-type: x proximity;
+    scroll-padding-inline: 2px;
+    scrollbar-width: thin;
+    gap: 12px;
+    padding: 4px 3px 16px;
+  }
+  .dbi-multi-panel .dbi-index-grid.dbi-multi-mobile-cards[data-mobile-layout="carousel"] > .dbi-index-evidence-card {
+    scroll-snap-align: start;
+    min-width: 0;
+  }
+  .dbi-multi-panel .dbi-index-grid.dbi-multi-mobile-cards[data-mobile-layout="list"] {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr);
+    grid-auto-flow: row;
+    overflow-x: visible;
+    gap: 12px;
+  }
+  .dark .dbi-multi-panel .dbi-multi-mobile-tools {
+    color: #c3d8cd;
+  }
+  .dark .dbi-multi-mobile-tools button {
+    background: #214541;
+    color: #f2f8f4;
+    border-color: #6e9488;
+  }
+}
+@media (max-width: 390px) {
+  .dbi-multi-panel .dbi-multi-mobile-tools button {
+    width: 100%;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .dbi-multi-panel .dbi-index-grid.dbi-multi-mobile-cards {
+    scroll-behavior: auto;
+  }
+}
