@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import { useParams, useSearchParams } from "react-router-dom";
+import { Link, useParams, useSearchParams } from "react-router-dom";
 import {
   Map as MapLibreMap,
   NavigationControl,
@@ -9,7 +9,8 @@ import {
   type StyleSpecification,
 } from "maplibre-gl";
 import "maplibre-gl/dist/maplibre-gl.css";
-import { Layers3, MapPinned } from "lucide-react";
+import "./farm-map-ux.css";
+import { ChevronRight, Layers3, MapPinned } from "lucide-react";
 import { AdminAnalysisFolderPanel } from "@/components/AdminAnalysisFolderPanel";
 import { GoogleSatelliteViewer } from "@/components/GoogleSatelliteViewer";
 import { MultispectralEvidencePanel } from "@/components/MultispectralEvidencePanel";
@@ -872,6 +873,13 @@ function FarmMapTimelineView() {
 
   return (
     <div className="dbi-map-workspace space-y-4">
+      {realLocator && (
+        <nav className="dbi-map-breadcrumb" aria-label="Ubicación dentro del portal">
+          <Link to="/portal">Mis fincas</Link>
+          <ChevronRight size={16} aria-hidden="true" />
+          <span aria-current="page">Mapa del lote</span>
+        </nav>
+      )}
       <div className="dbi-map-intro">
         <span className="dbi-section-icon" aria-hidden="true"><MapPinned size={22} /></span>
         <div className="min-w-0 flex-1">
@@ -926,6 +934,34 @@ function FarmMapTimelineView() {
           </p>
         </nav>
       </div>
+
+      {realLocator && (
+        <section className="dbi-map-selection-summary" aria-label="Levantamiento seleccionado">
+          <div className="dbi-map-selection-content" aria-live="polite" aria-atomic="true">
+            <span className="dbi-map-selection-kicker">LEVANTAMIENTO EN PANTALLA</span>
+            <strong className="dbi-map-selection-name">
+              {loading
+                ? "Consultando cartografía…"
+                : selectedVisit
+                  ? selectedVisit.name
+                  : ambiguousMapDate
+                    ? "Elige un vuelo de esta fecha"
+                    : mapVisits.length === 0
+                      ? "Sin levantamientos con mapa"
+                      : "Selecciona un levantamiento del historial"}
+            </strong>
+            <span className="dbi-map-selection-details">
+              {selectedVisit
+                ? `${formatDate(selectedVisit.capturedAt)} · ${selectedVisit.hasRgb ? "Fotografía RGB" : "Cartografía GIS"}${selectedVisit.gisLayerCount > 0 ? ` · ${selectedVisit.gisLayerCount} capas GIS disponibles` : ""}`
+                : "Solo se muestran levantamientos con cartografía autorizada; no se infieren vuelos ni resultados."}
+            </span>
+          </div>
+          <div className="dbi-map-selection-actions">
+            <a className="dbi-map-selection-primary" href="#dbi-map-view">Ver mapa</a>
+            <a className="dbi-map-selection-secondary" href="#dbi-map-history">Cambiar vuelo</a>
+          </div>
+        </section>
+      )}
 
       {realLocator && (
         <nav className="dbi-producer-guide" aria-label="Consultar el lote paso a paso">
@@ -1419,6 +1455,7 @@ function FarmMapTimelineView() {
                       onClick={() => chooseMapVisit(visit.campaignId, visit.capturedAt)}>
                       <span className="dbi-history-dot" aria-hidden="true" />
                       <strong>{formatDate(visit.capturedAt)}</strong>
+                      {active && <span className="dbi-map-history-current">Seleccionado</span>}
                       <span className="dbi-history-visit-name">{visit.name}</span>
                       <small>{visit.hasRgb ? "Fotografía RGB" : "Capas GIS"}
                         {visit.gisLayerCount > 0 ? ` · ${visit.gisLayerCount} capas GIS` : ""}</small>
