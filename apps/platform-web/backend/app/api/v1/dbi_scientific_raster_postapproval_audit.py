@@ -11,6 +11,8 @@ from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.orm import Session
 
 from app.api.v1.dbi_scientific_raster_local_provider import _provider, _upload_contract
+from app.api.v1.dbi_scientific_raster_preflight import _raster_address
+from app.dbi.asset_multipart_provider import DBIMultipartProviderError
 from app.api.v1.dbi_scientific_raster_reconciliation import State, classify_inventory
 from app.api.v1.dbi_scientific_raster_reservations import (
     RasterRole, RasterIndex, _expected, _manifest, _read_slot,
@@ -63,6 +65,7 @@ class AuditReceipt(BaseModel):
     unexpected_upload_count: int
     recorded_upload_present: bool
     sql_start_recorded: bool
+    target_tiff_object_present: bool
     manual_review_required: bool
     automatic_cleanup_performed: Literal[False]
     ready_for_upload: Literal[False]
@@ -223,6 +226,15 @@ def audit_approved_raster(
             expected_upload_ref=start.provider_upload_ref if start is not None else None,
         )
         status = classify_inventory(start.status if start is not None else None, inventory)
+        target = _raster_address(context, organization_ref, farm_id, plot_id, campaign_id, role, idx)
+        if target.object_id != intent.target_object_id:
+            raise DBIStorageConflict("Objeto TIFF destino divergente.")
+        try:
+            store.stat(target)
+        except DBIStorageNotFound:
+            target_present = False
+        else:
+            target_present = True
         session.rollback()
     except HTTPException:
         session.rollback()
@@ -233,11 +245,11 @@ def audit_approved_raster(
     except DBIStorageConflict as exc:
         session.rollback()
         raise HTTPException(409, detail="Evidencia científica inconsistente.") from exc
-    except (DBIStorageError, SQLAlchemyError, ValueError, TypeError, KeyError) as exc:
+    except (DBIStorageError, DBIMultipartProviderError, SQLAlchemyError, ValueError, TypeError, KeyError) as exc:
         session.rollback()
         raise HTTPException(503, detail="Auditoría S3/SQL no disponible.") from exc
 
-    manual = status not in {"no_remote_no_sql", "sql_aborted_no_remote"} or (
+    manual = target_present or status not in {"no_remote_no_sql", "sql_aborted_no_remote"} or (
         campaign.status not in {"APPROVED", "PUBLISHED"}
     )
     return AuditReceipt(
@@ -248,6 +260,7 @@ def audit_approved_raster(
         unexpected_upload_count=inventory.unexpected_count,
         recorded_upload_present=inventory.expected_present,
         sql_start_recorded=start is not None,
+        target_tiff_object_present=target_present,
         manual_review_required=manual,
         automatic_cleanup_performed=False, ready_for_upload=False,
         grants_issued=False, file_received=False, content_verified=False,
