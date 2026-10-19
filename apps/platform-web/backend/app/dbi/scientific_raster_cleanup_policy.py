@@ -10,6 +10,7 @@ from dataclasses import dataclass
 from hashlib import sha256
 import json
 from typing import Literal
+from uuid import UUID
 
 from app.api.v1.dbi_scientific_raster_postapproval_audit import PostApprovalAuditReceipt
 
@@ -26,6 +27,18 @@ class CleanupPlanEvidenceConflict(ValueError):
 
 
 @dataclass(frozen=True, slots=True)
+class CleanupEvidenceScope:
+    tenant_ref: str
+    organization_ref: str
+    farm_id: UUID
+    plot_id: UUID
+    campaign_id: UUID
+    actor_ref: str
+    manifest_sha256: str
+    reservation_sha256: str
+
+
+@dataclass(frozen=True, slots=True)
 class CleanupDryRunDecision:
     action: ProposedAction
     evidence_sha256: str
@@ -35,9 +48,31 @@ class CleanupDryRunDecision:
     unexpected_upload_count: int
 
 
-def build_cleanup_dry_run(audit: PostApprovalAuditReceipt) -> CleanupDryRunDecision:
+def build_cleanup_dry_run(
+    audit: PostApprovalAuditReceipt, *, scope: CleanupEvidenceScope,
+) -> CleanupDryRunDecision:
     if not isinstance(audit, PostApprovalAuditReceipt):
         raise CleanupPlanEvidenceConflict("Se exige auditoría interna verificada.")
+    if not isinstance(scope, CleanupEvidenceScope):
+        raise CleanupPlanEvidenceConflict("Falta el ámbito administrativo verificado.")
+    if (
+        any(not isinstance(x, UUID) for x in (
+            scope.farm_id, scope.plot_id, scope.campaign_id,
+        ))
+        or audit.campaign_id != scope.campaign_id
+        or any(
+            not isinstance(x, str) or not (1 <= len(x) <= 128)
+            or x.strip() != x
+            or any(ord(ch) < 32 or ord(ch) == 127 for ch in x)
+            for x in (scope.tenant_ref, scope.organization_ref, scope.actor_ref)
+        )
+        or any(
+            not isinstance(x, str) or len(x) != 64
+            or any(ch not in "0123456789abcdef" for ch in x)
+            for x in (scope.manifest_sha256, scope.reservation_sha256)
+        )
+    ):
+        raise CleanupPlanEvidenceConflict("Huella o identidad de ámbito no canónica.")
     count, unexpected, present, sql = (
         audit.incomplete_upload_count, audit.unexpected_upload_count,
         audit.recorded_upload_present, audit.sql_start_recorded,
@@ -95,12 +130,18 @@ def build_cleanup_dry_run(audit: PostApprovalAuditReceipt) -> CleanupDryRunDecis
 
     evidence = {
         "schema_version": "dbi-h14-cleanup-evidence.v1",
-        "tenant_independent_scope": {
-            # Campaign + asset are already MANAGE scoped by server audit.
-            "campaign_id": str(audit.campaign_id),
+        "scope": {
+            "tenant_ref": scope.tenant_ref,
+            "organization_ref": scope.organization_ref,
+            "farm_id": str(scope.farm_id),
+            "plot_id": str(scope.plot_id),
+            "campaign_id": str(scope.campaign_id),
+            "actor_ref": scope.actor_ref,
             "preparation_id": str(audit.preparation_id),
             "asset_id": str(audit.asset_id),
             "role": audit.role, "index": audit.index,
+            "manifest_sha256": scope.manifest_sha256,
+            "reservation_sha256": scope.reservation_sha256,
         },
         "campaign_status": audit.campaign_status,
         "reconciliation_status": status,
