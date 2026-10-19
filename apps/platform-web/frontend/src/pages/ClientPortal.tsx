@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { Link } from "react-router-dom";
-import { Building2, ChevronRight, Layers3, MapPinned, Satellite, ShieldCheck } from "lucide-react";
+import { Building2, ChevronRight, Layers3, MapPinned, Satellite, Search, ShieldCheck } from "lucide-react";
 import { api } from "@/app/api";
 import {
   filterClientPortalFarms,
@@ -56,6 +56,9 @@ export default function ClientPortal() {
         <p className="mt-3 max-w-2xl text-sm leading-6 text-white/85 sm:text-base">
           Selecciona una finca y abre el mapa de tu lote para consultar sus campañas, capas y evidencias disponibles.
         </p>
+        <a href="#dbi-portal-farms" className="dbi-portal-hero-cta mt-6 inline-flex items-center gap-2 rounded-xl px-5 py-3 text-sm font-semibold">
+          Explorar mis fincas <ChevronRight size={18} aria-hidden="true" />
+        </a>
       </header>
 
       <section className="dbi-portal-first-steps" aria-label="Cómo consultar el mapa de tu lote">
@@ -89,30 +92,47 @@ export default function ClientPortal() {
         </div>
       </section>
 
-      <section className="space-y-4">
+      <section id="dbi-portal-farms" className="space-y-4" aria-label="Fincas y lotes autorizados">
         <div className="flex flex-col justify-between gap-3 sm:flex-row sm:items-end">
           <div>
             <h2 className="text-xl font-semibold">Mis fincas</h2>
             <p className="mt-1 text-sm text-slate-500">Elige un lote para abrir su mapa.</p>
           </div>
-          <input
-            aria-label="Buscar finca o lote"
-            className="dbi-portal-search w-full rounded-xl border border-slate-300 bg-white px-4 py-3 text-sm dark:border-slate-600 dark:bg-slate-900 sm:w-64"
-            placeholder="Buscar finca o lote…"
-            value={search}
-            onChange={event => setSearch(event.target.value)}
-          />
-          {search.trim() && (
-            <button
-              type="button"
-              onClick={() => setSearch("")}
-              className="dbi-portal-retry rounded-xl px-4 py-3 text-sm font-semibold"
-              aria-label="Limpiar búsqueda de finca o lote"
-            >
-              Limpiar búsqueda
-            </button>
-          )}
+          <div className="dbi-portal-search-panel flex w-full flex-col gap-2 sm:w-auto">
+            <label htmlFor="dbi-portal-search" className="text-sm font-medium">Buscar finca o lote</label>
+            <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
+              <div className="dbi-portal-search-field relative w-full sm:w-72">
+                <Search className="dbi-portal-search-icon" size={18} aria-hidden="true" />
+                <input
+                  id="dbi-portal-search"
+                  type="search"
+                  aria-controls="dbi-portal-farms"
+                  className="dbi-portal-search w-full rounded-xl border border-slate-300 bg-white py-3 pl-11 pr-4 text-sm dark:border-slate-600 dark:bg-slate-900"
+                  placeholder="Nombre o código de finca o lote"
+                  value={search}
+                  onChange={event => setSearch(event.target.value)}
+                />
+              </div>
+              {search.trim() && (
+                <button
+                  type="button"
+                  onClick={() => setSearch("")}
+                  className="dbi-portal-retry rounded-xl px-4 py-3 text-sm font-semibold"
+                  aria-label="Limpiar búsqueda de finca o lote"
+                >
+                  Limpiar búsqueda
+                </button>
+              )}
+            </div>
+          </div>
         </div>
+        {!loading && !error && (
+          <p className="dbi-portal-results text-sm" role="status" aria-live="polite">
+            {search.trim() ? "Coincidencias: " : "Con acceso: "}
+            {farms.length} {farms.length === 1 ? "finca" : "fincas"} y{" "}
+            {totalPlots} {totalPlots === 1 ? "lote" : "lotes"}.
+          </p>
+        )}
         {loading && <div role="status" aria-live="polite" className="rounded-2xl border p-6">Cargando tus fincas…</div>}
         {error && (
           <div role="alert" className="dbi-portal-error rounded-2xl border p-6">
@@ -142,6 +162,7 @@ export default function ClientPortal() {
                     <MapPinned size={18} />
                     <h3 className="text-lg font-semibold">{farm.name}</h3>
                   </div>
+                  {farm.code && <span className="dbi-portal-farm-code mt-2 inline-block text-xs font-semibold">Finca {farm.code}</span>}
                   <p className="mt-1 text-sm text-slate-500">
                     {visiblePlots.length} {visiblePlots.length === 1 ? "lote visible" : "lotes visibles"}
                   </p>
@@ -158,6 +179,7 @@ export default function ClientPortal() {
                       aria-label={`Abrir visor de ${plot.name} en ${farm.name}`}>
                       <div>
                         <div className="font-medium">{plot.name}</div>
+                        {plot.code && <div className="dbi-portal-plot-code mt-1 text-xs">Lote {plot.code}</div>}
                         <div className="mt-1 text-xs text-slate-500">
                           {plot.area_hectares == null
                             ? "Superficie no registrada"
