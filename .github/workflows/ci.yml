@@ -416,6 +416,11 @@ jobs:
           PYTHONPATH: .
         run: python ../../../.github/scripts/ci_dbi_scientific_raster_reconciliation.py
 
+      - name: Auditar cargas S3 tras aprobación sin emitir grants ni limpiar
+        env:
+          PYTHONPATH: .
+        run: python ../../../.github/scripts/ci_dbi_scientific_raster_postapproval_audit.py
+
       - name: Validar preparación GIS privada por worker aislado
         env:
           PYTHONPATH: .
