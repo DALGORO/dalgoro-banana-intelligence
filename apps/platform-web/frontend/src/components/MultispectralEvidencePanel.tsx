@@ -99,6 +99,8 @@ export function MultispectralEvidencePanel({
   const [visibleIndices, setVisibleIndices] = useState<Set<string>>(
     () => new Set(Object.keys(INDEX_LABELS)),
   );
+  // Preferencia visual local: no altera las extracciones, Campaign ni los cálculos.
+  const [expandedMobileIndices, setExpandedMobileIndices] = useState(false);
 
   useEffect(() => {
     let active = true;
@@ -344,7 +346,25 @@ export function MultispectralEvidencePanel({
                 </label>
               ))}
             </div>
-            <div className="dbi-index-grid">
+            <div className="dbi-multi-mobile-tools" role="group" aria-label="Presentación móvil de los índices">
+              <span>Desliza para consultar cada índice de esta muestra.</span>
+              <button
+                type="button"
+                onClick={() => setExpandedMobileIndices(current => !current)}
+                aria-pressed={expandedMobileIndices}
+                aria-controls="dbi-multi-index-cards"
+              >
+                {expandedMobileIndices ? "Vista compacta" : "Ver todos"}
+              </button>
+            </div>
+            <div
+              id="dbi-multi-index-cards"
+              className="dbi-index-grid dbi-multi-mobile-cards"
+              data-mobile-layout={expandedMobileIndices ? "list" : "carousel"}
+              role="region"
+              aria-label="Fichas de los índices derivados de la muestra seleccionada"
+              tabIndex={0}
+            >
               {Object.entries(INDEX_LABELS).filter(([ref]) => visibleIndices.has(ref)).map(([ref, label]) => {
                 const item = payload.summaries.find(row =>
                   row.variable_kind === "index" && row.variable_ref === ref
