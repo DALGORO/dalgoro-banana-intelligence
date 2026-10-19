@@ -60,6 +60,8 @@ class AuditReceipt(BaseModel):
     role: RasterRole
     index: RasterIndex | None
     campaign_status: str
+    approved_at_present: bool
+    published_at_present: bool
     status: State
     incomplete_upload_count: int
     unexpected_upload_count: int
@@ -249,13 +251,19 @@ def audit_approved_raster(
         session.rollback()
         raise HTTPException(503, detail="Auditoría S3/SQL no disponible.") from exc
 
-    manual = target_present or status not in {"no_remote_no_sql", "sql_aborted_no_remote"} or (
+    inconsistent_campaign = (
         campaign.status not in {"APPROVED", "PUBLISHED"}
+        or (campaign.status in {"APPROVED", "PUBLISHED"} and campaign.approved_at is None)
+        or (campaign.status == "PUBLISHED" and campaign.published_at is None)
     )
+    manual = target_present or status not in {"no_remote_no_sql", "sql_aborted_no_remote"} or inconsistent_campaign
     return AuditReceipt(
         schema_version="dbi-h14-postapproval-audit-receipt.v1",
         campaign_id=campaign_id, asset_id=asset_id, role=role, index=idx,
-        campaign_status=campaign.status, status=status,
+        campaign_status=campaign.status,
+        approved_at_present=campaign.approved_at is not None,
+        published_at_present=campaign.published_at is not None,
+        status=status,
         incomplete_upload_count=inventory.incomplete_count,
         unexpected_upload_count=inventory.unexpected_count,
         recorded_upload_present=inventory.expected_present,
