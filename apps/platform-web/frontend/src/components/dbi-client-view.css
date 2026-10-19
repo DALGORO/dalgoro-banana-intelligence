@@ -1215,3 +1215,62 @@
     flex: 1 1 125px;
   }
 }
+
+/* UX productor Fase 1: acceso principal, filtro legible y codificación real. */
+.dbi-portal-home .dbi-portal-hero-cta {
+  min-height: 44px;
+  background: #f8f3e9;
+  color: #17383b;
+  border: 1px solid rgba(255, 255, 255, 0.65);
+  text-decoration: none;
+}
+.dbi-portal-home .dbi-portal-hero-cta:hover {
+  background: #ffffff;
+}
+.dbi-portal-home .dbi-portal-hero-cta:focus-visible {
+  outline: 3px solid #e2a672;
+  outline-offset: 3px;
+}
+.dbi-portal-home .dbi-portal-search-field {
+  min-width: 0;
+}
+.dbi-portal-home .dbi-portal-search-icon {
+  position: absolute;
+  left: 14px;
+  top: 50%;
+  transform: translateY(-50%);
+  color: #536d68;
+  pointer-events: none;
+}
+.dbi-portal-home .dbi-portal-results {
+  color: #49655f;
+}
+.dbi-portal-home .dbi-portal-farm-code {
+  border: 1px solid #b7d0c5;
+  background: #ffffff;
+  color: #214a42;
+  border-radius: 999px;
+  padding: 4px 9px;
+}
+.dbi-portal-home .dbi-portal-plot-code {
+  color: #49655f;
+}
+.dark .dbi-portal-home .dbi-portal-results,
+.dark .dbi-portal-home .dbi-portal-plot-code {
+  color: #c3d9d1;
+}
+.dark .dbi-portal-home .dbi-portal-farm-code {
+  background: #294744;
+  border-color: #63877e;
+  color: #e8f5ef;
+}
+.dark .dbi-portal-home .dbi-portal-search-icon {
+  color: #b7ccc4;
+}
+@media (max-width: 640px) {
+  .dbi-portal-home .dbi-portal-hero-cta,
+  .dbi-portal-home .dbi-portal-search-panel .dbi-portal-retry {
+    width: 100%;
+    justify-content: center;
+  }
+}
