@@ -116,8 +116,14 @@ def _editable_campaign(
     ).scalar_one_or_none()
     if row is None:
         raise _hidden()
-    if row.status == "PUBLISHED":
-        raise HTTPException(status_code=409, detail="La campaña ya se publicó; sus capas no pueden modificarse sin nueva revisión.")
+    # Congelar el catálogo desde la aprobación institucional/técnica.
+    # Un fichero añadido después de APPROVED no formó parte de lo aprobado.
+    if (
+        row.status in {"APPROVED", "PUBLISHED"}
+        or getattr(row, "approved_at", None) is not None
+        or getattr(row, "published_at", None) is not None
+    ):
+        raise HTTPException(status_code=409, detail="La campaña ya fue aprobada o publicada; sus capas no pueden modificarse sin nueva revisión.")
     return row
 
 
