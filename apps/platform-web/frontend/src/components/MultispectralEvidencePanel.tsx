@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { Layers3, ShieldCheck } from "lucide-react";
-import { coverageLabel, INDEX_EXPLANATIONS } from "@/features/producerEvidenceReadout";
+import "./dbi-multi-readout-guide.css";
+import { coverageLabel, INDEX_EXPLANATIONS, percentileIntervalLabel } from "@/features/producerEvidenceReadout";
 import { extractionForMapCampaign, verifiedMultispectralCampaigns } from "@/features/multispectralCampaignHistory";
 import type { PlotMapTimelineLocator } from "@/features/mapTimeline";
 import {
@@ -309,7 +310,21 @@ export function MultispectralEvidencePanel({
             no se deben comparar directamente entre vuelos sin verificar compatibilidad.
           </p>
           <section className="space-y-3" aria-label="Resumen de los seis índices derivados">
-            <h3 className="text-sm font-semibold">Los seis índices del análisis</h3>
+            <div className="dbi-multi-readout-intro">
+              <div>
+                <span className="eyebrow">Lectura del análisis</span>
+                <h3 className="mt-1 text-sm font-semibold">Los seis índices del análisis</h3>
+              </div>
+              <p className="text-xs">
+                Cada ficha describe una muestra, no la salud completa del cultivo.
+                No asignamos colores de alerta, umbrales de enfermedad ni recomendaciones automáticas.
+              </p>
+            </div>
+            <ol className="dbi-multi-readout-steps" aria-label="Cómo interpretar una ficha de índice">
+              <li><strong>1 · Mediana</strong><span>Valor central derivado de los píxeles válidos de esta muestra.</span></li>
+              <li><strong>2 · Intervalo P10–P90</strong><span>Valores entre los percentiles 10 y 90; no es una escala de salud.</span></li>
+              <li><strong>3 · Contexto</strong><span>Revisa el soporte espacial y confirma cualquier decisión en campo.</span></li>
+            </ol>
             <p className="muted text-xs">
               Activa u oculta las fichas de los índices. Estos valores son estadísticas
               de muestras, no mapas de calor. Las capas cartográficas requieren productos
@@ -334,18 +349,40 @@ export function MultispectralEvidencePanel({
                 const item = payload.summaries.find(row =>
                   row.variable_kind === "index" && row.variable_ref === ref
                 );
+                const hasValidMedian = Boolean(item
+                  && Number.isSafeInteger(item.selected_count) && item.selected_count > 0
+                  && Number.isSafeInteger(item.valid_count) && item.valid_count > 0
+                  && item.valid_count <= item.selected_count
+                  && item.median !== null && Number.isFinite(item.median));
                 return (
-                  <article className="dbi-index-card" key={ref}>
+                  <article className="dbi-index-card dbi-index-evidence-card" key={ref}>
                     <div className="flex items-center justify-between gap-2">
                       <span className="text-xs font-semibold">{label}</span>
-                      <span className="eyebrow">{item ? "Derivado" : "Sin datos"}</span>
+                      <span className="eyebrow">{hasValidMedian ? "Dato derivado" : "Sin dato válido"}</span>
                     </div>
-                    <div className="mt-2 text-lg font-semibold tabular-nums">
-                      {item ? number(item.median) : "No disponible"}
+                    <dl className="dbi-index-measurement">
+                      <div>
+                        <dt>Mediana de la muestra</dt>
+                        <dd className="dbi-index-measurement-value tabular-nums">
+                          {hasValidMedian && item ? number(item.median) : "No disponible"}
+                        </dd>
+                      </div>
+                      <div>
+                        <dt>Intervalo P10–P90</dt>
+                        <dd className="tabular-nums">
+                          {item ? percentileIntervalLabel(item) : "Intervalo no disponible"}
+                        </dd>
+                      </div>
+                    </dl>
+                    <p className="dbi-index-measurement-coverage">
+                      {item ? coverageLabel(item) : "Cobertura de píxeles no disponible"}
+                    </p>
+                    <div className="dbi-index-meaning">
+                      <strong>Qué describe</strong>
+                      <p>{INDEX_EXPLANATIONS[ref] ?? "Índice científico con interpretación sujeta a revisión."}</p>
                     </div>
-                    {item && <p className="muted mt-1 text-xs">{coverageLabel(item)}</p>}
-                    <p className="muted mt-2 text-xs">
-                      {INDEX_EXPLANATIONS[ref] ?? "Índice científico con interpretación sujeta a revisión."}
+                    <p className="dbi-index-meaning-limit">
+                      No identifica por sí solo enfermedades, causas ni tratamientos.
                     </p>
                   </article>
                 );

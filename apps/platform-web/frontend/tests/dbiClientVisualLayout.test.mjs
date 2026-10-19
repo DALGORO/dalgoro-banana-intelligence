@@ -1,7 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
-import { coverageLabel, INDEX_EXPLANATIONS } from "../src/features/producerEvidenceReadout.ts";
+import { coverageLabel, INDEX_EXPLANATIONS, percentileIntervalLabel } from "../src/features/producerEvidenceReadout.ts";
 import { isObservationUUID, inspectionVersionMatchesScope, observedNumberLabel } from "../src/features/inspectionEvidenceRead.ts";
 
 const file = (relative) => readFileSync(new URL(relative, import.meta.url), "utf8");
@@ -397,4 +397,35 @@ test("neutral fallback keeps the producer's RGB opacity and does not fetch hidde
   assert.match(map, /\}, \[mapReady, rgbOverlayOpacity\]\);/);
   assert.match(map, /Fotografía RGB sobre fondo neutro/);
   assert.match(map, /Solo fondo neutro: la ortofoto está oculta y no se descargan sus mosaicos/);
+});
+
+test("producer index cards separate measured median, percentile interval and interpretation", () => {
+  const cardCss = file("../src/components/dbi-multi-readout-guide.css");
+  assert.match(multi, /aria-label="Cómo interpretar una ficha de índice"/);
+  assert.match(multi, /Mediana de la muestra/);
+  assert.match(multi, /Intervalo P10–P90/);
+  assert.match(multi, /percentileIntervalLabel\(item\)/);
+  assert.match(multi, /hasValidMedian && item \? number\(item\.median\) : "No disponible"/);
+  assert.match(multi, /Cobertura de píxeles no disponible/);
+  assert.match(multi, /Qué describe/);
+  assert.match(multi, /INDEX_EXPLANATIONS\[ref\]/);
+  assert.match(multi, /No identifica por sí solo enfermedades, causas ni tratamientos/);
+  assert.match(multi, /no la salud completa del cultivo/);
+  assert.match(cardCss, /\.dbi-index-measurement-value/);
+  assert.match(cardCss, /\.dbi-index-evidence-card/);
+  assert.match(cardCss, /\.dark \.dbi-multi-readout-intro/);
+  assert.match(cardCss, /@media \(max-width: 480px\)/);
+  assert.doesNotMatch(multi, /healthScore|diseaseRisk|trafficLight|predictedYield|Math\.random/);
+});
+
+test("percentile presentation hides missing, nonfinite and inconsistent index measurements", () => {
+  const sample = { selected_count: 100, valid_count: 80, p10: 0.2, p90: 0.8 };
+  assert.match(percentileIntervalLabel(sample), /0[,.]2 – 0[,.]8/);
+  assert.equal(percentileIntervalLabel({ ...sample, valid_count: 0 }), "Intervalo no disponible");
+  assert.equal(percentileIntervalLabel({ ...sample, valid_count: 101 }), "Intervalo no disponible");
+  assert.equal(percentileIntervalLabel({ ...sample, selected_count: 0 }), "Intervalo no disponible");
+  assert.equal(percentileIntervalLabel({ ...sample, p10: null }), "Intervalo no disponible");
+  assert.equal(percentileIntervalLabel({ ...sample, p90: Number.NaN }), "Intervalo no disponible");
+  assert.equal(percentileIntervalLabel({ ...sample, p10: 0.9 }), "Intervalo no disponible");
+  assert.equal(percentileIntervalLabel({ ...sample, p10: 0.5, p90: 0.5 }), "0,5 – 0,5");
 });
