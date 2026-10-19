@@ -398,3 +398,23 @@ test("neutral fallback keeps the producer's RGB opacity and does not fetch hidde
   assert.match(map, /Fotografía RGB sobre fondo neutro/);
   assert.match(map, /Solo fondo neutro: la ortofoto está oculta y no se descargan sus mosaicos/);
 });
+
+test("producer map orientation links to an existing authorized portal and does not replace map visits", () => {
+  const scopedStyle = file("../src/pages/farm-map-ux.css");
+  assert.match(map, /<Link to="\/portal">Mis fincas<\/Link>/);
+  assert.match(map, /aria-label="Ubicación dentro del portal"/);
+  assert.match(map, /aria-label="Levantamiento seleccionado"/);
+  assert.match(map, /selectedVisit\s*\? selectedVisit\.name/);
+  assert.match(map, /selectedVisit\.gisLayerCount/);
+  assert.match(map, /ambiguousMapDate[\s\S]*?"Elige un vuelo de esta fecha"/);
+  assert.match(map, /Solo se muestran levantamientos con cartografía autorizada/);
+  assert.match(map, /href="#dbi-map-view">Ver mapa/);
+  assert.match(map, /href="#dbi-map-history">Cambiar vuelo/);
+  assert.match(map, /\{active && <span className="dbi-map-history-current">Seleccionado<\/span>\}/);
+  assert.match(map, /onClick=\{\(\) => chooseMapVisit\(visit\.campaignId, visit\.capturedAt\)\}/);
+  assert.match(scopedStyle, /\.dbi-map-selection-actions a \{[\s\S]*?min-height:\s*44px/);
+  assert.match(scopedStyle, /\.dbi-map-selection-actions a:focus-visible/);
+  assert.match(scopedStyle, /@media \(max-width: 720px\)/);
+  assert.match(scopedStyle, /\.dark \.dbi-map-selection-summary/);
+  assert.doesNotMatch(map, /fakeCampaign|fakeMapHealth|mockCover|Math\.random\(/);
+});
