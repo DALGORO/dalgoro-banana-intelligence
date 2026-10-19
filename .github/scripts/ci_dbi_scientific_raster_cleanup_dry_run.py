@@ -128,7 +128,7 @@ def run():
         {"incomplete_upload_count": True},
     ):
         try:
-            build_cleanup_dry_run(base.model_copy(update=corrupted))
+            build_cleanup_dry_run(base.model_copy(update=corrupted), scope=SCOPE)
         except CleanupPlanEvidenceConflict:
             pass
         else:
