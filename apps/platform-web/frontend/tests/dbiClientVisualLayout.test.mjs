@@ -429,3 +429,27 @@ test("percentile presentation hides missing, nonfinite and inconsistent index me
   assert.equal(percentileIntervalLabel({ ...sample, p10: 0.9 }), "Intervalo no disponible");
   assert.equal(percentileIntervalLabel({ ...sample, p10: 0.5, p90: 0.5 }), "0,5 – 0,5");
 });
+
+test("mobile MULTI keeps six real evidence cards with swipe or full list, never fabricated metrics", () => {
+  const mobileCss = file("../src/components/dbi-multi-readout-guide.css");
+  assert.match(multi, /const \[expandedMobileIndices, setExpandedMobileIndices\] = useState\(false\)/);
+  assert.match(multi, /aria-label="Presentación móvil de los índices"/);
+  assert.match(multi, /Desliza para consultar cada índice de esta muestra/);
+  assert.match(multi, /onClick=\{\(\) => setExpandedMobileIndices\(current => !current\)\}/);
+  assert.match(multi, /aria-pressed=\{expandedMobileIndices\}/);
+  assert.match(multi, /aria-controls="dbi-multi-index-cards"/);
+  assert.match(multi, /expandedMobileIndices \? "Vista compacta" : "Ver todos"/);
+  assert.match(multi, /data-mobile-layout=\{expandedMobileIndices \? "list" : "carousel"\}/);
+  assert.match(multi, /aria-label="Fichas de los índices derivados de la muestra seleccionada"/);
+  assert.match(multi, /tabIndex=\{0\}/);
+  assert.match(multi, /Object\.entries\(INDEX_LABELS\)\.filter\(\(\[ref\]\) => visibleIndices\.has\(ref\)\)/);
+  assert.match(mobileCss, /@media \(max-width: 767px\)/);
+  assert.match(mobileCss, /grid-auto-flow: column/);
+  assert.match(mobileCss, /scroll-snap-type: x proximity/);
+  assert.match(mobileCss, /data-mobile-layout="list"/);
+  assert.match(mobileCss, /\.dbi-multi-mobile-tools button:focus-visible/);
+  assert.match(mobileCss, /min-height: 44px/);
+  assert.match(mobileCss, /@media \(max-width: 390px\)/);
+  assert.match(mobileCss, /\.dark \.dbi-multi-mobile-tools button/);
+  assert.doesNotMatch(multi, /healthScore|diseaseRisk|trafficLight|predictedYield|mockIndex|Math\.random\(/);
+});
