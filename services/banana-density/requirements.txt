@@ -1,5 +1,5 @@
 # Tooling de empaquetado auditado
-setuptools==83.0.0
+setuptools==84.1.0
 
 # Inteligencia artificial
 torch==2.13.0
